@@ -6,8 +6,10 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -19,26 +21,17 @@ namespace MyNetworkMonitor
 {
     internal class ScanningMethods_Ping
     {
-        public ScanningMethods_Ping()
+        public ScanningMethods_Ping(ScanResults scanResults)
         {
-            dt_NetworkResults.Columns.Add("SSDP", typeof(byte[]));
-            dt_NetworkResults.Columns.Add("Ping", typeof(byte[]));
-            dt_NetworkResults.Columns.Add("SendAlert", typeof(bool));
-            dt_NetworkResults.Columns.Add("IP", typeof(string));
-            dt_NetworkResults.Columns.Add("Hostname", typeof(string));
-            dt_NetworkResults.Columns.Add("ResponseTime", typeof(string));
-            dt_NetworkResults.Columns.Add("Ports", typeof(string));
-            dt_NetworkResults.Columns.Add("Comment", typeof(string));
-            dt_NetworkResults.Columns.Add("Mac", typeof(string));
-            dt_NetworkResults.Columns.Add("Vendor", typeof(string));
-            dt_NetworkResults.Columns.Add("Exception", typeof(string));            
-
+            _scannResults = scanResults;
         }
 
-        // in .Net Core above need the Install of this nuget Package: Install-Package System.Drawing.Common
-  
+        ScanResults _scannResults;
 
-        DataTable dt_NetworkResults = new DataTable();
+        // in .Net Core above need the Install of this nuget Package: Install-Package System.Drawing.Common
+
+
+       
 
         List<PingReply> pingReply = new List<PingReply>();
 
@@ -50,10 +43,7 @@ namespace MyNetworkMonitor
             get { return pingReply; }
         }
 
-        public DataTable NetworkResultsTable
-        {
-            get { return dt_NetworkResults; }
-        }
+       
 
         /// <summary>
         /// to get the Ping result call the Propertie PingResults
@@ -75,14 +65,14 @@ namespace MyNetworkMonitor
             if (CustomEvent_PingFinished != null)
             {
                 //the User Gui can be freeze if a event fires to fast
-                CustomEvent_PingFinished(this, new PingFinishedEventArgs(dt_NetworkResults));
+                CustomEvent_PingFinished(this, new PingFinishedEventArgs(_scannResults.ResultTable));
             }
         }
 
         private async Task PingAndUpdateAsync(System.Net.NetworkInformation.Ping ping, string ip, int TimeOut, bool ShowUnused)
         {
             PingReply reply = await ping.SendPingAsync(ip, TimeOut);
-            DataRow row = dt_NetworkResults.NewRow();
+            DataRow row = _scannResults.ResultTable.NewRow();
 
             row["SendAlert"] = false;
 
@@ -93,8 +83,53 @@ namespace MyNetworkMonitor
                 //row["SSDP"] = null;
                 row["Ping"] = Properties.Resources.green_dot;
                 row["IP"] = reply.Address.ToString();
+                try
+                {
+                    row["Hostname"] = (await Dns.GetHostEntryAsync(reply.Address.ToString())).HostName;
+                }
+                catch (Exception)
+                {
+
+                    row["Hostname"] = "---";
+                }
+
+                try
+                {
+                    row["Aliases"] = string.Join("; ", (await Dns.GetHostEntryAsync(reply.Address.ToString())).Aliases);
+                }
+                catch (Exception)
+                {
+
+                    row["Aliases"] = "---";
+                }
+                
                 row["ResponseTime"] = reply.RoundtripTime.ToString();
-                dt_NetworkResults.Rows.Add(row);
+
+                List<DataRow> rows = _scannResults.ResultTable.Select("IP = '" + reply.Address.ToString() + "'").ToList();
+
+                if (rows.Count == 0)
+                {
+                    _scannResults.ResultTable.Rows.Add(row);
+                }
+                else
+                {
+                    int rowIndex = _scannResults.ResultTable.Rows.IndexOf(rows[0]);
+                    _scannResults.ResultTable.Rows[rowIndex]["Ping"] = Properties.Resources.green_dot;
+                    _scannResults.ResultTable.Rows[rowIndex]["IP"] = reply.Address.ToString();
+
+                    if (string.IsNullOrEmpty(_scannResults.ResultTable.Rows[rowIndex]["Hostname"].ToString()))
+                    {
+                        row["Hostname"] = Dns.GetHostEntry(reply.Address.ToString()).HostName;
+                    }
+
+                    if (string.IsNullOrEmpty(_scannResults.ResultTable.Rows[rowIndex]["Aliases"].ToString()))
+                    {
+                        row["Aliases"] = string.Join("\r\n", Dns.GetHostEntry(reply.Address.ToString()).Aliases);
+                    }
+
+                    _scannResults.ResultTable.Rows[_scannResults.ResultTable.Rows.IndexOf(rows[0])]["ResponseTime"] = reply.RoundtripTime.ToString();
+                }
+                
             }
             else if (ShowUnused && reply.Status != IPStatus.Success)
             {
@@ -102,7 +137,19 @@ namespace MyNetworkMonitor
                 row["Ping"] = Properties.Resources.red_dot;
                 row["IP"] = ip;
                 row["ResponseTime"] = string.Empty;
-                dt_NetworkResults.Rows.Add(row);
+
+                List<DataRow> rows = _scannResults.ResultTable.Select("IP = '" + reply.Address.ToString() + "'").ToList();
+
+                if (rows.Count == 0)
+                {
+                    _scannResults.ResultTable.Rows.Add(row);
+                }
+                else
+                {
+                    _scannResults.ResultTable.Rows[_scannResults.ResultTable.Rows.IndexOf(rows[0])]["Ping"] = Properties.Resources.red_dot;
+                    _scannResults.ResultTable.Rows[_scannResults.ResultTable.Rows.IndexOf(rows[0])]["IP"] = ip;
+                    _scannResults.ResultTable.Rows[_scannResults.ResultTable.Rows.IndexOf(rows[0])]["ResponseTime"] = string.Empty;
+                }
             }
 
             if (CustomEvent_PingFinished != null)
@@ -110,46 +157,7 @@ namespace MyNetworkMonitor
                 //the User Gui can be freeze if a event fires to fast
                 CustomEvent_PingProgress(this, new PingProgressEventArgs(row));
             }
-        }
-
-
-
-        private bool IsPortOpen(string host_or_ip, int port, TimeSpan timeout)
-        {
-            try
-            {
-                using (var client = new TcpClient())
-                {
-                    var result = client.BeginConnect(host_or_ip, port, null, null);
-                    var success = result.AsyncWaitHandle.WaitOne(timeout);
-                    client.EndConnect(result);
-                    return success;
-                }
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        public string GetLocalIPv4(NetworkInterfaceType _type)
-        {
-            string output = "";
-            foreach (NetworkInterface item in NetworkInterface.GetAllNetworkInterfaces())
-            {
-                if (item.NetworkInterfaceType == _type && item.OperationalStatus == OperationalStatus.Up)
-                {
-                    foreach (UnicastIPAddressInformation ip in item.GetIPProperties().UnicastAddresses)
-                    {
-                        if (ip.Address.AddressFamily == AddressFamily.InterNetwork)
-                        {
-                            output = ip.Address.ToString();
-                        }
-                    }
-                }
-            }
-            return output;
-        }
+        }       
     }
 
 
@@ -168,7 +176,7 @@ namespace MyNetworkMonitor
 
     public class PingProgressEventArgs : EventArgs
     {
-        private DataRow _row = new ScanningMethods_Ping().NetworkResultsTable.NewRow();
+        private DataRow _row = new ScanResults().ResultTable.NewRow();
         public DataRow PingResultsRow { get { return _row; } }
         public PingProgressEventArgs(DataRow Row)
         {

@@ -5,38 +5,41 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:MyNetworkMonitor"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        Title="MainWindow" Height="450" Width="1124">
     <Grid>
         <Grid>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="215*"/>
-                <ColumnDefinition Width="529*"/>
-                <ColumnDefinition Width="56*"/>
+                <ColumnDefinition Width="251"/>
+                <ColumnDefinition/>
+                <ColumnDefinition Width="187"/>
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
+                <RowDefinition Height="35*"/>
+                <RowDefinition Height="25*"/>
+                <RowDefinition Height="344*"/>
                 <RowDefinition Height="30*"/>
-                <RowDefinition Height="147*"/>
-                <RowDefinition Height="40*"/>
             </Grid.RowDefinitions>
-            <TabControl Margin="10,10,10,10" Grid.Row="1">
+            <TabControl Margin="10,10,10,10" Grid.Row="2">
                 <TabItem Header="From IP Ranges">
                     <Grid x:Name="SummaryGrid">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="110*"/>
                             <RowDefinition Height="13*"/>
                         </Grid.RowDefinitions>
-                        <Button x:Name="bt_Scan_IP_Ranges" Content="Start Scan" HorizontalAlignment="Left" Margin="121,0,0,0" Grid.Row="1" VerticalAlignment="Center" Width="58" Click="bt_Scan_IP_Ranges_Click"/>
+
                         <DataGrid x:Name="dgv_IP_Ranges" Margin="10,10,10,10"/>
 
                     </Grid>
                 </TabItem>
                 <TabItem Header="From Remote"/>
+                <TabItem Header="Filter"/>
 
 
 
 
             </TabControl>
-            <DataGrid x:Name="dgv_Results" Grid.Column="1" Margin="10,10,10,10" Grid.Row="1" AutoGeneratingColumn="dgv_Devices_OnAutoGeneratingColumn"> 
+            <DataGrid x:Name="dgv_Results" Grid.Column="1" Margin="10,10,10,10" Grid.Row="2" AutoGeneratingColumn="dgv_Devices_OnAutoGeneratingColumn"> 
+
                 <DataGrid.Resources>
                     <DataTemplate x:Key="Ping">
                         <Image Source="{Binding Path=Ping}" Width="16" Height="16"/>
@@ -45,9 +48,32 @@
                     <DataTemplate x:Key="SSDP">
                         <Image Source="{Binding Path=SSDP}" Width="16" Height="16"/>
                     </DataTemplate>
+
+                    <DataTemplate x:Key="ReverseLookUp">
+                        <Image Source="{Binding Path=ReverseLookUp}" Width="16" Height="16"/>
+                    </DataTemplate>
+
                 </DataGrid.Resources>
             </DataGrid>
-            <Button Grid.Column="1" Content="Button" HorizontalAlignment="Left" Margin="95,10,0,0" VerticalAlignment="Top" Click="Button_Click"/>
+            <Grid Grid.Column="2" Margin="0,3,0,0" Grid.Row="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="5*"/>
+                    <RowDefinition Height="44*"/>
+                </Grid.RowDefinitions>
+                <Label Content="open Ports on Selection" HorizontalAlignment="Left" VerticalAlignment="Center" Width="136" Margin="10,0,0,0"/>
+                <DataGrid x:Name="dgv_PortsOfSelectedDevice" Margin="10,30,10,10" Grid.RowSpan="2"/>
+            </Grid>
+            <Canvas Grid.Column="1" Margin="10,35,10,0" Grid.RowSpan="2">
+                <Label Content="Methodes:" Canvas.Top="1"/>
+                <CheckBox x:Name="chk_Methodes_ARP" Content="ARP" Canvas.Left="81" Canvas.Top="6"/>
+                <CheckBox x:Name="chk_Methodes_Ping" Content="Ping" Canvas.Left="128" Canvas.Top="6" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                <CheckBox x:Name="chk_Methodes_SSDP" Content="SSDP" Canvas.Left="176" Canvas.Top="6" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                <CheckBox x:Name="chk_Methodes_Ports" Content="Ports" Canvas.Left="229" Canvas.Top="6" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+
+                <CheckBox x:Name="chk_Methodes_ReverseNSLookUp" Content="Reverse NSLookup" Canvas.Left="462" Canvas.Top="6" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+
+                <Button x:Name="bt_Scan_IP_Ranges" Content="Start Scan" Click="bt_Scan_IP_Ranges_Click" Canvas.Left="586" Canvas.Top="3" HorizontalAlignment="Left" VerticalAlignment="Center" Width="70"/>
+            </Canvas>
         </Grid>
 
     </Grid>

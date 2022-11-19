@@ -1,23 +1,9 @@
-﻿using Rssdp;
+﻿using SharpPcap;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Data;
-using System.Diagnostics;
-using System.Linq;
-using System.Net.NetworkInformation;
-using System.Net.Sockets;
-using System.Text;
-using System.Threading.Tasks;
+using System.Net;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 
 namespace MyNetworkMonitor
 {
@@ -29,8 +15,19 @@ namespace MyNetworkMonitor
         {
             InitializeComponent();
 
-            dgv_Results.ItemsSource = scanningMethods.NetworkResultsTable.DefaultView;
+            scanningMethods_Ping = new ScanningMethods_Ping(_scannResults);
+            scanningMethode_SSDP_UPNP = new ScanningMethode_SSDP_UPNP(_scannResults);
+            scanningMethod_ReverseLookUp = new ScanningMethod_ReverseLookUp(_scannResults);
+
+
+            dgv_Results.ItemsSource = _scannResults.ResultTable.DefaultView;
         }
+
+        ScanResults _scannResults = new ScanResults();
+        ScanningMethods_Ping scanningMethods_Ping;
+        ScanningMethode_SSDP_UPNP scanningMethode_SSDP_UPNP;
+
+        ScanningMethod_ReverseLookUp scanningMethod_ReverseLookUp;
 
         private void dgv_Devices_OnAutoGeneratingColumn(object sender, DataGridAutoGeneratingColumnEventArgs e)
         {
@@ -57,17 +54,26 @@ namespace MyNetworkMonitor
                     Header = e.Column.Header
                 };
             }
+
+            if (e.PropertyName == "ReverseLookUp")
+            {
+                // replace text column with image column
+                e.Column = new DataGridTemplateColumn
+                {
+                    // searching for predefined tenplate in Resources
+                    CellTemplate = (sender as DataGrid).Resources["ReverseLookUp"] as DataTemplate,
+                    HeaderTemplate = e.Column.HeaderTemplate,
+                    Header = e.Column.Header
+                };
+            }
         }
-
-        ScanningMethods_Ping scanningMethods = new ScanningMethods_Ping();
-
 
         private void bt_Scan_IP_Ranges_Click(object sender, RoutedEventArgs e)
         {
-            scanningMethods.CustomEvent_PingProgress += ScanningMethods_CustomEvent_PingProgress;
-            scanningMethods.CustomEvent_PingFinished += ScanningMethods_CustomEvent_PingFinished;
+            scanningMethods_Ping.CustomEvent_PingProgress += ScanningMethods_CustomEvent_PingProgress;
+            scanningMethods_Ping.CustomEvent_PingFinished += ScanningMethods_CustomEvent_PingFinished;
 
-            string myIP = scanningMethods.GetLocalIPv4(System.Net.NetworkInformation.NetworkInterfaceType.Ethernet);
+            string myIP = new SupportMethods().GetLocalIPv4(System.Net.NetworkInformation.NetworkInterfaceType.Ethernet);
 
             myIP = "192.168.178.1";
             myIP = String.Join(".", myIP.Split(".")[0], myIP.Split(".")[1], myIP.Split(".")[2], "{0}");
@@ -79,7 +85,29 @@ namespace MyNetworkMonitor
                 IPs.Add(string.Format(myIP, i));
             }
 
-            scanningMethods.PingIPsAsync(IPs, null, 100, false);
+            if ((bool)chk_Methodes_ARP.IsChecked)
+            {
+
+            }
+            if ((bool)chk_Methodes_Ping.IsChecked)
+            {
+                scanningMethods_Ping.PingIPsAsync(IPs, null, 100, false);
+            }
+            if ((bool)chk_Methodes_SSDP.IsChecked)
+            {
+                scanningMethode_SSDP_UPNP.ScanForSSDP();
+            }
+            if ((bool)chk_Methodes_Ports.IsChecked)
+            {
+
+            }
+            if ((bool)chk_Methodes_ReverseNSLookUp.IsChecked && ((bool)chk_Methodes_ARP.IsChecked || (bool)chk_Methodes_Ping.IsChecked || (bool)chk_Methodes_SSDP.IsChecked))
+            {
+                scanningMethod_ReverseLookUp.HostToIP();
+            }
+
+            var bla = IPInfo.GetIPInfo();
+           
         }
 
         private void ScanningMethods_CustomEvent_PingProgress(object? sender, PingProgressEventArgs e)
@@ -100,56 +128,7 @@ namespace MyNetworkMonitor
 
         private async void Button_Click(object sender, RoutedEventArgs e)
         {
-            //https://blog.noser.com/geraetesuche-mit-ssdp-in-net-im-lokalen-netzwerk/
-
-            //var ipAddresses = scanningMethods.NetworkResultsTable.AsEnumerable().Select(r => r.Field<string>("IPs")).ToList();
-
-            //foreach (var netIf in NetworkInterface.GetAllNetworkInterfaces())
-            //{
-            //    if (netIf.NetworkInterfaceType.Equals(NetworkInterfaceType.Ethernet) &&
-            //        netIf.OperationalStatus.Equals(OperationalStatus.Up) &&
-            //        !netIf.Name.Contains("vEthernet"))
-            //    {
-            //        foreach (var ip in netIf.GetIPProperties().UnicastAddresses)
-            //        {
-            //            if (ip.Address.AddressFamily.Equals(AddressFamily.InterNetwork))
-            //            {
-            //                var ipAddress = ip.Address.ToString();
-            //                Console.WriteLine($"{netIf.Name}: {ipAddress}'");
-            //                ipAddresses.Add(ipAddress);
-            //            }
-            //        }
-            //    }
-            //}
-
-            var searchTarget = "urn:schemas-upnp-org:device:WANDevice:1";
-            var devices = new ConcurrentBag<Discovered​Ssdp​Device>();
-
-                using (var deviceLocator = new SsdpDeviceLocator())
-                {
-                    var foundDevices =  await deviceLocator.SearchAsync();
-
-                    foreach (var foundDevice in foundDevices)
-                    {
-                        if(scanningMethods.NetworkResultsTable.AsEnumerable().Where(c => c.Field<string>("IP").Equals(foundDevice.DescriptionLocation.Host)).Count() == 0)
-                        {
-                            DataRow row = scanningMethods.NetworkResultsTable.NewRow();
-
-                            row["SendAlert"] = false;
-                            row["SSDP"] = Properties.Resources.green_dot;
-                            row["IP"] = foundDevice.DescriptionLocation.Host;
-                            row["ResponseTime"] = "";
-                            scanningMethods.NetworkResultsTable.Rows.Add(row);
-                        }
-                        else
-                        {
-                            //wenn bereits vorhanden dann setze SSDP auf green_dot
-                        }
-                        //Debug.WriteLine($"Device: IP={foundDevice.DescriptionLocation.Host}");
-                        //Debug.WriteLine($"Device: usn={foundDevice.Usn}");
-                        //devices.Add(foundDevice);
-                    }
-                }
+           
         }
-    }
+    }    
 }
