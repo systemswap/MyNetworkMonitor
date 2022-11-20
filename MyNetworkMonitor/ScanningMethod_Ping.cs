@@ -28,7 +28,10 @@ namespace MyNetworkMonitor
 
         ScanResults _scannResults;
 
-        // in .Net Core above need the Install of this nuget Package: Install-Package System.Drawing.Common
+        SupportMethods support = new SupportMethods();
+
+
+        
 
 
        
@@ -83,25 +86,25 @@ namespace MyNetworkMonitor
                 //row["SSDP"] = null;
                 row["Ping"] = Properties.Resources.green_dot;
                 row["IP"] = reply.Address.ToString();
-                try
-                {
-                    row["Hostname"] = (await Dns.GetHostEntryAsync(reply.Address.ToString())).HostName;
-                }
-                catch (Exception)
-                {
+                //try
+                //{
+                //    row["Hostname"] = (await Dns.GetHostEntryAsync(reply.Address.ToString())).HostName;
+                //}
+                //catch (Exception)
+                //{
 
-                    row["Hostname"] = "---";
-                }
+                //    row["Hostname"] = "---";
+                //}
 
-                try
-                {
-                    row["Aliases"] = string.Join("; ", (await Dns.GetHostEntryAsync(reply.Address.ToString())).Aliases);
-                }
-                catch (Exception)
-                {
+                //try
+                //{
+                //    row["Aliases"] = string.Join("; ", (await Dns.GetHostEntryAsync(reply.Address.ToString())).Aliases);
+                //}
+                //catch (Exception)
+                //{
 
-                    row["Aliases"] = "---";
-                }
+                //    row["Aliases"] = "---";
+                //}
                 
                 row["ResponseTime"] = reply.RoundtripTime.ToString();
 
@@ -116,16 +119,6 @@ namespace MyNetworkMonitor
                     int rowIndex = _scannResults.ResultTable.Rows.IndexOf(rows[0]);
                     _scannResults.ResultTable.Rows[rowIndex]["Ping"] = Properties.Resources.green_dot;
                     _scannResults.ResultTable.Rows[rowIndex]["IP"] = reply.Address.ToString();
-
-                    if (string.IsNullOrEmpty(_scannResults.ResultTable.Rows[rowIndex]["Hostname"].ToString()))
-                    {
-                        row["Hostname"] = Dns.GetHostEntry(reply.Address.ToString()).HostName;
-                    }
-
-                    if (string.IsNullOrEmpty(_scannResults.ResultTable.Rows[rowIndex]["Aliases"].ToString()))
-                    {
-                        row["Aliases"] = string.Join("\r\n", Dns.GetHostEntry(reply.Address.ToString()).Aliases);
-                    }
 
                     _scannResults.ResultTable.Rows[_scannResults.ResultTable.Rows.IndexOf(rows[0])]["ResponseTime"] = reply.RoundtripTime.ToString();
                 }

@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:MyNetworkMonitor"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="1124">
+        Title="MainWindow" Height="799" Width="1855">
     <Grid>
         <Grid>
             <Grid.ColumnDefinitions>
@@ -14,21 +14,18 @@
                 <ColumnDefinition Width="187"/>
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
-                <RowDefinition Height="35*"/>
-                <RowDefinition Height="25*"/>
-                <RowDefinition Height="344*"/>
-                <RowDefinition Height="30*"/>
+                <RowDefinition Height="25"/>
+                <RowDefinition Height="25"/>
+                <RowDefinition/>
+                <RowDefinition Height="25"/>
             </Grid.RowDefinitions>
             <TabControl Margin="10,10,10,10" Grid.Row="2">
                 <TabItem Header="From IP Ranges">
                     <Grid x:Name="SummaryGrid">
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="110*"/>
-                            <RowDefinition Height="13*"/>
+                            <RowDefinition Height="69*"/>
                         </Grid.RowDefinitions>
-
                         <DataGrid x:Name="dgv_IP_Ranges" Margin="10,10,10,10"/>
-
                     </Grid>
                 </TabItem>
                 <TabItem Header="From Remote"/>
@@ -38,13 +35,17 @@
 
 
             </TabControl>
-            <DataGrid x:Name="dgv_Results" Grid.Column="1" Margin="10,10,10,10" Grid.Row="2" AutoGeneratingColumn="dgv_Devices_OnAutoGeneratingColumn"> 
+            <DataGrid x:Name="dgv_Results" Grid.Column="1" Margin="10,10,10,10" Grid.Row="2" AutoGeneratingColumn="dgv_Devices_OnAutoGeneratingColumn">
 
                 <DataGrid.Resources>
+                    <DataTemplate x:Key="ARP">
+                        <Image Source="{Binding Path=ARP}" Width="16" Height="16"/>
+                    </DataTemplate>
+
                     <DataTemplate x:Key="Ping">
                         <Image Source="{Binding Path=Ping}" Width="16" Height="16"/>
                     </DataTemplate>
-                    
+
                     <DataTemplate x:Key="SSDP">
                         <Image Source="{Binding Path=SSDP}" Width="16" Height="16"/>
                     </DataTemplate>
@@ -55,25 +56,39 @@
 
                 </DataGrid.Resources>
             </DataGrid>
-            <Grid Grid.Column="2" Margin="0,3,0,0" Grid.Row="2">
+            <Grid Grid.Column="2" Margin="0,3,10,0" Grid.Row="2">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="5*"/>
-                    <RowDefinition Height="44*"/>
+                    <RowDefinition Height="314*"/>
                 </Grid.RowDefinitions>
-                <Label Content="open Ports on Selection" HorizontalAlignment="Left" VerticalAlignment="Center" Width="136" Margin="10,0,0,0"/>
-                <DataGrid x:Name="dgv_PortsOfSelectedDevice" Margin="10,30,10,10" Grid.RowSpan="2"/>
+                <DataGrid x:Name="dgv_PortsOfSelectedDevice" Margin="10,10,10,10"/>
             </Grid>
-            <Canvas Grid.Column="1" Margin="10,35,10,0" Grid.RowSpan="2">
-                <Label Content="Methodes:" Canvas.Top="1"/>
-                <CheckBox x:Name="chk_Methodes_ARP" Content="ARP" Canvas.Left="81" Canvas.Top="6"/>
-                <CheckBox x:Name="chk_Methodes_Ping" Content="Ping" Canvas.Left="128" Canvas.Top="6" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                <CheckBox x:Name="chk_Methodes_SSDP" Content="SSDP" Canvas.Left="176" Canvas.Top="6" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                <CheckBox x:Name="chk_Methodes_Ports" Content="Ports" Canvas.Left="229" Canvas.Top="6" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+            <Grid Grid.Column="1" Grid.Row="1">
 
-                <CheckBox x:Name="chk_Methodes_ReverseNSLookUp" Content="Reverse NSLookup" Canvas.Left="462" Canvas.Top="6" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="80"/>
+                    <ColumnDefinition Width="55"/>
+                    <ColumnDefinition Width="62"/>
+                    <ColumnDefinition Width="70"/>
+                    <ColumnDefinition Width="71"/>
+                    <ColumnDefinition Width="61"/>
+                    <ColumnDefinition Width="147"/>
+                    <ColumnDefinition/>
+                </Grid.ColumnDefinitions>
 
-                <Button x:Name="bt_Scan_IP_Ranges" Content="Start Scan" Click="bt_Scan_IP_Ranges_Click" Canvas.Left="586" Canvas.Top="3" HorizontalAlignment="Left" VerticalAlignment="Center" Width="70"/>
-            </Canvas>
+                <Label Content="Methodes:"  Height="25
+                       
+                       " Margin="0,0,0,5"/>
+                <CheckBox x:Name="chk_Methodes_ARP" Content="ARP" Grid.Column="1" Margin="0,6,0,-1"/>
+                <CheckBox x:Name="chk_Methodes_Ping" Content="Ping" Grid.Column="2" Margin="0,6,0,-1"/>
+                <CheckBox x:Name="chk_Methodes_SSDP" Content="SSDP" Grid.Column="3" Margin="0,6,0,-1"/>
+                <CheckBox x:Name="chk_Methodes_Ports" Content="Ports" Grid.Column="4" Margin="0,6,0,-1"/>
+
+                <CheckBox x:Name="chk_Methodes_ReverseNSLookUp" Content="Reverse NSLookup" Grid.Column="6" Margin="10,6,10,-1"/>
+
+                <Button x:Name="bt_Scan_IP_Ranges" Content="Start Scan" Click="bt_Scan_IP_Ranges_Click" Grid.Column="7" Grid.ColumnSpan="1" HorizontalAlignment="Right" Width="93" Margin="0,1,10,-1"/>
+
+            </Grid>
+            <Label Grid.Column="2" Content="open Ports on Selection" HorizontalAlignment="Center" Grid.Row="1" VerticalAlignment="Center" Width="167" Height="26"/>
         </Grid>
 
     </Grid>

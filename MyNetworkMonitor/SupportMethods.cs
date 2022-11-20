@@ -34,56 +34,62 @@ namespace MyNetworkMonitor
             return output;
         }
 
-        //    public readonly string[] header;
-        //    private readonly string[][] fields;
+        public string[] header;
+        private string[][] fields;
 
-        //    public void MacVendorLookup(string csvPath)
-        //    {
-        //        if (!File.Exists(csvPath))
-        //        {
-        //            header = Array.Empty<string>();
-        //            fields = Array.Empty<string[]>();
-        //            return;
-        //        }
+        private void LoadMacVendors()
+        {
+            string csvPath = Directory.GetFiles(@".\MacVendors", "mac_vendors.csv").First();
+            if (!File.Exists(csvPath))
+            {
+                header = Array.Empty<string>();
+                fields = Array.Empty<string[]>();
+                return;
+            }
 
-        //        string[] lines = File.ReadAllLines(csvPath);
+            string[] lines = File.ReadAllLines(csvPath);
 
-        //        header = lines[0].Split(',');
-        //        fields = lines.Skip(1).Select(l => Regex.Split(l, ",(?=(?:[^\"]*\"[^\"]*\")*(?![^\"]*\"))")).ToArray();
-        //    }
+            header = lines[0].Split(',');
+            fields = lines.Skip(1).Select(l => Regex.Split(l, ",(?=(?:[^\"]*\"[^\"]*\")*(?![^\"]*\"))")).ToArray();
+        }
 
-        //    public string[] GetInformation(string macAdress)
-        //    {
-        //        string[]? data = fields.FirstOrDefault(f => macAdress.StartsWith(f[0]))?.ToArray();
+        public string[] GetVendorFromMac(string macAdress)
+        {
+            if (fields == null)
+            {
+                LoadMacVendors();
+            }
 
-        //        if (fields.Length == 0 || header.Length == 0)
-        //        {
-        //            return Array.Empty<string>();
-        //        }
-        //        else if (data is null)
-        //        {
-        //            string[] result = new string[header.Length - 1];
-        //            for (int i = 0; i < result.Length; i++)
-        //            {
-        //                result[i] = "Unknown";
-        //            }
-        //            return result;
-        //        }
-        //        else
-        //        {
-        //            List<string> result = new List<string>();
-        //            for (int i = 1; i < header.Length; i++)
-        //            {
-        //                result.Add($"{data[i]}");
-        //            }
-        //            return result.ToArray();
-        //        }
-        //    }
+            string[]? data = fields.FirstOrDefault(f => macAdress.Replace("-",":").ToLower().StartsWith(f[0].ToLower()))?.ToArray();
 
-        //    public string[] GetHeader()
-        //    {
-        //        return header!.Skip(1).ToArray();
-        //    }
-        //}
+            if (fields.Length == 0 || header.Length == 0)
+            {
+                return Array.Empty<string>();
+            }
+            else if (data is null)
+            {
+                string[] result = new string[header.Length - 1];
+                for (int i = 0; i < result.Length; i++)
+                {
+                    result[i] = "Unknown";
+                }
+                return result;
+            }
+            else
+            {
+                List<string> result = new List<string>();
+                for (int i = 1; i < header.Length; i++)
+                {
+                    result.Add($"{data[i]}");
+                }
+                return result.ToArray();
+            }
+        }
+
+        public string[] GetHeader()
+        {
+            return header!.Skip(1).ToArray();
+        }
     }
 }
+
