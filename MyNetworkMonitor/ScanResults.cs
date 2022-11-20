@@ -11,12 +11,14 @@ namespace MyNetworkMonitor
     {
         public ScanResults()
         {
-            dt_NetworkResults.Columns.Add("SSDP", typeof(byte[]));
+            dt_NetworkResults.Columns.Add("ARP", typeof(byte[]));
             dt_NetworkResults.Columns.Add("Ping", typeof(byte[]));
+            dt_NetworkResults.Columns.Add("SSDP", typeof(byte[]));
             dt_NetworkResults.Columns.Add("SendAlert", typeof(bool));
             dt_NetworkResults.Columns.Add("IP", typeof(string));
             dt_NetworkResults.Columns.Add("ResponseTime", typeof(string));
-            dt_NetworkResults.Columns.Add("Hostname", typeof(string));
+            dt_NetworkResults.Columns.Add("InternalName", typeof(string));
+            dt_NetworkResults.Columns.Add("Hostname", typeof(string));            
             dt_NetworkResults.Columns.Add("Aliases", typeof(string));
             dt_NetworkResults.Columns.Add("ReverseLookUp", typeof(byte[]));
             dt_NetworkResults.Columns.Add("ReverseLookUpIPs", typeof(string));

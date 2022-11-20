@@ -60,13 +60,12 @@ namespace MyNetworkMonitor
                         row["SendAlert"] = false;
                         row["SSDP"] = Properties.Resources.green_dot;
                         row["IP"] = foundDevice.DescriptionLocation.Host;
-                        row["Hostname"] = Dns.GetHostEntry(foundDevice.DescriptionLocation.Host).HostName;
-                        row["Aliases"] = string.Join("; ", Dns.GetHostEntry(foundDevice.DescriptionLocation.Host).Aliases);
+                        //row["Hostname"] = Dns.GetHostEntry(foundDevice.DescriptionLocation.Host).HostName;
+                        //row["Aliases"] = string.Join("; ", Dns.GetHostEntry(foundDevice.DescriptionLocation.Host).Aliases);
                         row["ResponseTime"] = "";
 
                         _scannResults.ResultTable.Rows.Add(row);
                     }
-
                     else
                     {
                         _scannResults.ResultTable.Rows[_scannResults.ResultTable.Rows.IndexOf(rows[0])]["SSDP"] = Properties.Resources.green_dot;

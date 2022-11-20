@@ -1,6 +1,8 @@
-﻿using SharpPcap;
+﻿
 using System;
 using System.Collections.Generic;
+using System.Data;
+using System.Linq;
 using System.Net;
 using System.Windows;
 using System.Windows.Controls;
@@ -15,22 +17,42 @@ namespace MyNetworkMonitor
         {
             InitializeComponent();
 
+            scanningMethode_ARP = new ScanningMethode_ARP(_scannResults);
             scanningMethods_Ping = new ScanningMethods_Ping(_scannResults);
             scanningMethode_SSDP_UPNP = new ScanningMethode_SSDP_UPNP(_scannResults);
             scanningMethod_ReverseLookUp = new ScanningMethod_ReverseLookUp(_scannResults);
+            scanningMethode_DNS = new ScanningMethode_DNS(_scannResults);
 
+            supportMethods = new SupportMethods();
 
             dgv_Results.ItemsSource = _scannResults.ResultTable.DefaultView;
         }
 
         ScanResults _scannResults = new ScanResults();
+
+        ScanningMethode_ARP scanningMethode_ARP;
         ScanningMethods_Ping scanningMethods_Ping;
         ScanningMethode_SSDP_UPNP scanningMethode_SSDP_UPNP;
+        ScanningMethode_DNS scanningMethode_DNS;
+
+        SupportMethods supportMethods;
 
         ScanningMethod_ReverseLookUp scanningMethod_ReverseLookUp;
 
         private void dgv_Devices_OnAutoGeneratingColumn(object sender, DataGridAutoGeneratingColumnEventArgs e)
         {
+            if (e.PropertyName == "ARP")
+            {
+                // replace text column with image column
+                e.Column = new DataGridTemplateColumn
+                {
+                    // searching for predefined tenplate in Resources
+                    CellTemplate = (sender as DataGrid).Resources["ARP"] as DataTemplate,
+                    HeaderTemplate = e.Column.HeaderTemplate,
+                    Header = e.Column.Header
+                };
+            }
+
             if (e.PropertyName == "Ping")
             {
                 // replace text column with image column
@@ -73,6 +95,8 @@ namespace MyNetworkMonitor
             scanningMethods_Ping.CustomEvent_PingProgress += ScanningMethods_CustomEvent_PingProgress;
             scanningMethods_Ping.CustomEvent_PingFinished += ScanningMethods_CustomEvent_PingFinished;
 
+            scanningMethode_DNS.CustomEvent_Finished_DNS_Query += ScanningMethode_DNS_CustomEvent_Finished_DNS_Query;
+
             string myIP = new SupportMethods().GetLocalIPv4(System.Net.NetworkInformation.NetworkInterfaceType.Ethernet);
 
             myIP = "192.168.178.1";
@@ -87,11 +111,11 @@ namespace MyNetworkMonitor
 
             if ((bool)chk_Methodes_ARP.IsChecked)
             {
-
+                scanningMethode_ARP.ARP_A();
             }
             if ((bool)chk_Methodes_Ping.IsChecked)
             {
-                scanningMethods_Ping.PingIPsAsync(IPs, null, 100, false);
+                scanningMethods_Ping.PingIPsAsync(IPs, null, 1000, false);
             }
             if ((bool)chk_Methodes_SSDP.IsChecked)
             {
@@ -101,13 +125,14 @@ namespace MyNetworkMonitor
             {
 
             }
-            if ((bool)chk_Methodes_ReverseNSLookUp.IsChecked && ((bool)chk_Methodes_ARP.IsChecked || (bool)chk_Methodes_Ping.IsChecked || (bool)chk_Methodes_SSDP.IsChecked))
+        }
+
+        private void ScanningMethode_DNS_CustomEvent_Finished_DNS_Query(object? sender, Finished_DNS_Query_EventArgs e)
+        {
+            if ((bool)chk_Methodes_ReverseNSLookUp.IsChecked)
             {
                 scanningMethod_ReverseLookUp.HostToIP();
             }
-
-            var bla = IPInfo.GetIPInfo();
-           
         }
 
         private void ScanningMethods_CustomEvent_PingProgress(object? sender, PingProgressEventArgs e)
@@ -122,13 +147,40 @@ namespace MyNetworkMonitor
         {
             Dispatcher.BeginInvoke(() =>
             {
-                dgv_Results.ItemsSource = e.PingResults.DefaultView;
+                //dgv_Results.ItemsSource = e.PingResults.DefaultView;
             });
+            MacFromIP();
+            Hostname_And_Aliases_From_IP();
         }
 
-        private async void Button_Click(object sender, RoutedEventArgs e)
+        public void Hostname_And_Aliases_From_IP()
         {
-           
+            if (_scannResults.ResultTable.Rows.Count > 0)
+            {
+                scanningMethode_DNS.Get_Host_and_Alias_From_IP(_scannResults.ResultTable.AsEnumerable().Select(p => p.Field<string>("IP")).ToList());
+            }
         }
+
+        public void MacFromIP()
+        {
+            if (_scannResults.ResultTable.Rows.Count > 0)
+            {
+                foreach (DataRow row in _scannResults.ResultTable.Rows)
+                {
+                    if (string.IsNullOrEmpty(row["MAC"].ToString()))
+                    {
+                        string mac = scanningMethode_ARP.SendArpRequest(IPAddress.Parse(row["IP"].ToString()));
+                        row["MAC"] = mac;
+
+                        if (!string.IsNullOrEmpty(mac))
+                        {
+                            row["Vendor"] = supportMethods.GetVendorFromMac(mac).ToList()[0];
+                        }
+                    }
+                }
+            }
+        }
+
+      
     }    
 }
