@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -26,30 +27,46 @@ namespace MyNetworkMonitor
 
         private uint macAddrLen = (uint)new byte[6].Length;
 
-        public string? SendArpRequest(IPAddress ipAddress)
+
+        public async Task SendARPRequestAsync(List<string> IPs)
+        {
+            var tasks = new List<Task>();
+
+            foreach (var ip in IPs)
+            {
+                var task = ArpRequestTask(IPAddress.Parse(ip));
+                tasks.Add(task);
+            }
+            await Task.WhenAll(tasks);
+        }
+
+        private async Task ArpRequestTask(IPAddress ipAddress)
         {
             byte[] macAddr = new byte[6];
 
             try
             {
-                _ = SendARP(BitConverter.ToInt32(ipAddress.GetAddressBytes(), 0), 0, macAddr, ref macAddrLen);
-                if (MacAddresstoString(macAddr) != "00-00-00-00-00-00")
+                _ = await Task.Run(() => SendARP(BitConverter.ToInt32(ipAddress.GetAddressBytes(), 0), 0, macAddr, ref macAddrLen));
+                string mac = MacAddresstoString(macAddr);
+                if (mac != "00-00-00-00-00-00")
                 {
-                    return MacAddresstoString(macAddr);
+                    List<DataRow> rows = _scannResults.ResultTable.Select("IP = '" + ipAddress.ToString() + "'").ToList();
+                    int rowIndex = _scannResults.ResultTable.Rows.IndexOf(rows[0]);
+                    _scannResults.ResultTable.Rows[rowIndex]["Mac"] = mac;
+                    _scannResults.ResultTable.Rows[rowIndex]["Vendor"] = support.GetVendorFromMac(mac).First();
                 }
             }
             catch (Exception e)
             {
                 //ConsoleExt.WriteLine(e.Message, ConsoleColor.Red);
             }
-            return null;
         }
 
-        public static string MacAddresstoString(byte[] macAdrr)
+        private string MacAddresstoString(byte[] MacAddress)
         {
-            string macString = BitConverter.ToString(macAdrr);
-            return macString.ToUpper();
+            return BitConverter.ToString(MacAddress);
         }
+
 
 
         /// <summary>
@@ -62,7 +79,10 @@ namespace MyNetworkMonitor
             {
                 //var list = new List<IPInfo>();
 
-                foreach (var arp in GetARPResult().Split(new char[] { '\n', '\r' }))
+               
+                string[] arpResult = GetARPResult().Split(new char[] { '\n', '\r' });
+
+                foreach (var arp in arpResult)
                 {
                     // Parse out all the MAC / IP Address combinations
                     if (!string.IsNullOrEmpty(arp))
@@ -75,7 +95,7 @@ namespace MyNetworkMonitor
 
                             string ip = pieces[0];
                             string mac = pieces[1];
-                            var vendor = support.GetVendorFromMac(mac.Replace("-",":"));
+                            var vendor = support.GetVendorFromMac(mac);
 
                             //list.Add(new IPInfo(mac, ip));
 
