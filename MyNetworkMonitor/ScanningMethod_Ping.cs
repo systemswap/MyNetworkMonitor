@@ -28,25 +28,9 @@ namespace MyNetworkMonitor
 
         ScanResults _scannResults;
 
-        SupportMethods support = new SupportMethods();
-
-
-        
-
-
-       
-
-        List<PingReply> pingReply = new List<PingReply>();
-
         public event EventHandler<PingFinishedEventArgs>? CustomEvent_PingFinished;
         public event EventHandler<PingProgressEventArgs>? CustomEvent_PingProgress;
-
-        private List<PingReply> PingResults
-        {
-            get { return pingReply; }
-        }
-
-       
+               
 
         /// <summary>
         /// to get the Ping result call the Propertie PingResults
@@ -60,11 +44,19 @@ namespace MyNetworkMonitor
             foreach (var ip in IPs)
             {
                 System.Net.NetworkInformation.Ping p = new System.Net.NetworkInformation.Ping();
-                var task = PingAndUpdateAsync(p, ip, Timeout, ShowUnused);
+                var task = PingTask(p, ip, Timeout, ShowUnused);
                 tasks.Add(task);
-            }           
-            await Task.WhenAll(tasks);
+            }
+            //await Task.WhenAll(tasks).ContinueWith(_ => 
+            //{
+            //    if (CustomEvent_PingFinished != null)
+            //    {
+            //        //the User Gui can be freeze if a event fires to fast
+            //        CustomEvent_PingFinished(this, new PingFinishedEventArgs(_scannResults.ResultTable));
+            //    }
+            //});
 
+            await Task.WhenAll(tasks);
             if (CustomEvent_PingFinished != null)
             {
                 //the User Gui can be freeze if a event fires to fast
@@ -72,7 +64,7 @@ namespace MyNetworkMonitor
             }
         }
 
-        private async Task PingAndUpdateAsync(System.Net.NetworkInformation.Ping ping, string ip, int TimeOut, bool ShowUnused)
+        private async Task PingTask(Ping ping, string ip, int TimeOut, bool ShowUnused)
         {
             PingReply reply = await ping.SendPingAsync(ip, TimeOut);
             DataRow row = _scannResults.ResultTable.NewRow();
@@ -81,30 +73,8 @@ namespace MyNetworkMonitor
 
             if (reply.Status == IPStatus.Success)
             {
-                pingReply.Add(reply);
-
-                //row["SSDP"] = null;
                 row["Ping"] = Properties.Resources.green_dot;
                 row["IP"] = reply.Address.ToString();
-                //try
-                //{
-                //    row["Hostname"] = (await Dns.GetHostEntryAsync(reply.Address.ToString())).HostName;
-                //}
-                //catch (Exception)
-                //{
-
-                //    row["Hostname"] = "---";
-                //}
-
-                //try
-                //{
-                //    row["Aliases"] = string.Join("; ", (await Dns.GetHostEntryAsync(reply.Address.ToString())).Aliases);
-                //}
-                //catch (Exception)
-                //{
-
-                //    row["Aliases"] = "---";
-                //}
                 
                 row["ResponseTime"] = reply.RoundtripTime.ToString();
 
@@ -126,7 +96,6 @@ namespace MyNetworkMonitor
             }
             else if (ShowUnused && reply.Status != IPStatus.Success)
             {
-                //row["SSDP"] = null;
                 row["Ping"] = Properties.Resources.red_dot;
                 row["IP"] = ip;
                 row["ResponseTime"] = string.Empty;
@@ -145,7 +114,7 @@ namespace MyNetworkMonitor
                 }
             }
 
-            if (CustomEvent_PingFinished != null)
+            if (CustomEvent_PingProgress != null)
             {
                 //the User Gui can be freeze if a event fires to fast
                 CustomEvent_PingProgress(this, new PingProgressEventArgs(row));

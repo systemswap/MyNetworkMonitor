@@ -7,6 +7,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows.Threading;
 
 namespace MyNetworkMonitor
 {
@@ -19,61 +20,28 @@ namespace MyNetworkMonitor
 
         ScanResults _scannResults;
 
-        public event EventHandler<Finished_DNS_Query_EventArgs>? CustomEvent_Finished_DNS_Query;
+        public event EventHandler<DNS_Task_Finished_EventArgs>? CustomEvent_DNSTaskFinished;
+        public event EventHandler<DNS_Finished_EventArgs>? CustomEvent_DNS_Finished;
 
-        public async void Get_Host_and_Alias_From_IP(List<string> IPs)
+        public async Task Get_Host_and_Alias_From_IP(List<string> IPs)
         {
             if (_scannResults.ResultTable.Rows.Count == 0)
             {
                 return;
             }
 
-
             var tasks = new List<Task>();
 
             foreach (var ip in IPs)
             {
-                
-                var task =DNS_Task(ip);
+                var task = DNS_Task(ip);
                 tasks.Add(task);
             }
+
             await Task.WhenAll(tasks);
-
-
-            //foreach (string ip in IPs)
-            //{
-            //    List<DataRow> rows = _scannResults.ResultTable.Select("IP = '" + ip + "'").ToList();
-            //    IPHostEntry entry = new IPHostEntry();
-
-            //    try
-            //    {
-            //        entry = (await Dns.GetHostEntryAsync(IPAddress.Parse(ip)));
-                    
-            //    }
-            //    catch (Exception)
-            //    {
-            //        continue;
-            //    }
-
-            //    if (rows.Count == 0)
-            //    {
-            //        DataRow row = _scannResults.ResultTable.NewRow();
-
-            //        row["Hostname"] = entry.HostName;
-            //        row["Aliases"] = string.Join("\r\n", entry.Aliases);
-            //        _scannResults.ResultTable.Rows.Add(row);
-            //    }
-            //    else
-            //    {
-            //        int rowIndex = _scannResults.ResultTable.Rows.IndexOf(rows[0]);
-            //        _scannResults.ResultTable.Rows[rowIndex]["Hostname"] = entry.HostName;
-            //        _scannResults.ResultTable.Rows[rowIndex]["Aliases"] = string.Join("\r\n", entry.Aliases);
-            //    }
-            //}
-
-            if(CustomEvent_Finished_DNS_Query!= null) 
-            { 
-                CustomEvent_Finished_DNS_Query(this, new Finished_DNS_Query_EventArgs(true)); 
+            if (CustomEvent_DNS_Finished != null)
+            {
+                CustomEvent_DNS_Finished(this, new DNS_Finished_EventArgs(true));
             }
         }
 
@@ -103,16 +71,26 @@ namespace MyNetworkMonitor
             }
             catch (Exception ex)
             {
-                
+
             }
+        }        
+    }
+
+    public class DNS_Task_Finished_EventArgs : EventArgs
+    {
+        private bool _finished = false;
+        public bool TaskFinished { get { return _finished; } }
+        public DNS_Task_Finished_EventArgs(bool Finished_DNS_Query)
+        {
+            _finished = Finished_DNS_Query;
         }
     }
 
-    public class Finished_DNS_Query_EventArgs : EventArgs
+    public class DNS_Finished_EventArgs : EventArgs
     {
         private bool _finished = false;
         public bool FinishedDNSQuery { get { return _finished; } }
-        public Finished_DNS_Query_EventArgs(bool Finished_DNS_Query)
+        public DNS_Finished_EventArgs(bool Finished_DNS_Query)
         {
             _finished = Finished_DNS_Query;
         }

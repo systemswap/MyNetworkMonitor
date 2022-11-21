@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Net;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -20,8 +21,8 @@ namespace MyNetworkMonitor
             scanningMethode_ARP = new ScanningMethode_ARP(_scannResults);
             scanningMethods_Ping = new ScanningMethods_Ping(_scannResults);
             scanningMethode_SSDP_UPNP = new ScanningMethode_SSDP_UPNP(_scannResults);
-            scanningMethod_ReverseLookUp = new ScanningMethod_ReverseLookUp(_scannResults);
             scanningMethode_DNS = new ScanningMethode_DNS(_scannResults);
+            scanningMethod_ReverseLookUp = new ScanningMethod_ReverseLookUp(_scannResults);
 
             supportMethods = new SupportMethods();
 
@@ -34,10 +35,11 @@ namespace MyNetworkMonitor
         ScanningMethods_Ping scanningMethods_Ping;
         ScanningMethode_SSDP_UPNP scanningMethode_SSDP_UPNP;
         ScanningMethode_DNS scanningMethode_DNS;
+        ScanningMethod_ReverseLookUp scanningMethod_ReverseLookUp;
 
         SupportMethods supportMethods;
 
-        ScanningMethod_ReverseLookUp scanningMethod_ReverseLookUp;
+        
 
         private void dgv_Devices_OnAutoGeneratingColumn(object sender, DataGridAutoGeneratingColumnEventArgs e)
         {
@@ -90,12 +92,42 @@ namespace MyNetworkMonitor
             }
         }
 
-        private void bt_Scan_IP_Ranges_Click(object sender, RoutedEventArgs e)
+        private async void bt_Scan_IP_Ranges_Click(object sender, RoutedEventArgs e)
         {
-            scanningMethods_Ping.CustomEvent_PingProgress += ScanningMethods_CustomEvent_PingProgress;
-            scanningMethods_Ping.CustomEvent_PingFinished += ScanningMethods_CustomEvent_PingFinished;
+            await Task.Run(() => DoWork());
+        }
 
-            scanningMethode_DNS.CustomEvent_Finished_DNS_Query += ScanningMethode_DNS_CustomEvent_Finished_DNS_Query;
+        private void ScanningMethode_DNS_CustomEvent_Finished_DNS_Query(object? sender, DNS_Finished_EventArgs e)
+        {
+            Dispatcher.BeginInvoke(() =>
+            {
+                
+            });
+
+            if ((bool)chk_Methodes_Refresh_ReverseNSLookUp.IsChecked)
+            {
+                scanningMethod_ReverseLookUp.ReverseLookupAsync();
+            }
+        }
+
+        private async void ScanningMethods_CustomEvent_PingFinished(object? sender, PingFinishedEventArgs e)
+        {
+            Dispatcher.BeginInvoke(() =>
+            {
+                //dgv_Results.ItemsSource = e.PingResults.DefaultView;
+            });
+
+            if((bool)chk_Methodes_RefreshHostnames.IsChecked) await scanningMethode_DNS.Get_Host_and_Alias_From_IP(_scannResults.ResultTable.AsEnumerable().Select(p => p.Field<string>("IP")).ToList());
+
+            if ((bool)chk_Methodes_Refresh_MacVendor.IsChecked) await scanningMethode_ARP.SendARPRequestAsync(_scannResults.ResultTable.AsEnumerable().Select(p => p.Field<string>("IP")).ToList());
+        }
+
+
+
+        public async Task DoWork()
+        {
+            scanningMethods_Ping.CustomEvent_PingFinished += ScanningMethods_CustomEvent_PingFinished;
+            scanningMethode_DNS.CustomEvent_DNS_Finished += ScanningMethode_DNS_CustomEvent_Finished_DNS_Query;
 
             string myIP = new SupportMethods().GetLocalIPv4(System.Net.NetworkInformation.NetworkInterfaceType.Ethernet);
 
@@ -104,83 +136,52 @@ namespace MyNetworkMonitor
 
             List<string> IPs = new List<string>();
 
+            Dispatcher.BeginInvoke(() =>
+            {
+                foreach (DataRow row in _scannResults.ResultTable.Rows)
+            {
+                if ((bool)chk_Methodes_ARP.IsChecked) row["ARP"] = null;
+                if ((bool)chk_Methodes_Ping.IsChecked) row["Ping"] = null;
+                if ((bool)chk_Methodes_SSDP.IsChecked) row["SSDP"] = null;
+
+                row["ResponseTime"] = string.Empty;
+
+                if ((bool)chk_Methodes_RefreshHostnames.IsChecked)
+                {
+                    row["Hostname"] = string.Empty;
+                    row["Aliases"] = string.Empty;
+                }
+
+
+                if ((bool)chk_Methodes_Refresh_ReverseNSLookUp.IsChecked)
+                {
+                    row["ReverseLookUp"] = null;
+                    row["ReverseLookUpIPs"] = string.Empty;
+                }
+            }
+
             for (int i = 1; i < 255; i++)
             {
                 IPs.Add(string.Format(myIP, i));
             }
-
-            if ((bool)chk_Methodes_ARP.IsChecked)
-            {
-                scanningMethode_ARP.ARP_A();
-            }
-            if ((bool)chk_Methodes_Ping.IsChecked)
-            {
-                scanningMethods_Ping.PingIPsAsync(IPs, null, 1000, false);
-            }
-            if ((bool)chk_Methodes_SSDP.IsChecked)
-            {
-                scanningMethode_SSDP_UPNP.ScanForSSDP();
-            }
-            if ((bool)chk_Methodes_Ports.IsChecked)
-            {
-
-            }
-        }
-
-        private void ScanningMethode_DNS_CustomEvent_Finished_DNS_Query(object? sender, Finished_DNS_Query_EventArgs e)
-        {
-            if ((bool)chk_Methodes_ReverseNSLookUp.IsChecked)
-            {
-                scanningMethod_ReverseLookUp.HostToIP();
-            }
-        }
-
-        private void ScanningMethods_CustomEvent_PingProgress(object? sender, PingProgressEventArgs e)
-        {
-            Dispatcher.BeginInvoke(() =>
-            {
-                //dt.Rows.Add(e.PingResultsRow);
-            });
-        }
-
-        private void ScanningMethods_CustomEvent_PingFinished(object? sender, PingFinishedEventArgs e)
-        {
-            Dispatcher.BeginInvoke(() =>
-            {
-                //dgv_Results.ItemsSource = e.PingResults.DefaultView;
-            });
-            MacFromIP();
-            Hostname_And_Aliases_From_IP();
-        }
-
-        public void Hostname_And_Aliases_From_IP()
-        {
-            if (_scannResults.ResultTable.Rows.Count > 0)
-            {
-                scanningMethode_DNS.Get_Host_and_Alias_From_IP(_scannResults.ResultTable.AsEnumerable().Select(p => p.Field<string>("IP")).ToList());
-            }
-        }
-
-        public void MacFromIP()
-        {
-            if (_scannResults.ResultTable.Rows.Count > 0)
-            {
-                foreach (DataRow row in _scannResults.ResultTable.Rows)
+           
+                if ((bool)chk_Methodes_ARP.IsChecked)
                 {
-                    if (string.IsNullOrEmpty(row["MAC"].ToString()))
-                    {
-                        string mac = scanningMethode_ARP.SendArpRequest(IPAddress.Parse(row["IP"].ToString()));
-                        row["MAC"] = mac;
-
-                        if (!string.IsNullOrEmpty(mac))
-                        {
-                            row["Vendor"] = supportMethods.GetVendorFromMac(mac).ToList()[0];
-                        }
-                    }
+                    scanningMethode_ARP.ARP_A();
                 }
-            }
-        }
+                if ((bool)chk_Methodes_Ping.IsChecked)
+                {
+                    scanningMethods_Ping.PingIPsAsync(IPs, null, 1000, false);
+                }
+                if ((bool)chk_Methodes_SSDP.IsChecked)
+                {
+                    scanningMethode_SSDP_UPNP.ScanForSSDP();
+                }
+                if ((bool)chk_Methodes_Ports.IsChecked)
+                {
 
-      
+                }
+            });
+        }
     }    
 }

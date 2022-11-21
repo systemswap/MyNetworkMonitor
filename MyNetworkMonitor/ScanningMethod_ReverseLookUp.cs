@@ -17,46 +17,80 @@ namespace MyNetworkMonitor
 
         ScanResults _scannResults;
 
-        public void HostToIP()
+        public event EventHandler<ReverseLookup_Finished_EventArgs>? CustomEvent_ReverseLookup_Finished;
+
+       
+
+        public async void ReverseLookupAsync()
         {
-            foreach(DataRow row in _scannResults.ResultTable.Rows)
+            if (_scannResults.ResultTable.Rows.Count == 0)
             {
-                if (!string.IsNullOrEmpty(row["Hostname"].ToString()))
+                return;
+            }
+
+            var tasks = new List<Task>();
+
+            foreach (DataRow  row in _scannResults.ResultTable.Rows)
+            {
+                var task = ReverseLookupTask(row);
+                tasks.Add(task);
+            }
+
+            await Task.WhenAll(tasks);
+
+            if (CustomEvent_ReverseLookup_Finished != null)
+            {
+                CustomEvent_ReverseLookup_Finished(this, new ReverseLookup_Finished_EventArgs(true));
+            }
+        }
+
+        private async Task ReverseLookupTask(DataRow row)
+        {
+            if (!string.IsNullOrEmpty(row["Hostname"].ToString()))
+            {
+                string host = row["Hostname"].ToString();
+
+                try
                 {
-                    string host = row["Hostname"].ToString();
+                    var ip = (await Dns.GetHostEntryAsync(row["Hostname"].ToString())).AddressList.ToList();
 
-                    try
+
+                    int rowIndex = _scannResults.ResultTable.Rows.IndexOf(row);
+
+                    if (ip.Count == 1 && _scannResults.ResultTable.Rows[rowIndex]["IP"].ToString() == ip[0].ToString())
                     {
-                        var ip = Dns.GetHostByName(row["Hostname"].ToString()).AddressList.ToList();
+                        _scannResults.ResultTable.Rows[rowIndex]["ReverseLookUp"] = Properties.Resources.green_dot;
+                    }
+                    if (ip.Count != 1)
+                    {
+                        _scannResults.ResultTable.Rows[rowIndex]["ReverseLookUp"] = Properties.Resources.red_dot;
 
-
-                        int rowIndex = _scannResults.ResultTable.Rows.IndexOf(row);
-
-                        if (ip.Count == 1 && _scannResults.ResultTable.Rows[rowIndex]["IP"].ToString() == ip[0].ToString())
+                        if (ip == null)
                         {
-                            _scannResults.ResultTable.Rows[rowIndex]["ReverseLookUp"] = Properties.Resources.green_dot;
+                            _scannResults.ResultTable.Rows[rowIndex]["ReverseLookUpIPs"] = "no IPs registred";
                         }
-                        if (ip.Count != 1)
+                        else
                         {
-                            _scannResults.ResultTable.Rows[rowIndex]["ReverseLookUp"] = Properties.Resources.red_dot;
-
-                            if (ip == null)
-                            {
-                                _scannResults.ResultTable.Rows[rowIndex]["ReverseLookUpIPs"] = "no IPs registred";
-                            }
-                            else
-                            {
-                                _scannResults.ResultTable.Rows[rowIndex]["ReverseLookUpIPs"] = string.Join("\r\n", ip);
-                            }
+                            _scannResults.ResultTable.Rows[rowIndex]["ReverseLookUpIPs"] = string.Join("\r\n", ip);
                         }
                     }
-                    catch (Exception)
-                    {
-                        
-                    }                    
+                }
+                catch (Exception)
+                {
+
                 }
             }
-            
+        }
+    }
+
+
+    public class ReverseLookup_Finished_EventArgs : EventArgs
+    {
+        private bool _finished = false;
+        public bool FinishedDNSQuery { get { return _finished; } }
+        public ReverseLookup_Finished_EventArgs(bool Finished_ReverseLookup)
+        {
+            _finished = Finished_ReverseLookup;
         }
     }
 }
