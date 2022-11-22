@@ -131,7 +131,8 @@ namespace MyNetworkMonitor
 
             string myIP = new SupportMethods().GetLocalIPv4(System.Net.NetworkInformation.NetworkInterfaceType.Ethernet);
 
-            myIP = "192.168.178.1";
+            //myIP = "192.168.178.1";
+            myIP = "10.126.75.1";
             myIP = String.Join(".", myIP.Split(".")[0], myIP.Split(".")[1], myIP.Split(".")[2], "{0}");
 
             List<string> IPs = new List<string>();
@@ -160,7 +161,7 @@ namespace MyNetworkMonitor
                 }
             }
 
-            for (int i = 1; i < 255; i++)
+            for (int i = 2; i < 100; i++)
             {
                 IPs.Add(string.Format(myIP, i));
             }
