@@ -17,7 +17,7 @@
                 <RowDefinition Height="25"/>
                 <RowDefinition Height="25"/>
                 <RowDefinition/>
-                <RowDefinition Height="25"/>
+                <RowDefinition Height="30" MinHeight="44.04"/>
             </Grid.RowDefinitions>
             <TabControl Margin="10,10,10,10" Grid.Row="2">
                 <TabItem Header="From IP Ranges">
@@ -95,6 +95,7 @@
 
             </Grid>
             <Label Grid.Column="2" Content="open Ports on Selection" HorizontalAlignment="Center" Grid.Row="1" VerticalAlignment="Center" Width="167" Height="26"/>
+            <Label x:Name="lbl_ScanStatus" Grid.Column="1" Content="..." HorizontalAlignment="Center" Margin="0,8,0,0" Grid.Row="3" VerticalAlignment="Top" Width="1397"/>
         </Grid>
 
     </Grid>
