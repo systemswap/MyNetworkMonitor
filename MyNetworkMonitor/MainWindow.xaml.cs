@@ -28,10 +28,9 @@ namespace MyNetworkMonitor
             supportMethods = new SupportMethods();
 
             dgv_Results.ItemsSource = _scannResults.ResultTable.DefaultView;
-            lbl_ScanStatus.Content = scanStatus;
         }
 
-        public string scanStatus = string.Empty;
+
 
         ScanResults _scannResults = new ScanResults();
 
@@ -66,7 +65,7 @@ namespace MyNetworkMonitor
 
         public void Status()
         {
-            string.Format("ARP: {0}   Ping: {1}   SSDP: {2}   DNS: {3} {4}/{5}   Reverse Lookups: {6} {7}/{8}   Mac: {9]   Port:{10}", arp_status, ping_status, ssdp_status, dns_status, currentHostnameCount, CountedHostnames, reverseLookup_status, vendor_status, port_status);
+            lbl_ScanStatus.Content= string.Format("ARP: {0}   Ping: {1}   SSDP: {2}   DNS: {3} {4}/{5}   Reverse Lookups: {6} {7}/{8}   Mac: {9}   Port:{10}", arp_status.ToString(), ping_status.ToString(), ssdp_status.ToString(), dns_status.ToString(), currentHostnameCount.ToString(), CountedHostnames.ToString(), reverseLookup_status.ToString(), string.Empty, string.Empty, vendor_status.ToString(), port_status.ToString()); ;
         }
 
         private void dgv_Devices_OnAutoGeneratingColumn(object sender, DataGridAutoGeneratingColumnEventArgs e)
@@ -148,6 +147,7 @@ namespace MyNetworkMonitor
             if ((bool)chk_Methodes_RefreshHostnames.IsChecked)
             {
                 dns_status = ScanStatus.running.ToString();
+                Status();
                 await scanningMethode_DNS.Get_Host_and_Alias_From_IP(_scannResults.ResultTable.AsEnumerable().Select(p => p.Field<string>("IP")).ToList());
             }
 
@@ -171,10 +171,11 @@ namespace MyNetworkMonitor
             string myIP = new SupportMethods().GetLocalIPv4(System.Net.NetworkInformation.NetworkInterfaceType.Ethernet);
 
             //myIP = "192.168.178.1";
-            myIP = "10.126.75.1";
+            //myIP = "10.126.75.1";
+            myIP = "172.27.6.25";
             myIP = String.Join(".", myIP.Split(".")[0], myIP.Split(".")[1], myIP.Split(".")[2], "{0}");
 
-            for (int i = 2; i < 254; i++)
+            for (int i = 25; i < 26; i++)
             {
                 IPs.Add(string.Format(myIP, i));
             }
