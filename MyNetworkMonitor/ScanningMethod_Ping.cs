@@ -41,20 +41,12 @@ namespace MyNetworkMonitor
         {
             var tasks = new List<Task>();
 
-            foreach (var ip in IPs)
+            foreach(string ip in IPs)
             {
                 System.Net.NetworkInformation.Ping p = new System.Net.NetworkInformation.Ping();
                 var task = PingTask(p, ip, Timeout, ShowUnused);
                 tasks.Add(task);
             }
-            //await Task.WhenAll(tasks).ContinueWith(_ => 
-            //{
-            //    if (CustomEvent_PingFinished != null)
-            //    {
-            //        //the User Gui can be freeze if a event fires to fast
-            //        CustomEvent_PingFinished(this, new PingFinishedEventArgs(_scannResults.ResultTable));
-            //    }
-            //});
 
             await Task.WhenAll(tasks);
             if (CustomEvent_PingFinished != null)
