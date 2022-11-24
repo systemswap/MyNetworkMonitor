@@ -145,7 +145,7 @@ namespace MyNetworkMonitor
 
         public void DoWork()
         {
-            scanningMethode_ARP.ARP_A_Finished += ARP_A_Finished;
+            scanningMethode_ARP.ARP_A_newDevice += ARP_A_Finished;
 
             scanningMethods_Ping.Ping_Task_Finished += Ping_Task_Finished;
             scanningMethods_Ping.PingFinished += PingFinished_Event;
@@ -228,14 +228,14 @@ namespace MyNetworkMonitor
             {
                 arp_status = ScanStatus.running;
                 Status();
-                scanningMethode_ARP.ARP_A(_scannResults);
+                Task.Run(()=>scanningMethode_ARP.ARP_A());
             }
             if ((bool)chk_Methodes_Ping.IsChecked)
             {
                 ping_status= ScanStatus.running;
                 CountedPings = IPs.Count;
                 Status();
-                scanningMethods_Ping.PingIPsAsync(IPs, null, 1000, false);
+                scanningMethods_Ping.PingIPsAsync(IPs, null, 500, false);
             }
             if ((bool)chk_Methodes_SSDP.IsChecked)
             {
@@ -253,10 +253,31 @@ namespace MyNetworkMonitor
             //}
         }
 
-        private void ARP_A_Finished(object? sender, ARP_A_Finished_EventArgs e)
+        private void ARP_A_Finished(object? sender, ARP_A_newDevice_EventArgs e)
         {
             Dispatcher.BeginInvoke(() =>
             {
+                List<DataRow> rows = _scannResults.ResultTable.Select("IP = '" + e.IP + "'").ToList();
+
+                if (rows.Count == 0)
+                {
+                    DataRow row = _scannResults.ResultTable.NewRow();
+
+                    row["ARPStatus"] = e.ARPStatus ? Properties.Resources.green_dot : Properties.Resources.red_dot;
+                    row["IP"] = e.IP;
+                    row["MAC"] = e.MAC;
+                    row["Vendor"] = e.Vendor;
+                    _scannResults.ResultTable.Rows.Add(row);
+                }
+                else
+                {
+                    int rowIndex = _scannResults.ResultTable.Rows.IndexOf(rows[0]);
+                    _scannResults.ResultTable.Rows[rowIndex]["ARPStatus"] = e.ARPStatus ? Properties.Resources.green_dot : Properties.Resources.red_dot;
+                    _scannResults.ResultTable.Rows[rowIndex]["IP"] = e.IP;
+                    _scannResults.ResultTable.Rows[rowIndex]["MAC"] = e.MAC;
+                    _scannResults.ResultTable.Rows[rowIndex]["Vendor"] = e.Vendor;
+                }
+
                 arp_status = ScanStatus.finished;
                 Status();
             });
