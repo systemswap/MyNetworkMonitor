@@ -20,7 +20,7 @@ namespace MyNetworkMonitor
 
         SupportMethods support = new SupportMethods();
 
-        public event EventHandler<ARP_A_Finished_EventArgs>? ARP_A_Finished;
+        public event EventHandler<ARP_A_newDevice_EventArgs>? ARP_A_newDevice;
 
         public event EventHandler<ARP_Request_Task_Finished_EventArgs> ARP_Request_Task_Finished;
         public event EventHandler<ARP_Request_Finished_EventArgs> ARP_Request_Finished;
@@ -85,14 +85,15 @@ namespace MyNetworkMonitor
         /// Retrieves the IPInfo for All machines on the local network.
         /// </summary>
         /// <returns></returns>
-        public void ARP_A(ScanResults _scannResults)
+        public async Task ARP_A()
         {
             try
             {
                 //var list = new List<IPInfo>();
 
                
-                string[] arpResult = GetARPResult().Split(new char[] { '\n', '\r' });
+                string str_arpResult =  await GetARPResult();
+                string[] arpResult = str_arpResult.Split(new char[] { '\n', '\r' });
 
                 foreach (var arp in arpResult)
                 {
@@ -109,33 +110,12 @@ namespace MyNetworkMonitor
                             string mac = pieces[1];
                             var vendor = support.GetVendorFromMac(mac);
 
-                            List<DataRow> rows = _scannResults.ResultTable.Select("IP = '" + ip + "'").ToList();
-
-                            if (rows.Count == 0)
+                            if (ARP_A_newDevice != null)
                             {
-                                DataRow row = _scannResults.ResultTable.NewRow();
-
-                                row["ARPStatus"] = Properties.Resources.green_dot;
-                                row["IP"] = ip;
-                                row["MAC"] = mac;
-                                row["Vendor"] = vendor[0];
-                                _scannResults.ResultTable.Rows.Add(row);
-                            }
-                            else
-                            {
-                                int rowIndex = _scannResults.ResultTable.Rows.IndexOf(rows[0]);
-                                _scannResults.ResultTable.Rows[rowIndex]["ARPStatus"] = Properties.Resources.green_dot;
-                                _scannResults.ResultTable.Rows[rowIndex]["IP"] = ip;
-                                _scannResults.ResultTable.Rows[rowIndex]["MAC"] = mac;
-                                _scannResults.ResultTable.Rows[rowIndex]["Vendor"] = vendor[0];
+                                ARP_A_newDevice(this, new ARP_A_newDevice_EventArgs(true, ip, mac, vendor[0]));
                             }
                         }
                     }
-                }
-
-                if (ARP_A_Finished != null)
-                {
-                    ARP_A_Finished(this, new ARP_A_Finished_EventArgs(true));
                 }
             }
             catch (Exception ex)
@@ -148,7 +128,7 @@ namespace MyNetworkMonitor
         /// This runs the "arp" utility in Windows to retrieve all the MAC / IP Address entries.
         /// </summary>
         /// <returns></returns>
-        private string GetARPResult()
+        private async Task<string> GetARPResult()
         {
             Process p = null;
             string output = string.Empty;
@@ -162,7 +142,7 @@ namespace MyNetworkMonitor
                     RedirectStandardOutput = true
                 });
 
-                output = p.StandardOutput.ReadToEnd();
+                output = await p.StandardOutput.ReadToEndAsync();
 
                 p.Close();
             }
@@ -181,14 +161,26 @@ namespace MyNetworkMonitor
         }
     }
 
-    public class ARP_A_Finished_EventArgs : EventArgs
+    public class ARP_A_newDevice_EventArgs : EventArgs
     {
-        private bool _finished = false;
-        public bool ARP_A_Finished { get { return _finished; } }
-        public ARP_A_Finished_EventArgs(bool ARP_A_Finished)
+        public ARP_A_newDevice_EventArgs(bool ARPStatus, string IP, string MAC, string Vendor)
         {
-            _finished = ARP_A_Finished;
+            _ARPStatus = ARPStatus;
+            _IP = IP;
+            _MAC = MAC;
+            _Vendor = Vendor;
         }
+        private bool _ARPStatus = false;
+        public bool ARPStatus { get { return _ARPStatus; } }
+
+        private string _IP = string.Empty;
+        public string IP { get { return _IP; } }
+
+        private string _MAC = string.Empty;
+        public string MAC { get { return _MAC; } }
+
+        private string _Vendor = string.Empty;
+        public string Vendor { get { return _Vendor; } }
     }
 
 
