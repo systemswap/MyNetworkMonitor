@@ -38,20 +38,20 @@
             <DataGrid x:Name="dgv_Results" Grid.Column="1" Margin="10,10,10,10" Grid.Row="2" AutoGeneratingColumn="dgv_Devices_OnAutoGeneratingColumn">
 
                 <DataGrid.Resources>
-                    <DataTemplate x:Key="ARP">
-                        <Image Source="{Binding Path=ARP}" Width="16" Height="16"/>
+                    <DataTemplate x:Key="ARPStatus">
+                        <Image Source="{Binding Path=ARPStatus}" Width="16" Height="16"/>
                     </DataTemplate>
 
-                    <DataTemplate x:Key="Ping">
-                        <Image Source="{Binding Path=Ping}" Width="16" Height="16"/>
+                    <DataTemplate x:Key="PingStatus">
+                        <Image Source="{Binding Path=PingStatus}" Width="16" Height="16"/>
                     </DataTemplate>
 
-                    <DataTemplate x:Key="SSDP">
-                        <Image Source="{Binding Path=SSDP}" Width="16" Height="16"/>
+                    <DataTemplate x:Key="SSDPStatus">
+                        <Image Source="{Binding Path=SSDPStatus}" Width="16" Height="16"/>
                     </DataTemplate>
 
-                    <DataTemplate x:Key="ReverseLookUp">
-                        <Image Source="{Binding Path=ReverseLookUp}" Width="16" Height="16"/>
+                    <DataTemplate x:Key="ReverseLookUpStatus">
+                        <Image Source="{Binding Path=ReverseLookUpStatus}" Width="16" Height="16"/>
                     </DataTemplate>
 
                 </DataGrid.Resources>

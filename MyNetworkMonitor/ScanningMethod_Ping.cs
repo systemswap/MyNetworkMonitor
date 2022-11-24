@@ -21,15 +21,13 @@ namespace MyNetworkMonitor
 {
     internal class ScanningMethods_Ping
     {
-        public ScanningMethods_Ping(ScanResults scanResults)
+        public ScanningMethods_Ping()
         {
-            _scannResults = scanResults;
+            
         }
 
-        ScanResults _scannResults;
-
-        public event EventHandler<PingFinishedEventArgs>? CustomEvent_PingFinished;
-        public event EventHandler<PingProgressEventArgs>? CustomEvent_PingProgress;
+        public event EventHandler<PingScanFinishedEventArgs>? PingFinished;
+        public event EventHandler<Ping_Task_Finished_EventArgs>? Ping_Task_Finished;
                
 
         /// <summary>
@@ -41,100 +39,80 @@ namespace MyNetworkMonitor
         {
             var tasks = new List<Task>();
 
-            foreach(string ip in IPs)
+            Parallel.ForEach(IPs, ip =>
             {
                 System.Net.NetworkInformation.Ping p = new System.Net.NetworkInformation.Ping();
                 var task = PingTask(p, ip, Timeout, ShowUnused);
                 tasks.Add(task);
-            }
+            });
 
             await Task.WhenAll(tasks);
-            if (CustomEvent_PingFinished != null)
-            {
-                //the User Gui can be freeze if a event fires to fast
-                CustomEvent_PingFinished(this, new PingFinishedEventArgs(_scannResults.ResultTable));
+            if (PingFinished != null)
+            {              
+                PingFinished(this, new PingScanFinishedEventArgs(true));
             }
         }
 
         private async Task PingTask(Ping ping, string ip, int TimeOut, bool ShowUnused)
         {
             PingReply reply = await ping.SendPingAsync(ip, TimeOut);
-            DataRow row = _scannResults.ResultTable.NewRow();
 
-            row["SendAlert"] = false;
+            bool PingStatus = false;
+            string IP = string.Empty;
+            string ResponseTime = string.Empty;
 
             if (reply.Status == IPStatus.Success)
             {
-                row["Ping"] = Properties.Resources.green_dot;
-                row["IP"] = reply.Address.ToString();
-                
-                row["ResponseTime"] = reply.RoundtripTime.ToString();
-
-                List<DataRow> rows = _scannResults.ResultTable.Select("IP = '" + reply.Address.ToString() + "'").ToList();
-
-                if (rows.Count == 0)
-                {
-                    _scannResults.ResultTable.Rows.Add(row);
-                }
-                else
-                {
-                    int rowIndex = _scannResults.ResultTable.Rows.IndexOf(rows[0]);
-                    _scannResults.ResultTable.Rows[rowIndex]["Ping"] = Properties.Resources.green_dot;
-                    _scannResults.ResultTable.Rows[rowIndex]["IP"] = reply.Address.ToString();
-
-                    _scannResults.ResultTable.Rows[_scannResults.ResultTable.Rows.IndexOf(rows[0])]["ResponseTime"] = reply.RoundtripTime.ToString();
-                }
-                
+                PingStatus = true;
+                IP = reply.Address.ToString();
+                ResponseTime = reply.RoundtripTime.ToString();
             }
             else if (ShowUnused && reply.Status != IPStatus.Success)
             {
-                row["Ping"] = Properties.Resources.red_dot;
-                row["IP"] = ip;
-                row["ResponseTime"] = string.Empty;
-
-                List<DataRow> rows = _scannResults.ResultTable.Select("IP = '" + reply.Address.ToString() + "'").ToList();
-
-                if (rows.Count == 0)
-                {
-                    _scannResults.ResultTable.Rows.Add(row);
-                }
-                else
-                {
-                    _scannResults.ResultTable.Rows[_scannResults.ResultTable.Rows.IndexOf(rows[0])]["Ping"] = Properties.Resources.red_dot;
-                    _scannResults.ResultTable.Rows[_scannResults.ResultTable.Rows.IndexOf(rows[0])]["IP"] = ip;
-                    _scannResults.ResultTable.Rows[_scannResults.ResultTable.Rows.IndexOf(rows[0])]["ResponseTime"] = string.Empty;
-                }
+                PingStatus = false;
+                IP = ip;
+                ResponseTime = string.Empty;
             }
 
-            if (CustomEvent_PingProgress != null)
+            if (Ping_Task_Finished != null)
             {
-                //the User Gui can be freeze if a event fires to fast
-                CustomEvent_PingProgress(this, new PingProgressEventArgs(row));
+                Ping_Task_Finished(this, new Ping_Task_Finished_EventArgs(PingStatus, IP, ResponseTime));
             }
-        }       
+
+        }      
     }
 
 
     /* ############# Events #################*/
 
-    public class PingFinishedEventArgs : EventArgs
+    public class Ping_Task_Finished_EventArgs : EventArgs
     {
-        private DataTable _dt = new DataTable();
-        public DataTable PingResults { get { return _dt; } }
-        public PingFinishedEventArgs(DataTable PingResults)
+        public Ping_Task_Finished_EventArgs(bool PingStatus, string IP, string ResponseTime)
         {
-            _dt = PingResults;
+            _PingStatus= PingStatus;
+            _IP = IP;
+            _ResponseTime = ResponseTime;
         }
+
+        private bool _PingStatus = false;
+        public bool PingStatus { get { return _PingStatus; } }
+
+        private string _IP = string.Empty;
+        public string IP { get { return _IP; } }
+
+        private string _ResponseTime = string.Empty;
+        public string ResponseTime { get { return _ResponseTime; } }
     }
 
 
-    public class PingProgressEventArgs : EventArgs
+    public class PingScanFinishedEventArgs : EventArgs
     {
-        private DataRow _row = new ScanResults().ResultTable.NewRow();
-        public DataRow PingResultsRow { get { return _row; } }
-        public PingProgressEventArgs(DataRow Row)
+        public PingScanFinishedEventArgs(bool Finished)
         {
-            _row = Row;
+            _finished = Finished;
         }
+
+        private bool _finished = false;
+        public bool PingResults { get { return _finished; } }        
     }
 }

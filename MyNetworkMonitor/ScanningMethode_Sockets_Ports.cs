@@ -15,14 +15,14 @@ namespace MyNetworkMonitor
     {
         //https://www.codeproject.com/Articles/1415/Introduction-to-TCP-client-server-in-C
 
-        public ScanningMethode_Sockets_Ports(ScanResults scanResults)
+        public ScanningMethode_Sockets_Ports()
         {
-            _scannResults = scanResults;
+            
         }
 
-        ScanResults _scannResults;
-
-        List<OpenPorts> all_open_TCP_Ports = new List<OpenPorts>();
+        public event EventHandler<TcpPortScan_Task_FinishedEventArgs>? TcpPortScan_Task_Finished;
+        public event EventHandler<TcpPortScan_Finished_EventArgs>? TcpPortScan_Finished;
+       
 
         private CancellationToken _clt = new CancellationToken(false);
         public CancellationToken CancelPortScan
@@ -43,7 +43,8 @@ namespace MyNetworkMonitor
             }
 
             await Task.WhenAll(tasks);
-            if(CustomEvent_TcpPortScanFinished != null) CustomEvent_TcpPortScanFinished(this, new TcpPortScannFinishedEventArgs(all_open_TCP_Ports));
+
+            if(TcpPortScan_Finished != null) TcpPortScan_Finished(this, new TcpPortScan_Finished_EventArgs(true));
         }
 
 
@@ -58,57 +59,46 @@ namespace MyNetworkMonitor
             }
 
             await Task.WhenAll(tasks);
-            if (CustomEvent_TcpPortScanFinished != null) CustomEvent_TcpPortScanFinished(this, new TcpPortScannFinishedEventArgs(all_open_TCP_Ports));
+
+            if (TcpPortScan_Finished != null) TcpPortScan_Finished(this, new TcpPortScan_Finished_EventArgs(true));
         }
+       
 
-        
 
-        public event EventHandler<TcpPortScannFinishedEventArgs>? CustomEvent_TcpPortScanFinished;
-        public event EventHandler<TcpPortScanTaskFinishedEventArgs>? CustomEvent_TcpPortScanTaskFinished;
 
-        public async Task<OpenPorts> ScanTCPPorts_Task(string IP, List<int> Ports)
+        public async Task ScanTCPPorts_Task(string IP, List<int> Ports)
         {
-            OpenPorts ports = new OpenPorts();
+            List<int> _tcpPorts = new List<int>();
 
-            ports.IP = IP;
+            OpenPorts openPorts = new OpenPorts();
+
+            openPorts.IP = IP;
 
             var tasks = new List<Task>();
 
             Parallel.ForEach(Ports, port  =>
             {
-                var task = Task<int>.Run(() => ScanTCP_Port(IP, port));
+                var task = Task.Run(() => ScanTCP_Port(IP, port));
                 if (task.Result != -1) _tcpPorts.Add(task.Result);
                 tasks.Add(task);
             });
 
             await Task.WhenAll(tasks);
-            ports.openPorts = _tcpPorts;
-            all_open_TCP_Ports.Add(ports);
+            openPorts.openPorts = _tcpPorts;            
 
-            DataRow[] rows = _scannResults.ResultTable.Select("IP = '" + IP + "'");
-            if (rows.ToList().Count > 0)
-            {
-                int rowIndex = _scannResults.ResultTable.Rows.IndexOf(rows[0]);
-                _scannResults.ResultTable.Rows[rowIndex]["OpenTCP_Ports"] = string.Join("; ", _tcpPorts);
-            }
-            else
-            {
-                DataRow row = _scannResults.ResultTable.NewRow();
-                row["IP"] = IP;
-                row["OpenTCP_Ports"] = string.Join("; ", _tcpPorts);
-                _scannResults.ResultTable.Rows.Add(row);
-            }
-            return ports;
+            if(TcpPortScan_Task_Finished != null) TcpPortScan_Task_Finished(this, new TcpPortScan_Task_FinishedEventArgs(openPorts));
         }
 
-        List<int> _tcpPorts= new List<int>();
+        
         private async Task<int> ScanTCP_Port(string IP, int port)
         {
             try
             {
                 TcpClient tcpclnt = new TcpClient();
 
-                if (tcpclnt.ConnectAsync(IP, port).Wait(500))
+                await tcpclnt.ConnectAsync(IP, port).WaitAsync(new TimeSpan(0,0,0,0,100), _clt);
+
+                if (tcpclnt.Connected)
                 {                    
                     tcpclnt.Close();
                     tcpclnt.Dispose();
@@ -153,24 +143,26 @@ namespace MyNetworkMonitor
 
     /* ############# Events #################*/
 
-    public class TcpPortScannFinishedEventArgs : EventArgs
+ 
+    public class TcpPortScan_Task_FinishedEventArgs : EventArgs
     {
-        private List<OpenPorts> _tcpResults = new List<OpenPorts>();
-        public List<OpenPorts> PortScanResults { get { return _tcpResults; } }
-        public TcpPortScannFinishedEventArgs(List<OpenPorts> PortScanResults)
+        public TcpPortScan_Task_FinishedEventArgs(OpenPorts openPorts)
         {
-            _tcpResults = PortScanResults;
+            _OpenPorts = openPorts;
         }
+        
+        private OpenPorts _OpenPorts;
+        public OpenPorts OpenPorts { get { return _OpenPorts; } }
     }
 
-
-    public class TcpPortScanTaskFinishedEventArgs : EventArgs
+    public class TcpPortScan_Finished_EventArgs : EventArgs
     {
-        private DataRow _row = new ScanResults().ResultTable.NewRow();
-        public DataRow PingResultsRow { get { return _row; } }
-        public TcpPortScanTaskFinishedEventArgs(DataRow Row)
+        public TcpPortScan_Finished_EventArgs(bool Finished)
         {
-            _row = Row;
+            _finished = Finished;
         }
+        private bool _finished = false;
+        public bool Finished { get { return _finished; } }
+
     }
 }
