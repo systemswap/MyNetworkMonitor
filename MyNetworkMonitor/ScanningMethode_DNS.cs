@@ -1,24 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Linq;
 using System.Net;
-using System.Security.Cryptography;
-using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
-using System.Windows.Threading;
 
 namespace MyNetworkMonitor
 {
     internal class ScanningMethode_DNS
     {
-        public ScanningMethode_DNS(ScanResults scanResults)
+        public ScanningMethode_DNS()
         {
-            _scannResults = scanResults;
+            
         }
 
-        ScanResults _scannResults;
+       
 
         int _countedHosts = 0;
         int _currentHostCount = 0;
@@ -28,7 +23,7 @@ namespace MyNetworkMonitor
 
         public async Task Get_Host_and_Alias_From_IP(List<string> IPs)
         {
-            if (_scannResults.ResultTable.Rows.Count == 0)
+            if (IPs.Count == 0)
             {
                 return;
             }
@@ -43,6 +38,7 @@ namespace MyNetworkMonitor
             });
 
             await Task.WhenAll(tasks);
+
             if (GetHostAndAliasFromIP_Finished != null)
             {
                 GetHostAndAliasFromIP_Finished(this, new GetHostAndAliasFromIP_Finished_EventArgs(true));
@@ -50,30 +46,17 @@ namespace MyNetworkMonitor
         }
 
         private async Task GetHostAndAliasFromIP_Task(string ip)
-        {
-            //List<DataRow> rows = _scannResults.ResultTable.Select("IP = '" + ip + "'").ToList();
+        {            
             IPHostEntry entry = new IPHostEntry();
 
             try
             {
                 entry = await Dns.GetHostEntryAsync(IPAddress.Parse(ip));
 
-                GetHostAndAliasFromIP_Task_Finished(this, new GetHostAndAliasFromIP_Task_Finished_EventArgs(ip, entry.HostName, string.Join("\r\n", entry.Aliases), ++_currentHostCount, _countedHosts));
-
-                //if (rows.Count == 0)
-                //{
-                //    DataRow row = _scannResults.ResultTable.NewRow();
-
-                //    row["Hostname"] = entry.HostName;
-                //    row["Aliases"] = string.Join("\r\n", entry.Aliases);
-                //    _scannResults.ResultTable.Rows.Add(row);
-                //}
-                //else
-                //{
-                //    int rowIndex = _scannResults.ResultTable.Rows.IndexOf(rows[0]);
-                //    _scannResults.ResultTable.Rows[rowIndex]["Hostname"] = entry.HostName;
-                //    _scannResults.ResultTable.Rows[rowIndex]["Aliases"] = string.Join("\r\n", entry.Aliases);
-                //}
+                if (GetHostAndAliasFromIP_Task_Finished != null)
+                {
+                    GetHostAndAliasFromIP_Task_Finished(this, new GetHostAndAliasFromIP_Task_Finished_EventArgs(ip, entry.HostName, string.Join("\r\n", entry.Aliases), ++_currentHostCount, _countedHosts));
+                }
             }
             catch (Exception ex)
             {

@@ -13,13 +13,17 @@ namespace MyNetworkMonitor
 {
     internal class ScanningMethode_ARP
     {
-        public ScanningMethode_ARP(ScanResults scanResults)
+        public ScanningMethode_ARP()
         {
-            _scannResults = scanResults;
+           
         }
 
-        ScanResults _scannResults;
         SupportMethods support = new SupportMethods();
+
+        public event EventHandler<ARP_A_Finished_EventArgs>? ARP_A_Finished;
+
+        public event EventHandler<ARP_Request_Task_Finished_EventArgs> ARP_Request_Task_Finished;
+        public event EventHandler<ARP_Request_Finished_EventArgs> ARP_Request_Finished;
 
 
         [DllImport("iphlpapi.dll", ExactSpelling = true)]
@@ -32,12 +36,20 @@ namespace MyNetworkMonitor
         {
             var tasks = new List<Task>();
 
-            foreach (var ip in IPs)
+            Parallel.ForEach(IPs, ip =>
             {
-                var task = ArpRequestTask(IPAddress.Parse(ip));
-                tasks.Add(task);
-            }
+                if (!string.IsNullOrEmpty(ip))
+                {
+                    var task = ArpRequestTask(IPAddress.Parse(ip));
+                    tasks.Add(task);
+                }
+            });
             await Task.WhenAll(tasks);
+
+            if (ARP_Request_Finished != null)
+            {
+                ARP_Request_Finished(this, new ARP_Request_Finished_EventArgs(true));
+            }
         }
 
         private async Task ArpRequestTask(IPAddress ipAddress)
@@ -50,10 +62,10 @@ namespace MyNetworkMonitor
                 string mac = MacAddresstoString(macAddr);
                 if (mac != "00-00-00-00-00-00")
                 {
-                    List<DataRow> rows = _scannResults.ResultTable.Select("IP = '" + ipAddress.ToString() + "'").ToList();
-                    int rowIndex = _scannResults.ResultTable.Rows.IndexOf(rows[0]);
-                    _scannResults.ResultTable.Rows[rowIndex]["Mac"] = mac;
-                    _scannResults.ResultTable.Rows[rowIndex]["Vendor"] = support.GetVendorFromMac(mac).First();
+                    if (ARP_Request_Task_Finished != null)
+                    {
+                        ARP_Request_Task_Finished(this, new ARP_Request_Task_Finished_EventArgs(ipAddress.ToString(), mac, support.GetVendorFromMac(mac).First()));
+                    }
                 }
             }
             catch (Exception e)
@@ -73,7 +85,7 @@ namespace MyNetworkMonitor
         /// Retrieves the IPInfo for All machines on the local network.
         /// </summary>
         /// <returns></returns>
-        public void ARP_A()
+        public void ARP_A(ScanResults _scannResults)
         {
             try
             {
@@ -97,15 +109,13 @@ namespace MyNetworkMonitor
                             string mac = pieces[1];
                             var vendor = support.GetVendorFromMac(mac);
 
-                            //list.Add(new IPInfo(mac, ip));
-
                             List<DataRow> rows = _scannResults.ResultTable.Select("IP = '" + ip + "'").ToList();
 
                             if (rows.Count == 0)
                             {
                                 DataRow row = _scannResults.ResultTable.NewRow();
 
-                                row["ARP"] = Properties.Resources.green_dot;
+                                row["ARPStatus"] = Properties.Resources.green_dot;
                                 row["IP"] = ip;
                                 row["MAC"] = mac;
                                 row["Vendor"] = vendor[0];
@@ -114,7 +124,7 @@ namespace MyNetworkMonitor
                             else
                             {
                                 int rowIndex = _scannResults.ResultTable.Rows.IndexOf(rows[0]);
-                                _scannResults.ResultTable.Rows[rowIndex]["ARP"] = Properties.Resources.green_dot;
+                                _scannResults.ResultTable.Rows[rowIndex]["ARPStatus"] = Properties.Resources.green_dot;
                                 _scannResults.ResultTable.Rows[rowIndex]["IP"] = ip;
                                 _scannResults.ResultTable.Rows[rowIndex]["MAC"] = mac;
                                 _scannResults.ResultTable.Rows[rowIndex]["Vendor"] = vendor[0];
@@ -123,8 +133,10 @@ namespace MyNetworkMonitor
                     }
                 }
 
-                // Return list of IPInfo objects containing MAC / IP Address combinations
-                //return list;
+                if (ARP_A_Finished != null)
+                {
+                    ARP_A_Finished(this, new ARP_A_Finished_EventArgs(true));
+                }
             }
             catch (Exception ex)
             {
@@ -165,8 +177,51 @@ namespace MyNetworkMonitor
                     p.Close();
                 }
             }
-
             return output;
         }
+    }
+
+    public class ARP_A_Finished_EventArgs : EventArgs
+    {
+        private bool _finished = false;
+        public bool ARP_A_Finished { get { return _finished; } }
+        public ARP_A_Finished_EventArgs(bool ARP_A_Finished)
+        {
+            _finished = ARP_A_Finished;
+        }
+    }
+
+
+
+    public class ARP_Request_Task_Finished_EventArgs : EventArgs
+    {
+        public ARP_Request_Task_Finished_EventArgs(string IP, string MAC, string Vendor)
+        {
+            _IP = IP;
+            _MAC = MAC;
+            _Vendor = Vendor;
+        }
+
+        private string _IP = string.Empty;
+        public string IP { get { return _IP; } }
+
+        private string _MAC = string.Empty;
+        public string MAC { get { return _MAC; } }
+
+        private string _Vendor = string.Empty;
+        public string Vendor { get { return _Vendor; } }
+
+    }
+
+    public class ARP_Request_Finished_EventArgs : EventArgs
+    {
+        public ARP_Request_Finished_EventArgs(bool ARP_Request_Finished)
+        {
+            _finished = ARP_Request_Finished;
+        }
+
+        private bool _finished = false;
+        public bool ARP_Request_Finished { get { return _finished; } }
+        
     }
 }

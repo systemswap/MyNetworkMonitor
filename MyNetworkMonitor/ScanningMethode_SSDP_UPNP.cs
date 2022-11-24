@@ -16,14 +16,13 @@ namespace MyNetworkMonitor
 {
     internal class ScanningMethode_SSDP_UPNP
     {
-        public ScanningMethode_SSDP_UPNP(ScanResults scanResults)
+        public ScanningMethode_SSDP_UPNP()
         {
-            _scannResults = scanResults;
-        }
+            
+        }       
 
-        ScanResults _scannResults;
-
-        public event EventHandler<SSDP_Scan_FinishedEventArgs>? CustomEvent_SSDP_Scan_Finished;
+        public event EventHandler<SSDP_Scan_FinishedEventArgs>? SSDP_Scan_Finished;
+        public event EventHandler<SSDP_Device_EventArgs>? SSDP_NewDevice;
 
         public async void ScanForSSDP()
         {
@@ -33,43 +32,42 @@ namespace MyNetworkMonitor
 
                 foreach (var foundDevice in foundDevices)
                 {
-                    DataRow row = _scannResults.ResultTable.NewRow();
-                    List<DataRow> rows = _scannResults.ResultTable.Select("IP = '" + foundDevice.DescriptionLocation.Host + "'").ToList();
-
-                    if (rows.Count() == 0)
+                    if (SSDP_NewDevice != null)
                     {
-                        row["SendAlert"] = false;
-                        row["SSDP"] = Properties.Resources.green_dot;
-                        row["IP"] = foundDevice.DescriptionLocation.Host;
-                        row["ResponseTime"] = "";
-
-                        _scannResults.ResultTable.Rows.Add(row);
-                    }
-                    else
-                    {
-                        int rowIndex = _scannResults.ResultTable.Rows.IndexOf(rows[0]);
-                        _scannResults.ResultTable.Rows[rowIndex]["SSDP"] = Properties.Resources.green_dot;
+                        SSDP_NewDevice(this, new SSDP_Device_EventArgs(true, foundDevice.DescriptionLocation.Host));
                     }
                 }
             }
 
-            if (CustomEvent_SSDP_Scan_Finished != null)
-            {
-                //the User Gui can be freeze if a event fires to fast
-                CustomEvent_SSDP_Scan_Finished(this, new SSDP_Scan_FinishedEventArgs(true));
+            if (SSDP_Scan_Finished != null)
+            {                
+                SSDP_Scan_Finished(this, new SSDP_Scan_FinishedEventArgs(true));
             }
         }
+    }
 
-      
+    public class SSDP_Device_EventArgs : EventArgs
+    {
+        public SSDP_Device_EventArgs(bool SSDPStatus, string IP)
+        {
+            _SSDPStatus = SSDPStatus;
+            _IP = IP;
+        }
+        private bool _SSDPStatus = false;
+        public bool SSDPStatus { get { return _SSDPStatus; } }
+
+        private string _IP = string.Empty;
+        public string IP { get { return _IP; } }
     }
 
     public class SSDP_Scan_FinishedEventArgs : EventArgs
     {
-        private bool _finished = false;
-        public bool SSDP_Scan_Finished { get { return _finished; } }
         public SSDP_Scan_FinishedEventArgs(bool finished)
         {
             _finished = finished;
         }
+
+        private bool _finished = false;
+        public bool SSDP_Scan_Finished { get { return _finished; } }
     }
 }

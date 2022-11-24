@@ -11,16 +11,16 @@ namespace MyNetworkMonitor
     {
         public ScanResults()
         {
-            dt_NetworkResults.Columns.Add("ARP", typeof(byte[]));
-            dt_NetworkResults.Columns.Add("Ping", typeof(byte[]));
-            dt_NetworkResults.Columns.Add("SSDP", typeof(byte[]));
-            dt_NetworkResults.Columns.Add("SendAlert", typeof(bool));
+            dt_NetworkResults.Columns.Add("ARPStatus", typeof(byte[]));
+            dt_NetworkResults.Columns.Add("PingStatus", typeof(byte[]));
+            dt_NetworkResults.Columns.Add("SSDPStatus", typeof(byte[]));
+            //dt_NetworkResults.Columns.Add("SendAlert", typeof(bool));
             dt_NetworkResults.Columns.Add("IP", typeof(string));
             dt_NetworkResults.Columns.Add("ResponseTime", typeof(string));
             dt_NetworkResults.Columns.Add("InternalName", typeof(string));
             dt_NetworkResults.Columns.Add("Hostname", typeof(string));            
             dt_NetworkResults.Columns.Add("Aliases", typeof(string));
-            dt_NetworkResults.Columns.Add("ReverseLookUp", typeof(byte[]));
+            dt_NetworkResults.Columns.Add("ReverseLookUpStatus", typeof(byte[]));
             dt_NetworkResults.Columns.Add("ReverseLookUpIPs", typeof(string));
             dt_NetworkResults.Columns.Add("OpenTCP_Ports", typeof(string));
             dt_NetworkResults.Columns.Add("OpenUDP_Ports", typeof(string));

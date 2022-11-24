@@ -10,79 +10,96 @@ namespace MyNetworkMonitor
 {
     internal class ScanningMethod_ReverseLookUp
     {
-        public ScanningMethod_ReverseLookUp(ScanResults scanResults)
+
+        public ScanningMethod_ReverseLookUp()
         {
-            _scannResults = scanResults;
+           
         }
 
-        ScanResults _scannResults;
 
-        public event EventHandler<ReverseLookup_Finished_EventArgs>? CustomEvent_ReverseLookup_Finished;
+        public event EventHandler<ReverseLookup_Task_Finished_EventArgs>? ReverseLookup_Task_Finished;
+        public event EventHandler<ReverseLookup_Finished_EventArgs>? ReverseLookup_Finished;
 
-       
 
-        public async void ReverseLookupAsync()
+        public async void ReverseLookupAsync(Dictionary<string, string> SourceIPsWithHostnames)
         {
-            if (_scannResults.ResultTable.Rows.Count == 0)
-            {
-                return;
-            }
-
             var tasks = new List<Task>();
 
-            foreach (DataRow  row in _scannResults.ResultTable.Rows)
+            foreach (KeyValuePair<string, string> entry in SourceIPsWithHostnames)
             {
-                var task = ReverseLookupTask(row);
+                var task = ReverseLookupTask(entry.Key, entry.Value);
                 tasks.Add(task);
             }
 
             await Task.WhenAll(tasks);
 
-            if (CustomEvent_ReverseLookup_Finished != null)
+            if (ReverseLookup_Finished != null)
             {
-                CustomEvent_ReverseLookup_Finished(this, new ReverseLookup_Finished_EventArgs(true));
+                ReverseLookup_Finished(this, new ReverseLookup_Finished_EventArgs(true));
             }
         }
 
-        private async Task ReverseLookupTask(DataRow row)
+        private async Task ReverseLookupTask(string SourceIP, string Hostname)
         {
-            if (!string.IsNullOrEmpty(row["Hostname"].ToString()))
+            try
             {
-                string host = row["Hostname"].ToString();
+                IPHostEntry _entry = await Dns.GetHostEntryAsync(Hostname);
 
-                try
+                bool _ReverseLookupStatus = false;
+                string _ReverseLookUpIPs = string.Empty;
+
+                if (_entry.AddressList.ToList().Count == 1 && SourceIP == _entry.AddressList[0].ToString())
                 {
-                    var ip = (await Dns.GetHostEntryAsync(row["Hostname"].ToString())).AddressList.ToList();
+                    _ReverseLookupStatus = true;
+                }
+                if (_entry.AddressList.ToList().Count != 1)
+                {
+                    _ReverseLookupStatus = false;
 
-
-                    int rowIndex = _scannResults.ResultTable.Rows.IndexOf(row);
-
-                    if (ip.Count == 1 && _scannResults.ResultTable.Rows[rowIndex]["IP"].ToString() == ip[0].ToString())
+                    if (_entry.AddressList.ToList().Count == 0)
                     {
-                        _scannResults.ResultTable.Rows[rowIndex]["ReverseLookUp"] = Properties.Resources.green_dot;
+                        _ReverseLookUpIPs = "no IPs registred";
                     }
-                    if (ip.Count != 1)
+                    else
                     {
-                        _scannResults.ResultTable.Rows[rowIndex]["ReverseLookUp"] = Properties.Resources.red_dot;
-
-                        if (ip == null)
-                        {
-                            _scannResults.ResultTable.Rows[rowIndex]["ReverseLookUpIPs"] = "no IPs registred";
-                        }
-                        else
-                        {
-                            _scannResults.ResultTable.Rows[rowIndex]["ReverseLookUpIPs"] = string.Join("\r\n", ip);
-                        }
+                        _ReverseLookUpIPs = string.Join("\r\n", _entry.AddressList.ToList());
                     }
                 }
-                catch (Exception)
-                {
 
+                if (ReverseLookup_Task_Finished != null)
+                {
+                    ReverseLookup_Task_Finished(this, new ReverseLookup_Task_Finished_EventArgs(SourceIP, _ReverseLookupStatus, _ReverseLookUpIPs, _entry));
                 }
+            }
+            catch (Exception)
+            {
+
             }
         }
     }
 
+    public class ReverseLookup_Task_Finished_EventArgs : EventArgs
+    {
+        public ReverseLookup_Task_Finished_EventArgs(string SourceIP, bool ReverseLookUpStatus, string ReverseLookUpIPs, IPHostEntry Entry)
+        {
+            _IP = SourceIP;
+            _ReverseLookUpStatus = ReverseLookUpStatus;
+            _ReverseLookUpIPs = ReverseLookUpIPs;
+            _Entry = Entry;
+        }
+
+        private string _IP = string.Empty;
+        public string IP { get { return _IP; } }
+
+        private bool _ReverseLookUpStatus = false;
+        public bool ReverseLookUpStatus { get { return _ReverseLookUpStatus; } }
+
+        private string _ReverseLookUpIPs = string.Empty;
+        public string ReverseLookUpIPs { get { return _ReverseLookUpIPs; } }
+
+        private IPHostEntry _Entry = null;
+        public IPHostEntry Entry { get { return _Entry; } }
+    }
 
     public class ReverseLookup_Finished_EventArgs : EventArgs
     {
