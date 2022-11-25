@@ -27,8 +27,11 @@ namespace MyNetworkMonitor
 
             foreach (KeyValuePair<string, string> entry in SourceIPsWithHostnames)
             {
-                var task = ReverseLookupTask(entry.Key, entry.Value);
-                tasks.Add(task);
+                if (!string.IsNullOrEmpty(entry.Value))
+                {
+                    var task = ReverseLookupTask(entry.Key, entry.Value);
+                    tasks.Add(task);
+                }
             }
 
             await Task.WhenAll(tasks);
@@ -97,7 +100,7 @@ namespace MyNetworkMonitor
         private string _ReverseLookUpIPs = string.Empty;
         public string ReverseLookUpIPs { get { return _ReverseLookUpIPs; } }
 
-        private IPHostEntry _Entry = null;
+        private IPHostEntry _Entry = new IPHostEntry();
         public IPHostEntry Entry { get { return _Entry; } }
     }
 
