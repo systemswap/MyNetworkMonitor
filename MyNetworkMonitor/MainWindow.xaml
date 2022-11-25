@@ -105,7 +105,7 @@
                 <Button x:Name="bt_ScanIP" Grid.Column="11" Content="Scan IP" HorizontalAlignment="Center" VerticalAlignment="Center" Width="108" Height="20" Click="bt_ScanIP_Click"/>
 
             </Grid>
-            <Label x:Name="lbl_ScanStatus" Content="..." HorizontalAlignment="Center" Grid.Row="3" VerticalAlignment="Center" Width="1806" Height="26" Grid.ColumnSpan="2"/>
+            <Label x:Name="lbl_ScanStatus" Content="..." HorizontalAlignment="Center" Grid.Row="3" VerticalAlignment="Center" Width="1806" Height="26" Grid.ColumnSpan="2" HorizontalContentAlignment="Center" Margin="15,0,0,0"/>
         </Grid>
 
     </Grid>
