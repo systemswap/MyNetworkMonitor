@@ -30,11 +30,15 @@ namespace MyNetworkMonitor
             {
                 var foundDevices = await deviceLocator.SearchAsync();
 
+                List<string> _ips = new List<string>();
+
                 foreach (var foundDevice in foundDevices)
                 {
-                    if (SSDP_NewDevice != null)
+                    string deviceIP = foundDevice.DescriptionLocation.Host;
+                    if (SSDP_NewDevice != null && !_ips.Contains(deviceIP))
                     {
-                        SSDP_NewDevice(this, new SSDP_Device_EventArgs(true, foundDevice.DescriptionLocation.Host));
+                        _ips.Add(deviceIP);
+                        SSDP_NewDevice(this, new SSDP_Device_EventArgs(true, deviceIP));
                     }
                 }
             }

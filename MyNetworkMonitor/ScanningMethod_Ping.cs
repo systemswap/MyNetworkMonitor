@@ -43,7 +43,7 @@ namespace MyNetworkMonitor
             {
                 System.Net.NetworkInformation.Ping p = new System.Net.NetworkInformation.Ping();
                 var task = PingTask(p, ip, Timeout, ShowUnused);
-                tasks.Add(task);
+                if(task != null) tasks.Add(task);
             });
 
             await Task.WhenAll(tasks);
