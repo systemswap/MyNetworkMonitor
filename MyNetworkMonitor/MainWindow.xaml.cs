@@ -5,10 +5,14 @@ using System.Data;
 using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
+using System.Net.Sockets;
 using System.Security.Cryptography;
+using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using static MyNetworkMonitor.SendReceiveDataUDP;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace MyNetworkMonitor
 {
@@ -252,7 +256,7 @@ namespace MyNetworkMonitor
                 ping_status= ScanStatus.running;
                 CountedPings = IPs.Count;
                 Status();
-                scanningMethods_Ping.PingIPsAsync(IPs, null, 500, false);
+                scanningMethods_Ping.PingIPsAsync(IPs, null, 1000, false);
             }
             if ((bool)chk_Methodes_SSDP.IsChecked)
             {
@@ -379,12 +383,12 @@ namespace MyNetworkMonitor
                     row["IP"] = e.IP;
                     row["ResponseTime"] = "";
 
-                    _scannResults.ResultTable.Rows.Add(row);
+                    _scannResults.ResultTable.Rows.Add(row);                    
                 }
                 else
                 {
                     int rowIndex = _scannResults.ResultTable.Rows.IndexOf(rows[0]);
-                    _scannResults.ResultTable.Rows[rowIndex]["SSDPStatus"] = Properties.Resources.green_dot;
+                    _scannResults.ResultTable.Rows[rowIndex]["SSDPStatus"] = Properties.Resources.green_dot;                    
                 }
 
                 ++currentSSDPCount;
