@@ -49,7 +49,7 @@
 
             </TabControl>
 
-            <Grid Grid.Column="1" Grid.Row="1" Margin="13,0,10,0">
+            <Grid x:Name="tb_Ports" Grid.Column="1" Grid.Row="1" Margin="13,0,10,0">
 
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="145"/>
@@ -63,7 +63,9 @@
                     <ColumnDefinition Width="85"/>
                     <ColumnDefinition Width="85"/>
                     <ColumnDefinition/>
-                    <ColumnDefinition Width="125"/>
+                    <ColumnDefinition Width="101"/>
+                    <ColumnDefinition Width="113"/>
+                    <ColumnDefinition Width="124"/>
                 </Grid.ColumnDefinitions>
 
                 <Label Content="Methodes to find Device:" Grid.Column="0"/>
@@ -80,9 +82,12 @@
                 <CheckBox x:Name="chk_Methodes_Refresh_MacVendor" Content="Mac / Vendors" Grid.Column="7" Margin="0,6,0,-1" HorizontalAlignment="Center" Width="102"/>
 
                 <CheckBox x:Name="chk_Methodes_ScanTCPPorts" Content="TCP Ports" Grid.Column="8" Margin="0,6,0,-1" HorizontalAlignment="Center" Width="78"/>
-                <CheckBox x:Name="chk_Methodes_ScanUDPPorts" Content="UDP Ports" Grid.Column="9" Margin="10,6,0,-1" HorizontalAlignment="Left" Width="81"/>
-                <TextBox x:Name="tb_IP_Address" Grid.Column="10" HorizontalAlignment="Right" TextWrapping="Wrap" Text="127.0.0.1" VerticalAlignment="Center" Width="139" Height="20" Margin="0,0,10,0"/>
-                <Button x:Name="bt_ScanIP" Grid.Column="11" Content="Scan IP" HorizontalAlignment="Center" VerticalAlignment="Center" Width="108" Height="20" Click="bt_ScanIP_Click"/>
+                <CheckBox x:Name="chk_Methodes_ScanUDPPorts" Content="UDP Ports" Grid.Column="9" Margin="10,6,0,-1" HorizontalAlignment="Left" Width="81" Grid.ColumnSpan="2" IsEnabled="False"/>
+                <TextBox x:Name="tb_IP_Address" Grid.Column="10" HorizontalAlignment="Left" TextWrapping="Wrap" VerticalAlignment="Center" Width="106" Height="20" Margin="75,0,0,0"/>
+                <TextBox x:Name="tb_TCPPorts" Grid.Column="11" HorizontalAlignment="Left" TextWrapping="Wrap" VerticalAlignment="Center" Width="84" Height="16" Margin="7,0,0,0"/>
+                <Button x:Name="bt_ScanIP" Grid.Column="13" Content="Scan Selected IP" VerticalAlignment="Bottom" Height="20" Click="bt_ScanIP_Click" HorizontalAlignment="Center" Width="108" Margin="0,0,0,5"/>
+                <TextBox x:Name="tb_UDPPorts" Grid.Column="12" HorizontalAlignment="Left" TextWrapping="Wrap" VerticalAlignment="Center" Width="86" Height="17" Margin="10,0,0,0"/>
+
 
             </Grid>
             <Label x:Name="lbl_ScanStatus" Content="..." HorizontalAlignment="Center" Grid.Row="3" VerticalAlignment="Center" Width="1806" Height="26" Grid.ColumnSpan="2" HorizontalContentAlignment="Center" Margin="15,0,0,0"/>
@@ -92,7 +97,8 @@
                     <RowDefinition Height="50*"/>
                 </Grid.RowDefinitions>
                 <DataGrid x:Name="dgv_Results" Grid.Column="0" Margin="10,10,10,10" Grid.Row="0" AutoGeneratingColumn="dgv_Devices_OnAutoGeneratingColumn">
-
+                                        
+                    
                     <DataGrid.Resources>
                         <DataTemplate x:Key="ARPStatus">
                             <Image Source="{Binding Path=ARPStatus}" Width="16" Height="16"/>
@@ -119,6 +125,26 @@
                     </Grid.ColumnDefinitions>
                     <Label Content="Filter:" HorizontalAlignment="Left" Margin="34,0,0,0" VerticalAlignment="Center"/>
                 </Grid>
+            </Grid>
+            <Slider x:Name="slider_TimeOut" HorizontalAlignment="Center" VerticalAlignment="Center" Width="230" Maximum="3000" Minimum="10" Value="250" TickFrequency="10" SmallChange="10" LargeChange="50" Grid.Row="1" IsSnapToTickEnabled="True" ValueChanged="slider_TimeOut_ValueChanged"/>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="125"/>
+                    <ColumnDefinition/>
+                </Grid.ColumnDefinitions>
+                <Label Content="TimeOut Portscan:" HorizontalAlignment="Center" Margin="0,-2,0,0" VerticalAlignment="Top" Height="26" Width="108"/>
+                <Label Grid.Column="1" Content="{Binding ElementName=slider_TimeOut, Path=Value}" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Center"/>
+            </Grid>
+            <Grid Grid.Column="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition/>
+                    <ColumnDefinition Width="111"/>
+                    <ColumnDefinition Width="98"/>
+                    <ColumnDefinition Width="252"/>
+                </Grid.ColumnDefinitions>
+                <Label Grid.Column="1" Content="IP-Address" HorizontalAlignment="Left" VerticalAlignment="Center" Width="101"/>
+                <Label Grid.Column="2" Content="TCP-Ports" HorizontalAlignment="Left" Margin="10,-2,0,0" VerticalAlignment="Top"/>
+                <Label Grid.Column="3" Content="UDP-Ports" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Top"/>
             </Grid>
         </Grid>
 
