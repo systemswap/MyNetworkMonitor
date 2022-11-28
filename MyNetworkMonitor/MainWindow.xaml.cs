@@ -8,6 +8,7 @@ using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -25,20 +26,44 @@ namespace MyNetworkMonitor
             InitializeComponent();
 
             scanningMethode_ARP = new ScanningMethode_ARP();
+            scanningMethode_ARP.ARP_A_newDevice += ARP_A_Finished;
+            scanningMethode_ARP.ARP_Request_Task_Finished += ARP_Request_Task_Finished;
+            scanningMethode_ARP.ARP_Request_Finished += ARP_Request_Finished;
+
             scanningMethods_Ping = new ScanningMethods_Ping();
+            scanningMethods_Ping.Ping_Task_Finished += Ping_Task_Finished;
+            scanningMethods_Ping.PingFinished += PingFinished_Event;
+
             scanningMethode_SSDP_UPNP = new ScanningMethode_SSDP_UPNP();
+            scanningMethode_SSDP_UPNP.SSDP_NewDevice += SSDP_NewDevice;
+            scanningMethode_SSDP_UPNP.SSDP_Scan_Finished += SSDP_Scan_Finished;
+
             scanningMethode_DNS = new ScanningMethode_DNS();
+            scanningMethode_DNS.GetHostAndAliasFromIP_Task_Finished += DNS_GetHostAndAliasFromIP_Task_Finished;
+            scanningMethode_DNS.GetHostAndAliasFromIP_Finished += DNS_GetHostAndAliasFromIP_Finished;
+
             scanningMethod_ReverseLookUp = new ScanningMethod_ReverseLookUp();
+            scanningMethod_ReverseLookUp.ReverseLookup_Task_Finished += ReverseLookup_Task_Finished;
+            scanningMethod_ReverseLookUp.ReverseLookup_Finished += ReverseLookup_Finished;
+
             scanningMethode_Ports = new ScanningMethode_Sockets_Ports();
+            scanningMethode_Ports.TcpPortScan_Task_Finished += TcpPortScan_Task_Finished;
+            scanningMethode_Ports.TcpPortScan_Finished += TcpPortScan_Finished;
+            scanningMethode_Ports.UDPPortScan_Task_Finished += UDPPortScan_Task_Finished;
+            scanningMethode_Ports.UDPPortScan_Finished += UDPPortScan_Finished;
 
             supportMethods = new SupportMethods();
 
-            dgv_Results.ItemsSource = _scannResults.ResultTable.DefaultView;
+            dv_resultTable = new DataView(_scannResults.ResultTable);
+            dgv_Results.ItemsSource = dv_resultTable;
+
+            
         }
 
-
+        int _TimeOut = 250;
 
         ScanResults _scannResults = new ScanResults();
+        DataView dv_resultTable;
 
         ScanningMethode_ARP scanningMethode_ARP;
         ScanningMethods_Ping scanningMethods_Ping;
@@ -144,15 +169,42 @@ namespace MyNetworkMonitor
             }
         }
 
+      
 
         private void bt_ScanIP_Click(object sender, RoutedEventArgs e)
         {
-            DoWork(new List<string> { tb_IP_Address.Text });
+            List<string> IPs = new List<string>();
+            List<int> TCPPorts = new List<int>();
+
+
+            if (!string.IsNullOrEmpty(tb_IP_Address.Text))
+            {
+                IPs.Add(tb_IP_Address.Text);
+            }
+            else
+            {
+                foreach (DataRowView row in dgv_Results.SelectedItems)
+                {
+                    IPs.Add(row.Row["IP"].ToString());
+                }
+            }
+
+            if (!string.IsNullOrEmpty(tb_TCPPorts.Text))
+            {
+                TCPPorts.AddRange(tb_TCPPorts.Text.Split(',')?.Select(Int32.Parse)?.ToList());
+            }
+            else
+            {
+                TCPPorts.AddRange(scanningMethode_Ports.TCPPorts); 
+            }
+            IPsToRefresh = IPs;
+            DoWork(IPs, TCPPorts, null, null, _TimeOut, true);
         }
 
 
         private void bt_Scan_IP_Ranges_Click(object sender, RoutedEventArgs e)
         {
+            IPsToRefresh.Clear();
             List<string> IPs = new List<string>();
 
             string myIP = new SupportMethods().GetLocalIPv4(System.Net.NetworkInformation.NetworkInterfaceType.Ethernet);
@@ -162,42 +214,17 @@ namespace MyNetworkMonitor
             //myIP = "172.27.6.25";
             myIP = String.Join(".", myIP.Split(".")[0], myIP.Split(".")[1], myIP.Split(".")[2], "{0}");
 
-            for (int i = 2; i < 254; i++)
+            for (int i = 1; i < 255; i++)
             {
                 IPs.Add(string.Format(myIP, i));
             }
 
-            DoWork(IPs);
+            DoWork(IPs, null, null,null, _TimeOut);
         }
 
-
-        public void DoWork(List<string> IPs)
+        List<string> IPsToRefresh = new List<string>();
+        public void DoWork(List<string> IPsToScan, List<int>TCP_Ports, List<int>Udp_Ports, List<string>DNS_Server, int TimeOut, bool RefreshOnlySelectedIP = false)
         {
-            scanningMethode_ARP.ARP_A_newDevice += ARP_A_Finished;
-
-            scanningMethods_Ping.Ping_Task_Finished += Ping_Task_Finished;
-            scanningMethods_Ping.PingFinished += PingFinished_Event;
-
-            scanningMethode_SSDP_UPNP.SSDP_NewDevice += SSDP_NewDevice;
-            scanningMethode_SSDP_UPNP.SSDP_Scan_Finished += SSDP_Scan_Finished;
-
-            scanningMethode_DNS.GetHostAndAliasFromIP_Task_Finished += DNS_GetHostAndAliasFromIP_Task_Finished;
-            scanningMethode_DNS.GetHostAndAliasFromIP_Finished += DNS_GetHostAndAliasFromIP_Finished;
-
-            scanningMethode_ARP.ARP_Request_Task_Finished += ARP_Request_Task_Finished;
-            scanningMethode_ARP.ARP_Request_Finished += ARP_Request_Finished;
-
-            scanningMethod_ReverseLookUp.ReverseLookup_Task_Finished += ReverseLookup_Task_Finished;
-            scanningMethod_ReverseLookUp.ReverseLookup_Finished += ReverseLookup_Finished;
-
-            scanningMethode_Ports.TcpPortScan_Task_Finished += TcpPortScan_Task_Finished;
-            scanningMethode_Ports.TcpPortScan_Finished += TcpPortScan_Finished;
-
-            scanningMethode_Ports.UDPPortScan_Task_Finished += UDPPortScan_Task_Finished;
-            scanningMethode_Ports.UDPPortScan_Finished += UDPPortScan_Finished;
-
-
-
             currentPingCount = 0;
             CountedPings = 0;
 
@@ -219,26 +246,29 @@ namespace MyNetworkMonitor
             current_UDPPortScan_Count=0;
             Counted_UDPPortScans= 0;
 
+            if (TCP_Ports == null) TCP_Ports = scanningMethode_Ports.TCPPorts;
+            if (Udp_Ports == null) Udp_Ports = scanningMethode_Ports.UDPPorts;
+
 
             foreach (DataRow row in _scannResults.ResultTable.Rows)
             {
-                if ((bool)chk_Methodes_ARP.IsChecked) row["ARPStatus"] = null;
-                if ((bool)chk_Methodes_Ping.IsChecked) row["PingStatus"] = null;
-                if ((bool)chk_Methodes_SSDP.IsChecked) row["SSDPStatus"] = null;
+                if ((bool)chk_Methodes_ARP.IsChecked && !RefreshOnlySelectedIP) row["ARPStatus"] = null;
+                if ((bool)chk_Methodes_Ping.IsChecked && !RefreshOnlySelectedIP) row["PingStatus"] = null;
+                if ((bool)chk_Methodes_SSDP.IsChecked && !RefreshOnlySelectedIP) row["SSDPStatus"] = null;
 
-                if ((bool)chk_Methodes_ScanTCPPorts.IsChecked) row["OpenTCP_Ports"] = null;
-                if ((bool)chk_Methodes_ScanUDPPorts.IsChecked) row["OpenUDP_Ports"] = null;
+                if ((bool)chk_Methodes_ScanTCPPorts.IsChecked && !RefreshOnlySelectedIP) row["OpenTCP_Ports"] = null;
+                if ((bool)chk_Methodes_ScanUDPPorts.IsChecked && !RefreshOnlySelectedIP) row["OpenUDP_Ports"] = null;
 
-                row["ResponseTime"] = string.Empty;
+                if(!RefreshOnlySelectedIP) row["ResponseTime"] = string.Empty;
 
-                if ((bool)chk_Methodes_RefreshHostnames.IsChecked)
+                if ((bool)chk_Methodes_RefreshHostnames.IsChecked && !RefreshOnlySelectedIP)
                 {
                     row["Hostname"] = string.Empty;
                     row["Aliases"] = string.Empty;
                 }
 
 
-                if ((bool)chk_Methodes_Refresh_ReverseNSLookUp.IsChecked)
+                if ((bool)chk_Methodes_Refresh_ReverseNSLookUp.IsChecked && !RefreshOnlySelectedIP)
                 {
                     row["ReverseLookUpStatus"] = null;
                     row["ReverseLookUpIPs"] = string.Empty;
@@ -254,17 +284,17 @@ namespace MyNetworkMonitor
             if ((bool)chk_Methodes_Ping.IsChecked)
             {
                 ping_status= ScanStatus.running;
-                CountedPings = IPs.Count;
+                CountedPings = IPsToScan.Count;
                 Status();
-                scanningMethods_Ping.PingIPsAsync(IPs, null, 1000, false);
+                scanningMethods_Ping.PingIPsAsync(IPsToScan, null, TimeOut, false);
             }
             if ((bool)chk_Methodes_SSDP.IsChecked)
             {
                 ssdp_status= ScanStatus.running;
-                CountedSSDPs = IPs.Count;
+                CountedSSDPs = IPsToScan.Count;
                 Status();
                 Task.Run(() => scanningMethode_SSDP_UPNP.ScanForSSDP());
-            }
+            }               
         }
 
         private void ARP_A_Finished(object? sender, ARP_A_newDevice_EventArgs e)
@@ -336,7 +366,18 @@ namespace MyNetworkMonitor
                 ping_status = ScanStatus.finished;
                 Status();
 
-                List<string> IPs = _scannResults.ResultTable.AsEnumerable().Select(p => p.Field<string>("IP")).ToList();
+
+                List<string> IPs = null;
+                
+                if(IPsToRefresh.Count > 0) 
+                { 
+                    IPs = IPsToRefresh; 
+                }
+                else
+                {
+                    IPs = _scannResults.ResultTable.AsEnumerable().Select(p => p.Field<string>("IP")).ToList();
+                }
+                
 
                 if ((bool)chk_Methodes_RefreshHostnames.IsChecked)
                 {
@@ -354,7 +395,7 @@ namespace MyNetworkMonitor
                     tcp_port_Scan_status = ScanStatus.running;
                     Counted_TCPPortScans = IPs.Count;
                     Status();
-                    Task.Run(() => scanningMethode_Ports.ScanTCPPorts(IPs));
+                    Task.Run(() => scanningMethode_Ports.ScanTCPPorts(IPs, new TimeSpan(0, 0, 0, 0, _TimeOut)));
                 }
                 if ((bool)chk_Methodes_ScanUDPPorts.IsChecked)
                 {
@@ -362,6 +403,7 @@ namespace MyNetworkMonitor
                     Counted_UDPPortScans = IPs.Count;
                     Status();
                     Task.Run(() => scanningMethode_Ports.ScanUDPPorts(IPs));
+                    //}
                 }
             });
         }
@@ -577,6 +619,9 @@ namespace MyNetworkMonitor
             });
         }
 
-       
+        private void slider_TimeOut_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            _TimeOut = (int)slider_TimeOut.Value;
+        }
     }
 }
