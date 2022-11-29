@@ -23,12 +23,12 @@ namespace MyNetworkMonitor
     {
         public ScanningMethods_Ping()
         {
-            
+
         }
 
         public event EventHandler<PingScanFinishedEventArgs>? PingFinished;
         public event EventHandler<Ping_Task_Finished_EventArgs>? Ping_Task_Finished;
-               
+
 
         /// <summary>
         /// to get the Ping result call the Propertie PingResults
@@ -43,43 +43,52 @@ namespace MyNetworkMonitor
             {
                 System.Net.NetworkInformation.Ping p = new System.Net.NetworkInformation.Ping();
                 var task = PingTask(p, ip, Timeout, ShowUnused);
-                if(task != null) tasks.Add(task);
+                if (task != null) tasks.Add(task);
             });
 
             await Task.WhenAll(tasks);
             if (PingFinished != null)
-            {              
+            {
                 PingFinished(this, new PingScanFinishedEventArgs(true));
             }
         }
 
         private async Task PingTask(Ping ping, string ip, int TimeOut, bool ShowUnused)
         {
-            PingReply reply = await ping.SendPingAsync(ip, TimeOut);
+            if (!new SupportMethods().Is_Valid_IP(ip)) return;
 
-            bool PingStatus = false;
-            string IP = string.Empty;
-            string ResponseTime = string.Empty;
-
-            if (reply.Status == IPStatus.Success)
+            try
             {
-                PingStatus = true;
-                IP = reply.Address.ToString();
-                ResponseTime = reply.RoundtripTime.ToString();
+                PingReply reply = await ping.SendPingAsync(ip, TimeOut);
+
+                bool PingStatus = false;
+                string IP = string.Empty;
+                string ResponseTime = string.Empty;
+
+                if (reply.Status == IPStatus.Success)
+                {
+                    PingStatus = true;
+                    IP = reply.Address.ToString();
+                    ResponseTime = reply.RoundtripTime.ToString();
+                }
+                else if (ShowUnused && reply.Status != IPStatus.Success)
+                {
+                    PingStatus = false;
+                    IP = ip;
+                    ResponseTime = string.Empty;
+                }
+
+                if (Ping_Task_Finished != null)
+                {
+                    Ping_Task_Finished(this, new Ping_Task_Finished_EventArgs(PingStatus, IP, ResponseTime));
+                }
             }
-            else if (ShowUnused && reply.Status != IPStatus.Success)
+            catch (Exception)
             {
-                PingStatus = false;
-                IP = ip;
-                ResponseTime = string.Empty;
+                //throw;
             }
 
-            if (Ping_Task_Finished != null)
-            {
-                Ping_Task_Finished(this, new Ping_Task_Finished_EventArgs(PingStatus, IP, ResponseTime));
-            }
-
-        }      
+        }
     }
 
 

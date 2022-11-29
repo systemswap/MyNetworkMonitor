@@ -116,11 +116,11 @@ namespace MyNetworkMonitor
 
         ScanStatus udp_port_Scan_status = ScanStatus.ignored;
         int current_UDPPortScan_Count = 0;
-        int Counted_UDPPortScans = 0;
+        int Counted_UDPListener = 0;
 
         public void Status()
         {
-            lbl_ScanStatus.Content = string.Format($" arp-a: {arp_status.ToString()}            Ping: {ping_status.ToString()} found {currentPingCount} from {CountedPings}             SSDP: {ssdp_status.ToString()} found {currentSSDPCount} from {CountedSSDPs}             Hostnames: {dns_status.ToString()} found {currentHostnameCount.ToString()} from {CountedHostnames.ToString()}             Reverse Lookups: {reverseLookup_status.ToString()} found  {currentReverseLookupCount.ToString()} from {CountedReverseLookups.ToString()}             Mac: {vendor_status.ToString()} found {currentVendorCount} from {CountedVendors}             TCP Ports: {tcp_port_Scan_status.ToString()} Scanned IP: {current_TCPPortScan_Count} from {Counted_TCPPortScans}             UDP Ports: {udp_port_Scan_status.ToString()} Scanned IP: {current_UDPPortScan_Count} from {Counted_UDPPortScans}");
+            lbl_ScanStatus.Content = string.Format($" arp-a: {arp_status.ToString()}            Ping Status: {ping_status.ToString()} {currentPingCount} of {CountedPings}             SSDP Status: {ssdp_status.ToString()} found {currentSSDPCount} from {CountedSSDPs}             Hostnames: {dns_status.ToString()} found {currentHostnameCount.ToString()} from {CountedHostnames.ToString()}             Reverse Lookups: {reverseLookup_status.ToString()} found  {currentReverseLookupCount.ToString()} from {CountedReverseLookups.ToString()}             Mac: {vendor_status.ToString()} found {currentVendorCount} from {CountedVendors}             TCP Scan: {tcp_port_Scan_status.ToString()} {current_TCPPortScan_Count} from {Counted_TCPPortScans}             UDP Scan: {udp_port_Scan_status.ToString()} added: {current_UDPPortScan_Count} of {Counted_UDPListener}");
         }
         #endregion
 
@@ -249,7 +249,7 @@ namespace MyNetworkMonitor
             Counted_TCPPortScans = 0;
 
             current_UDPPortScan_Count=0;
-            Counted_UDPPortScans= 0;
+            Counted_UDPListener= 0;
 
             if (TCP_Ports == null) TCP_Ports = new PortCollection().TCPPorts;
             if (Udp_Ports == null) Udp_Ports = new PortCollection().UDPPorts;
@@ -410,7 +410,7 @@ namespace MyNetworkMonitor
                 if ((bool)chk_Methodes_ScanUDPPorts.IsChecked)
                 {
                     udp_port_Scan_status = ScanStatus.running;
-                    Counted_UDPPortScans = IPs.Count;
+                    Counted_UDPListener = IPs.Count;
                     Status();
                     //Task.Run(() => scanningMethode_PortsUDP.ScanUDPPorts(IPs));
 
@@ -608,16 +608,19 @@ namespace MyNetworkMonitor
                 {
                     int rowIndex = _scannResults.ResultTable.Rows.IndexOf(rows[0]);
                     _scannResults.ResultTable.Rows[rowIndex]["OpenUDP_Ports"] = string.Join("; ", e.OpenPorts.Ports);
+                    ++current_UDPPortScan_Count;
                 }
                 else
                 {
-                    DataRow row = _scannResults.ResultTable.NewRow();
-                    row["IP"] = e.OpenPorts.IP;
-                    row["OpenUDP_Ports"] = string.Join("; ", e.OpenPorts.Ports);
-                    _scannResults.ResultTable.Rows.Add(row);
+                    //use ich you would like to see all UDP Listener incl. IPv6
+                    //DataRow row = _scannResults.ResultTable.NewRow();
+                    //row["IP"] = e.OpenPorts.IP;
+                    //row["OpenUDP_Ports"] = string.Join("; ", e.OpenPorts.Ports);
+                    //_scannResults.ResultTable.Rows.Add(row);
+                    //++current_UDPPortScan_Count;
                 }
 
-                ++current_UDPPortScan_Count;
+                
                 Status();
             });
         }
@@ -626,6 +629,7 @@ namespace MyNetworkMonitor
             Dispatcher.BeginInvoke(() =>
             {
                 udp_port_Scan_status = ScanStatus.finished;
+                Counted_UDPListener = e.UDPListener;
                 Status();
             });
         }

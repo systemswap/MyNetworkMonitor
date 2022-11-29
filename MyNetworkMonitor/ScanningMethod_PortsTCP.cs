@@ -14,6 +14,7 @@ using Rssdp.Infrastructure;
 using static System.Net.Mime.MediaTypeNames;
 using System.Security.Cryptography;
 using System.Windows;
+using System.Text.RegularExpressions;
 
 namespace MyNetworkMonitor
 {
@@ -98,7 +99,11 @@ namespace MyNetworkMonitor
             _tcpPorts.Sort();
             openPorts.openPorts = _tcpPorts;
 
-            if (TcpPortScan_Task_Finished != null) TcpPortScan_Task_Finished(this, new TcpPortScan_Task_FinishedEventArgs(openPorts));
+            if (TcpPortScan_Task_Finished != null)
+            {
+                if (new SupportMethods().Is_Valid_IP(openPorts.IP)) 
+                    TcpPortScan_Task_Finished(this, new TcpPortScan_Task_FinishedEventArgs(openPorts));
+            }
         }
 
 
@@ -106,6 +111,8 @@ namespace MyNetworkMonitor
         {
             try
             {
+                if (!new SupportMethods().Is_Valid_IP(IP)) return -1;
+
                 using (TcpClient tcpclnt = new TcpClient())
                 {
                     await Task.Run(() => tcpclnt.ConnectAsync(IP, port).Wait(TimeOut.Milliseconds, _clt));

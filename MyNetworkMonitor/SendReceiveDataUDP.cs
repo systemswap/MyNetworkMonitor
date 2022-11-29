@@ -5,6 +5,7 @@ using System.Net.Sockets;
 using System.Net;
 using System.Text;
 using System.Threading.Tasks;
+using System.Diagnostics;
 
 namespace MyNetworkMonitor
 {
@@ -65,6 +66,60 @@ namespace MyNetworkMonitor
                     catch { }
 
                 }, state);
+            }
+        }
+
+
+
+
+        public class SimpleSample
+        {
+            private async Task<int> SendRecaive_via_UDP(string IP, int port)
+            {
+                try
+                {
+
+                    // This constructor arbitrarily assigns the local port number.
+                    UdpClient udpClient = new UdpClient(port);
+                    try
+                    {
+                        udpClient.Connect(IP, port);
+
+                        // Sends a message to the host to which you have connected.
+                        Byte[] sendBytes = Encoding.ASCII.GetBytes("Is anybody there?");
+
+                        udpClient.Send(sendBytes, sendBytes.Length);
+
+                        //IPEndPoint object will allow us to read datagrams sent from any source.
+                        IPEndPoint RemoteIpEndPoint = new IPEndPoint(IPAddress.Any, 0);
+
+                        // Blocks until a message returns on this socket from a remote host.
+                        Byte[] receiveBytes = udpClient.Receive(ref RemoteIpEndPoint);
+                        string returnData = Encoding.ASCII.GetString(receiveBytes);
+
+                        // Uses the IPEndPoint object to determine which of these two hosts responded.
+                        Debug.WriteLine("This is the message you received " +
+                                                     returnData.ToString());
+                        Debug.WriteLine("This message was sent from " +
+                                                    RemoteIpEndPoint.Address.ToString() +
+                                                    " on their port number " +
+                                                    RemoteIpEndPoint.Port.ToString());
+
+                        udpClient.Close();
+                        //udpClientB.Close();
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine(e.ToString());
+                    }
+
+
+                }
+                catch (Exception e)
+                {
+                    Debug.WriteLine($"Error Port: {port} {e.Message}");
+                }
+                return -1;
             }
         }
     }
