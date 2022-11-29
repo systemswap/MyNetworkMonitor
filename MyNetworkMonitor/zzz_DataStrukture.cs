@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace MyNetworkMonitor
 {
-    internal class ScanResults
+    public class ScanResults
     {
         public ScanResults()
         {
@@ -37,6 +37,38 @@ namespace MyNetworkMonitor
         { 
             get { return dt_NetworkResults; }
             set { dt_NetworkResults = value; }
+        }
+    }
+
+    public class IPGroups
+    {
+        public IPGroups()
+        {
+            dt.Columns.Add("GroudDescription", typeof(string));
+            dt.Columns.Add("NetworkPart", typeof(string));
+            dt.Columns.Add("FirstHostIP", typeof(int));
+            dt.Columns.Add("LastHostIP", typeof(int));
+            dt.Columns.Add("AutomaticScan", typeof(bool));
+            dt.Columns.Add("ScanintervalMinutes", typeof(int));
+            dt.Columns.Add("DNSServerIP", typeof(int));
+            dt.Columns.Add("GatewayIP", typeof(int));
+        }
+        private DataTable dt = new DataTable();
+
+        public DataTable IPGroup
+        {
+            get { return dt; }
+            set { dt = value; }
+        }
+
+        public DataTable LoadIPGroups()
+        {
+            return dt;
+        }
+
+        public bool SaveIPGroups()
+        {
+            return true;
         }
     }
 }
