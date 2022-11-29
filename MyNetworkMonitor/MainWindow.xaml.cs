@@ -198,7 +198,7 @@ namespace MyNetworkMonitor
                 TCPPorts.AddRange(scanningMethode_Ports.TCPPorts); 
             }
             IPsToRefresh = IPs;
-            DoWork(IPs, TCPPorts, null, null, _TimeOut, true);
+            DoWork(IPs, TCPPorts, null, null, _TimeOut);
         }
 
 
@@ -209,8 +209,8 @@ namespace MyNetworkMonitor
 
             string myIP = new SupportMethods().GetLocalIPv4(System.Net.NetworkInformation.NetworkInterfaceType.Ethernet);
 
-            myIP = "192.168.178.1";
-            //myIP = "10.126.75.1";
+            //myIP = "192.168.178.1";
+            myIP = "10.126.75.1";
             //myIP = "172.27.6.25";
             myIP = String.Join(".", myIP.Split(".")[0], myIP.Split(".")[1], myIP.Split(".")[2], "{0}");
 
@@ -219,11 +219,11 @@ namespace MyNetworkMonitor
                 IPs.Add(string.Format(myIP, i));
             }
 
-            DoWork(IPs, null, null,null, _TimeOut);
+            DoWork(IPs, null, null,null, _TimeOut, true);
         }
 
         List<string> IPsToRefresh = new List<string>();
-        public void DoWork(List<string> IPsToScan, List<int>TCP_Ports, List<int>Udp_Ports, List<string>DNS_Server, int TimeOut, bool RefreshOnlySelectedIP = false)
+        public void DoWork(List<string> IPsToScan, List<int>TCP_Ports, List<int>Udp_Ports, List<string>DNS_Server, int TimeOut, bool ClearTable = false)
         {
             currentPingCount = 0;
             CountedPings = 0;
@@ -252,23 +252,24 @@ namespace MyNetworkMonitor
 
             foreach (DataRow row in _scannResults.ResultTable.Rows)
             {
-                if ((bool)chk_Methodes_ARP.IsChecked && !RefreshOnlySelectedIP) row["ARPStatus"] = null;
-                if ((bool)chk_Methodes_Ping.IsChecked && !RefreshOnlySelectedIP) row["PingStatus"] = null;
-                if ((bool)chk_Methodes_SSDP.IsChecked && !RefreshOnlySelectedIP) row["SSDPStatus"] = null;
+                //if ((bool)chk_Methodes_Ping.IsChecked && !ClearTable) row["PingStatus"] = null;
+                if (IPsToScan.Contains(row["IP"]) || ClearTable) row["ARPStatus"] = null;
+                if (IPsToScan.Contains(row["IP"]) || ClearTable) row["PingStatus"] = null;
+                if (IPsToScan.Contains(row["IP"]) || ClearTable) row["SSDPStatus"] = null;
 
-                if ((bool)chk_Methodes_ScanTCPPorts.IsChecked && !RefreshOnlySelectedIP) row["OpenTCP_Ports"] = null;
-                if ((bool)chk_Methodes_ScanUDPPorts.IsChecked && !RefreshOnlySelectedIP) row["OpenUDP_Ports"] = null;
+                if (IPsToScan.Contains(row["IP"]) || ClearTable) row["OpenTCP_Ports"] = null;
+                if (IPsToScan.Contains(row["IP"]) || ClearTable) row["OpenUDP_Ports"] = null;
 
-                if(!RefreshOnlySelectedIP) row["ResponseTime"] = string.Empty;
+                if(IPsToScan.Contains(row["IP"]) || ClearTable) row["ResponseTime"] = string.Empty;
 
-                if ((bool)chk_Methodes_RefreshHostnames.IsChecked && !RefreshOnlySelectedIP)
+                if (IPsToScan.Contains(row["IP"]) || ClearTable)
                 {
                     row["Hostname"] = string.Empty;
                     row["Aliases"] = string.Empty;
                 }
 
 
-                if ((bool)chk_Methodes_Refresh_ReverseNSLookUp.IsChecked && !RefreshOnlySelectedIP)
+                if (IPsToScan.Contains(row["IP"]) || ClearTable)
                 {
                     row["ReverseLookUpStatus"] = null;
                     row["ReverseLookUpIPs"] = string.Empty;
