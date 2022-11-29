@@ -8,6 +8,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 using static MyNetworkMonitor.ScanningMethod_PortsTCP;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace MyNetworkMonitor
 {
@@ -54,26 +55,25 @@ namespace MyNetworkMonitor
             List<IPEndPoint> endpoints = Task.Run(() => IPGlobalProperties.GetIPGlobalProperties().GetActiveUdpListeners().ToList()).Result;
 
 
-            var bla = endpoints.GroupBy(s => s.Address).ToList();
-            foreach (var item in bla)
+
+            List<System.Linq.IGrouping<System.Net.IPAddress, System.Net.IPEndPoint>> groupedIPEndpoints = endpoints.GroupBy(s => s.Address).ToList();
+            foreach (var item in groupedIPEndpoints)
             {
                 OpenPorts devicePorts = new OpenPorts();
                 devicePorts.IP = item.Key.ToString();
 
                 foreach (var ep in item)
                 {
-
                     devicePorts.Ports.Add(ep.Port);
                 }
                 openPorts.Add(devicePorts);
                 if (UDPPortScan_Task_Finished != null)
                 {
                     if (new SupportMethods().Is_Valid_IP(devicePorts.IP)) UDPPortScan_Task_Finished(this, new UDPPortScan_Task_FinishedEventArgs(devicePorts));
-                }
-                        
+                }                        
             }
 
-            if (UDPPortScan_Finished != null) UDPPortScan_Finished(this, new UDPPortScan_Finished_EventArgs(true, bla.Count));
+            if (UDPPortScan_Finished != null) UDPPortScan_Finished(this, new UDPPortScan_Finished_EventArgs(true, groupedIPEndpoints.Count));
 
             return openPorts;
         }        
