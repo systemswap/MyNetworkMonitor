@@ -51,7 +51,7 @@ namespace MyNetworkMonitor
         public List<OpenPorts> Get_All_UPD_Listener_as_List()
         {
             List<OpenPorts> openPorts = new List<OpenPorts>();
-            List<IPEndPoint> endpoints = IPGlobalProperties.GetIPGlobalProperties().GetActiveUdpListeners().ToList();
+            List<IPEndPoint> endpoints = Task.Run(() => IPGlobalProperties.GetIPGlobalProperties().GetActiveUdpListeners().ToList()).Result;
 
 
             var bla = endpoints.GroupBy(s => s.Address).ToList();
@@ -63,136 +63,22 @@ namespace MyNetworkMonitor
                 foreach (var ep in item)
                 {
 
-                    devicePorts.Ports.Add(ep.Port); 
+                    devicePorts.Ports.Add(ep.Port);
                 }
                 openPorts.Add(devicePorts);
-                if (UDPPortScan_Task_Finished != null) UDPPortScan_Task_Finished(this, new UDPPortScan_Task_FinishedEventArgs(devicePorts));
+                if (UDPPortScan_Task_Finished != null)
+                {
+                    if (new SupportMethods().Is_Valid_IP(devicePorts.IP)) UDPPortScan_Task_Finished(this, new UDPPortScan_Task_FinishedEventArgs(devicePorts));
+                }
+                        
             }
+
+            if (UDPPortScan_Finished != null) UDPPortScan_Finished(this, new UDPPortScan_Finished_EventArgs(true, bla.Count));
+
             return openPorts;
-        }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        public async void ScanUDPPorts(List<string> IPs)
-        {
-            var tasks = new List<Task>();
-
-            foreach (var ip in IPs)
-            {
-                var task = ScanUDPPorts_Task(ip, new PortCollection().UDPPorts);
-                tasks.Add(task);
-            }
-
-            await Task.WhenAll(tasks);
-
-            if (UDPPortScan_Finished != null) UDPPortScan_Finished(this, new UDPPortScan_Finished_EventArgs(true));
-        }
-
-        public async void ScanUDPPorts(List<string> IPs, List<int> UDP_Ports)
-        {
-            var tasks = new List<Task>();
-
-            foreach (var ip in IPs)
-            {
-                var task = ScanUDPPorts_Task(ip, UDP_Ports);
-                tasks.Add(task);
-            }
-
-            await Task.WhenAll(tasks);
-
-            if (UDPPortScan_Finished != null) UDPPortScan_Finished(this, new UDPPortScan_Finished_EventArgs(true));
-        }
-
-        private async Task ScanUDPPorts_Task(string IP, List<int> Ports)
-        {
-            List<int> _UDPPorts = new List<int>();
-
-            OpenPorts openPorts = new OpenPorts();
-
-            openPorts.IP = IP;
-
-            var tasks = new List<Task>();
-
-            Parallel.ForEach(Ports, port =>
-            {
-                var task = ScanUDP_Port(IP, port);
-                if (task.Result != -1) _UDPPorts.Add(task.Result);
-                tasks.Add(task);
-            });
-
-            await Task.WhenAll(tasks);
-            _UDPPorts.Sort();
-            openPorts.Ports = _UDPPorts;
-
-            if (UDPPortScan_Task_Finished != null) UDPPortScan_Task_Finished(this, new UDPPortScan_Task_FinishedEventArgs(openPorts));
-        }
-
-
-        UdpClient udp_clnt;
-        private async Task<int> ScanUDP_Port(string IP, int port)
-        {
-            try
-            {
-
-                // This constructor arbitrarily assigns the local port number.
-                UdpClient udpClient = new UdpClient(port);
-                try
-                {
-                    udpClient.Connect(IP, port);
-
-                    // Sends a message to the host to which you have connected.
-                    Byte[] sendBytes = Encoding.ASCII.GetBytes("Is anybody there?");
-
-                    udpClient.Send(sendBytes, sendBytes.Length);
-
-                    //IPEndPoint object will allow us to read datagrams sent from any source.
-                    IPEndPoint RemoteIpEndPoint = new IPEndPoint(IPAddress.Any, 0);
-
-                    // Blocks until a message returns on this socket from a remote host.
-                    Byte[] receiveBytes = udpClient.Receive(ref RemoteIpEndPoint);
-                    string returnData = Encoding.ASCII.GetString(receiveBytes);
-
-                    // Uses the IPEndPoint object to determine which of these two hosts responded.
-                    Debug.WriteLine("This is the message you received " +
-                                                 returnData.ToString());
-                    Debug.WriteLine("This message was sent from " +
-                                                RemoteIpEndPoint.Address.ToString() +
-                                                " on their port number " +
-                                                RemoteIpEndPoint.Port.ToString());
-
-                    udpClient.Close();
-                    //udpClientB.Close();
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine(e.ToString());
-                }
-
-
-            }
-            catch (Exception e)
-            {
-                Debug.WriteLine($"Error Port: {port} {e.Message}");
-            }
-            return -1;
-        }
+        }        
     }
 }
-
-
-
-
 
 
 public class OpenPorts
@@ -217,11 +103,18 @@ public class UDPPortScan_Task_FinishedEventArgs : EventArgs
 
 public class UDPPortScan_Finished_EventArgs : EventArgs
 {
-    public UDPPortScan_Finished_EventArgs(bool Finished)
+    public UDPPortScan_Finished_EventArgs(bool Finished, int UDPListener)
     {
         _finished = Finished;
+        _listener = UDPListener;
     }
     private bool _finished = false;
     public bool Finished { get { return _finished; } }
+
+    private int _listener = 0;
+    public int UDPListener
+    {
+        get { return _listener; }
+    }
 
 }

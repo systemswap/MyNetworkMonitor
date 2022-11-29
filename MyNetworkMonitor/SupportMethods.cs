@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Reflection.PortableExecutable;
@@ -89,6 +90,21 @@ namespace MyNetworkMonitor
         public string[] GetHeader()
         {
             return header!.Skip(1).ToArray();
+        }
+
+       
+
+        public bool Is_Valid_IP(string ip)
+        {
+            try
+            {
+                IPAddress.Parse(ip);
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
         }
     }
 }
