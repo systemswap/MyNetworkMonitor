@@ -82,8 +82,8 @@
                 <CheckBox x:Name="chk_Methodes_Refresh_MacVendor" Content="Mac / Vendors" Grid.Column="7" Margin="0,6,0,-1" HorizontalAlignment="Center" Width="102"/>
 
                 <CheckBox x:Name="chk_Methodes_ScanTCPPorts" Content="TCP Ports" Grid.Column="8" Margin="0,6,0,-1" HorizontalAlignment="Center" Width="78"/>
-                <CheckBox x:Name="chk_Methodes_ScanUDPPorts" Content="UDP Ports" Grid.Column="9" Margin="10,6,0,-1" HorizontalAlignment="Left" Width="81" Grid.ColumnSpan="2" IsEnabled="False"/>
-                <TextBox x:Name="tb_IP_Address" Grid.Column="10" HorizontalAlignment="Left" TextWrapping="Wrap" VerticalAlignment="Center" Width="106" Height="20" Margin="75,0,0,0"/>
+                <CheckBox x:Name="chk_Methodes_ScanUDPPorts" Content="UDP Ports" Grid.Column="9" Margin="10,6,0,-1" HorizontalAlignment="Left" Width="81" Grid.ColumnSpan="2"/>
+                <TextBox x:Name="tb_IP_Address" Grid.Column="10" HorizontalAlignment="Right" TextWrapping="Wrap" VerticalAlignment="Center" Width="106" Height="20" Margin="0,0,8,0"/>
                 <TextBox x:Name="tb_TCPPorts" Grid.Column="11" HorizontalAlignment="Left" TextWrapping="Wrap" VerticalAlignment="Center" Width="84" Height="16" Margin="7,0,0,0"/>
                 <Button x:Name="bt_ScanIP" Grid.Column="13" Content="Scan Selected IP" VerticalAlignment="Bottom" Height="20" Click="bt_ScanIP_Click" HorizontalAlignment="Center" Width="108" Margin="0,0,0,5"/>
                 <TextBox x:Name="tb_UDPPorts" Grid.Column="12" HorizontalAlignment="Left" TextWrapping="Wrap" VerticalAlignment="Center" Width="86" Height="17" Margin="10,0,0,0"/>
@@ -97,8 +97,8 @@
                     <RowDefinition Height="50*"/>
                 </Grid.RowDefinitions>
                 <DataGrid x:Name="dgv_Results" Grid.Column="0" Margin="10,10,10,10" Grid.Row="0" AutoGeneratingColumn="dgv_Devices_OnAutoGeneratingColumn">
-                                        
-                    
+
+
                     <DataGrid.Resources>
                         <DataTemplate x:Key="ARPStatus">
                             <Image Source="{Binding Path=ARPStatus}" Width="16" Height="16"/>
@@ -126,7 +126,7 @@
                     <Label Content="Filter:" HorizontalAlignment="Left" Margin="34,0,0,0" VerticalAlignment="Center"/>
                 </Grid>
             </Grid>
-            <Slider x:Name="slider_TimeOut" HorizontalAlignment="Center" VerticalAlignment="Center" Width="230" Maximum="3000" Minimum="10" Value="250" TickFrequency="10" SmallChange="10" LargeChange="50" Grid.Row="1" IsSnapToTickEnabled="True" ValueChanged="slider_TimeOut_ValueChanged"/>
+            <Slider x:Name="slider_TimeOut" HorizontalAlignment="Center" VerticalAlignment="Center" Width="230" Maximum="3000" Minimum="10" Value="500" TickFrequency="10" SmallChange="10" LargeChange="50" Grid.Row="1" IsSnapToTickEnabled="True" ValueChanged="slider_TimeOut_ValueChanged"/>
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="125"/>

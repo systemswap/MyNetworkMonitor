@@ -14,9 +14,9 @@ using System.Threading.Tasks;
 
 namespace MyNetworkMonitor
 {
-    internal class ScanningMethode_SSDP_UPNP
+    internal class ScanningMethod_SSDP_UPNP
     {
-        public ScanningMethode_SSDP_UPNP()
+        public ScanningMethod_SSDP_UPNP()
         {
             
         }       

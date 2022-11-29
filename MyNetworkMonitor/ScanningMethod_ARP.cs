@@ -11,9 +11,9 @@ using System.Threading.Tasks;
 
 namespace MyNetworkMonitor
 {
-    internal class ScanningMethode_ARP
+    internal class ScanningMethod_ARP
     {
-        public ScanningMethode_ARP()
+        public ScanningMethod_ARP()
         {
            
         }
