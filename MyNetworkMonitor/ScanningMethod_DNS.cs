@@ -6,9 +6,9 @@ using System.Threading.Tasks;
 
 namespace MyNetworkMonitor
 {
-    internal class ScanningMethode_DNS
+    internal class ScanningMethod_DNS
     {
-        public ScanningMethode_DNS()
+        public ScanningMethod_DNS()
         {
             
         }

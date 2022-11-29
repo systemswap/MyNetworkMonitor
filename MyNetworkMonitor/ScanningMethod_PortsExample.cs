@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace MyNetworkMonitor
 {
-    internal class ScanningMethod_Ports
+    internal class ScanningMethod_PortsExample
     {
         public bool IsPortOpen(string host_or_ip, int port, TimeSpan timeout)
         {
