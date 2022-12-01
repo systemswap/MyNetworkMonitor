@@ -64,18 +64,20 @@ namespace MyNetworkMonitor
             {
                 try
                 {
-                    IPGroupsDS.ReadXml(_ipGroupsXML);
+                    ipGroupData.IPGroupsDT.ReadXml(_ipGroupsXML);
                 }
                 catch (Exception)
                 {
 
                 }
             }
+
+            DataContext = ipGroupData.IPGroupsDT.DefaultView;
         }
 
 
         string _ipGroupsXML = Path.Combine(Environment.CurrentDirectory, @"Settings\ipGroups.xml");
-        DataSet IPGroupsDS = new DataSet();
+        IPGroupData ipGroupData = new IPGroupData();
 
         List<string> IPsToRefresh = new List<string>();
         int _TimeOut = 250;
@@ -137,7 +139,33 @@ namespace MyNetworkMonitor
         }
         #endregion
 
-        private void dgv_Devices_OnAutoGeneratingColumn(object sender, DataGridAutoGeneratingColumnEventArgs e)
+        private void dgv_IPRanges_OnAutoGeneratingColumn(object sender, DataGridAutoGeneratingColumnEventArgs e)
+        {
+            if (e.PropertyName == "GroupDescription")
+            {
+                // replace text column with image column
+                e.Column.Visibility = Visibility.Hidden;
+            }
+
+            if (e.PropertyName == "AutomaticScan")
+            {
+                // replace text column with image column
+                e.Column.Visibility = Visibility.Hidden;
+            }
+
+            if (e.PropertyName == "ScanIntervalMinutes")
+            {
+                // replace text column with image column
+                e.Column.Visibility = Visibility.Hidden;
+            }
+
+            if (e.PropertyName == "GatewayIP")
+            {
+                e.Column.Visibility = Visibility.Hidden;                
+            }
+        }
+
+            private void dgv_ScanResults_OnAutoGeneratingColumn(object sender, DataGridAutoGeneratingColumnEventArgs e)
         {
             if (e.PropertyName == "ARPStatus")
             {
@@ -656,7 +684,7 @@ namespace MyNetworkMonitor
 
         private void bt_Edit_IP_Range_Click(object sender, RoutedEventArgs e)
         {
-            ManageIPGroups groups = new ManageIPGroups(IPGroupsDS, _ipGroupsXML);
+            ManageIPGroups groups = new ManageIPGroups(ipGroupData.IPGroupsDT, _ipGroupsXML);
             groups.ShowDialog();
         }
     }
