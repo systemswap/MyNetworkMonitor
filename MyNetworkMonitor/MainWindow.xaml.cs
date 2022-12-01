@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
@@ -59,10 +60,22 @@ namespace MyNetworkMonitor
             dv_resultTable = new DataView(_scannResults.ResultTable);
             dgv_Results.ItemsSource = dv_resultTable;
 
-            
+            if (File.Exists(_ipGroupsXML))
+            {
+                try
+                {
+                    IPGroupsDS.ReadXml(_ipGroupsXML);
+                }
+                catch (Exception)
+                {
+
+                }
+            }
         }
 
-       
+
+        string _ipGroupsXML = Path.Combine(Environment.CurrentDirectory, @"Settings\ipGroups.xml");
+        DataSet IPGroupsDS = new DataSet();
 
         List<string> IPsToRefresh = new List<string>();
         int _TimeOut = 250;
@@ -637,6 +650,14 @@ namespace MyNetworkMonitor
         private void slider_TimeOut_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
             _TimeOut = (int)slider_TimeOut.Value;
+        }
+
+       
+
+        private void bt_Edit_IP_Range_Click(object sender, RoutedEventArgs e)
+        {
+            ManageIPGroups groups = new ManageIPGroups(IPGroupsDS, _ipGroupsXML);
+            groups.ShowDialog();
         }
     }
 }

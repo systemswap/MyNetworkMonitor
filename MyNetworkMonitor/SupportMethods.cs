@@ -96,15 +96,50 @@ namespace MyNetworkMonitor
 
         public bool Is_Valid_IP(string ip)
         {
-            try
+            // (?!0) check if the numeric part starts with zero
+            string pattern = "" +
+                "^(?!0)(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\." +
+                "(?!0)(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\." +
+                "(?!0)(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\." +
+                "(?!0)(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$";
+
+            Regex regex = new Regex(pattern);
+
+            return regex.IsMatch(ip);            
+        }
+
+        public class ValidAndCleanedIP 
+        { 
+            public bool IsValid { get; set; }
+            public string IP { get; set; }
+        }
+        public ValidAndCleanedIP ValidAndCleanIP(string ip)
+        {
+            // ^(?!0)(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?) (?!0) check if the numeric part starts not with zero, optional you can use this pattern (25[0-5]|2[0-4][0-9]|[1][0-9][0-9]|[1][0-9]|[1-9])
+            // there is no check for leading zero becaus there is it possible to order the IP Addresses
+            string pattern = "" +
+                "^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\." +
+                "(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\." +
+                "(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\." +
+                "(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$";
+
+            Regex regex = new Regex(pattern);
+            bool test = regex.IsMatch(ip);
+
+            ValidAndCleanedIP validAndCleanedIP = new ValidAndCleanedIP();
+
+            validAndCleanedIP.IsValid = test;
+            if (test)
             {
-                IPAddress.Parse(ip);
-                return true;
+                //version removes leading zeros after the dots
+                validAndCleanedIP.IP = new Version(ip).ToString();
             }
-            catch (Exception)
+            else
             {
-                return false;
+                validAndCleanedIP.IP = string.Empty;
             }
+
+            return validAndCleanedIP;
         }
     }
 }

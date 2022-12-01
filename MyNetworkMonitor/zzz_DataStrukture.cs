@@ -138,30 +138,36 @@ namespace MyNetworkMonitor
     }
 
 
-    public class IPGroups
+    public class IPGroupData
     {
-        public IPGroups()
+        public IPGroupData()
         {
-            dt.Columns.Add("GroudDescription", typeof(string));
-            dt.Columns.Add("NetworkPart", typeof(string));
-            dt.Columns.Add("FirstHostIP", typeof(int));
-            dt.Columns.Add("LastHostIP", typeof(int));
+            dt.TableName = "IPGroups";
+            dt.Columns.Add("IsActive", typeof(bool));
+            dt.Columns.Add("GroupDescription", typeof(string));
+            dt.Columns.Add("DeviceDescription", typeof(string));
+            dt.Columns.Add("FirstIP", typeof(string));
+            dt.Columns.Add("LastIP", typeof(string));
             dt.Columns.Add("AutomaticScan", typeof(bool));
-            dt.Columns.Add("ScanintervalMinutes", typeof(int));
-            dt.Columns.Add("DNSServerIP", typeof(int));
-            dt.Columns.Add("GatewayIP", typeof(int));
+            dt.Columns.Add("ScanIntervalMinutes", typeof(string));
+            dt.Columns.Add("DNSServer", typeof(string));
+            dt.Columns.Add("GatewayIP", typeof(string));
+
+            ds.Tables.Add(dt);
         }
+
+        private DataSet ds = new DataSet();
         private DataTable dt = new DataTable();
 
-        public DataTable IPGroup
+        public DataSet IPGroupDS
         {
-            get { return dt; }
-            set { dt = value; }
+            get { return ds; }
+            set { ds = value; }
         }
 
-        public DataTable LoadIPGroups()
+        public bool LoadIPGroups()
         {
-            return dt;
+            return true;
         }
 
         public bool SaveIPGroups()
