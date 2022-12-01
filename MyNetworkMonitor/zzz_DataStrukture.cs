@@ -143,26 +143,25 @@ namespace MyNetworkMonitor
         public IPGroupData()
         {
             dt.TableName = "IPGroups";
+
             dt.Columns.Add("IsActive", typeof(bool));
             dt.Columns.Add("GroupDescription", typeof(string));
             dt.Columns.Add("DeviceDescription", typeof(string));
             dt.Columns.Add("FirstIP", typeof(string));
             dt.Columns.Add("LastIP", typeof(string));
-            dt.Columns.Add("AutomaticScan", typeof(bool));
-            dt.Columns.Add("ScanIntervalMinutes", typeof(string));
             dt.Columns.Add("DNSServer", typeof(string));
+            dt.Columns.Add("AutomaticScan", typeof(bool));
+            dt.Columns.Add("ScanIntervalMinutes", typeof(string));            
             dt.Columns.Add("GatewayIP", typeof(string));
-
-            ds.Tables.Add(dt);
         }
 
-        private DataSet ds = new DataSet();
+        
         private DataTable dt = new DataTable();
 
-        public DataSet IPGroupDS
+        public DataTable IPGroupsDT
         {
-            get { return ds; }
-            set { ds = value; }
+            get { return dt; }
+            set { dt = value; }
         }
 
         public bool LoadIPGroups()
