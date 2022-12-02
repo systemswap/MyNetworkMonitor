@@ -12,6 +12,7 @@ namespace MyNetworkMonitor
         public ScanResults()
         {
             dt_NetworkResults.Columns.Add("IPGroup", typeof(string));
+            dt_NetworkResults.Columns.Add("DeviceGroup", typeof(string));
             dt_NetworkResults.Columns.Add("ARPStatus", typeof(byte[]));
             dt_NetworkResults.Columns.Add("PingStatus", typeof(byte[]));
             dt_NetworkResults.Columns.Add("SSDPStatus", typeof(byte[]));
