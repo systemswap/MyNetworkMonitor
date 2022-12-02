@@ -18,7 +18,7 @@ using System.Text.RegularExpressions;
 
 namespace MyNetworkMonitor
 {
-    internal class ScanningMethod_PortsTCP
+    public class ScanningMethod_PortsTCP
     {
         //https://www.codeproject.com/Articles/1415/Introduction-to-TCP-client-server-in-C
 
@@ -45,12 +45,13 @@ namespace MyNetworkMonitor
         public async void ScanTCPPorts(List<string> IPs, TimeSpan TimeOut)
         {
             var tasks = new List<Task>();
-
-            foreach (var ip in IPs)
+           
+            foreach(string ip in IPs)
             {
-                //var task = ScanTCPPorts_Task(ip, new small_TCP_PortScan().Ports);
-                var task = ScanTCPPorts_Task(ip, new PortCollection().TCPPorts, TimeOut);
-                tasks.Add(task);
+                {                   
+                    var task = ScanTCPPorts_Task(ip, new PortCollection().TCPPorts, TimeOut);
+                    tasks.Add(task);
+                }
             }
 
             await Task.WhenAll(tasks);

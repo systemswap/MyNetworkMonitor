@@ -35,7 +35,7 @@ namespace MyNetworkMonitor
         /// </summary>
         /// <param name="IPs"></param>
         /// <param name="DNS_Server_IP"></param>
-        public async void PingIPsAsync(List<IPsToRefresh> IPsToRefresh, bool ShowUnused = true)
+        public async Task PingIPsAsync(List<IPsToRefresh> IPsToRefresh, bool ShowUnused = true)
         {
             var tasks = new List<Task>();
 

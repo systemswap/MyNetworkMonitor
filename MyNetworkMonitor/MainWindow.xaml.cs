@@ -13,6 +13,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using static MyNetworkMonitor.SendReceiveDataUDP;
 using static System.Net.Mime.MediaTypeNames;
 
@@ -145,6 +146,7 @@ namespace MyNetworkMonitor
 
         ScanStatus dns_status = ScanStatus.ignored;
         int currentHostnameCount = 0;
+        int responsedHostNamesCount = 0;
         int CountedHostnames = 0;
 
         ScanStatus reverseLookup_status = ScanStatus.ignored;
@@ -165,7 +167,7 @@ namespace MyNetworkMonitor
 
         public void Status()
         {
-            lbl_ScanStatus.Content = string.Format($" arp-a: {arp_status.ToString()}            Ping Status: {ping_status.ToString()} {currentPingCount} of {CountedPings}             SSDP Status: {ssdp_status.ToString()} found {currentSSDPCount} from {CountedSSDPs}             Hostnames: {dns_status.ToString()} found {currentHostnameCount.ToString()} from {CountedHostnames.ToString()}             Reverse Lookups: {reverseLookup_status.ToString()} found  {currentReverseLookupCount.ToString()} from {CountedReverseLookups.ToString()}             Mac: {vendor_status.ToString()} found {currentVendorCount} from {CountedVendors}             TCP Scan: {tcp_port_Scan_status.ToString()} {current_TCPPortScan_Count} from {Counted_TCPPortScans}             UDP Scan: {udp_port_Scan_status.ToString()} added: {current_UDPPortScan_Count} of {Counted_UDPListener}");
+            lbl_ScanStatus.Content = string.Format($" arp-a: {arp_status.ToString()}            Ping Status: {ping_status.ToString()} {currentPingCount} of {CountedPings}             SSDP Status: {ssdp_status.ToString()} found {currentSSDPCount} from {CountedSSDPs}             Hostnames: {dns_status.ToString()} {currentHostnameCount.ToString()} from {CountedHostnames.ToString()} found {responsedHostNamesCount.ToString()}              Reverse Lookups: {reverseLookup_status.ToString()} found  {currentReverseLookupCount.ToString()} from {CountedReverseLookups.ToString()}             Mac: {vendor_status.ToString()} found {currentVendorCount} from {CountedVendors}             TCP Scan: {tcp_port_Scan_status.ToString()} {current_TCPPortScan_Count} from {Counted_TCPPortScans}             UDP Scan: {udp_port_Scan_status.ToString()} added: {current_UDPPortScan_Count} of {Counted_UDPListener}");
         }
         #endregion
 
@@ -393,20 +395,32 @@ namespace MyNetworkMonitor
                     row["ReverseLookUpIPs"] = string.Empty;
                 }
             }
-
-            if ((bool)chk_Methodes_ARP.IsChecked)
-            {
-                arp_status = ScanStatus.running;
-                Status();
-                await Task.Run(() => scanningMethode_ARP.ARP_A());
-            }
+           
             if ((bool)chk_Methodes_Ping.IsChecked)
             {
                 ping_status= ScanStatus.running;
                 CountedPings = _IPsToRefresh.Count;
                 Status();
-                scanningMethods_Ping.PingIPsAsync(_IPsToRefresh, false);
+                await scanningMethods_Ping.PingIPsAsync(_IPsToRefresh, false);
             }
+
+            if ((bool)chk_Methodes_ARP.IsChecked)
+            {
+                arp_status = ScanStatus.running;
+                Status();
+
+                if ((bool)chk_ARP_DeleteCacheBefore.IsChecked)
+                {
+                    await Task.Run(() => scanningMethode_ARP.DeleteARPCache());
+
+                    foreach (DataRow row in _scannResults.ResultTable.Rows)
+                    {
+                        row["ARPStatus"] = null;
+                    }
+                }
+                Task.Run(() => scanningMethode_ARP.ARP_A());
+            }
+
             if ((bool)chk_Methodes_SSDP.IsChecked)
             {
                 ssdp_status= ScanStatus.running;
@@ -502,6 +516,7 @@ namespace MyNetworkMonitor
                 if ((bool)chk_Methodes_RefreshHostnames.IsChecked)
                 {
                     dns_status = ScanStatus.running;
+                    CountedHostnames = IPsForHostnameScan.Count;
                     Status();
                     Task.Run(() => scanningMethode_DNS.Get_Host_and_Alias_From_IP(IPsForHostnameScan));
                 }
@@ -609,21 +624,26 @@ namespace MyNetworkMonitor
         {
             Dispatcher.BeginInvoke(() =>
             {
-                List<DataRow> rows = _scannResults.ResultTable.Select("IP = '" + e.IP + "'").ToList();
-                if (rows.ToList().Count == 0)
+                if (!string.IsNullOrEmpty(e.Hostname))
                 {
-                    string hostname = e.ResultRow["Hostname"].ToString();
-                    if (!string.IsNullOrEmpty(hostname)) _scannResults.ResultTable.Rows.Add(e.ResultRow.ItemArray);
-                }
-                else
-                {
-                    int rowIndex = _scannResults.ResultTable.Rows.IndexOf(rows[0]);
-                    _scannResults.ResultTable.Rows[rowIndex]["Hostname"] = e.Hostname;
-                    _scannResults.ResultTable.Rows[rowIndex]["Aliases"] = string.Join("\r\n", e.Aliases);
+                    List<DataRow> rows = _scannResults.ResultTable.Select("IP = '" + e.IP + "'").ToList();
+                    if (rows.ToList().Count == 0)
+                    {
+                        string hostname = e.ResultRow["Hostname"].ToString();
+                        if (!string.IsNullOrEmpty(hostname)) _scannResults.ResultTable.Rows.Add(e.ResultRow.ItemArray);
+                        ++responsedHostNamesCount;
+                    }
+                    else
+                    {
+                        int rowIndex = _scannResults.ResultTable.Rows.IndexOf(rows[0]);
+                        _scannResults.ResultTable.Rows[rowIndex]["Hostname"] = e.Hostname;
+                        _scannResults.ResultTable.Rows[rowIndex]["Aliases"] = string.Join("\r\n", e.Aliases);
+                        ++responsedHostNamesCount;
+                    }
                 }
 
                 ++currentHostnameCount;
-                CountedHostnames = e.CountedHostnames;
+                //CountedHostnames = e.CountedHostnames;
                 Status();
             });
         }
