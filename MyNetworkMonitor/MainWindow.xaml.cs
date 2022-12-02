@@ -485,23 +485,25 @@ namespace MyNetworkMonitor
                 ping_status = ScanStatus.finished;
                 Status();
 
+                List<string> IPsForHostnameScan = new List<string>();
+                List<string> IPs = new List<string>();
 
-                List<string> IPs = null;
-                
-                if(_scannResults.ResultTable.Rows.Count > 0)
-                { 
-                    IPs = _scannResults.ResultTable.AsEnumerable().Select(p => p.Field<string>("IP")).ToList();
+                IPs = _scannResults.ResultTable.AsEnumerable().Select(p => p.Field<string>("IP")).ToList();
+
+                if (_scannResults.ResultTable.Rows.Count == 0 || (bool)rb_ScanHostnames_All_IPs.IsChecked)
+                {
+                    IPsForHostnameScan = _IPsToRefresh.Select(i => i.IP).ToList();
                 }
                 else
                 {
-                    IPs = _IPsToRefresh.Select(i => i.IP).ToList();
+                    IPsForHostnameScan = _scannResults.ResultTable.AsEnumerable().Select(p => p.Field<string>("IP")).ToList();                    
                 }
 
                 if ((bool)chk_Methodes_RefreshHostnames.IsChecked)
                 {
                     dns_status = ScanStatus.running;
                     Status();
-                    Task.Run(() => scanningMethode_DNS.Get_Host_and_Alias_From_IP(IPs));
+                    Task.Run(() => scanningMethode_DNS.Get_Host_and_Alias_From_IP(IPsForHostnameScan));
                 }
 
                 if ((bool)chk_Methodes_Refresh_MacVendor.IsChecked)
@@ -610,7 +612,8 @@ namespace MyNetworkMonitor
                 List<DataRow> rows = _scannResults.ResultTable.Select("IP = '" + e.IP + "'").ToList();
                 if (rows.ToList().Count == 0)
                 {
-                    _scannResults.ResultTable.Rows.Add(e.ResultRow.ItemArray);
+                    string hostname = e.ResultRow["Hostname"].ToString();
+                    if (!string.IsNullOrEmpty(hostname)) _scannResults.ResultTable.Rows.Add(e.ResultRow.ItemArray);
                 }
                 else
                 {
