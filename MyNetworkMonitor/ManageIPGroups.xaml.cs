@@ -96,6 +96,14 @@ namespace MyNetworkMonitor
             }
             indexOfCurrentRow = -1;
         }
+
+        private void bt_deleteEntry_Click(object sender, RoutedEventArgs e)
+        {
+            var row = dg_IPGroups.SelectedItems[0];
+            indexOfCurrentRow = dg_IPGroups.Items.IndexOf(row);
+
+            _dt.Rows[indexOfCurrentRow].Delete();
+        }
     }
    
 }
