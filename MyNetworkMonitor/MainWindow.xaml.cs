@@ -725,12 +725,12 @@ namespace MyNetworkMonitor
                 }
                 else
                 {
-                    //use ich you would like to see all UDP Listener incl. IPv6
-                    //DataRow row = _scannResults.ResultTable.NewRow();
-                    //row["IP"] = e.OpenPorts.IP;
-                    //row["OpenUDP_Ports"] = string.Join("; ", e.OpenPorts.Ports);
-                    //_scannResults.ResultTable.Rows.Add(row);
-                    //++current_UDPPortScan_Count;
+                    //use if you would like to see all UDP Listener incl.IPv6
+                    DataRow row = _scannResults.ResultTable.NewRow();
+                    row["IP"] = e.OpenPorts.IP;
+                    row["OpenUDP_Ports"] = string.Join("; ", e.OpenPorts.Ports);
+                    _scannResults.ResultTable.Rows.Add(row);
+                    ++current_UDPPortScan_Count;
                 }
 
                 
