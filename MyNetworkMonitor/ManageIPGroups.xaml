@@ -61,8 +61,8 @@
                     <RowDefinition Height="27*"/>
                     <RowDefinition Height="28*"/>
                 </Grid.RowDefinitions>
-                <Button x:Name="bt_EditRow" Grid.Column="9" Content="edit entry" HorizontalAlignment="Center" Grid.Row="1" VerticalAlignment="Center" Height="20" Width="60" Click="bt_EditRow_Click"/>
-                <Button x:Name="bt_addEntry" Grid.Column="10" Content="add entry" HorizontalAlignment="Center" Grid.Row="1" VerticalAlignment="Center" Width="66" Height="20" Click="bt_addEntry_Click"/>
+                <Button x:Name="bt_EditRow" Grid.Column="8" Content="edit entry" HorizontalAlignment="Left" Grid.Row="1" VerticalAlignment="Center" Height="20" Width="60" Click="bt_EditRow_Click" Margin="10,0,0,0"/>
+                <Button x:Name="bt_addEntry" Grid.Column="9" Content="add entry" HorizontalAlignment="Left" Grid.Row="1" VerticalAlignment="Top" Width="66" Height="20" Click="bt_addEntry_Click" Margin="10,5,0,0"/>
                 <CheckBox x:Name="chk_isActive" Content="is active" HorizontalAlignment="Left" Grid.Row="1" VerticalAlignment="Top" Height="15" Width="78" Margin="27,2,0,0"/>
                 <Label Content="Group Description" Margin="4,0,10,0" VerticalAlignment="Center" Height="24" Grid.Column="1"/>
                 <Label Grid.Column="3" Content="First IP" HorizontalAlignment="Left" VerticalAlignment="Center" Height="26" Width="46" Margin="10,0,0,0"/>
@@ -77,6 +77,7 @@
                 <CheckBox x:Name="chk_AutomaticScan" Grid.Column="6" Content="automatic scan" Margin="0,5,10,0" Grid.Row="1" VerticalAlignment="Top" HorizontalAlignment="Right" Width="100" Height="15"/>
                 <Label Grid.Column="7" Content="scan interval" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Center" Width="100" Height="26"/>
                 <TextBox x:Name="tb_ScanInterval" Grid.Column="7" HorizontalAlignment="Center" Margin="0,2,0,0" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="100" Height="18"/>
+                <Button x:Name="bt_deleteEntry" Grid.Column="10" Content="delete entry" Margin="0,0,10,0" Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Right" Width="76" Click="bt_deleteEntry_Click"/>
             </Grid>
         </Grid>
         <Grid Grid.Row="2">
