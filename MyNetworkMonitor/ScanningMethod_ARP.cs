@@ -31,7 +31,7 @@ namespace MyNetworkMonitor
 
         private uint macAddrLen = (uint)new byte[6].Length;
 
-
+       
         public async Task SendARPRequestAsync(List<string> IPs)
         {
             var tasks = new List<Task>();
@@ -66,6 +66,10 @@ namespace MyNetworkMonitor
                     {
                         ARP_Request_Task_Finished(this, new ARP_Request_Task_Finished_EventArgs(ipAddress.ToString(), mac, support.GetVendorFromMac(mac).First()));
                     }
+                }
+                else
+                {
+                    ARP_Request_Task_Finished(this, new ARP_Request_Task_Finished_EventArgs(string.Empty, string.Empty, string.Empty));
                 }
             }
             catch (Exception e)

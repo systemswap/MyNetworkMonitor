@@ -154,8 +154,9 @@ namespace MyNetworkMonitor
         int CountedReverseLookups = 0;
 
         ScanStatus vendor_status = ScanStatus.ignored;
-        int currentVendorCount = 0;
+        int currentVendorCount = 0;        
         int CountedVendors = 0;
+        int responsedARPRequestCount = 0;
 
         ScanStatus tcp_port_Scan_status = ScanStatus.ignored;
         int current_TCPPortScan_Count = 0;
@@ -167,7 +168,7 @@ namespace MyNetworkMonitor
 
         public void Status()
         {
-            lbl_ScanStatus.Content = string.Format($" arp-a: {arp_status.ToString()}            Ping Status: {ping_status.ToString()} {currentPingCount} of {CountedPings}             SSDP Status: {ssdp_status.ToString()} found {currentSSDPCount} from {CountedSSDPs}             Hostnames: {dns_status.ToString()} {currentHostnameCount.ToString()} from {CountedHostnames.ToString()} found {responsedHostNamesCount.ToString()}              Reverse Lookups: {reverseLookup_status.ToString()} found  {currentReverseLookupCount.ToString()} from {CountedReverseLookups.ToString()}             Mac: {vendor_status.ToString()} found {currentVendorCount} from {CountedVendors}             TCP Scan: {tcp_port_Scan_status.ToString()} {current_TCPPortScan_Count} from {Counted_TCPPortScans}             UDP Scan: {udp_port_Scan_status.ToString()} added: {current_UDPPortScan_Count} of {Counted_UDPListener}");
+            lbl_ScanStatus.Content = string.Format($" arp-a: {arp_status.ToString()}            Ping Status: {ping_status.ToString()} {currentPingCount} of {CountedPings}             SSDP Status: {ssdp_status.ToString()} found {currentSSDPCount} from {CountedSSDPs}             Hostnames: {dns_status.ToString()} {currentHostnameCount.ToString()} from {CountedHostnames.ToString()} found {responsedHostNamesCount.ToString()}              Reverse Lookups: {reverseLookup_status.ToString()} found  {currentReverseLookupCount.ToString()} from {CountedReverseLookups.ToString()}             Mac: {vendor_status.ToString()}  {currentVendorCount} from {CountedVendors} found {responsedARPRequestCount}             TCP Scan: {tcp_port_Scan_status.ToString()} {current_TCPPortScan_Count} from {Counted_TCPPortScans}             UDP Scan: {udp_port_Scan_status.ToString()} added: {current_UDPPortScan_Count} of {Counted_UDPListener}");
         }
         #endregion
 
@@ -404,20 +405,32 @@ namespace MyNetworkMonitor
                 await scanningMethods_Ping.PingIPsAsync(_IPsToRefresh, false);
             }
 
+
+            if ((bool)chk_ARP_DeleteCacheBefore.IsChecked)
+            {
+                foreach (DataRow row in _scannResults.ResultTable.Rows)
+                {
+                    row["ARPStatus"] = null;
+                }
+                await Task.Run(() => scanningMethode_ARP.DeleteARPCache());
+            }
+
+            if ((bool)chk_ARPRequestBeforeARP_a.IsChecked)
+            {
+                List<string> IPs = _IPsToRefresh.Select(ip => ip.IP).ToList();
+
+                CountedVendors = IPs.Count;
+                vendor_status = ScanStatus.running;
+                Status();
+                
+                await Task.Run(() => scanningMethode_ARP.SendARPRequestAsync(IPs));
+            }
+
             if ((bool)chk_Methodes_ARP.IsChecked)
             {
                 arp_status = ScanStatus.running;
                 Status();
 
-                if ((bool)chk_ARP_DeleteCacheBefore.IsChecked)
-                {
-                    await Task.Run(() => scanningMethode_ARP.DeleteARPCache());
-
-                    foreach (DataRow row in _scannResults.ResultTable.Rows)
-                    {
-                        row["ARPStatus"] = null;
-                    }
-                }
                 Task.Run(() => scanningMethode_ARP.ARP_A());
             }
 
@@ -590,6 +603,13 @@ namespace MyNetworkMonitor
         {
             Dispatcher.BeginInvoke(() =>
             {
+                if (string.IsNullOrEmpty(e.IP))
+                {
+                    ++currentVendorCount;
+                    Status();
+                    return;
+                }
+
                 List<DataRow> rows = _scannResults.ResultTable.Select("IP = '" + e.IP + "'").ToList();
                 if (rows.ToList().Count == 0)
                 {
@@ -597,17 +617,19 @@ namespace MyNetworkMonitor
                     row["IP"] = e.IP;
                     row["Mac"] = e.MAC;
                     row["Vendor"] = e.Vendor;
+                    _scannResults.ResultTable.Rows.Add(row);
+                    ++responsedARPRequestCount;
                 }
                 else
                 {
                     int rowIndex = _scannResults.ResultTable.Rows.IndexOf(rows[0]);
                     _scannResults.ResultTable.Rows[rowIndex]["Mac"] = e.MAC;
                     _scannResults.ResultTable.Rows[rowIndex]["Vendor"] = e.Vendor;
+                    ++responsedARPRequestCount;
                 }
+                
+                Status();
             });
-
-            ++currentVendorCount;
-            Status();
         }
         private void ARP_Request_Finished(object? sender, ARP_Request_Finished_EventArgs e)
         {

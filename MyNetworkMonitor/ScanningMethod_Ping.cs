@@ -40,9 +40,8 @@ namespace MyNetworkMonitor
             var tasks = new List<Task>();
 
             Parallel.ForEach(IPsToRefresh, ip =>
-            {
-                System.Net.NetworkInformation.Ping p = new System.Net.NetworkInformation.Ping();
-                var task = PingTask(p, ip.IP, ip.TimeOut, ShowUnused);
+            {                
+                var task = PingTask(ip.IP, ip.TimeOut, ShowUnused);
                 if (task != null) tasks.Add(task);
             });
 
@@ -53,13 +52,20 @@ namespace MyNetworkMonitor
             }
         }
 
-        private async Task PingTask(Ping ping, string ip, int TimeOut, bool ShowUnused)
+        private async Task PingTask(string ip, int TimeOut, bool ShowUnused)
         {
             if (!new SupportMethods().Is_Valid_IP(ip)) return;
 
             try
             {
-                PingReply reply = await ping.SendPingAsync(ip, TimeOut);
+                
+                string data = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+                byte[] buffer = Encoding.ASCII.GetBytes(data);
+
+                PingOptions options = new PingOptions(200, true);
+
+                Ping ping = new Ping();
+                PingReply reply = await ping.SendPingAsync(ip, TimeOut, buffer, options);
 
                 bool PingStatus = false;
                 string IP = string.Empty;
