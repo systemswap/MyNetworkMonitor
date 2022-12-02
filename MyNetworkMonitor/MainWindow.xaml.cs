@@ -396,14 +396,6 @@ namespace MyNetworkMonitor
                     row["ReverseLookUpIPs"] = string.Empty;
                 }
             }
-           
-            if ((bool)chk_Methodes_Ping.IsChecked)
-            {
-                ping_status= ScanStatus.running;
-                CountedPings = _IPsToRefresh.Count;
-                Status();
-                await scanningMethods_Ping.PingIPsAsync(_IPsToRefresh, false);
-            }
 
 
             if ((bool)chk_ARP_DeleteCacheBefore.IsChecked)
@@ -415,7 +407,7 @@ namespace MyNetworkMonitor
                 await Task.Run(() => scanningMethode_ARP.DeleteARPCache());
 
                 await Task.Delay(2000);
-            }
+            }           
 
             if ((bool)chk_ARPRequestBeforeARP_a.IsChecked)
             {
@@ -426,6 +418,14 @@ namespace MyNetworkMonitor
                 Status();
                 
                 await Task.Run(() => scanningMethode_ARP.SendARPRequestAsync(IPs));
+            }
+
+            if ((bool)chk_Methodes_Ping.IsChecked)
+            {
+                ping_status = ScanStatus.running;
+                CountedPings = _IPsToRefresh.Count;
+                Status();
+                await scanningMethods_Ping.PingIPsAsync(_IPsToRefresh, false);
             }
 
             if ((bool)chk_Methodes_ARP.IsChecked)
@@ -802,6 +802,19 @@ namespace MyNetworkMonitor
         {
             ManageIPGroups groups = new ManageIPGroups(ipGroupData.IPGroupsDT, _ipGroupsXML);
             groups.ShowDialog();
+        }
+
+        private void chk_ARP_DeleteCacheBefore_Click(object sender, RoutedEventArgs e)
+        {
+            if ((bool)chk_ARP_DeleteCacheBefore.IsChecked)
+            {
+
+                if (!supportMethods.IsAdministrator())
+                {
+                    chk_ARP_DeleteCacheBefore.IsChecked = false;
+                    MessageBox.Show("you need admin right");
+                }
+            }
         }
     }
 }
