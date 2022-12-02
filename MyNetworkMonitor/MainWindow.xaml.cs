@@ -413,6 +413,8 @@ namespace MyNetworkMonitor
                     row["ARPStatus"] = null;
                 }
                 await Task.Run(() => scanningMethode_ARP.DeleteARPCache());
+
+                await Task.Delay(2000);
             }
 
             if ((bool)chk_ARPRequestBeforeARP_a.IsChecked)
