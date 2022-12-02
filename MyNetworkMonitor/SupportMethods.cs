@@ -6,6 +6,7 @@ using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Reflection.PortableExecutable;
+using System.Security.Principal;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -14,7 +15,14 @@ namespace MyNetworkMonitor
 {
     internal class SupportMethods
     {
-
+        public bool IsAdministrator()
+        {
+            using (WindowsIdentity identity = WindowsIdentity.GetCurrent())
+            {
+                WindowsPrincipal principal = new WindowsPrincipal(identity);
+                return principal.IsInRole(WindowsBuiltInRole.Administrator);
+            }
+        }
 
         public string GetLocalIPv4(NetworkInterfaceType _type)
         {

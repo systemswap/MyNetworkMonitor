@@ -119,7 +119,7 @@
                         <ColumnDefinition/>
                         <ColumnDefinition Width="90"/>
                     </Grid.ColumnDefinitions>
-                    <CheckBox x:Name="chk_ARP_DeleteCacheBefore" Content="arp -d" VerticalAlignment="Center" Height="16" Margin="6,0,6,0"/>
+                    <CheckBox x:Name="chk_ARP_DeleteCacheBefore" Content="arp -d" VerticalAlignment="Center" Height="16" Margin="6,0,6,0" Click="chk_ARP_DeleteCacheBefore_Click"/>
                     <CheckBox x:Name="chk_ARPRequestBeforeARP_a" Grid.Column="1" Content="pre request" VerticalAlignment="Center" Margin="4,0,4,0"/>
                 </Grid>
 
