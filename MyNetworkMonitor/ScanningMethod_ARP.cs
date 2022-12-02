@@ -159,6 +159,36 @@ namespace MyNetworkMonitor
             }
             return output;
         }
+
+        public bool DeleteARPCache()
+        {
+            Process p = null;
+            string output = string.Empty;
+
+            try
+            {
+                p = Process.Start(new ProcessStartInfo("arp", "-d")
+                {
+                    CreateNoWindow = true,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true
+                });
+
+                p.Close();
+            }
+            catch (Exception ex)
+            {
+                //throw new Exception("IPInfo: Error Retrieving 'arp -a' Results", ex);
+            }
+            finally
+            {
+                if (p != null)
+                {
+                    p.Close();
+                }
+            }
+            return true;
+        }
     }
 
     public class ARP_A_newDevice_EventArgs : EventArgs

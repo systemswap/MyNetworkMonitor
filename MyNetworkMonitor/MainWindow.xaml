@@ -93,8 +93,8 @@
                     <ColumnDefinition Width="100"/>
                     <ColumnDefinition Width="124"/>
                 </Grid.ColumnDefinitions>
-                <CheckBox x:Name="chk_Methodes_ARP" Content="arp -a" Margin="0,7,0,0" HorizontalAlignment="Center" Width="62"/>
-                <CheckBox x:Name="chk_Methodes_Ping" Content="Ping" Grid.Column="1" Margin="10,7,0,0" HorizontalAlignment="Left" Width="60"/>
+                <CheckBox x:Name="chk_Methodes_ARP" Content="arp -a" Margin="10,6,0,1" HorizontalAlignment="Left" Width="62" Grid.Column="1"/>
+                <CheckBox x:Name="chk_Methodes_Ping" Content="Ping" Margin="10,4,0,3" HorizontalAlignment="Left" Width="60"/>
                 <CheckBox x:Name="chk_Methodes_SSDP" Content="SSDP" Grid.Column="2" Margin="10,7,0,0" HorizontalAlignment="Left" Width="60"/>
                 <CheckBox x:Name="chk_Methodes_RefreshHostnames" Content="scan Hostname" Grid.Row="0" Grid.Column="4" Margin="10,7,0,0" HorizontalAlignment="Left" Width="106"/>
                 <CheckBox x:Name="chk_Methodes_Refresh_ReverseNSLookUp" Content="Reverse NSLookup" Grid.Row="0" Grid.Column="5" Margin="10,4,0,3" HorizontalAlignment="Left" Width="119"/>
@@ -114,6 +114,7 @@
                     <RadioButton x:Name="rb_ScanHostnames_PingReplyOnly" Content="Ping Reply only" HorizontalAlignment="Left" VerticalAlignment="Center" Height="24" Width="103" Margin="10,0,0,0" IsChecked="True" VerticalContentAlignment="Center"/>
                     <RadioButton x:Name="rb_ScanHostnames_All_IPs" Grid.Column="1" Content="Deep" HorizontalAlignment="Left" VerticalAlignment="Center" Height="24" Width="60" Margin="5,0,0,0" VerticalContentAlignment="Center"/>
                 </Grid>
+                <CheckBox x:Name="chk_ARP_DeleteCacheBefore" Grid.Column="1" Content="1st arp -d" HorizontalAlignment="Left" Margin="23,0,0,0" Grid.Row="1" VerticalAlignment="Center" Grid.ColumnSpan="2"/>
 
 
             </Grid>
@@ -153,7 +154,7 @@
                     <Label Content="Filter:" HorizontalAlignment="Left" Margin="34,0,0,0" VerticalAlignment="Center"/>
                 </Grid>
             </Grid>
-            <Slider x:Name="slider_TimeOut" HorizontalAlignment="Left" VerticalAlignment="Top" Width="311" Maximum="3000" Minimum="10" Value="500" TickFrequency="10" SmallChange="10" LargeChange="50" Grid.Row="1" IsSnapToTickEnabled="True" ValueChanged="slider_TimeOut_ValueChanged" Height="18" Margin="18,7,0,0"/>
+            <Slider x:Name="slider_TimeOut" HorizontalAlignment="Left" VerticalAlignment="Top" Width="311" Maximum="3000" Minimum="10" Value="250" TickFrequency="10" SmallChange="10" LargeChange="50" Grid.Row="1" IsSnapToTickEnabled="True" ValueChanged="slider_TimeOut_ValueChanged" Height="18" Margin="18,7,0,0"/>
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="125"/>
