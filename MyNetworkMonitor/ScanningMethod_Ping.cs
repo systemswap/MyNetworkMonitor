@@ -35,14 +35,14 @@ namespace MyNetworkMonitor
         /// </summary>
         /// <param name="IPs"></param>
         /// <param name="DNS_Server_IP"></param>
-        public async void PingIPsAsync(List<string> IPs, string DNS_Server_IP, int Timeout, bool ShowUnused = true)
+        public async void PingIPsAsync(List<IPsToRefresh> IPsToRefresh, bool ShowUnused = true)
         {
             var tasks = new List<Task>();
 
-            Parallel.ForEach(IPs, ip =>
+            Parallel.ForEach(IPsToRefresh, ip =>
             {
                 System.Net.NetworkInformation.Ping p = new System.Net.NetworkInformation.Ping();
-                var task = PingTask(p, ip, Timeout, ShowUnused);
+                var task = PingTask(p, ip.IP, ip.TimeOut, ShowUnused);
                 if (task != null) tasks.Add(task);
             });
 
