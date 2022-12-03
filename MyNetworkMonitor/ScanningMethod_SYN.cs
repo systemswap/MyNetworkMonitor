@@ -94,10 +94,10 @@ namespace MyNetworkMonitor
                     socket.Connect(new IPEndPoint(IPAddress.Parse(IP), Port));
 
                     //Debug.WriteLine("Connected to server.");
-
-                    //set the lingerstate to perform a reset
+                                        
                     if (PerformRST)
                     {
+                        //set the lingerstate to perform a reset
                         socket.LingerState = new LingerOption(true, 0);
                     }
                     else
@@ -117,7 +117,7 @@ namespace MyNetworkMonitor
         }
 
 
-        public void SynScanAsync(string IP, int Port, TimeSpan timeout)
+        public void SynScanAsync(string IP, int Port, TimeSpan timeout, bool PerformRST = false)
         {
             using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
             {
@@ -128,7 +128,16 @@ namespace MyNetworkMonitor
                     if (ar.IsCompleted)
                     {
                         //Connected
-                        socket.LingerState = new LingerOption(true, 0);
+                                                
+                        if (PerformRST)
+                        {
+                            //set the lingerstate to perform a reset
+                            socket.LingerState = new LingerOption(true, 0);
+                        }
+                        else
+                        {
+                            socket.Close();
+                        }
                     }
                     else
                     {
