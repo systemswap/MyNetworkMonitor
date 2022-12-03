@@ -103,9 +103,6 @@ namespace MyNetworkMonitor
             }
 
             DataContext = ipGroupData.IPGroupsDT.DefaultView;
-
-            ScanningMethod_SYN syn = new ScanningMethod_SYN();
-            syn.SynScan("192.168.178.1", 53, true);
         }
 
 
