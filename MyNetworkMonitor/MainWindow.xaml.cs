@@ -27,6 +27,7 @@ namespace MyNetworkMonitor
 
         public IPsToRefresh(string IP, string GroupDescription, string DeviceDescription, List<int> TCPPorts, List<int> UDPPorts, List<string> DNSServer, int timeOut)
         {
+
             _IP = IP;
             _GroupDescription = GroupDescription;
             _DeviceDescription = DeviceDescription;
@@ -102,6 +103,9 @@ namespace MyNetworkMonitor
             }
 
             DataContext = ipGroupData.IPGroupsDT.DefaultView;
+
+            ScanningMethod_SYN syn = new ScanningMethod_SYN();
+            syn.SynScan("192.168.178.1", 53, true);
         }
 
 
@@ -417,7 +421,7 @@ namespace MyNetworkMonitor
                 vendor_status = ScanStatus.running;
                 Status();
                 
-                await Task.Run(() => scanningMethode_ARP.SendARPRequestAsyncNew(IPs));
+                await Task.Run(() => scanningMethode_ARP.SendARPRequestAsync(IPs));
             }
 
             if ((bool)chk_Methodes_Ping.IsChecked)
