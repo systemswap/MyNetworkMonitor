@@ -30,9 +30,61 @@ namespace MyNetworkMonitor
         private static extern int SendARP(int DestIP, int SrcIP, byte[] pMacAddr, ref uint PhyAddrLen);
        
 
-        private uint macAddrLen = (uint)new byte[6].Length;
 
+        //private uint macAddrLen = (uint)new byte[6].Length;
        
+        //public async Task SendARPRequestAsync(List<string> IPs)
+        //{
+        //    var tasks = new List<Task>();
+
+        //    Parallel.ForEach(IPs, ip =>
+        //    {
+        //        if (!string.IsNullOrEmpty(ip))
+        //        {
+        //            var task = ArpRequestTask(IPAddress.Parse(ip));
+        //            tasks.Add(task);
+        //        }
+        //    });
+        //    await Task.WhenAll(tasks);
+
+        //    if (ARP_Request_Finished != null)
+        //    {
+        //        ARP_Request_Finished(this, new ARP_Request_Finished_EventArgs(true));
+        //    }
+        //}
+
+        //private async Task ArpRequestTask(IPAddress ipAddress)
+        //{
+        //    byte[] macAddr = new byte[6];
+
+        //    try
+        //    {
+        //        _ = await Task.Run(() => SendARP(BitConverter.ToInt32(ipAddress.GetAddressBytes(), 0), 0, macAddr, ref macAddrLen));
+        //        string mac = MacAddresstoString(macAddr);
+        //        if (mac != "00-00-00-00-00-00")
+        //        {
+        //            if (ARP_Request_Task_Finished != null)
+        //            {
+        //                ARP_Request_Task_Finished(this, new ARP_Request_Task_Finished_EventArgs(ipAddress.ToString(), mac, support.GetVendorFromMac(mac).First()));
+        //            }
+        //        }
+        //        else
+        //        {
+        //            if (ARP_Request_Task_Finished != null)
+        //            {
+        //                ARP_Request_Task_Finished(this, new ARP_Request_Task_Finished_EventArgs(string.Empty, string.Empty, string.Empty));
+        //            }
+        //        }
+        //    }
+        //    catch (Exception e)
+        //    {
+        //        //ConsoleExt.WriteLine(e.Message, ConsoleColor.Red);
+        //    }
+        //}
+
+
+
+
         public async Task SendARPRequestAsync(List<string> IPs)
         {
             var tasks = new List<Task>();
@@ -41,7 +93,7 @@ namespace MyNetworkMonitor
             {
                 if (!string.IsNullOrEmpty(ip))
                 {
-                    var task = ArpRequestTask(IPAddress.Parse(ip));
+                    var task = ArpRequestTask(ip);
                     tasks.Add(task);
                 }
             });
@@ -53,65 +105,14 @@ namespace MyNetworkMonitor
             }
         }
 
-        private async Task ArpRequestTask(IPAddress ipAddress)
-        {
-            byte[] macAddr = new byte[6];
-
-            try
-            {
-                _ = await Task.Run(() => SendARP(BitConverter.ToInt32(ipAddress.GetAddressBytes(), 0), 0, macAddr, ref macAddrLen));
-                string mac = MacAddresstoString(macAddr);
-                if (mac != "00-00-00-00-00-00")
-                {
-                    if (ARP_Request_Task_Finished != null)
-                    {
-                        ARP_Request_Task_Finished(this, new ARP_Request_Task_Finished_EventArgs(ipAddress.ToString(), mac, support.GetVendorFromMac(mac).First()));
-                    }
-                }
-                else
-                {
-                    if (ARP_Request_Task_Finished != null)
-                    {
-                        ARP_Request_Task_Finished(this, new ARP_Request_Task_Finished_EventArgs(string.Empty, string.Empty, string.Empty));
-                    }
-                }
-            }
-            catch (Exception e)
-            {
-                //ConsoleExt.WriteLine(e.Message, ConsoleColor.Red);
-            }
-        }
-
-
-
-
-        public async Task SendARPRequestAsyncNew(List<string> IPs)
-        {
-            var tasks = new List<Task>();
-
-            Parallel.ForEach(IPs, ip =>
-            {
-                if (!string.IsNullOrEmpty(ip))
-                {
-                    var task = GetMacUsingARP(ip);
-                    tasks.Add(task);
-                }
-            });
-            await Task.WhenAll(tasks);
-
-            if (ARP_Request_Finished != null)
-            {
-                ARP_Request_Finished(this, new ARP_Request_Finished_EventArgs(true));
-            }
-        }
-
-        private async Task GetMacUsingARP(string IPAddr)
+        private async Task ArpRequestTask(string IPAddr)
         {
             IPAddress IP = IPAddress.Parse(IPAddr);
             byte[] macAddr = new byte[6];
             uint macAddrLen = (uint)macAddr.Length;
 
             int arp_respone = await Task.Run(() => SendARP((int)IP.Address, 0, macAddr, ref macAddrLen));
+
             if (arp_respone != 0)
             {
                 if (ARP_Request_Task_Finished != null)
