@@ -28,6 +28,7 @@ namespace MyNetworkMonitor
 
         [DllImport("iphlpapi.dll", ExactSpelling = true)]
         private static extern int SendARP(int DestIP, int SrcIP, byte[] pMacAddr, ref uint PhyAddrLen);
+       
 
         private uint macAddrLen = (uint)new byte[6].Length;
 
@@ -69,12 +70,69 @@ namespace MyNetworkMonitor
                 }
                 else
                 {
-                    ARP_Request_Task_Finished(this, new ARP_Request_Task_Finished_EventArgs(string.Empty, string.Empty, string.Empty));
+                    if (ARP_Request_Task_Finished != null)
+                    {
+                        ARP_Request_Task_Finished(this, new ARP_Request_Task_Finished_EventArgs(string.Empty, string.Empty, string.Empty));
+                    }
                 }
             }
             catch (Exception e)
             {
                 //ConsoleExt.WriteLine(e.Message, ConsoleColor.Red);
+            }
+        }
+
+
+
+
+        public async Task SendARPRequestAsyncNew(List<string> IPs)
+        {
+            var tasks = new List<Task>();
+
+            Parallel.ForEach(IPs, ip =>
+            {
+                if (!string.IsNullOrEmpty(ip))
+                {
+                    var task = GetMacUsingARP(ip);
+                    tasks.Add(task);
+                }
+            });
+            await Task.WhenAll(tasks);
+
+            if (ARP_Request_Finished != null)
+            {
+                ARP_Request_Finished(this, new ARP_Request_Finished_EventArgs(true));
+            }
+        }
+
+        private async Task GetMacUsingARP(string IPAddr)
+        {
+            IPAddress IP = IPAddress.Parse(IPAddr);
+            byte[] macAddr = new byte[6];
+            uint macAddrLen = (uint)macAddr.Length;
+
+            int arp_respone = await Task.Run(() => SendARP((int)IP.Address, 0, macAddr, ref macAddrLen));
+            if (arp_respone != 0)
+            {
+                if (ARP_Request_Task_Finished != null)
+                {
+                    ARP_Request_Task_Finished(this, new ARP_Request_Task_Finished_EventArgs(string.Empty, string.Empty, string.Empty));
+                }
+                //throw new Exception("ARP command failed");
+            }
+            else
+            {
+                string[] str = new string[(int)macAddrLen];
+                for (int i = 0; i < macAddrLen; i++)
+                {
+                    str[i] = macAddr[i].ToString("x2");
+                }
+                string mac = string.Join("-", str);
+
+                if (ARP_Request_Task_Finished != null)
+                {
+                    ARP_Request_Task_Finished(this, new ARP_Request_Task_Finished_EventArgs(IPAddr, mac, support.GetVendorFromMac(mac).First()));
+                }
             }
         }
 

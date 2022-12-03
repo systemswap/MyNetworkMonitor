@@ -417,7 +417,7 @@ namespace MyNetworkMonitor
                 vendor_status = ScanStatus.running;
                 Status();
                 
-                await Task.Run(() => scanningMethode_ARP.SendARPRequestAsync(IPs));
+                await Task.Run(() => scanningMethode_ARP.SendARPRequestAsyncNew(IPs));
             }
 
             if ((bool)chk_Methodes_Ping.IsChecked)
