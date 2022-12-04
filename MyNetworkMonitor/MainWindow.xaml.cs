@@ -103,6 +103,9 @@ namespace MyNetworkMonitor
             }
 
             DataContext = ipGroupData.IPGroupsDT.DefaultView;
+
+            //ScanningMethod_SYN syn = new ScanningMethod_SYN();
+            //syn.SharpPCap("192.168.178.5", 1234, "192.168.178.5", 53);
         }
 
 
@@ -377,7 +380,7 @@ namespace MyNetworkMonitor
 
                 if ((_IPsToRefresh.Where(i => i.IP == row["IP"].ToString()).Count() == 0 && (bool)chk_Methodes_SSDP.IsChecked) || ClearTable) row["SSDPStatus"] = null;
 
-                if ((_IPsToRefresh.Where(i => i.IP == row["IP"].ToString()).Count() == 0 && (bool)chk_Methodes_ScanTCPPorts.IsChecked) || ClearTable) row["OpenTCP_Ports"] = null;
+                if ((_IPsToRefresh.Where(i => i.IP == row["IP"].ToString()).Count() == 0 && (bool)chk_Methodes_ScanTCPPorts.IsChecked) || ClearTable) row["TCP_Ports"] = null;
                 if ((_IPsToRefresh.Where(i => i.IP == row["IP"].ToString()).Count() == 0 && (bool)chk_Methodes_ScanUDPPorts.IsChecked) || ClearTable) row["OpenUDP_Ports"] = null;
 
 
@@ -728,17 +731,22 @@ namespace MyNetworkMonitor
         {
             Dispatcher.BeginInvoke(() =>
             {
-                DataRow[] rows = _scannResults.ResultTable.Select("IP = '" + e.OpenPorts.IP + "'");
+                List<string> ports= new List<string>();
+                if(e.ScannedPorts.openPorts.Count > 0) ports.Add(string.Format($"Open: {string.Join("; ", e.ScannedPorts.openPorts)}"));
+                if (e.ScannedPorts.FirewallBlockedPorts.Count > 0) ports.Add(string.Format($"ACL blocked: {string.Join("; ", e.ScannedPorts.FirewallBlockedPorts)}"));
+               
+
+                DataRow[] rows = _scannResults.ResultTable.Select("IP = '" + e.ScannedPorts.IP + "'");
                 if (rows.ToList().Count > 0)
                 {
                     int rowIndex = _scannResults.ResultTable.Rows.IndexOf(rows[0]);
-                    _scannResults.ResultTable.Rows[rowIndex]["OpenTCP_Ports"] = string.Join("; ", e.OpenPorts.openPorts);
+                    _scannResults.ResultTable.Rows[rowIndex]["TCP_Ports"] = string.Join("\r\n", ports);
                 }
                 else
                 {
                     DataRow row = _scannResults.ResultTable.NewRow();
-                    row["IP"] = e.OpenPorts.IP;
-                    row["OpenTCP_Ports"] = string.Join("; ", e.OpenPorts.openPorts);
+                    row["IP"] = e.ScannedPorts.IP;
+                    row["TCP_Ports"] = string.Join("\r\n", ports);
                     _scannResults.ResultTable.Rows.Add(row);
                 }
 

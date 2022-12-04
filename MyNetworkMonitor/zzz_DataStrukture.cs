@@ -24,7 +24,7 @@ namespace MyNetworkMonitor
             dt_NetworkResults.Columns.Add("Aliases", typeof(string));
             dt_NetworkResults.Columns.Add("ReverseLookUpStatus", typeof(byte[]));
             dt_NetworkResults.Columns.Add("ReverseLookUpIPs", typeof(string));
-            dt_NetworkResults.Columns.Add("OpenTCP_Ports", typeof(string));
+            dt_NetworkResults.Columns.Add("TCP_Ports", typeof(string));
             dt_NetworkResults.Columns.Add("OpenUDP_Ports", typeof(string));
             dt_NetworkResults.Columns.Add("Comment", typeof(string));
             dt_NetworkResults.Columns.Add("Mac", typeof(string));
