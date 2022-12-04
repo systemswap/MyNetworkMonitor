@@ -93,7 +93,6 @@
                     <ColumnDefinition Width="100"/>
                     <ColumnDefinition Width="124"/>
                 </Grid.ColumnDefinitions>
-                <CheckBox x:Name="chk_Methodes_ARP" Content="arp -a" Margin="0,5,46,1" HorizontalAlignment="Right" Width="76" Grid.Column="1"/>
                 <CheckBox x:Name="chk_Methodes_Ping" Content="Ping" Margin="10,4,0,3" HorizontalAlignment="Left" Width="60"/>
                 <CheckBox x:Name="chk_Methodes_SSDP" Content="SSDP" Grid.Column="2" Margin="0,7,0,0" HorizontalAlignment="Center" Width="60"/>
                 <CheckBox x:Name="chk_Methodes_RefreshHostnames" Content="scan Hostname" Grid.Row="0" Grid.Column="4" Margin="10,7,0,0" HorizontalAlignment="Left" Width="106"/>
@@ -117,11 +116,12 @@
                 <Grid Grid.Column="1" Margin="0,27,0,0" Grid.RowSpan="2">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition/>
-                        <ColumnDefinition Width="90"/>
+                        <ColumnDefinition MinWidth="76"/>
                     </Grid.ColumnDefinitions>
-                    <CheckBox x:Name="chk_ARP_DeleteCacheBefore" Content="arp -d" VerticalAlignment="Center" Height="16" Margin="6,0,6,0" Click="chk_ARP_DeleteCacheBefore_Click"/>
-                    <CheckBox x:Name="chk_ARPRequestBeforeARP_a" Grid.Column="1" Content="pre request" VerticalAlignment="Center" Margin="4,0,4,0"/>
+                    <CheckBox x:Name="chk_ARP_DeleteCacheBefore" Content="arp -d" VerticalAlignment="Center" Height="16" Click="chk_ARP_DeleteCacheBefore_Click" HorizontalAlignment="Center" Width="58"/>
+                    <CheckBox x:Name="chk_Methodes_ARP" Content="arp -a" Margin="14,4,0,-1" HorizontalAlignment="Left" Width="54" Grid.Column="1"/>
                 </Grid>
+                <CheckBox x:Name="chk_ARPRequestBeforeARP_a" Content="arp Request" VerticalAlignment="Top" Margin="37,3,37,0" Grid.Column="1"/>
 
 
             </Grid>
@@ -173,8 +173,8 @@
             <Grid Grid.Column="1">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="171*"/>
-                    <ColumnDefinition Width="159*"/>
-                    <ColumnDefinition Width="686*"/>
+                    <ColumnDefinition Width="162*"/>
+                    <ColumnDefinition Width="683*"/>
                     <ColumnDefinition Width="130"/>
                     <ColumnDefinition Width="107"/>
                     <ColumnDefinition Width="234"/>
