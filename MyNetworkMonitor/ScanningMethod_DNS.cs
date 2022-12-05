@@ -37,7 +37,7 @@ namespace MyNetworkMonitor
                     {
                         _countedHosts++;
                         var task = GetHostAndAliasFromIP_Task(ip);
-                        tasks.Add(task);
+                        if (task != null) tasks.Add(task);
                     });
 
             await Task.WhenAll(tasks);
