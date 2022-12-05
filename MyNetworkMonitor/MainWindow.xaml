@@ -53,7 +53,7 @@
 
                         <Button x:Name="bt_Edit_IP_Range" Content="Edit Range" Margin="210,10,10,10" Grid.Row="0" Click="bt_Edit_IP_Range_Click" />
 
-                        <DataGrid x:Name="dgv_IP_Ranges" Margin="10,10,10,10" Grid.Row="1" Grid.ColumnSpan="2" AutoGeneratingColumn="dgv_IPRanges_OnAutoGeneratingColumn" ItemsSource="{Binding Source={StaticResource cvs}}">
+                        <DataGrid x:Name="dgv_IP_Ranges" Margin="10,10,10,10" Grid.Row="1" Grid.ColumnSpan="2" AutoGeneratingColumn="dgv_IPRanges_OnAutoGeneratingColumn" ItemsSource="{Binding Source={StaticResource cvs}}" CanUserAddRows="False">
                             <DataGrid.GroupStyle>
                                 <GroupStyle HeaderTemplate="{StaticResource ResourceKey=GroupingHeader}" />
                             </DataGrid.GroupStyle>
@@ -131,7 +131,7 @@
                     <RowDefinition Height="629*"/>
                     <RowDefinition Height="50*"/>
                 </Grid.RowDefinitions>
-                <DataGrid x:Name="dgv_Results" Grid.Column="0" Margin="10,10,10,10" Grid.Row="0" AutoGeneratingColumn="dgv_ScanResults_OnAutoGeneratingColumn">
+                <DataGrid x:Name="dgv_Results" Grid.Column="0" Margin="10,10,10,10" Grid.Row="0" AutoGeneratingColumn="dgv_ScanResults_OnAutoGeneratingColumn" CanUserAddRows="False">
 
 
                     <DataGrid.Resources>

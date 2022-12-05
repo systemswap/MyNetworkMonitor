@@ -94,7 +94,7 @@ namespace MyNetworkMonitor
                 if (!string.IsNullOrEmpty(ip))
                 {
                     var task = ArpRequestTask(ip);
-                    tasks.Add(task);
+                    if (task != null) tasks.Add(task);
                 }
             });
             await Task.WhenAll(tasks);

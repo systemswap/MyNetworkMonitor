@@ -30,7 +30,7 @@ namespace MyNetworkMonitor
                 if (!string.IsNullOrEmpty(entry.Value))
                 {
                     var task = ReverseLookupTask(entry.Key, entry.Value);
-                    tasks.Add(task);
+                    if (task != null) tasks.Add(task);
                 }
             }
 

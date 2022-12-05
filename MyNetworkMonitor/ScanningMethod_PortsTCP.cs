@@ -50,7 +50,7 @@ namespace MyNetworkMonitor
             {
                 {                   
                     var task = ScanTCPPorts_Task(ip, new PortCollection().TCPPorts, TimeOut);
-                    tasks.Add(task);
+                    if (task != null) tasks.Add(task);
                 }
             }
 
@@ -67,7 +67,7 @@ namespace MyNetworkMonitor
             foreach (var ip in IPs)
             {
                 var task = ScanTCPPorts_Task(ip, TCP_Ports, TimeOut);
-                tasks.Add(task);
+                if (task != null) tasks.Add(task);
             }
 
             await Task.WhenAll(tasks);
@@ -115,8 +115,7 @@ namespace MyNetworkMonitor
                             default:
                                 break;
                         }
-
-                        tasks.Add(task);
+                        if(task != null) tasks.Add(task);
                     }
                     catch (SocketException ex)
                     {
