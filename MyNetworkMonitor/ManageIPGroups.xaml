@@ -11,12 +11,12 @@
         <CollectionViewSource x:Key="cvs" Source="{Binding}" IsLiveSortingRequested="True" IsLiveGroupingRequested="True">
             <!-- Sorting -->
             <CollectionViewSource.SortDescriptions>
-                <scm:SortDescription PropertyName="GroupDescription" />
+                <scm:SortDescription PropertyName="IPGroupDescription" />
             </CollectionViewSource.SortDescriptions>
 
             <!-- Grouping -->
             <CollectionViewSource.GroupDescriptions>
-                <PropertyGroupDescription PropertyName="GroupDescription"/>
+                <PropertyGroupDescription PropertyName="IPGroupDescription"/>
             </CollectionViewSource.GroupDescriptions>
         </CollectionViewSource>
 

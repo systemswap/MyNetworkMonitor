@@ -85,13 +85,13 @@ namespace MyNetworkMonitor
 
 
 
-        public async Task SendARPRequestAsync(List<string> IPs)
+        public async Task SendARPRequestAsync(List<IPToRefresh> ipsToRefresh)
         {
             var tasks = new List<Task>();
 
-            Parallel.ForEach(IPs, ip =>
+            Parallel.ForEach(ipsToRefresh, ip =>
             {
-                if (!string.IsNullOrEmpty(ip))
+                if (!string.IsNullOrEmpty(ip.IP))
                 {
                     var task = ArpRequestTask(ip);
                     if (task != null) tasks.Add(task);
@@ -105,9 +105,9 @@ namespace MyNetworkMonitor
             }
         }
 
-        private async Task ArpRequestTask(string IPAddr)
+        private async Task ArpRequestTask(IPToRefresh IPAddr)
         {
-            IPAddress IP = IPAddress.Parse(IPAddr);
+            IPAddress IP = IPAddress.Parse(IPAddr.IP);
             byte[] macAddr = new byte[6];
             uint macAddrLen = (uint)macAddr.Length;
 
@@ -117,7 +117,7 @@ namespace MyNetworkMonitor
             {
                 if (ARP_Request_Task_Finished != null)
                 {
-                    ARP_Request_Task_Finished(this, new ARP_Request_Task_Finished_EventArgs(string.Empty, string.Empty, string.Empty));
+                    ARP_Request_Task_Finished(this, new ARP_Request_Task_Finished_EventArgs(string.Empty, string.Empty, string.Empty, string.Empty, string.Empty));
                 }
                 //throw new Exception("ARP command failed");
             }
@@ -132,7 +132,7 @@ namespace MyNetworkMonitor
 
                 if (ARP_Request_Task_Finished != null)
                 {
-                    ARP_Request_Task_Finished(this, new ARP_Request_Task_Finished_EventArgs(IPAddr, mac, support.GetVendorFromMac(mac).First()));
+                    ARP_Request_Task_Finished(this, new ARP_Request_Task_Finished_EventArgs(IPAddr.IPGroupDescription, IPAddr.DeviceGroupDescription, IPAddr.IP, mac, support.GetVendorFromMac(mac).First()));
                 }
             }
         }
@@ -280,12 +280,20 @@ namespace MyNetworkMonitor
 
     public class ARP_Request_Task_Finished_EventArgs : EventArgs
     {
-        public ARP_Request_Task_Finished_EventArgs(string IP, string MAC, string Vendor)
+        public ARP_Request_Task_Finished_EventArgs(string IPGroupDescription, string DeviceDescription,string IP, string MAC, string Vendor)
         {
+            _IPGroupDescription = IPGroupDescription;
+            _DeviceDescription = DeviceDescription;
             _IP = IP;
             _MAC = MAC;
             _Vendor = Vendor;
         }
+
+        string _IPGroupDescription = string.Empty;
+        public string IPGroupDescription { get { return _IPGroupDescription; } }
+
+        string _DeviceDescription = string.Empty;
+        public string DeviceGroupDescription { get { return _DeviceDescription; } }
 
         private string _IP = string.Empty;
         public string IP { get { return _IP; } }

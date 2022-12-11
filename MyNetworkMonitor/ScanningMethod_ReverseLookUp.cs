@@ -21,15 +21,15 @@ namespace MyNetworkMonitor
         public event EventHandler<ReverseLookup_Finished_EventArgs>? ReverseLookup_Finished;
 
 
-        public async void ReverseLookupAsync(Dictionary<string, string> SourceIPsWithHostnames)
+        public async void ReverseLookupAsync(List<IPToRefresh> IPs)
         {
             var tasks = new List<Task>();
 
-            foreach (KeyValuePair<string, string> entry in SourceIPsWithHostnames)
+            foreach (IPToRefresh ip in  IPs)
             {
-                if (!string.IsNullOrEmpty(entry.Value))
+                if (!string.IsNullOrEmpty(ip.Hostname))
                 {
-                    var task = ReverseLookupTask(entry.Key, entry.Value);
+                    var task = ReverseLookupTask(ip);
                     if (task != null) tasks.Add(task);
                 }
             }
@@ -42,16 +42,16 @@ namespace MyNetworkMonitor
             }
         }
 
-        private async Task ReverseLookupTask(string SourceIP, string Hostname)
+        private async Task ReverseLookupTask(IPToRefresh ip)
         {
             try
             {
-                IPHostEntry _entry = await Dns.GetHostEntryAsync(Hostname);
+                IPHostEntry _entry = await Dns.GetHostEntryAsync(ip.Hostname);
 
                 bool _ReverseLookupStatus = false;
                 string _ReverseLookUpIPs = string.Empty;
 
-                if (_entry.AddressList.ToList().Count == 1 && SourceIP == _entry.AddressList[0].ToString())
+                if (_entry.AddressList.ToList().Count == 1 && ip.IP == _entry.AddressList[0].ToString())
                 {
                     _ReverseLookupStatus = true;
                 }
@@ -71,7 +71,7 @@ namespace MyNetworkMonitor
 
                 if (ReverseLookup_Task_Finished != null)
                 {
-                    ReverseLookup_Task_Finished(this, new ReverseLookup_Task_Finished_EventArgs(SourceIP, _ReverseLookupStatus, _ReverseLookUpIPs, _entry));
+                    ReverseLookup_Task_Finished(this, new ReverseLookup_Task_Finished_EventArgs(ip.IP, _ReverseLookupStatus, _ReverseLookUpIPs, _entry));
                 }
             }
             catch (Exception)
