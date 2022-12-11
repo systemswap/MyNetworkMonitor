@@ -35,13 +35,13 @@ namespace MyNetworkMonitor
         /// </summary>
         /// <param name="IPs"></param>
         /// <param name="DNS_Server_IP"></param>
-        public async Task PingIPsAsync(List<IPsToRefresh> IPsToRefresh, bool ShowUnused = true)
+        public async Task PingIPsAsync(List<IPToRefresh> IPsToRefresh, bool ShowUnused = true)
         {
             var tasks = new List<Task>();
 
             Parallel.ForEach(IPsToRefresh, ip =>
             {                
-                var task = PingTask(ip.IP, ip.TimeOut, ShowUnused);
+                var task = PingTask(ip, ip.TimeOut, ShowUnused);
                 if (task != null) tasks.Add(task);
             });
 
@@ -52,20 +52,19 @@ namespace MyNetworkMonitor
             }
         }
 
-        private async Task PingTask(string ip, int TimeOut, bool ShowUnused)
+        private async Task PingTask(IPToRefresh ip, int TimeOut, bool ShowUnused)
         {
-            if (!new SupportMethods().Is_Valid_IP(ip)) return;
+            if (!new SupportMethods().Is_Valid_IP(ip.IP)) return;
 
             try
-            {
-                
-                string data = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+            {                
+                string data = "nothing less than the world domination pinky, nothing less!";
                 byte[] buffer = Encoding.ASCII.GetBytes(data);
 
                 PingOptions options = new PingOptions(200, true);
 
                 Ping ping = new Ping();
-                PingReply reply = await ping.SendPingAsync(ip, TimeOut, buffer, options);
+                PingReply reply = await ping.SendPingAsync(ip.IP, TimeOut, buffer, options);
 
                 bool PingStatus = false;
                 string IP = string.Empty;
@@ -80,20 +79,41 @@ namespace MyNetworkMonitor
                 else if (ShowUnused && reply.Status != IPStatus.Success)
                 {
                     PingStatus = false;
-                    IP = ip;
+                    IP = ip.IP;
                     ResponseTime = string.Empty;
                 }
 
                 if (Ping_Task_Finished != null)
                 {
-                    Ping_Task_Finished(this, new Ping_Task_Finished_EventArgs(PingStatus, IP, ResponseTime));
+                    Ping_Task_Finished(this, new Ping_Task_Finished_EventArgs(ip.IPGroupDescription, ip.DeviceGroupDescription, IP, PingStatus, ResponseTime));
                 }
             }
-            catch (Exception)
+            catch (PingException ex)
             {
-                //throw;
+                throw;
             }
+        }
 
+
+        public async Task<PingReply> PingIPAsync(IPToRefresh ip, int TimeOut)
+        {
+            PingReply reply;
+            try
+            {
+                string data = "nothing less than the world domination pinky, nothing less!";
+                byte[] buffer = Encoding.ASCII.GetBytes(data);
+
+                PingOptions options = new PingOptions(200, true);
+
+                Ping ping = new Ping();
+                reply = await ping.SendPingAsync(ip.IP, TimeOut, buffer, options);
+
+                return reply;               
+            }
+            catch (PingException ex)
+            {
+                throw;
+            }
         }
     }
 
@@ -102,18 +122,26 @@ namespace MyNetworkMonitor
 
     public class Ping_Task_Finished_EventArgs : EventArgs
     {
-        public Ping_Task_Finished_EventArgs(bool PingStatus, string IP, string ResponseTime)
+        public Ping_Task_Finished_EventArgs(string IPGroupDescription, string DeviceGroupDescription, string IP, bool PingStatus, string ResponseTime)
         {
-            _PingStatus= PingStatus;
+            _IPGroupDescription = IPGroupDescription;
+            _DeviceGroupDescription = DeviceGroupDescription;
             _IP = IP;
+            _PingStatus = PingStatus;            
             _ResponseTime = ResponseTime;
         }
 
-        private bool _PingStatus = false;
-        public bool PingStatus { get { return _PingStatus; } }
+        private string _IPGroupDescription = string.Empty;
+        public string IPGroupDescription { get { return _IPGroupDescription; } }
+
+        private string _DeviceGroupDescription = string.Empty;
+        public string DeviceGroupDescription { get { return _DeviceGroupDescription; } }
 
         private string _IP = string.Empty;
         public string IP { get { return _IP; } }
+
+        private bool _PingStatus = false;
+        public bool PingStatus { get { return _PingStatus; } }        
 
         private string _ResponseTime = string.Empty;
         public string ResponseTime { get { return _ResponseTime; } }

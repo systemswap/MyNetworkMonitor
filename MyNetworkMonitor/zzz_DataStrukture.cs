@@ -11,8 +11,8 @@ namespace MyNetworkMonitor
     {
         public ScanResults()
         {
-            dt_NetworkResults.Columns.Add("IPGroup", typeof(string));
-            dt_NetworkResults.Columns.Add("DeviceGroup", typeof(string));            
+            dt_NetworkResults.Columns.Add("IPGroupDescription", typeof(string));
+            dt_NetworkResults.Columns.Add("DeviceGroupDescription", typeof(string));            
             dt_NetworkResults.Columns.Add("PingStatus", typeof(byte[]));
             dt_NetworkResults.Columns.Add("ARPStatus", typeof(byte[]));
             dt_NetworkResults.Columns.Add("SSDPStatus", typeof(byte[]));
@@ -30,6 +30,7 @@ namespace MyNetworkMonitor
             dt_NetworkResults.Columns.Add("Mac", typeof(string));
             dt_NetworkResults.Columns.Add("Vendor", typeof(string));
             dt_NetworkResults.Columns.Add("Exception", typeof(string));
+            dt_NetworkResults.Columns.Add("DNSServer", typeof(string));
         }
 
         public DataTable dt_NetworkResults = new DataTable();
@@ -61,6 +62,8 @@ namespace MyNetworkMonitor
             dt_Ports.Rows.Add(42, true, true, "nameserver");
             dt_Ports.Rows.Add(43, true, false, "WHOIS directory service");
             dt_Ports.Rows.Add(53, true, true, "DNS name resolver");
+            dt_Ports.Rows.Add(67, false, true, "DHCP");
+            dt_Ports.Rows.Add(68, false, true, "DHCP");
             dt_Ports.Rows.Add(80, true, false, "http");
             dt_Ports.Rows.Add(88, true, true, "kerberos Network authentication system");
             dt_Ports.Rows.Add(101, true, false, "hostname NIC host name");
@@ -72,6 +75,8 @@ namespace MyNetworkMonitor
             dt_Ports.Rows.Add(137, true, true, "netbios-ns NETBIOS name service");
             dt_Ports.Rows.Add(138, true, true, "netbios-dgm NETBIOS datagram service");
             dt_Ports.Rows.Add(139, true, true, "netbios-ssn NETBIOS session service");
+            dt_Ports.Rows.Add(161, false, true, "SNMP");
+            dt_Ports.Rows.Add(162, false, true, "SNMP");
             dt_Ports.Rows.Add(194, true, true, "irc Internet relay chat");
             dt_Ports.Rows.Add(199, true, true, "smux SNMP UNIX multiplexer");
             dt_Ports.Rows.Add(443, true, false, "https HTTPS (HTTP over SSL/TLS)");
@@ -146,8 +151,8 @@ namespace MyNetworkMonitor
             dt.TableName = "IPGroups";
 
             dt.Columns.Add("IsActive", typeof(bool));
-            dt.Columns.Add("GroupDescription", typeof(string));
-            dt.Columns.Add("DeviceDescription", typeof(string));
+            dt.Columns.Add("IPGroupDescription", typeof(string));
+            dt.Columns.Add("DeviceGroupDescription", typeof(string));
             dt.Columns.Add("FirstIP", typeof(string));
             dt.Columns.Add("LastIP", typeof(string));
             dt.Columns.Add("DNSServer", typeof(string));

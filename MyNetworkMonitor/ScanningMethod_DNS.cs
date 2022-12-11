@@ -24,7 +24,7 @@ namespace MyNetworkMonitor
         public event EventHandler<GetHostAndAliasFromIP_Task_Finished_EventArgs>? GetHostAndAliasFromIP_Task_Finished;
         public event EventHandler<GetHostAndAliasFromIP_Finished_EventArgs>? GetHostAndAliasFromIP_Finished;
 
-        public async Task Get_Host_and_Alias_From_IP(List<string> IPs)
+        public async Task Get_Host_and_Alias_From_IP(List<IPToRefresh> IPs)
         {
             if (IPs.Count == 0)
             {
@@ -50,22 +50,21 @@ namespace MyNetworkMonitor
 
 
 
-        private async Task GetHostAndAliasFromIP_Task(string ip)
+        private async Task GetHostAndAliasFromIP_Task(IPToRefresh ip)
         {
             IPHostEntry entry = new IPHostEntry();
 
             try
             {
-
-                entry = Dns.GetHostEntryAsync(ip.ToString(), System.Net.Sockets.AddressFamily.InterNetwork).Result;
+                entry = Dns.GetHostEntryAsync(ip.IP.ToString(), System.Net.Sockets.AddressFamily.InterNetwork).Result;
                 if (GetHostAndAliasFromIP_Task_Finished != null)
                 {
-                    GetHostAndAliasFromIP_Task_Finished(this, new GetHostAndAliasFromIP_Task_Finished_EventArgs(ip, entry.HostName, string.Join("\r\n", entry.Aliases)));
+                    GetHostAndAliasFromIP_Task_Finished(this, new GetHostAndAliasFromIP_Task_Finished_EventArgs(ip.IPGroupDescription, ip.DeviceGroupDescription, ip.IP, entry.HostName, string.Join("\r\n", entry.Aliases)));
                 }
             }
             catch (Exception ex)
             {
-                GetHostAndAliasFromIP_Task_Finished(this, new GetHostAndAliasFromIP_Task_Finished_EventArgs(string.Empty, string.Empty, string.Empty));
+                GetHostAndAliasFromIP_Task_Finished(this, null);
             }
         }
     }
@@ -83,22 +82,33 @@ namespace MyNetworkMonitor
         //    _countedHostnames = CountedHostnames;
         //}
 
-        public GetHostAndAliasFromIP_Task_Finished_EventArgs(string IP, string Hostname, string Aliases)
+        public GetHostAndAliasFromIP_Task_Finished_EventArgs(string IPGroupDescription, string DeviceGroupDescription, string IP, string Hostname, string Aliases)
         {
-            _resultRow = results.ResultTable.NewRow();
-            _resultRow["IP"] = _IP = IP;
-            _resultRow["Hostname"] = _Hostname = Hostname;
-            _resultRow["Aliases"] = _Aliases = Aliases;
+            //_resultRow = results.ResultTable.NewRow();
+            //_resultRow["IP"] = _IP = IP;
+            //_resultRow["Hostname"] = _Hostname = Hostname;
+            //_resultRow["Aliases"] = _Aliases = Aliases;
 
             //_currentHostnamesCount = CurrentHostnamesCount;
             //_countedHostnames = CountedHostnames;
+
+            _IPGroupDescription= IPGroupDescription;
+            _DeviceGroupDescription= DeviceGroupDescription;
+            _IP= IP;
+            _Hostname= Hostname;
+            _Aliases= Aliases;
         }
 
         ScanResults results = new ScanResults();
 
-        private DataRow _resultRow;
-        public DataRow ResultRow { get { return _resultRow; } }
+        //private DataRow _resultRow;
+        //public DataRow ResultRow { get { return _resultRow; } }
 
+        private string _IPGroupDescription = string.Empty;
+        public string IPGroupDescription { get { return _IPGroupDescription; } }
+
+        private string _DeviceGroupDescription = string.Empty;
+        public string DeviceGroupDescription { get { return _DeviceGroupDescription; } }
 
         private string _IP = string.Empty;
         public string IP { get { return _IP; } }

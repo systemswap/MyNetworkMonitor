@@ -15,6 +15,7 @@ using static System.Net.Mime.MediaTypeNames;
 using System.Security.Cryptography;
 using System.Windows;
 using System.Text.RegularExpressions;
+using System.Net.NetworkInformation;
 
 namespace MyNetworkMonitor
 {
@@ -42,11 +43,11 @@ namespace MyNetworkMonitor
         }
 
 
-        public async void ScanTCPPorts(List<string> IPs, TimeSpan TimeOut)
+        public async void ScanTCPPorts(List<IPToRefresh> ipsToRefresh, TimeSpan TimeOut)
         {
             var tasks = new List<Task>();
            
-            foreach(string ip in IPs)
+            foreach(IPToRefresh ip in ipsToRefresh)
             {
                 {                   
                     var task = ScanTCPPorts_Task(ip, new PortCollection().TCPPorts, TimeOut);
@@ -60,11 +61,11 @@ namespace MyNetworkMonitor
         }
 
 
-        public async void ScanTCPPorts(List<string> IPs, List<int> TCP_Ports, TimeSpan TimeOut)
+        public async void ScanTCPPorts(List<IPToRefresh> IPs, List<int> TCP_Ports, TimeSpan TimeOut)
         {
             var tasks = new List<Task>();
 
-            foreach (var ip in IPs)
+            foreach (IPToRefresh ip in IPs)
             {
                 var task = ScanTCPPorts_Task(ip, TCP_Ports, TimeOut);
                 if (task != null) tasks.Add(task);
@@ -76,46 +77,55 @@ namespace MyNetworkMonitor
         }
 
 
-        private async Task ScanTCPPorts_Task(string IP, List<int> Ports, TimeSpan TimeOut)
+        private async Task ScanTCPPorts_Task(IPToRefresh IP, List<int> Ports, TimeSpan TimeOut)
         {
             //List<int> _tcpPorts = new List<int>();
 
             ScannedPorts scannedPorts = new ScannedPorts();
+            scannedPorts.IPGroupDescription = IP.IPGroupDescription;
+            scannedPorts.DeviceGroupDescription= IP.DeviceGroupDescription;
+            scannedPorts.IP = IP.IP;
 
-            scannedPorts.IP = IP;
+            List<Task> tasks = new List<Task>();
 
-            var tasks = new List<Task>();
-
-            Parallel.ForEach(Ports, port => 
+            Parallel.ForEach(Ports, async port => 
             {
-                if (!string.IsNullOrEmpty(IP))
+                if (!string.IsNullOrEmpty(IP.IP))
                 {
                     //var task = ScanTCP_Port(IP, port, TimeOut);
                     try
                     {
-                        var task = ScanTCP_Port_via_Socket_Async(IP, port, TimeOut);
-
-                        switch (task.Result.PortState)
+                        PingReply reply =  new ScanningMethods_Ping().PingIPAsync(IP, TimeOut.Milliseconds).Result;
+                        if (reply.Status == IPStatus.Success)
                         {
-                            case PortScanState.PortIsOpen:
-                                scannedPorts.openPorts.Add((int)task.Result.Port);
-                                break;
+                            var task = ScanTCP_Port_via_Socket_Async(IP.IP, port, TimeOut);
 
-                            case PortScanState.FirewallBlockedPort:
-                                scannedPorts.FirewallBlockedPorts.Add((int)task.Result.Port);
-                                break;
+                            switch (task.Result.PortState)
+                            {
+                                case PortScanState.PortIsOpen:
+                                    scannedPorts.openPorts.Add((int)task.Result.Port);
+                                    break;
 
-                            case PortScanState.TargetDeniedAccessToPort:
-                                scannedPorts.TargetDeniedAccessToPorts.Add((int)task.Result.Port);
-                                break;
+                                case PortScanState.FirewallBlockedPort:
+                                    scannedPorts.FirewallBlockedPorts.Add((int)task.Result.Port);
+                                    break;
 
-                            case PortScanState.TargetNotReachable:
-                                break;
+                                case PortScanState.TargetDeniedAccessToPort:
+                                    scannedPorts.TargetDeniedAccessToPorts.Add((int)task.Result.Port);
+                                    break;
 
-                            default:
-                                break;
+                                case PortScanState.TargetNotReachable:
+                                    break;
+
+                                default:
+                                    break;
+                            }
+                            if (task != null) tasks.Add(task);
                         }
-                        if(task != null) tasks.Add(task);
+                        else
+                        {
+                            string test = "";
+                        }
                     }
                     catch (SocketException ex)
                     {
@@ -132,8 +142,21 @@ namespace MyNetworkMonitor
 
             if (TcpPortScan_Task_Finished != null)
             {
-                if (new SupportMethods().Is_Valid_IP(scannedPorts.IP)) 
+                int founded = scannedPorts.openPorts.Count + scannedPorts.FirewallBlockedPorts.Count + scannedPorts.TargetDeniedAccessToPorts.Count;
+
+                if (founded > 0)
+                {
                     TcpPortScan_Task_Finished(this, new TcpPortScan_Task_FinishedEventArgs(scannedPorts));
+                }
+                else
+                {
+                    TcpPortScan_Task_Finished(this, new TcpPortScan_Task_FinishedEventArgs(null));
+                }
+
+                //if (new SupportMethods().Is_Valid_IP(scannedPorts.IP))
+                //{
+                //    TcpPortScan_Task_Finished(this, new TcpPortScan_Task_FinishedEventArgs(scannedPorts));
+                //}
             }
         }
 
@@ -266,7 +289,7 @@ namespace MyNetworkMonitor
                     //10060 Host nicht erreichbar, Zeitüberschreitung
                     //10061 Host verweigert zugriff
 
-                    if (ex.ErrorCode == 10013) scanResult.PortState |= PortScanState.FirewallBlockedPort;
+                    if (ex.ErrorCode == 10013) scanResult.PortState = PortScanState.FirewallBlockedPort;
                     if (ex.ErrorCode == 10060) scanResult.PortState = PortScanState.TargetNotReachable;
                     if (ex.ErrorCode == 10061) scanResult.PortState = PortScanState.TargetDeniedAccessToPort;
 
@@ -297,6 +320,8 @@ namespace MyNetworkMonitor
 
         public class ScannedPorts
         {
+            public string IPGroupDescription = string.Empty;
+            public string DeviceGroupDescription = string.Empty;
             public string IP = string.Empty;
             public List<int> openPorts = new List<int>();
             public List<int> FirewallBlockedPorts = new List<int>();
