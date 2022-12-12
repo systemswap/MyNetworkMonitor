@@ -464,33 +464,33 @@ namespace MyNetworkMonitor
             foreach (DataRow row in _scannResults.ResultTable.Rows)
             {
 
-                if ((_IPsToRefresh.Where(i => i.IP == row["IP"].ToString()).Count() == 0 && (bool)chk_Methodes_ARP_A.IsChecked) || ClearTable) row["ARPStatus"] = null;
+                if ((_IPsToRefresh.Where(i => i.IP == row["IP"].ToString()).Count() > 0 && (bool)chk_Methodes_ARP_A.IsChecked) || ClearTable) row["ARPStatus"] = null;
 
 
-                if ((_IPsToRefresh.Where(i => i.IP == row["IP"].ToString()).Count() == 0 && (bool)chk_Methodes_Ping.IsChecked) || ClearTable) row["PingStatus"] = null;
-                if ((_IPsToRefresh.Where(i => i.IP == row["IP"].ToString()).Count() == 0 && (bool)chk_Methodes_Ping.IsChecked) || ClearTable) row["ResponseTime"] = string.Empty;
+                if ((_IPsToRefresh.Where(i => i.IP == row["IP"].ToString()).Count() > 0 && (bool)chk_Methodes_Ping.IsChecked) || ClearTable) row["PingStatus"] = null;
+                if ((_IPsToRefresh.Where(i => i.IP == row["IP"].ToString()).Count() > 0 && (bool)chk_Methodes_Ping.IsChecked) || ClearTable) row["ResponseTime"] = string.Empty;
 
-                if ((_IPsToRefresh.Where(i => i.IP == row["IP"].ToString()).Count() == 0 && (bool)chk_Methodes_SSDP.IsChecked) || ClearTable) row["SSDPStatus"] = null;
+                if ((_IPsToRefresh.Where(i => i.IP == row["IP"].ToString()).Count() > 0 && (bool)chk_Methodes_SSDP.IsChecked) || ClearTable) row["SSDPStatus"] = null;
 
-                if ((_IPsToRefresh.Where(i => i.IP == row["IP"].ToString()).Count() == 0 && (bool)chk_Methodes_ScanTCPPorts.IsChecked) || ClearTable) row["TCP_Ports"] = null;
-                if ((_IPsToRefresh.Where(i => i.IP == row["IP"].ToString()).Count() == 0 && (bool)chk_Methodes_ScanUDPPorts.IsChecked) || ClearTable) row["OpenUDP_Ports"] = null;
+                if ((_IPsToRefresh.Where(i => i.IP == row["IP"].ToString()).Count() > 0 && (bool)chk_Methodes_ScanTCPPorts.IsChecked) || ClearTable) row["TCP_Ports"] = null;
+                if ((_IPsToRefresh.Where(i => i.IP == row["IP"].ToString()).Count() > 0 && (bool)chk_Methodes_ScanUDPPorts.IsChecked) || ClearTable) row["OpenUDP_Ports"] = null;
 
 
             
-                if ((_IPsToRefresh.Where(i => i.IP == row["IP"].ToString()).Count() == 0 && (bool)chk_Methodes_ScanHostnames.IsChecked) || ClearTable)
+                if ((_IPsToRefresh.Where(i => i.IP == row["IP"].ToString()).Count() > 0 && (bool)chk_Methodes_ScanHostnames.IsChecked) || ClearTable)
                 {
                     row["Hostname"] = string.Empty;
                     row["Aliases"] = string.Empty;
                 }
 
 
-                if ((_IPsToRefresh.Where(i => i.IP == row["IP"].ToString()).Count() == 0 && (bool)chk_Methodes_ReverseLookUp.IsChecked) || ClearTable)
+                if ((_IPsToRefresh.Where(i => i.IP == row["IP"].ToString()).Count() > 0 && (bool)chk_Methodes_ReverseLookUp.IsChecked) || ClearTable)
                 {
                     row["ReverseLookUpStatus"] = null;
                     row["ReverseLookUpIPs"] = string.Empty;
                 }
             }
-
+            
 
             /* set the states */
             if ((bool)chk_Methodes_SSDP.IsChecked) ssdp_state = ScanStatus.waiting;
