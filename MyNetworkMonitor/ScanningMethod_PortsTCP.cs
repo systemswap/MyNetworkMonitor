@@ -83,7 +83,7 @@ namespace MyNetworkMonitor
 
             ScannedPorts scannedPorts = new ScannedPorts();
             scannedPorts.IPGroupDescription = IP.IPGroupDescription;
-            scannedPorts.DeviceGroupDescription= IP.DeviceGroupDescription;
+            scannedPorts.DeviceDescription= IP.DeviceDescription;
             scannedPorts.IP = IP.IP;
 
             List<Task> tasks = new List<Task>();
@@ -321,7 +321,7 @@ namespace MyNetworkMonitor
         public class ScannedPorts
         {
             public string IPGroupDescription = string.Empty;
-            public string DeviceGroupDescription = string.Empty;
+            public string DeviceDescription = string.Empty;
             public string IP = string.Empty;
             public List<int> openPorts = new List<int>();
             public List<int> FirewallBlockedPorts = new List<int>();

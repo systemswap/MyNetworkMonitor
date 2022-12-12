@@ -27,24 +27,12 @@ namespace MyNetworkMonitor
     {
         public IPToRefresh() { }
 
-        //public IPToRefresh(string IP, string IPGroupDescription, string DeviceGroupDescription, List<int> TCPPorts, List<int> UDPPorts, List<string> DNSServer, int timeOut)
-        //{
-
-        //    _IP = IP;
-        //    _IPGroupDescription = IPGroupDescription;
-        //    _DeviceGroupDescription = DeviceGroupDescription;
-        //    _TCPPorts = TCPPorts;
-        //    _UDPPorts = UDPPorts;
-        //    _DNSServer = DNSServer;
-        //    _TimeOut = timeOut;
-        //}
-
         private string _IPGroupDescription = string.Empty;
         public string IPGroupDescription { get { return _IPGroupDescription; } set { _IPGroupDescription = value; } }
 
 
-        private string _DeviceGroupDescription = string.Empty;
-        public string DeviceGroupDescription { get { return _DeviceGroupDescription; } set { _DeviceGroupDescription = value; } }
+        private string _DeviceDescription = string.Empty;
+        public string DeviceDescription { get { return _DeviceDescription; } set { _DeviceDescription = value; } }
 
 
         private string _IP = string.Empty;
@@ -318,7 +306,7 @@ namespace MyNetworkMonitor
             {
                 IPToRefresh toRefresh = new IPToRefresh();
                 toRefresh.IPGroupDescription = "Custom";
-                toRefresh.DeviceGroupDescription = "Custom";
+                toRefresh.DeviceDescription = "Custom";
                 toRefresh.IP = tb_IP_Address.Text;
                 toRefresh.Hostname = string.Empty;
                 toRefresh.TCPPorts = TCPPorts;
@@ -336,7 +324,7 @@ namespace MyNetworkMonitor
                     {
                         IPToRefresh toRefresh = new IPToRefresh();
                         toRefresh.IPGroupDescription = row.Row["IPGroupDescription"].ToString();
-                        toRefresh.DeviceGroupDescription = row.Row["DeviceGroupDescription"].ToString();
+                        toRefresh.DeviceDescription = row.Row["DeviceDescription"].ToString();
                         toRefresh.IP = row.Row["IP"].ToString();
                         toRefresh.Hostname = row.Row["Hostname"].ToString();
                         toRefresh.TCPPorts = TCPPorts;
@@ -391,7 +379,7 @@ namespace MyNetworkMonitor
                     {
                         IPToRefresh toRefresh = new IPToRefresh();
                         toRefresh.IPGroupDescription = row["IPGroupDescription"].ToString();
-                        toRefresh.DeviceGroupDescription = row["DeviceGroupDescription"].ToString();
+                        toRefresh.DeviceDescription = row["DeviceDescription"].ToString();
                         toRefresh.IP = row["FirstIP"].ToString();
                         toRefresh.Hostname = string.Empty;
                         toRefresh.TCPPorts = TCPPorts;
@@ -412,7 +400,7 @@ namespace MyNetworkMonitor
 
                             IPToRefresh toRefresh = new IPToRefresh();
                             toRefresh.IPGroupDescription = row["IPGroupDescription"].ToString();
-                            toRefresh.DeviceGroupDescription = row["DeviceGroupDescription"].ToString();
+                            toRefresh.DeviceDescription = row["DeviceDescription"].ToString();
                             toRefresh.IP = ip;
                             toRefresh.Hostname = string.Empty;
                             toRefresh.TCPPorts = new PortCollection().TCPPorts;
@@ -558,7 +546,7 @@ namespace MyNetworkMonitor
                     {
                         IPToRefresh toRefresh = new IPToRefresh();
                         toRefresh.IPGroupDescription = row["IPGroupDescription"].ToString();
-                        toRefresh.DeviceGroupDescription = row["DeviceGroupDescription"].ToString();
+                        toRefresh.DeviceDescription = row["DeviceDescription"].ToString();
                         toRefresh.IP = row["ip"].ToString();
                         toRefresh.Hostname = string.Empty;
                         toRefresh.TCPPorts = new PortCollection().TCPPorts;
@@ -604,7 +592,7 @@ namespace MyNetworkMonitor
                         {
                             IPToRefresh toRefresh = new IPToRefresh();
                             toRefresh.IPGroupDescription = _scannResults.ResultTable.Rows[rowIndex]["IPGroupDescription"].ToString();
-                            toRefresh.DeviceGroupDescription = _scannResults.ResultTable.Rows[rowIndex]["DeviceGroupDescription"].ToString();
+                            toRefresh.DeviceDescription = _scannResults.ResultTable.Rows[rowIndex]["DeviceDescription"].ToString();
                             toRefresh.IP = ip.IP;
                             toRefresh.Hostname = _scannResults.ResultTable.Rows[rowIndex]["Hostname"].ToString();
                             toRefresh.DNSServer = _scannResults.ResultTable.Rows[rowIndex]["DNSServer"].ToString().Split(',').ToList();
@@ -694,7 +682,7 @@ namespace MyNetworkMonitor
                     if (!string.IsNullOrEmpty(e.IP)) {
                         DataRow row = _scannResults.ResultTable.NewRow();
                         row["IPGroupDescription"] = e.IPGroupDescription;
-                        row["DeviceGroupDescription"] = e.DeviceGroupDescription;
+                        row["DeviceDescription"] = e.DeviceDescription;
                         row["PingStatus"] = e.PingStatus ? Properties.Resources.green_dot : Properties.Resources.red_dot;
                         row["IP"] = e.IP;
                         row["ResponseTime"] = e.ResponseTime;
@@ -706,7 +694,7 @@ namespace MyNetworkMonitor
                 {
                     int rowIndex = _scannResults.ResultTable.Rows.IndexOf(rows[0]);
                     _scannResults.ResultTable.Rows[rowIndex]["IPGroupDescription"] = e.IPGroupDescription;
-                    _scannResults.ResultTable.Rows[rowIndex]["DeviceGroupDescription"] = e.DeviceGroupDescription;
+                    _scannResults.ResultTable.Rows[rowIndex]["DeviceDescription"] = e.DeviceDescription;
                     _scannResults.ResultTable.Rows[rowIndex]["IP"] = e.IP;
                     _scannResults.ResultTable.Rows[rowIndex]["PingStatus"] = e.PingStatus ? Properties.Resources.green_dot : Properties.Resources.red_dot;                    
                     _scannResults.ResultTable.Rows[rowIndex]["ResponseTime"] = e.ResponseTime;
@@ -782,7 +770,7 @@ namespace MyNetworkMonitor
                 {
                     DataRow row = _scannResults.ResultTable.NewRow();
                     row["IPGroupDescription"] = e.IPGroupDescription;
-                    row["DeviceGroupDescription"] = e.DeviceGroupDescription;
+                    row["DeviceDescription"] = e.DeviceDescription;
                     row["IP"] = e.IP;
                     row["ARPStatus"] = Properties.Resources.green_dot;
                     row["Mac"] = e.MAC;
@@ -794,7 +782,7 @@ namespace MyNetworkMonitor
                 {
                     int rowIndex = _scannResults.ResultTable.Rows.IndexOf(rows[0]);
                     _scannResults.ResultTable.Rows[rowIndex]["IPGroupDescription"] = e.IPGroupDescription;
-                    _scannResults.ResultTable.Rows[rowIndex]["DeviceGroupDescription"] = e.DeviceGroupDescription;
+                    _scannResults.ResultTable.Rows[rowIndex]["DeviceDescription"] = e.DeviceDescription;
                     _scannResults.ResultTable.Rows[rowIndex]["ARPStatus"] = Properties.Resources.green_dot;
                     _scannResults.ResultTable.Rows[rowIndex]["Mac"] = e.MAC;
                     _scannResults.ResultTable.Rows[rowIndex]["Vendor"] = e.Vendor;
@@ -832,7 +820,7 @@ namespace MyNetworkMonitor
                 {
                     DataRow row = _scannResults.ResultTable.NewRow();
                     row["IPGroupDescription"] = e.IPGroupDescription;
-                    row["DeviceGroupDescription"] = e.DeviceGroupDescription;
+                    row["DeviceDescription"] = e.DeviceDescription;
                     row["IP"] = e.IP;
                     row["Hostname"] = e.Hostname;
                     row["Aliases"] = string.Join("\r\n", e.Aliases);
@@ -843,7 +831,7 @@ namespace MyNetworkMonitor
                 {
                     int rowIndex = _scannResults.ResultTable.Rows.IndexOf(rows[0]);
                     _scannResults.ResultTable.Rows[rowIndex]["IPGroupDescription"] = e.IPGroupDescription;
-                    _scannResults.ResultTable.Rows[rowIndex]["DeviceGroupDescription"] = e.DeviceGroupDescription;
+                    _scannResults.ResultTable.Rows[rowIndex]["DeviceDescription"] = e.DeviceDescription;
                     _scannResults.ResultTable.Rows[rowIndex]["Hostname"] = e.Hostname;
                     _scannResults.ResultTable.Rows[rowIndex]["Aliases"] = string.Join("\r\n", e.Aliases);
                     ++responsedHostNamesCount;
@@ -924,7 +912,7 @@ namespace MyNetworkMonitor
                 {
                     int rowIndex = _scannResults.ResultTable.Rows.IndexOf(rows[0]);
                     _scannResults.ResultTable.Rows[rowIndex]["IPGroupDescription"] = e.ScannedPorts.IPGroupDescription;
-                    _scannResults.ResultTable.Rows[rowIndex]["DeviceGroupDescription"] = e.ScannedPorts.DeviceGroupDescription;
+                    _scannResults.ResultTable.Rows[rowIndex]["DeviceDescription"] = e.ScannedPorts.DeviceDescription;
                     _scannResults.ResultTable.Rows[rowIndex]["TCP_Ports"] = string.Join("\r\n", ports);
                     ++responsedTCPPortScanDevices;
                     Status();
@@ -933,7 +921,7 @@ namespace MyNetworkMonitor
                 {
                     DataRow row = _scannResults.ResultTable.NewRow();
                     row["IPGroupDescription"] = e.ScannedPorts.IPGroupDescription;
-                    row["DeviceGroupDescription"] = e.ScannedPorts.DeviceGroupDescription;
+                    row["DeviceDescription"] = e.ScannedPorts.DeviceDescription;
                     row["IP"] = e.ScannedPorts.IP;
                     row["TCP_Ports"] = string.Join("\r\n", ports);
                     _scannResults.ResultTable.Rows.Add(row);

@@ -55,7 +55,7 @@ namespace MyNetworkMonitor
 
             chk_isActive.IsChecked = Convert.ToBoolean(_dt.Rows[indexOfCurrentRow]["isActive"]);
             tb_Description.Text = _dt.Rows[indexOfCurrentRow]["IPGroupDescription"].ToString();
-            tb_DeviceDescription.Text = _dt.Rows[indexOfCurrentRow]["DeviceGroupDescription"].ToString();
+            tb_DeviceDescription.Text = _dt.Rows[indexOfCurrentRow]["DeviceDescription"].ToString();
             tb_firstIP.Text = _dt.Rows[indexOfCurrentRow]["FirstIP"].ToString();
             tb_LastIP.Text = _dt.Rows[indexOfCurrentRow]["LastIP"].ToString();
             tb_DNSServer.Text = _dt.Rows[indexOfCurrentRow]["DNSServer"].ToString();
@@ -71,7 +71,7 @@ namespace MyNetworkMonitor
                 DataRow row = _dt.NewRow();
                 row["isActive"] = Convert.ToBoolean(chk_isActive.IsChecked);
                 row["IPGroupDescription"] = tb_Description.Text;
-                row["DeviceGroupDescription"] = tb_DeviceDescription.Text;
+                row["DeviceDescription"] = tb_DeviceDescription.Text;
                 row["FirstIP"] = tb_firstIP.Text;
                 row["LastIP"] = tb_LastIP.Text;
                 row["DNSServer"] = tb_DNSServer.Text;
@@ -85,7 +85,7 @@ namespace MyNetworkMonitor
             {
                 _dt.Rows[indexOfCurrentRow]["isActive"] = Convert.ToBoolean(chk_isActive.IsChecked);
                 _dt.Rows[indexOfCurrentRow]["IPGroupDescription"] = tb_Description.Text;
-                _dt.Rows[indexOfCurrentRow]["DeviceGroupDescription"] = tb_DeviceDescription.Text;
+                _dt.Rows[indexOfCurrentRow]["DeviceDescription"] = tb_DeviceDescription.Text;
                 _dt.Rows[indexOfCurrentRow]["FirstIP"] = tb_firstIP.Text;
                 _dt.Rows[indexOfCurrentRow]["LastIP"] = tb_LastIP.Text;
                 _dt.Rows[indexOfCurrentRow]["DNSServer"] = tb_DNSServer.Text;

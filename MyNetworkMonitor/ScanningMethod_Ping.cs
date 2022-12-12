@@ -85,7 +85,7 @@ namespace MyNetworkMonitor
 
                 if (Ping_Task_Finished != null)
                 {
-                    Ping_Task_Finished(this, new Ping_Task_Finished_EventArgs(ip.IPGroupDescription, ip.DeviceGroupDescription, IP, PingStatus, ResponseTime));
+                    Ping_Task_Finished(this, new Ping_Task_Finished_EventArgs(ip.IPGroupDescription, ip.DeviceDescription, IP, PingStatus, ResponseTime));
                 }
             }
             catch (PingException ex)
@@ -122,10 +122,10 @@ namespace MyNetworkMonitor
 
     public class Ping_Task_Finished_EventArgs : EventArgs
     {
-        public Ping_Task_Finished_EventArgs(string IPGroupDescription, string DeviceGroupDescription, string IP, bool PingStatus, string ResponseTime)
+        public Ping_Task_Finished_EventArgs(string IPGroupDescription, string DeviceDescription, string IP, bool PingStatus, string ResponseTime)
         {
             _IPGroupDescription = IPGroupDescription;
-            _DeviceGroupDescription = DeviceGroupDescription;
+            _DeviceDescription = DeviceDescription;
             _IP = IP;
             _PingStatus = PingStatus;            
             _ResponseTime = ResponseTime;
@@ -134,8 +134,8 @@ namespace MyNetworkMonitor
         private string _IPGroupDescription = string.Empty;
         public string IPGroupDescription { get { return _IPGroupDescription; } }
 
-        private string _DeviceGroupDescription = string.Empty;
-        public string DeviceGroupDescription { get { return _DeviceGroupDescription; } }
+        private string _DeviceDescription = string.Empty;
+        public string DeviceDescription { get { return _DeviceDescription; } }
 
         private string _IP = string.Empty;
         public string IP { get { return _IP; } }

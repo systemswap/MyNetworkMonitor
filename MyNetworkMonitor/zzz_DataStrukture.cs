@@ -12,7 +12,7 @@ namespace MyNetworkMonitor
         public ScanResults()
         {
             dt_NetworkResults.Columns.Add("IPGroupDescription", typeof(string));
-            dt_NetworkResults.Columns.Add("DeviceGroupDescription", typeof(string));            
+            dt_NetworkResults.Columns.Add("DeviceDescription", typeof(string));            
             dt_NetworkResults.Columns.Add("PingStatus", typeof(byte[]));
             dt_NetworkResults.Columns.Add("ARPStatus", typeof(byte[]));
             dt_NetworkResults.Columns.Add("SSDPStatus", typeof(byte[]));
@@ -152,7 +152,7 @@ namespace MyNetworkMonitor
 
             dt.Columns.Add("IsActive", typeof(bool));
             dt.Columns.Add("IPGroupDescription", typeof(string));
-            dt.Columns.Add("DeviceGroupDescription", typeof(string));
+            dt.Columns.Add("DeviceDescription", typeof(string));
             dt.Columns.Add("FirstIP", typeof(string));
             dt.Columns.Add("LastIP", typeof(string));
             dt.Columns.Add("DNSServer", typeof(string));
