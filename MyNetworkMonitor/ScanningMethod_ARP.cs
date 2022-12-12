@@ -132,7 +132,7 @@ namespace MyNetworkMonitor
 
                 if (ARP_Request_Task_Finished != null)
                 {
-                    ARP_Request_Task_Finished(this, new ARP_Request_Task_Finished_EventArgs(IPAddr.IPGroupDescription, IPAddr.DeviceGroupDescription, IPAddr.IP, mac, support.GetVendorFromMac(mac).First()));
+                    ARP_Request_Task_Finished(this, new ARP_Request_Task_Finished_EventArgs(IPAddr.IPGroupDescription, IPAddr.DeviceDescription, IPAddr.IP, mac, support.GetVendorFromMac(mac).First()));
                 }
             }
         }
@@ -293,7 +293,7 @@ namespace MyNetworkMonitor
         public string IPGroupDescription { get { return _IPGroupDescription; } }
 
         string _DeviceDescription = string.Empty;
-        public string DeviceGroupDescription { get { return _DeviceDescription; } }
+        public string DeviceDescription { get { return _DeviceDescription; } }
 
         private string _IP = string.Empty;
         public string IP { get { return _IP; } }

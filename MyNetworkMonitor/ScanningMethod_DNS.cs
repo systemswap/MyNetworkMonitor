@@ -59,7 +59,7 @@ namespace MyNetworkMonitor
                 entry = Dns.GetHostEntryAsync(ip.IP.ToString(), System.Net.Sockets.AddressFamily.InterNetwork).Result;
                 if (GetHostAndAliasFromIP_Task_Finished != null)
                 {
-                    GetHostAndAliasFromIP_Task_Finished(this, new GetHostAndAliasFromIP_Task_Finished_EventArgs(ip.IPGroupDescription, ip.DeviceGroupDescription, ip.IP, entry.HostName, string.Join("\r\n", entry.Aliases)));
+                    GetHostAndAliasFromIP_Task_Finished(this, new GetHostAndAliasFromIP_Task_Finished_EventArgs(ip.IPGroupDescription, ip.DeviceDescription, ip.IP, entry.HostName, string.Join("\r\n", entry.Aliases)));
                 }
             }
             catch (Exception ex)
@@ -82,7 +82,7 @@ namespace MyNetworkMonitor
         //    _countedHostnames = CountedHostnames;
         //}
 
-        public GetHostAndAliasFromIP_Task_Finished_EventArgs(string IPGroupDescription, string DeviceGroupDescription, string IP, string Hostname, string Aliases)
+        public GetHostAndAliasFromIP_Task_Finished_EventArgs(string IPGroupDescription, string DeviceDescription, string IP, string Hostname, string Aliases)
         {
             //_resultRow = results.ResultTable.NewRow();
             //_resultRow["IP"] = _IP = IP;
@@ -93,7 +93,7 @@ namespace MyNetworkMonitor
             //_countedHostnames = CountedHostnames;
 
             _IPGroupDescription= IPGroupDescription;
-            _DeviceGroupDescription= DeviceGroupDescription;
+            _DeviceDescription= DeviceDescription;
             _IP= IP;
             _Hostname= Hostname;
             _Aliases= Aliases;
@@ -107,8 +107,8 @@ namespace MyNetworkMonitor
         private string _IPGroupDescription = string.Empty;
         public string IPGroupDescription { get { return _IPGroupDescription; } }
 
-        private string _DeviceGroupDescription = string.Empty;
-        public string DeviceGroupDescription { get { return _DeviceGroupDescription; } }
+        private string _DeviceDescription = string.Empty;
+        public string DeviceDescription { get { return _DeviceDescription; } }
 
         private string _IP = string.Empty;
         public string IP { get { return _IP; } }
