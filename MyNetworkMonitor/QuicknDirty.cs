@@ -1,6 +1,4 @@
-﻿using PacketDotNet;
-using SharpPcap.LibPcap;
-using SharpPcap;
+﻿
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
