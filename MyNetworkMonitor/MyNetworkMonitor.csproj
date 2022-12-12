@@ -6,7 +6,16 @@
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>CyberSecurity.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="Resources\CyberSecurity.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="CyberSecurity.ico" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Rssdp" Version="4.0.4" />
@@ -35,10 +44,17 @@
     <None Update="MacVendors\mac_vendors.csv">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="Resources\CyberSecurity.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
   <ItemGroup>
     <Folder Include="Settings\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\CyberSecurity.ico" />
   </ItemGroup>
 
 </Project>
