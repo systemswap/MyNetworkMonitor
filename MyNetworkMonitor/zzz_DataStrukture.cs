@@ -107,7 +107,7 @@ namespace MyNetworkMonitor
             dt_Ports.Rows.Add(4840, true, false, "");
             dt_Ports.Rows.Add(5000, true, false, "");
             dt_Ports.Rows.Add(5001, true, false, "");
-            dt_Ports.Rows.Add(5060, true, false, "");
+            dt_Ports.Rows.Add(5060, true, false, "SID Phone");
             dt_Ports.Rows.Add(5357, true, false, "");
             dt_Ports.Rows.Add(8080, true, false, "");
             dt_Ports.Rows.Add(8443, true, false, "");

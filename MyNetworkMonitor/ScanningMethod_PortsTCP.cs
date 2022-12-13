@@ -95,9 +95,10 @@ namespace MyNetworkMonitor
                     //var task = ScanTCP_Port(IP, port, TimeOut);
                     try
                     {
-                        PingReply reply =  new ScanningMethods_Ping().PingIPAsync(IP, TimeOut.Milliseconds).Result;
-                        if (reply.Status == IPStatus.Success)
-                        {
+                        //PingReply reply =  new ScanningMethods_Ping().PingIPAsync(IP, TimeOut.Milliseconds).Result;
+                        //if (reply.Status == IPStatus.Success)
+                        //if(true)
+                        //{
                             var task = ScanTCP_Port_via_Socket_Async(IP.IP, port, TimeOut);
 
                             switch (task.Result.PortState)
@@ -121,11 +122,11 @@ namespace MyNetworkMonitor
                                     break;
                             }
                             if (task != null) tasks.Add(task);
-                        }
-                        else
-                        {
-                            string test = "";
-                        }
+                        //}
+                        //else
+                        //{
+                        //    string test = "";
+                        //}
                     }
                     catch (SocketException ex)
                     {
@@ -251,7 +252,7 @@ namespace MyNetworkMonitor
                 {
                     //IAsyncResult ar = socket.BeginConnect(new IPEndPoint(IPAddress.Parse(IP), Port), null, null);                    
                     //ar.AsyncWaitHandle.WaitOne(timeout.Milliseconds, true);
-
+                    
                     await socket.ConnectAsync(new IPEndPoint(IPAddress.Parse(IP), Port));
                     if (socket.Connected)
                     {

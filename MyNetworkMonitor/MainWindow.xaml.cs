@@ -23,6 +23,7 @@ namespace MyNetworkMonitor
 {
     // install as Service https://www.youtube.com/watch?v=y64L-3HKuP0
 
+    [Serializable]
     public class IPToRefresh
     {
         public IPToRefresh() { }
@@ -64,6 +65,16 @@ namespace MyNetworkMonitor
         {
             InitializeComponent();
 
+            //Satellit_SocketServer server = new Satellit_SocketServer();
+            //Satellit_SocketClient clt = new Satellit_SocketClient();
+
+            //Task.Run(() => server.StartServer());
+            //clt.StartClient();
+
+            //server.StopServer();
+
+
+
             scanningMethode_ARP = new ScanningMethod_ARP();
             scanningMethode_ARP.ARP_A_newDevice += ARP_A_Finished;
             scanningMethode_ARP.ARP_Request_Task_Finished += ARP_Request_Task_Finished;
@@ -81,9 +92,9 @@ namespace MyNetworkMonitor
             scanningMethode_DNS.GetHostAndAliasFromIP_Task_Finished += DNS_GetHostAndAliasFromIP_Task_Finished;
             scanningMethode_DNS.GetHostAndAliasFromIP_Finished += DNS_GetHostAndAliasFromIP_Finished;
 
-            scanningMethod_ReverseLookUp = new ScanningMethod_ReverseLookUp();
-            scanningMethod_ReverseLookUp.ReverseLookup_Task_Finished += ReverseLookup_Task_Finished;
-            scanningMethod_ReverseLookUp.ReverseLookup_Finished += ReverseLookup_Finished;
+            scanningMethod_LookUp = new ScanningMethod_LookUp();
+            scanningMethod_LookUp.Lookup_Task_Finished += Lookup_Task_Finished;
+            scanningMethod_LookUp.Lookup_Finished += Lookup_Finished;
 
             scanningMethode_PortsTCP = new ScanningMethod_PortsTCP();
             scanningMethode_PortsTCP.TcpPortScan_Task_Finished += TcpPortScan_Task_Finished;
@@ -116,9 +127,6 @@ namespace MyNetworkMonitor
             }
 
             DataContext = ipGroupData.IPGroupsDT.DefaultView;
-
-            //ScanningMethod_SYN syn = new ScanningMethod_SYN();
-            //syn.SharpPCap("192.168.178.5", 1234, "192.168.178.5", 53);
         }
 
 
@@ -137,7 +145,7 @@ namespace MyNetworkMonitor
         ScanningMethods_Ping scanningMethods_Ping;
         ScanningMethod_SSDP_UPNP scanningMethode_SSDP_UPNP;
         ScanningMethod_DNS scanningMethode_DNS;
-        ScanningMethod_ReverseLookUp scanningMethod_ReverseLookUp;
+        ScanningMethod_LookUp scanningMethod_LookUp;
         ScanningMethod_PortsTCP scanningMethode_PortsTCP;
         ScanningMethod_PortsUDP scanningMethode_PortsUDP;
 
@@ -304,17 +312,42 @@ namespace MyNetworkMonitor
 
             if (!string.IsNullOrEmpty(tb_IP_Address.Text))
             {
-                IPToRefresh toRefresh = new IPToRefresh();
-                toRefresh.IPGroupDescription = "Custom";
-                toRefresh.DeviceDescription = "Custom";
-                toRefresh.IP = tb_IP_Address.Text;
-                toRefresh.Hostname = string.Empty;
-                toRefresh.TCPPorts = TCPPorts;
-                toRefresh.UDPPorts = null;
-                toRefresh.DNSServer = null;
-                toRefresh.TimeOut = _TimeOut;
+                string IP_or_Hostname = tb_IP_Address.Text;
+                if (supportMethods.Is_Valid_IP(IP_or_Hostname))
+                {
+                    IPToRefresh toRefresh = new IPToRefresh();
+                    toRefresh.IPGroupDescription = "Custom";
+                    toRefresh.DeviceDescription = "Custom";
+                    toRefresh.IP = IP_or_Hostname;
+                    toRefresh.Hostname = string.Empty;
+                    toRefresh.TCPPorts = TCPPorts;
+                    toRefresh.UDPPorts = null;
+                    toRefresh.DNSServer = null;
+                    toRefresh.TimeOut = _TimeOut;
 
-                _IPsToRefresh.Add(toRefresh);
+                    _IPsToRefresh.Add(toRefresh);
+                }
+                else
+                {
+                    IPHostEntry _entry = Task.Run(() => scanningMethod_LookUp.nsLookup(IP_or_Hostname)).Result;
+                    if (_entry != null)
+                    {
+                        foreach (IPAddress address in _entry.AddressList)
+                        {
+                            IPToRefresh toRefresh = new IPToRefresh();
+                            toRefresh.IPGroupDescription = "Custom";
+                            toRefresh.DeviceDescription = "Custom";
+                            toRefresh.IP = address.ToString();
+                            toRefresh.Hostname = string.Empty;
+                            toRefresh.TCPPorts = TCPPorts;
+                            toRefresh.UDPPorts = null;
+                            toRefresh.DNSServer = null;
+                            toRefresh.TimeOut = _TimeOut;
+
+                            _IPsToRefresh.Add(toRefresh);
+                        }
+                    }
+                }
             }
             else
             {
@@ -373,21 +406,46 @@ namespace MyNetworkMonitor
             {
                 if ((bool)row["IsActive"])
                 {
-                    //if first ip is string than add Hostname
+                    
 
                     if (String.IsNullOrEmpty(row["LastIP"].ToString()))
                     {
-                        IPToRefresh toRefresh = new IPToRefresh();
-                        toRefresh.IPGroupDescription = row["IPGroupDescription"].ToString();
-                        toRefresh.DeviceDescription = row["DeviceDescription"].ToString();
-                        toRefresh.IP = row["FirstIP"].ToString();
-                        toRefresh.Hostname = string.Empty;
-                        toRefresh.TCPPorts = TCPPorts;
-                        toRefresh.UDPPorts = null;
-                        toRefresh.DNSServer = row["DNSServer"].ToString().Split(',').ToList();
-                        toRefresh.TimeOut = _TimeOut;
+                        string IP_or_Hostname = row["FirstIP"].ToString();
+                        if (supportMethods.Is_Valid_IP(IP_or_Hostname))
+                        {
+                            IPToRefresh toRefresh = new IPToRefresh();
+                            toRefresh.IPGroupDescription = row["IPGroupDescription"].ToString();
+                            toRefresh.DeviceDescription = row["DeviceDescription"].ToString();
+                            toRefresh.IP = IP_or_Hostname;
+                            toRefresh.Hostname = string.Empty;
+                            toRefresh.TCPPorts = TCPPorts;
+                            toRefresh.UDPPorts = null;
+                            toRefresh.DNSServer = row["DNSServer"].ToString().Split(',').ToList();
+                            toRefresh.TimeOut = _TimeOut;
 
-                        _IPsToRefresh.Add(toRefresh);
+                            _IPsToRefresh.Add(toRefresh);
+                        }
+                        else
+                        {
+                            IPHostEntry _entry = Task.Run(() => scanningMethod_LookUp.nsLookup(IP_or_Hostname)).Result;
+                            if(_entry != null)
+                            {
+                                foreach (IPAddress address in _entry.AddressList)
+                                {
+                                    IPToRefresh toRefresh = new IPToRefresh();
+                                    toRefresh.IPGroupDescription = row["IPGroupDescription"].ToString();
+                                    toRefresh.DeviceDescription = row["DeviceDescription"].ToString();
+                                    toRefresh.IP = address.ToString();
+                                    toRefresh.Hostname = string.Empty;
+                                    toRefresh.TCPPorts = TCPPorts;
+                                    toRefresh.UDPPorts = null;
+                                    toRefresh.DNSServer = row["DNSServer"].ToString().Split(',').ToList();
+                                    toRefresh.TimeOut = _TimeOut;
+
+                                    _IPsToRefresh.Add(toRefresh);
+                                }
+                            }
+                        }
                     }
                     else
                     {
@@ -607,7 +665,7 @@ namespace MyNetworkMonitor
                 //CountedReverseLookups = _IPsToRefresh.Count;
                 Status();
 
-                scanningMethod_ReverseLookUp.ReverseLookupAsync(IPsForReverseLookUp);
+                scanningMethod_LookUp.LookupAsync(IPsForReverseLookUp);
             }
 
 
@@ -851,7 +909,7 @@ namespace MyNetworkMonitor
 
 
 
-        private void ReverseLookup_Task_Finished(object? sender, ReverseLookup_Task_Finished_EventArgs e)
+        private void Lookup_Task_Finished(object? sender, Lookup_Task_Finished_EventArgs e)
         {
             Dispatcher.BeginInvoke(() =>
             {
@@ -864,22 +922,22 @@ namespace MyNetworkMonitor
                 {
                     DataRow row = _scannResults.ResultTable.NewRow();
                     row["IP"] = e.IP;                    
-                    row["ReverseLookUpStatus"] = e.ReverseLookUpStatus ? Properties.Resources.green_dot: Properties.Resources.red_dot;
-                    row["ReverseLookUpIPs"] = e.ReverseLookUpIPs;
+                    row["ReverseLookUpStatus"] = e.LookUpStatus ? Properties.Resources.green_dot: Properties.Resources.red_dot;
+                    row["ReverseLookUpIPs"] = e.LookUpIPs;
                     _scannResults.ResultTable.Rows.Add(row);
                     ++responsedReverseLookupDevices;
                 }
                 else
                 {
                     int rowIndex = _scannResults.ResultTable.Rows.IndexOf(rows[0]);                    
-                    _scannResults.ResultTable.Rows[rowIndex]["ReverseLookUpStatus"] = e.ReverseLookUpStatus ? Properties.Resources.green_dot : Properties.Resources.red_dot;
-                    _scannResults.ResultTable.Rows[rowIndex]["ReverseLookUpIPs"] = e.ReverseLookUpIPs;
+                    _scannResults.ResultTable.Rows[rowIndex]["ReverseLookUpStatus"] = e.LookUpStatus ? Properties.Resources.green_dot : Properties.Resources.red_dot;
+                    _scannResults.ResultTable.Rows[rowIndex]["ReverseLookUpIPs"] = e.LookUpIPs;
                     ++responsedReverseLookupDevices;
                 }
                 Status();
             });
         }
-        private void ReverseLookup_Finished(object? sender, ReverseLookup_Finished_EventArgs e)
+        private void Lookup_Finished(object? sender, Lookup_Finished_EventArgs e)
         {
             Dispatcher.BeginInvoke(() => 
             {
