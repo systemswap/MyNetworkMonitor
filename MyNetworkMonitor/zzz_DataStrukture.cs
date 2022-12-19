@@ -30,7 +30,7 @@ namespace MyNetworkMonitor
             dt_NetworkResults.Columns.Add("Mac", typeof(string));
             dt_NetworkResults.Columns.Add("Vendor", typeof(string));
             dt_NetworkResults.Columns.Add("Exception", typeof(string));
-            dt_NetworkResults.Columns.Add("DNSServer", typeof(string));
+            dt_NetworkResults.Columns.Add("DNSServers", typeof(string));
         }
 
         public DataTable dt_NetworkResults = new DataTable();
@@ -155,7 +155,7 @@ namespace MyNetworkMonitor
             dt.Columns.Add("DeviceDescription", typeof(string));
             dt.Columns.Add("FirstIP", typeof(string));
             dt.Columns.Add("LastIP", typeof(string));
-            dt.Columns.Add("DNSServer", typeof(string));
+            dt.Columns.Add("DNSServers", typeof(string));
             dt.Columns.Add("AutomaticScan", typeof(bool));
             dt.Columns.Add("ScanIntervalMinutes", typeof(string));            
             dt.Columns.Add("GatewayIP", typeof(string));

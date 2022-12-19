@@ -20,9 +20,12 @@ namespace MyNetworkMonitor
 
         SupportMethods support = new SupportMethods();
 
-        public event EventHandler<ARP_A_newDevice_EventArgs>? ARP_A_newDevice;
+        //public event EventHandler<ARP_A_newDevice_EventArgs>? ARP_A_newDevice;
+        public event EventHandler<ScanTask_Finished_EventArgs>? ARP_A_newDevice;
 
-        public event EventHandler<ARP_Request_Task_Finished_EventArgs> ARP_Request_Task_Finished;
+        //public event EventHandler<ARP_Request_Task_Finished_EventArgs> ARP_Request_Task_Finished;
+        public event EventHandler<ScanTask_Finished_EventArgs> ARP_Request_Task_Finished;
+
         public event EventHandler<ARP_Request_Finished_EventArgs> ARP_Request_Finished;
 
 
@@ -97,7 +100,7 @@ namespace MyNetworkMonitor
                     if (task != null) tasks.Add(task);
                 }
             });
-            await Task.WhenAll(tasks);
+            await Task.WhenAll(tasks.Where(t => t != null));
 
             if (ARP_Request_Finished != null)
             {
@@ -117,7 +120,10 @@ namespace MyNetworkMonitor
             {
                 if (ARP_Request_Task_Finished != null)
                 {
-                    ARP_Request_Task_Finished(this, new ARP_Request_Task_Finished_EventArgs(string.Empty, string.Empty, string.Empty, string.Empty, string.Empty));
+                    //ARP_Request_Task_Finished(this, new ARP_Request_Task_Finished_EventArgs(string.Empty, string.Empty, string.Empty, string.Empty, string.Empty));
+
+                    ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
+                    ARP_Request_Task_Finished(this, scanTask_Finished);
                 }
                 //throw new Exception("ARP command failed");
             }
@@ -132,7 +138,16 @@ namespace MyNetworkMonitor
 
                 if (ARP_Request_Task_Finished != null)
                 {
-                    ARP_Request_Task_Finished(this, new ARP_Request_Task_Finished_EventArgs(IPAddr.IPGroupDescription, IPAddr.DeviceDescription, IPAddr.IP, mac, support.GetVendorFromMac(mac).First()));
+                    //ARP_Request_Task_Finished(this, new ARP_Request_Task_Finished_EventArgs(IPAddr.IPGroupDescription, IPAddr.DeviceDescription, IPAddr.IP, mac, support.GetVendorFromMac(mac).First()));
+                    ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
+                    scanTask_Finished.IPGroupDescription = IPAddr.IPGroupDescription;
+                    scanTask_Finished.DeviceDescription= IPAddr.DeviceDescription;
+                    scanTask_Finished.IP = IPAddr.IP;
+                    scanTask_Finished.MAC= mac;
+                    scanTask_Finished.Vendor = support.GetVendorFromMac(mac).First();
+                    scanTask_Finished.DNSServers = string.Join(',', IPAddr.DNSServers);
+
+                    ARP_Request_Task_Finished(this, scanTask_Finished);
                 }
             }
         }
@@ -148,7 +163,7 @@ namespace MyNetworkMonitor
         /// Retrieves the IPInfo for All machines on the local network.
         /// </summary>
         /// <returns></returns>
-        public async Task ARP_A()
+        public async Task ARP_A(List<IPToRefresh> IPs)
         {
             try
             {
@@ -175,7 +190,27 @@ namespace MyNetworkMonitor
 
                             if (ARP_A_newDevice != null)
                             {
-                                ARP_A_newDevice(this, new ARP_A_newDevice_EventArgs(true, ip, mac, vendor[0]));
+                                //ARP_A_newDevice(this, new ARP_A_newDevice_EventArgs(true, ip, mac, vendor[0]));
+                                ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
+                                try
+                                {                                   
+                                    scanTask_Finished.IPGroupDescription = IPs.Where(i => string.Equals(i.IP, ip)).Select(i => i.IPGroupDescription).ToList()[0];
+                                    scanTask_Finished.DeviceDescription = IPs.Where(i => string.Equals(i.IP, ip)).Select(i => i.DeviceDescription).ToList()[0];
+                                    scanTask_Finished.DNSServers = string.Join(',', IPs.Where(i => string.Equals(i.IP, ip)).Select(i => i.DNSServers).ToList());
+                                }
+                                catch (Exception)
+                                {
+
+                                    scanTask_Finished.IPGroupDescription = "not specified";
+                                    scanTask_Finished.DeviceDescription = "not specified";
+                                }
+                                
+                                scanTask_Finished.ARPStatus = true;
+                                scanTask_Finished.IP = ip;
+                                scanTask_Finished.MAC = mac;
+                                scanTask_Finished.Vendor = vendor[0];
+
+                                ARP_A_newDevice(this, scanTask_Finished);
                             }
                         }
                     }
@@ -254,57 +289,57 @@ namespace MyNetworkMonitor
         }
     }
 
-    public class ARP_A_newDevice_EventArgs : EventArgs
-    {
-        public ARP_A_newDevice_EventArgs(bool ARPStatus, string IP, string MAC, string Vendor)
-        {
-            _ARPStatus = ARPStatus;
-            _IP = IP;
-            _MAC = MAC;
-            _Vendor = Vendor;
-        }
-        private bool _ARPStatus = false;
-        public bool ARPStatus { get { return _ARPStatus; } }
+    //public class ARP_A_newDevice_EventArgs : EventArgs
+    //{
+    //    public ARP_A_newDevice_EventArgs(bool ARPStatus, string IP, string MAC, string Vendor)
+    //    {
+    //        _ARPStatus = ARPStatus;
+    //        _IP = IP;
+    //        _MAC = MAC;
+    //        _Vendor = Vendor;
+    //    }
+    //    private bool _ARPStatus = false;
+    //    public bool ARPStatus { get { return _ARPStatus; } }
 
-        private string _IP = string.Empty;
-        public string IP { get { return _IP; } }
+    //    private string _IP = string.Empty;
+    //    public string IP { get { return _IP; } }
 
-        private string _MAC = string.Empty;
-        public string MAC { get { return _MAC; } }
+    //    private string _MAC = string.Empty;
+    //    public string MAC { get { return _MAC; } }
 
-        private string _Vendor = string.Empty;
-        public string Vendor { get { return _Vendor; } }
-    }
+    //    private string _Vendor = string.Empty;
+    //    public string Vendor { get { return _Vendor; } }
+    //}
 
 
 
-    public class ARP_Request_Task_Finished_EventArgs : EventArgs
-    {
-        public ARP_Request_Task_Finished_EventArgs(string IPGroupDescription, string DeviceDescription,string IP, string MAC, string Vendor)
-        {
-            _IPGroupDescription = IPGroupDescription;
-            _DeviceDescription = DeviceDescription;
-            _IP = IP;
-            _MAC = MAC;
-            _Vendor = Vendor;
-        }
+    //public class ARP_Request_Task_Finished_EventArgs : EventArgs
+    //{
+    //    public ARP_Request_Task_Finished_EventArgs(string IPGroupDescription, string DeviceDescription,string IP, string MAC, string Vendor)
+    //    {
+    //        _IPGroupDescription = IPGroupDescription;
+    //        _DeviceDescription = DeviceDescription;
+    //        _IP = IP;
+    //        _MAC = MAC;
+    //        _Vendor = Vendor;
+    //    }
 
-        string _IPGroupDescription = string.Empty;
-        public string IPGroupDescription { get { return _IPGroupDescription; } }
+    //    string _IPGroupDescription = string.Empty;
+    //    public string IPGroupDescription { get { return _IPGroupDescription; } }
 
-        string _DeviceDescription = string.Empty;
-        public string DeviceDescription { get { return _DeviceDescription; } }
+    //    string _DeviceDescription = string.Empty;
+    //    public string DeviceDescription { get { return _DeviceDescription; } }
 
-        private string _IP = string.Empty;
-        public string IP { get { return _IP; } }
+    //    private string _IP = string.Empty;
+    //    public string IP { get { return _IP; } }
 
-        private string _MAC = string.Empty;
-        public string MAC { get { return _MAC; } }
+    //    private string _MAC = string.Empty;
+    //    public string MAC { get { return _MAC; } }
 
-        private string _Vendor = string.Empty;
-        public string Vendor { get { return _Vendor; } }
+    //    private string _Vendor = string.Empty;
+    //    public string Vendor { get { return _Vendor; } }
 
-    }
+    //}
 
     public class ARP_Request_Finished_EventArgs : EventArgs
     {

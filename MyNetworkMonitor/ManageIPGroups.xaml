@@ -66,7 +66,7 @@
                 <Button x:Name="bt_addEntry" Grid.Column="10" Content="add entry" HorizontalAlignment="Left" Grid.Row="1" VerticalAlignment="Top" Width="66" Height="20" Click="bt_addEntry_Click" Margin="10,5,0,0" TabIndex="9"/>
                 <CheckBox x:Name="chk_isActive" Content="is active" HorizontalAlignment="Left" Grid.Row="1" VerticalAlignment="Top" Height="15" Width="78" Margin="27,2,0,0" TabIndex="1"/>
                 <Label Content="Group Description" Margin="4,0,10,0" VerticalAlignment="Center" Height="24" Grid.Column="1"/>
-                <Label Grid.Column="3" Content="First IP" HorizontalAlignment="Left" VerticalAlignment="Center" Height="26" Width="46" Margin="10,0,0,0"/>
+                <Label Grid.Column="3" Content="First IP / Hostname" HorizontalAlignment="Left" VerticalAlignment="Center" Height="26" Width="117" Margin="10,0,0,0"/>
                 <TextBox x:Name="tb_Description" Grid.Column="1" Margin="9,3,2,0" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Height="18" TabIndex="2"/>
                 <TextBox x:Name="tb_firstIP" Grid.Column="3" Margin="10,3,10,0" Grid.Row="1" TextWrapping="Wrap" VerticalAlignment="Top" Height="18" TabIndex="4"/>
                 <Label Grid.Column="4" Content="Last Host" Margin="10,2,10,0" VerticalAlignment="Top" Height="25" Grid.RowSpan="2"/>

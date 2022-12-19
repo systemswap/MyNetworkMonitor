@@ -17,7 +17,9 @@ namespace MyNetworkMonitor
         }
 
 
-        public event EventHandler<Lookup_Task_Finished_EventArgs>? Lookup_Task_Finished;
+        //public event EventHandler<Lookup_Task_Finished_EventArgs>? Lookup_Task_Finished;
+        public event EventHandler<ScanTask_Finished_EventArgs>? Lookup_Task_Finished;
+
         public event EventHandler<Lookup_Finished_EventArgs>? Lookup_Finished;
 
 
@@ -34,7 +36,7 @@ namespace MyNetworkMonitor
                 }
             }
 
-            await Task.WhenAll(tasks);
+            await Task.WhenAll(tasks.Where(t => t != null));
 
             if (Lookup_Finished != null)
             {
@@ -49,30 +51,39 @@ namespace MyNetworkMonitor
             {
                 _entry = await Dns.GetHostEntryAsync(ip.Hostname);
 
-                bool _ReverseLookupStatus = false;
-                string _ReverseLookUpIPs = string.Empty;
+                bool _LookUpStatus = false;
+                string _LookUpIPs = string.Empty;
 
                 if (_entry.AddressList.ToList().Count == 1 && ip.IP == _entry.AddressList[0].ToString())
                 {
-                    _ReverseLookupStatus = true;
+                    _LookUpStatus = true;
                 }
                 if (_entry.AddressList.ToList().Count != 1)
                 {
-                    _ReverseLookupStatus = false;
+                    _LookUpStatus = false;
 
                     if (_entry.AddressList.ToList().Count == 0)
                     {
-                        _ReverseLookUpIPs = "no IPs registred";
+                        _LookUpIPs = "no IPs registred";
                     }
                     else
                     {
-                        _ReverseLookUpIPs = string.Join("\r\n", _entry.AddressList.ToList());
+                        _LookUpIPs = string.Join("\r\n", _entry.AddressList.ToList());
                     }
                 }
 
                 if (Lookup_Task_Finished != null)
                 {
-                    Lookup_Task_Finished(this, new Lookup_Task_Finished_EventArgs(ip.IP, _ReverseLookupStatus, _ReverseLookUpIPs, _entry));
+                    //Lookup_Task_Finished(this, new Lookup_Task_Finished_EventArgs(ip.IP, _ReverseLookupStatus, _ReverseLookUpIPs, _entry));
+
+                    ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
+                    scanTask_Finished.IP = ip.IP;
+                    scanTask_Finished.LookUpStatus = _LookUpStatus;
+                    scanTask_Finished.LookUpIPs = _LookUpIPs;
+                    scanTask_Finished.IP_HostEntry = _entry;                   
+                    scanTask_Finished.DNSServers = string.Join(',', ip.DNSServers);
+                    
+                    Lookup_Task_Finished(this, scanTask_Finished);
                 }
             }
             catch (Exception)
@@ -108,28 +119,28 @@ namespace MyNetworkMonitor
         }
     }
 
-    public class Lookup_Task_Finished_EventArgs : EventArgs
-    {
-        public Lookup_Task_Finished_EventArgs(string SourceIP, bool LookUpStatus, string LookUpIPs, IPHostEntry Entry)
-        {
-            _IP = SourceIP;
-            _LookUpStatus = LookUpStatus;
-            _LookUpIPs = LookUpIPs;
-            _Entry = Entry;
-        }
+    //public class Lookup_Task_Finished_EventArgs : EventArgs
+    //{
+    //    public Lookup_Task_Finished_EventArgs(string SourceIP, bool LookUpStatus, string LookUpIPs, IPHostEntry Entry)
+    //    {
+    //        _IP = SourceIP;
+    //        _LookUpStatus = LookUpStatus;
+    //        _LookUpIPs = LookUpIPs;
+    //        _Entry = Entry;
+    //    }
 
-        private string _IP = string.Empty;
-        public string IP { get { return _IP; } }
+    //    private string _IP = string.Empty;
+    //    public string IP { get { return _IP; } }
 
-        private bool _LookUpStatus = false;
-        public bool LookUpStatus { get { return _LookUpStatus; } }
+    //    private bool _LookUpStatus = false;
+    //    public bool LookUpStatus { get { return _LookUpStatus; } }
 
-        private string _LookUpIPs = string.Empty;
-        public string LookUpIPs { get { return _LookUpIPs; } }
+    //    private string _LookUpIPs = string.Empty;
+    //    public string LookUpIPs { get { return _LookUpIPs; } }
 
-        private IPHostEntry _Entry = new IPHostEntry();
-        public IPHostEntry Entry { get { return _Entry; } }
-    }
+    //    private IPHostEntry _Entry = new IPHostEntry();
+    //    public IPHostEntry Entry { get { return _Entry; } }
+    //}
 
     public class Lookup_Finished_EventArgs : EventArgs
     {
