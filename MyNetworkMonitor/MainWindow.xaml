@@ -11,9 +11,9 @@
     <Window.Resources>
         <CollectionViewSource x:Key="cvs" Source="{Binding}" IsLiveSortingRequested="True" IsLiveGroupingRequested="True">
             <!-- Sorting -->
-            <CollectionViewSource.SortDescriptions>
+            <!--<CollectionViewSource.SortDescriptions>
                 <scm:SortDescription PropertyName="IPGroupDescription" />
-            </CollectionViewSource.SortDescriptions>
+            </CollectionViewSource.SortDescriptions>-->
 
             <!-- Grouping IP Groups-->
             <CollectionViewSource.GroupDescriptions>
@@ -53,7 +53,7 @@
 
                         <Button x:Name="bt_Edit_IP_Range" Content="Edit Range" Margin="210,10,10,10" Grid.Row="0" Click="bt_Edit_IP_Range_Click" />
 
-                        <DataGrid x:Name="dgv_IP_Ranges" Margin="10,10,10,10" Grid.Row="1" Grid.ColumnSpan="2" AutoGeneratingColumn="dgv_IPRanges_OnAutoGeneratingColumn" ItemsSource="{Binding Source={StaticResource cvs}}" CanUserAddRows="False">
+                        <DataGrid x:Name="dgv_IP_Ranges" Margin="10,10,10,10" Grid.Row="1" Grid.ColumnSpan="2" AutoGeneratingColumn="dgv_IPRanges_OnAutoGeneratingColumn" ItemsSource="{Binding Source={StaticResource cvs}}" CanUserAddRows="False" CanUserDeleteRows="False">
                             <DataGrid.GroupStyle>
                                 <GroupStyle HeaderTemplate="{StaticResource ResourceKey=GroupingHeader}" />
                             </DataGrid.GroupStyle>
@@ -82,8 +82,8 @@
                     <ColumnDefinition Width="108"/>
                     <ColumnDefinition Width="87"/>
                     <ColumnDefinition Width="330"/>
-                    <ColumnDefinition Width="101"/>
-                    <ColumnDefinition Width="107"/>
+                    <ColumnDefinition Width="195"/>
+                    <ColumnDefinition Width="81"/>
                     <ColumnDefinition/>
                     <ColumnDefinition Width="147"/>
                     <ColumnDefinition Width="110"/>
@@ -96,31 +96,38 @@
                 <CheckBox x:Name="chk_Methodes_Ping" Content="Ping" Grid.Column="2" HorizontalAlignment="Left" Width="60" VerticalContentAlignment="Center" VerticalAlignment="Center" Height="15" Margin="10,0,0,0"/>
 
                 <CheckBox x:Name="chk_Methodes_ScanHostnames" Content="scan Hostname" Grid.Column="3" Margin="10,0,0,0" HorizontalAlignment="Left" Width="106" VerticalContentAlignment="Center" VerticalAlignment="Center" Height="15"/>
-                <Grid Grid.Column="3" Margin="10,2,0,3" HorizontalAlignment="Left" Width="310" Grid.Row="1">
+                <Grid Grid.Column="3" Margin="0,2,0,3" HorizontalAlignment="Center" Width="310" Grid.Row="1">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="105"/>
-                        <ColumnDefinition Width="54"/>
+                        <ColumnDefinition Width="131"/>
+                        <ColumnDefinition Width="33"/>
                         <ColumnDefinition/>
                     </Grid.ColumnDefinitions>
-                    <RadioButton x:Name="rb_ScanHostnames_onlyKnown" Content="only in Table" HorizontalAlignment="Left" VerticalAlignment="Center" Height="24" Width="103" Margin="10,0,0,0" IsChecked="True" VerticalContentAlignment="Center" Grid.ColumnSpan="2"/>
-                    <RadioButton x:Name="rb_ScanHostnames_All_IPs" Grid.Column="1" Content="all" HorizontalAlignment="Left" VerticalAlignment="Center" Height="24" Width="32" VerticalContentAlignment="Center" Margin="11,0,0,0"/>
-                    <CheckBox x:Name="chk_Methodes_ReverseLookUp" Content="Reverse NSLookup" Grid.Column="2" Margin="10,2,0,3" HorizontalAlignment="Left" Width="118"/>
+                    <RadioButton x:Name="rb_ScanHostnames_onlyKnown" Content="only IPs in Table" HorizontalAlignment="Center" VerticalAlignment="Center" Height="19" Width="112" IsChecked="True" VerticalContentAlignment="Center"/>
+                    <RadioButton x:Name="rb_ScanHostnames_All_IPs" Grid.Column="1" Content="all" HorizontalAlignment="Center" VerticalAlignment="Center" Height="19" Width="34" VerticalContentAlignment="Center"/>
+                    <CheckBox x:Name="chk_Methodes_ReverseLookUp" Content="Reverse Lookup" Grid.Column="2" Margin="10,2,0,0" HorizontalAlignment="Left" Width="122"/>
                 </Grid>
 
                 <CheckBox x:Name="chk_Methodes_ScanTCPPorts" Content="TCP Ports" Grid.Column="4" HorizontalAlignment="Left" Width="76" VerticalContentAlignment="Center" VerticalAlignment="Center" Height="15" Margin="10,0,0,0"/>
-                <CheckBox x:Name="chk_allTCPPorts" Grid.Column="4" Content="all" HorizontalAlignment="Left" Grid.Row="1" VerticalAlignment="Center" Width="40" Height="15" Margin="28,0,0,0"/>
 
-                <CheckBox x:Name="chk_Methodes_ScanUDPPorts" Content="UDP Ports" Grid.Column="5" Margin="10,0,0,0" HorizontalAlignment="Left" Width="82" VerticalContentAlignment="Center" VerticalAlignment="Center" Height="15"/>
+                <CheckBox x:Name="chk_Methodes_ScanUDPPorts" Content="UDP Ports" Grid.Column="5" HorizontalAlignment="Center" Width="82" VerticalContentAlignment="Center" VerticalAlignment="Center" Height="15"/>
 
 
                 <TextBox x:Name="tb_IP_Address" Grid.Column="7" TextWrapping="Wrap" VerticalAlignment="Center" Height="20" Margin="9,0,9,0"/>
                 <TextBox x:Name="tb_TCPPorts" Grid.Column="8" TextWrapping="Wrap" VerticalAlignment="Center" Height="20" Margin="7,0,10,0"/>
                 <TextBox x:Name="tb_UDPPorts" Grid.Column="9" TextWrapping="Wrap" VerticalAlignment="Center" Height="20" Margin="10,0,10,0"/>
-                <Button x:Name="bt_ScanIP" Click="bt_ScanIP_Click"   Content="Scan Selected IP" Grid.Column="10" VerticalAlignment="Center" Height="20" Margin="0,0,10,0" HorizontalAlignment="Right" Width="101" />
+                <Button x:Name="bt_ScanIP" Click="bt_ScanIP_Click"   Content="Scan Selected IP" Grid.Column="10" VerticalAlignment="Center" Height="20" Margin="16,0,0,0" HorizontalAlignment="Left" Width="101" />
 
 
                 <CheckBox x:Name="chk_Methodes_ARP_A" Content="arp -a" Margin="10,0,0,0" HorizontalAlignment="Left" Width="54" Grid.Column="6" VerticalContentAlignment="Center" VerticalAlignment="Center" Height="15"/>
-                <CheckBox x:Name="chk_ARP_DeleteCacheBefore" Content="arp -d" VerticalAlignment="Center" Height="16" Click="chk_ARP_DeleteCacheBefore_Click" Grid.Column="6" Grid.Row="1" Margin="28,0,0,0" HorizontalAlignment="Left" Width="55"/>
+                <CheckBox x:Name="chk_ARP_DeleteCacheBefore" Content="arp -d" VerticalAlignment="Center" Height="16" Click="chk_ARP_DeleteCacheBefore_Click" Grid.Column="6" Grid.Row="1" HorizontalAlignment="Left" Width="56" Margin="28,0,0,0"/>
+                <Grid Grid.Column="4" Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition/>
+                        <ColumnDefinition Width="75"/>
+                    </Grid.ColumnDefinitions>
+                    <CheckBox x:Name="chk_TCPPortsScanOnlyIPsInTable" Grid.Column="0" Content="only IPs in Table" HorizontalAlignment="Left" VerticalAlignment="Center" Width="108" Height="15" Margin="10,0,0,0"/>
+                    <CheckBox x:Name="chk_allTCPPorts" Grid.Column="1" Content="all Ports" HorizontalAlignment="Left" VerticalAlignment="Center" Width="67" Height="15" Margin="10,0,0,0" VerticalContentAlignment="Center"/>
+                </Grid>
 
 
             </Grid>
@@ -130,7 +137,7 @@
                     <RowDefinition/>
                     <RowDefinition Height="50"/>
                 </Grid.RowDefinitions>
-                <DataGrid x:Name="dgv_Results" Grid.Column="0" Margin="10,10,10,10" Grid.Row="0" AutoGeneratingColumn="dgv_ScanResults_OnAutoGeneratingColumn" CanUserAddRows="False">
+                <DataGrid x:Name="dgv_Results" Grid.Column="0" Margin="10,10,10,10" Grid.Row="0" AutoGeneratingColumn="dgv_ScanResults_OnAutoGeneratingColumn" CanUserAddRows="False" CanUserDeleteRows="False">
 
                     <DataGrid.Resources>
                         <DataTemplate x:Key="ARPStatus">

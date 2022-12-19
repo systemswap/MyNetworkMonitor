@@ -58,7 +58,7 @@ namespace MyNetworkMonitor
             tb_DeviceDescription.Text = _dt.Rows[indexOfCurrentRow]["DeviceDescription"].ToString();
             tb_firstIP.Text = _dt.Rows[indexOfCurrentRow]["FirstIP"].ToString();
             tb_LastIP.Text = _dt.Rows[indexOfCurrentRow]["LastIP"].ToString();
-            tb_DNSServer.Text = _dt.Rows[indexOfCurrentRow]["DNSServer"].ToString();
+            tb_DNSServer.Text = _dt.Rows[indexOfCurrentRow]["DNSServers"].ToString();
             chk_AutomaticScan.IsChecked = Convert.ToBoolean(_dt.Rows[indexOfCurrentRow]["AutomaticScan"]);
             tb_ScanInterval.Text = _dt.Rows[indexOfCurrentRow]["ScanIntervalMinutes"].ToString();
             _ = _dt.Rows[indexOfCurrentRow]["GatewayIP"].ToString();
@@ -74,7 +74,7 @@ namespace MyNetworkMonitor
                 row["DeviceDescription"] = tb_DeviceDescription.Text;
                 row["FirstIP"] = tb_firstIP.Text;
                 row["LastIP"] = tb_LastIP.Text;
-                row["DNSServer"] = tb_DNSServer.Text;
+                row["DNSServers"] = tb_DNSServer.Text;
                 row["AutomaticScan"] = Convert.ToBoolean(chk_AutomaticScan.IsChecked);
                 row["ScanIntervalMinutes"] = tb_ScanInterval.Text;
                 row["GatewayIP"] = string.Empty;
@@ -88,7 +88,7 @@ namespace MyNetworkMonitor
                 _dt.Rows[indexOfCurrentRow]["DeviceDescription"] = tb_DeviceDescription.Text;
                 _dt.Rows[indexOfCurrentRow]["FirstIP"] = tb_firstIP.Text;
                 _dt.Rows[indexOfCurrentRow]["LastIP"] = tb_LastIP.Text;
-                _dt.Rows[indexOfCurrentRow]["DNSServer"] = tb_DNSServer.Text;
+                _dt.Rows[indexOfCurrentRow]["DNSServers"] = tb_DNSServer.Text;
                 _dt.Rows[indexOfCurrentRow]["AutomaticScan"] = Convert.ToBoolean(chk_AutomaticScan.IsChecked);
                 _dt.Rows[indexOfCurrentRow]["ScanIntervalMinutes"] = tb_ScanInterval.Text;
                 _dt.Rows[indexOfCurrentRow]["GatewayIP"] = string.Empty;

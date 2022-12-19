@@ -26,9 +26,9 @@ namespace MyNetworkMonitor
 
         }
 
+        //public event EventHandler<Ping_Task_Finished_EventArgs>? Ping_Task_Finished;
+        public event EventHandler<ScanTask_Finished_EventArgs>? Ping_Task_Finished;
         public event EventHandler<PingScanFinishedEventArgs>? PingFinished;
-        public event EventHandler<Ping_Task_Finished_EventArgs>? Ping_Task_Finished;
-
 
         /// <summary>
         /// to get the Ping result call the Propertie PingResults
@@ -45,7 +45,7 @@ namespace MyNetworkMonitor
                 if (task != null) tasks.Add(task);
             });
 
-            await Task.WhenAll(tasks);
+            await Task.WhenAll(tasks.Where(t => t != null));
             if (PingFinished != null)
             {
                 PingFinished(this, new PingScanFinishedEventArgs(true));
@@ -85,7 +85,16 @@ namespace MyNetworkMonitor
 
                 if (Ping_Task_Finished != null)
                 {
-                    Ping_Task_Finished(this, new Ping_Task_Finished_EventArgs(ip.IPGroupDescription, ip.DeviceDescription, IP, PingStatus, ResponseTime));
+                    ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
+                    scanTask_Finished.IPGroupDescription = ip.IPGroupDescription;
+                    scanTask_Finished.DeviceDescription = ip.DeviceDescription;
+                    scanTask_Finished.IP = IP;
+                    scanTask_Finished.ResponseTime = ResponseTime;
+                    scanTask_Finished.PingStatus= PingStatus;
+                    scanTask_Finished.DNSServers = string.Join(',', ip.DNSServers);
+                    
+                    //Ping_Task_Finished(this, new Ping_Task_Finished_EventArgs(ip.IPGroupDescription, ip.DeviceDescription, IP, PingStatus, ResponseTime));
+                    Ping_Task_Finished(this, scanTask_Finished);
                 }
             }
             catch (PingException ex)
@@ -120,32 +129,32 @@ namespace MyNetworkMonitor
 
     /* ############# Events #################*/
 
-    public class Ping_Task_Finished_EventArgs : EventArgs
-    {
-        public Ping_Task_Finished_EventArgs(string IPGroupDescription, string DeviceDescription, string IP, bool PingStatus, string ResponseTime)
-        {
-            _IPGroupDescription = IPGroupDescription;
-            _DeviceDescription = DeviceDescription;
-            _IP = IP;
-            _PingStatus = PingStatus;            
-            _ResponseTime = ResponseTime;
-        }
+    //public class Ping_Task_Finished_EventArgs : EventArgs
+    //{
+    //    public Ping_Task_Finished_EventArgs(string IPGroupDescription, string DeviceDescription, string IP, bool PingStatus, string ResponseTime)
+    //    {
+    //        _IPGroupDescription = IPGroupDescription;
+    //        _DeviceDescription = DeviceDescription;
+    //        _IP = IP;
+    //        _PingStatus = PingStatus;            
+    //        _ResponseTime = ResponseTime;
+    //    }
 
-        private string _IPGroupDescription = string.Empty;
-        public string IPGroupDescription { get { return _IPGroupDescription; } }
+    //    private string _IPGroupDescription = string.Empty;
+    //    public string IPGroupDescription { get { return _IPGroupDescription; } }
 
-        private string _DeviceDescription = string.Empty;
-        public string DeviceDescription { get { return _DeviceDescription; } }
+    //    private string _DeviceDescription = string.Empty;
+    //    public string DeviceDescription { get { return _DeviceDescription; } }
 
-        private string _IP = string.Empty;
-        public string IP { get { return _IP; } }
+    //    private string _IP = string.Empty;
+    //    public string IP { get { return _IP; } }
 
-        private bool _PingStatus = false;
-        public bool PingStatus { get { return _PingStatus; } }        
+    //    private bool _PingStatus = false;
+    //    public bool PingStatus { get { return _PingStatus; } }        
 
-        private string _ResponseTime = string.Empty;
-        public string ResponseTime { get { return _ResponseTime; } }
-    }
+    //    private string _ResponseTime = string.Empty;
+    //    public string ResponseTime { get { return _ResponseTime; } }
+    //}
 
 
     public class PingScanFinishedEventArgs : EventArgs
