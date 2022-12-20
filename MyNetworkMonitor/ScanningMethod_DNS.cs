@@ -21,9 +21,10 @@ namespace MyNetworkMonitor
         //public event EventHandler<GetHostAndAliasFromIP_Task_Finished_EventArgs>? GetHostAliases_Task_Finished;
         public event EventHandler<ScanTask_Finished_EventArgs>? GetHostAliases_Task_Finished;
 
-        public event EventHandler<GetHostAndAliasFromIP_Finished_EventArgs>? GetHostAliases_Finished;
+        //public event EventHandler<GetHostAndAliasFromIP_Finished_EventArgs>? GetHostAliases_Finished;
+        public event EventHandler<Method_Finished_EventArgs>? GetHostAliases_Finished;
 
-        public async Task GetHost_Aliases(List<IPToRefresh> IPs)
+        public async Task GetHost_Aliases(List<IPToScan> IPs)
         {
             if (IPs.Count == 0)
             {
@@ -34,7 +35,7 @@ namespace MyNetworkMonitor
 
             Parallel.ForEach(IPs, ip =>
                     {
-                        var task = GetHost_Aliases_Task(ip);
+                        var task = Task.Run(() => GetHost_Aliases_Task(ip));
                         if (task != null) tasks.Add(task);
                     });
 
@@ -42,13 +43,13 @@ namespace MyNetworkMonitor
 
             if (GetHostAliases_Finished != null)
             {
-                GetHostAliases_Finished(this, new GetHostAndAliasFromIP_Finished_EventArgs(true));
+                GetHostAliases_Finished(this, new Method_Finished_EventArgs());
             }
         }
 
 
 
-        private async Task GetHost_Aliases_Task(IPToRefresh ip)
+        private async Task GetHost_Aliases_Task(IPToScan ip)
         {
             try
             {
@@ -57,9 +58,9 @@ namespace MyNetworkMonitor
 
                 List<NameServer> dnsServers = new List<NameServer>();
                 DnsClient.LookupClient client = null;
-                if (ip.DNSServers.Count > 0)
+                if (ip.DNSServerList != null && ip.DNSServerList.Count > 0 && !string.IsNullOrEmpty(string.Join(string.Empty, ip.DNSServerList)))
                 {
-                    foreach (string s in ip.DNSServers)
+                    foreach (string s in ip.DNSServerList)
                     {
                         dnsServers.Add(IPAddress.Parse(s));
                     }
@@ -71,19 +72,24 @@ namespace MyNetworkMonitor
                 }
                 IPHostEntry _IPHostEntry = await client.GetHostEntryAsync(ip.IP);
 
-
+                if (_IPHostEntry == null)                
+                {
+                    throw new Exception("IPHostEntry is null");
+                    //GetHostAliases_Task_Finished(this, null);
+                    //return;
+                }
 
                 if (GetHostAliases_Task_Finished != null)
                 {
                     //GetHostAliases_Task_Finished(this, new GetHostAndAliasFromIP_Task_Finished_EventArgs(ip.IPGroupDescription, ip.DeviceDescription, ip.IP, entry.HostName, string.Join("\r\n", entry.Aliases)));
 
                     ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
-                    scanTask_Finished.IPGroupDescription = ip.IPGroupDescription;
-                    scanTask_Finished.DeviceDescription = ip.DeviceDescription;
-                    scanTask_Finished.IP = ip.IP;
-                    scanTask_Finished.HostName = _IPHostEntry.HostName;
-                    scanTask_Finished.Aliases = string.Join("\r\n", _IPHostEntry.Aliases);                    
-                    scanTask_Finished.DNSServers = string.Join(',', ip.DNSServers);
+                    scanTask_Finished.ipToScan.IPGroupDescription = ip.IPGroupDescription;
+                    scanTask_Finished.ipToScan.DeviceDescription = ip.DeviceDescription;
+                    scanTask_Finished.ipToScan.IP = ip.IP;
+                    scanTask_Finished.ipToScan.HostName = _IPHostEntry.HostName;
+                    scanTask_Finished.ipToScan.Aliases = (_IPHostEntry.Aliases != null) ? string.Join("\r\n", _IPHostEntry.Aliases) : string.Empty;  
+                    scanTask_Finished.ipToScan.DNSServers = (ip.DNSServerList != null) ? string.Join(',', ip.DNSServerList) : string.Empty;
 
                     GetHostAliases_Task_Finished(this, scanTask_Finished);
                 }
@@ -155,13 +161,13 @@ namespace MyNetworkMonitor
     //    //public int CurrentHostnamesCount { get { return _currentHostnamesCount; } }
     //}
 
-    public class GetHostAndAliasFromIP_Finished_EventArgs : EventArgs
-    {
-        private bool _finished = false;
-        public bool FinishedDNSQuery { get { return _finished; } }
-        public GetHostAndAliasFromIP_Finished_EventArgs(bool Finished_DNS_Query)
-        {
-            _finished = Finished_DNS_Query;
-        }
-    }
+    //public class GetHostAndAliasFromIP_Finished_EventArgs : EventArgs
+    //{
+    //    private bool _finished = false;
+    //    public bool FinishedDNSQuery { get { return _finished; } }
+    //    public GetHostAndAliasFromIP_Finished_EventArgs(bool Finished_DNS_Query)
+    //    {
+    //        _finished = Finished_DNS_Query;
+    //    }
+    //}
 }

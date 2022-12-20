@@ -46,7 +46,7 @@ namespace MyNetworkMonitor
 
                 //stm.Write(ba, 0, ba.Length);
 
-                IPToRefresh toRefresh = new IPToRefresh();
+                IPToScan toRefresh = new IPToScan();
                 toRefresh.IPGroupDescription = "tada";
 
                 XmlSerializer x = new XmlSerializer(toRefresh.GetType());

@@ -28,14 +28,16 @@ namespace MyNetworkMonitor
 
         //public event EventHandler<Ping_Task_Finished_EventArgs>? Ping_Task_Finished;
         public event EventHandler<ScanTask_Finished_EventArgs>? Ping_Task_Finished;
-        public event EventHandler<PingScanFinishedEventArgs>? PingFinished;
+
+        //public event EventHandler<PingScanFinishedEventArgs>? PingFinished;
+        public event EventHandler<Method_Finished_EventArgs>? PingFinished;
 
         /// <summary>
         /// to get the Ping result call the Propertie PingResults
         /// </summary>
         /// <param name="IPs"></param>
         /// <param name="DNS_Server_IP"></param>
-        public async Task PingIPsAsync(List<IPToRefresh> IPsToRefresh, bool ShowUnused = true)
+        public async Task PingIPsAsync(List<IPToScan> IPsToRefresh, bool ShowUnused = true)
         {
             var tasks = new List<Task>();
 
@@ -48,11 +50,11 @@ namespace MyNetworkMonitor
             await Task.WhenAll(tasks.Where(t => t != null));
             if (PingFinished != null)
             {
-                PingFinished(this, new PingScanFinishedEventArgs(true));
+                PingFinished(this, new Method_Finished_EventArgs());
             }
         }
 
-        private async Task PingTask(IPToRefresh ip, int TimeOut, bool ShowUnused)
+        private async Task PingTask(IPToScan ip, int TimeOut, bool ShowUnused)
         {
             if (!new SupportMethods().Is_Valid_IP(ip.IP)) return;
 
@@ -86,12 +88,12 @@ namespace MyNetworkMonitor
                 if (Ping_Task_Finished != null)
                 {
                     ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
-                    scanTask_Finished.IPGroupDescription = ip.IPGroupDescription;
-                    scanTask_Finished.DeviceDescription = ip.DeviceDescription;
-                    scanTask_Finished.IP = IP;
-                    scanTask_Finished.ResponseTime = ResponseTime;
-                    scanTask_Finished.PingStatus= PingStatus;
-                    scanTask_Finished.DNSServers = string.Join(',', ip.DNSServers);
+                    scanTask_Finished.ipToScan.IPGroupDescription = ip.IPGroupDescription;
+                    scanTask_Finished.ipToScan.DeviceDescription = ip.DeviceDescription;
+                    scanTask_Finished.ipToScan.IP = IP;
+                    scanTask_Finished.ipToScan.ResponseTime = ResponseTime;
+                    scanTask_Finished.ipToScan.PingStatus= PingStatus;
+                    scanTask_Finished.ipToScan.DNSServers = (ip.DNSServerList != null) ? string.Join(',', ip.DNSServerList) : string.Empty;
                     
                     //Ping_Task_Finished(this, new Ping_Task_Finished_EventArgs(ip.IPGroupDescription, ip.DeviceDescription, IP, PingStatus, ResponseTime));
                     Ping_Task_Finished(this, scanTask_Finished);
@@ -104,7 +106,7 @@ namespace MyNetworkMonitor
         }
 
 
-        public async Task<PingReply> PingIPAsync(IPToRefresh ip, int TimeOut)
+        public async Task<PingReply> PingIPAsync(IPToScan ip, int TimeOut)
         {
             PingReply reply;
             try
@@ -157,14 +159,14 @@ namespace MyNetworkMonitor
     //}
 
 
-    public class PingScanFinishedEventArgs : EventArgs
-    {
-        public PingScanFinishedEventArgs(bool Finished)
-        {
-            _finished = Finished;
-        }
+    //public class PingScanFinishedEventArgs : EventArgs
+    //{
+    //    public PingScanFinishedEventArgs(bool Finished)
+    //    {
+    //        _finished = Finished;
+    //    }
 
-        private bool _finished = false;
-        public bool PingResults { get { return _finished; } }        
-    }
+    //    private bool _finished = false;
+    //    public bool PingResults { get { return _finished; } }        
+    //}
 }

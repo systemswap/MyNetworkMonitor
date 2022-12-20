@@ -21,13 +21,16 @@ namespace MyNetworkMonitor
         public ScanningMethod_SSDP_UPNP()
         {
             
-        }       
+        }
 
-        public event EventHandler<SSDP_Scan_FinishedEventArgs>? SSDP_Scan_Finished;
         //public event EventHandler<SSDP_Device_EventArgs>? SSDP_NewDevice;
         public event EventHandler<ScanTask_Finished_EventArgs>? SSDP_foundNewDevice;
 
-        public async void ScanForSSDP(List<IPToRefresh> IPs)
+        //public event EventHandler<SSDP_Scan_FinishedEventArgs>? SSDP_Scan_Finished;
+        public event EventHandler<Method_Finished_EventArgs>? SSDP_Scan_Finished;
+
+
+        public async void ScanForSSDP(List<IPToScan> IPs)
         {
             using (var deviceLocator = new SsdpDeviceLocator())
             { 
@@ -45,19 +48,19 @@ namespace MyNetworkMonitor
                         ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
                         try
                         {
-                            scanTask_Finished.IPGroupDescription = IPs.Where(i => string.Equals(i.IP, deviceIP)).Select(i => i.IPGroupDescription).ToList()[0];
-                            scanTask_Finished.DeviceDescription = IPs.Where(i => string.Equals(i.IP, deviceIP)).Select(i => i.DeviceDescription).ToList()[0];                            
-                            scanTask_Finished.DNSServers = string.Join(',', IPs.Where(i => string.Equals(i.IP, deviceIP)).Select(i => i.DNSServers).ToList());
+                            scanTask_Finished.ipToScan.IPGroupDescription = IPs.Where(i => string.Equals(i.IP, deviceIP)).Select(i => i.IPGroupDescription).ToList()[0];
+                            scanTask_Finished.ipToScan.DeviceDescription = IPs.Where(i => string.Equals(i.IP, deviceIP)).Select(i => i.DeviceDescription).ToList()[0];                            
+                            scanTask_Finished.ipToScan.DNSServers = string.Join(',', IPs.Where(i => string.Equals(i.IP, deviceIP)).Select(i => i.DNSServerList).ToList());
                         }
                         catch (Exception)
                         {
 
-                            scanTask_Finished.IPGroupDescription = "not specified";
-                            scanTask_Finished.DeviceDescription = "not specified";
+                            scanTask_Finished.ipToScan.IPGroupDescription = "not specified";
+                            scanTask_Finished.ipToScan.DeviceDescription = "not specified";
                         }
 
-                        scanTask_Finished.SSDPStatus = true;
-                        scanTask_Finished.IP = deviceIP;
+                        scanTask_Finished.ipToScan.SSDPStatus = true;
+                        scanTask_Finished.ipToScan.IP = deviceIP;
 
                         //SSDP_NewDevice(this, new SSDP_Device_EventArgs(true, deviceIP));
                         SSDP_foundNewDevice(this, scanTask_Finished);
@@ -67,7 +70,7 @@ namespace MyNetworkMonitor
 
             if (SSDP_Scan_Finished != null)
             {                
-                SSDP_Scan_Finished(this, new SSDP_Scan_FinishedEventArgs(true));
+                SSDP_Scan_Finished(this, new Method_Finished_EventArgs());
             }
         }
     }
@@ -86,14 +89,14 @@ namespace MyNetworkMonitor
     //    public string IP { get { return _IP; } }
     //}
 
-    public class SSDP_Scan_FinishedEventArgs : EventArgs
-    {
-        public SSDP_Scan_FinishedEventArgs(bool finished)
-        {
-            _finished = finished;
-        }
+    //public class SSDP_Scan_FinishedEventArgs : EventArgs
+    //{
+    //    public SSDP_Scan_FinishedEventArgs(bool finished)
+    //    {
+    //        _finished = finished;
+    //    }
 
-        private bool _finished = false;
-        public bool SSDP_Scan_Finished { get { return _finished; } }
-    }
+    //    private bool _finished = false;
+    //    public bool SSDP_Scan_Finished { get { return _finished; } }
+    //}
 }
