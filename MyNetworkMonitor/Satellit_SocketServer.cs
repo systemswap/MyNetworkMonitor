@@ -59,7 +59,7 @@ namespace MyNetworkMonitor
                 //    Debug.Write(Convert.ToChar(b[i]));
 
                 Stream stream = new MemoryStream(b);
-                IPToRefresh toRefresh1 = new IPToRefresh();
+                IPToScan toRefresh1 = new IPToScan();
                 XmlSerializer xmlSerializer= new XmlSerializer(toRefresh1.GetType());
                 var test = xmlSerializer.Deserialize(stream);
 

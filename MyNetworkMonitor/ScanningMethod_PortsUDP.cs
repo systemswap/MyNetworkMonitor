@@ -22,9 +22,10 @@ namespace MyNetworkMonitor
         //public event EventHandler<UDPPortScan_Task_FinishedEventArgs>? UDPPortScan_Task_Finished;
         public event EventHandler<ScanTask_Finished_EventArgs>? UDPPortScan_Task_Finished;
 
-        public event EventHandler<UDPPortScan_Finished_EventArgs>? UDPPortScan_Finished;
+        //public event EventHandler<UDPPortScan_Finished_EventArgs>? UDPPortScan_Finished;
+        public event EventHandler<Method_Finished_EventArgs>? UDPPortScan_Finished;
 
-      
+
 
         public void Get_UDP_Listener_In_Port_Range(int startPort, int endPort)
         {
@@ -51,7 +52,7 @@ namespace MyNetworkMonitor
         }
 
 
-        public List<OpenPorts> Get_All_UPD_Listener_as_List(List<IPToRefresh> IPs)
+        public List<OpenPorts> Get_All_UPD_Listener_as_List(List<IPToScan> IPs)
         {
             List<OpenPorts> openPorts = new List<OpenPorts>();
             List<IPEndPoint> endpoints = Task.Run(() => IPGlobalProperties.GetIPGlobalProperties().GetActiveUdpListeners().ToList()).Result;
@@ -66,38 +67,38 @@ namespace MyNetworkMonitor
                 //devicePorts.IP = item.Key.ToString();
 
                 ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
-                scanTask_Finished.IP = item.Key.ToString();
+                scanTask_Finished.ipToScan.IP = item.Key.ToString();
 
                 try
                 {
-                    scanTask_Finished.IPGroupDescription = IPs.Where(i => string.Equals(i.IP, scanTask_Finished.IP)).Select(i => i.IPGroupDescription).ToList()[0];
-                    scanTask_Finished.DeviceDescription = IPs.Where(i => string.Equals(i.IP, scanTask_Finished.IP)).Select(i => i.DeviceDescription).ToList()[0];
+                    scanTask_Finished.ipToScan.IPGroupDescription = IPs.Where(i => string.Equals(i.IP, scanTask_Finished.ipToScan.IP)).Select(i => i.IPGroupDescription).ToList()[0];
+                    scanTask_Finished.ipToScan.DeviceDescription = IPs.Where(i => string.Equals(i.IP, scanTask_Finished.ipToScan.IP)).Select(i => i.DeviceDescription).ToList()[0];
                 }
                 catch (Exception)
                 {
 
-                    scanTask_Finished.IPGroupDescription = "not specified";
-                    scanTask_Finished.DeviceDescription = "not specified";
+                    scanTask_Finished.ipToScan.IPGroupDescription = "not specified";
+                    scanTask_Finished.ipToScan.DeviceDescription = "not specified";
                 }
 
                 foreach (var ep in item)
                 {
                     //devicePorts.Ports.Add(ep.Port);
-                    scanTask_Finished.UDP_OpenPorts.Add(ep.Port);
+                    scanTask_Finished.ipToScan.UDP_OpenPorts.Add(ep.Port);
                 }
                 //openPorts.Add(devicePorts);
 
-                
+                scanTask_Finished.ipToScan.UDP_ListenerFound = groupedIPEndpoints.Count;
 
 
                 if (UDPPortScan_Task_Finished != null)
                 {
                     //if (new SupportMethods().Is_Valid_IP(devicePorts.IP)) UDPPortScan_Task_Finished(this, new UDPPortScan_Task_FinishedEventArgs(devicePorts));
-                    if (new SupportMethods().Is_Valid_IP(scanTask_Finished.IP)) UDPPortScan_Task_Finished(this, scanTask_Finished);
+                    if (new SupportMethods().Is_Valid_IP(scanTask_Finished.ipToScan.IP)) UDPPortScan_Task_Finished(this, scanTask_Finished);
                 }                        
             }
 
-            if (UDPPortScan_Finished != null) UDPPortScan_Finished(this, new UDPPortScan_Finished_EventArgs(true, groupedIPEndpoints.Count));
+            if (UDPPortScan_Finished != null) UDPPortScan_Finished(this, new Method_Finished_EventArgs());
 
             return openPorts;
         }        
@@ -114,31 +115,31 @@ public class OpenPorts
 
 
 //######## Events ###############
-public class UDPPortScan_Task_FinishedEventArgs : EventArgs
-{
-    public UDPPortScan_Task_FinishedEventArgs(OpenPorts openPorts)
-    {
-        _OpenPorts = openPorts;
-    }
+//public class UDPPortScan_Task_FinishedEventArgs : EventArgs
+//{
+//    public UDPPortScan_Task_FinishedEventArgs(OpenPorts openPorts)
+//    {
+//        _OpenPorts = openPorts;
+//    }
 
-    private OpenPorts _OpenPorts;
-    public OpenPorts OpenPorts { get { return _OpenPorts; } }
-}
+//    private OpenPorts _OpenPorts;
+//    public OpenPorts OpenPorts { get { return _OpenPorts; } }
+//}
 
-public class UDPPortScan_Finished_EventArgs : EventArgs
-{
-    public UDPPortScan_Finished_EventArgs(bool Finished, int UDPListener)
-    {
-        _finished = Finished;
-        _listener = UDPListener;
-    }
-    private bool _finished = false;
-    public bool Finished { get { return _finished; } }
+//public class UDPPortScan_Finished_EventArgs : EventArgs
+//{
+//    public UDPPortScan_Finished_EventArgs(bool Finished, int UDPListener)
+//    {
+//        _finished = Finished;
+//        _listener = UDPListener;
+//    }
+//    private bool _finished = false;
+//    public bool Finished { get { return _finished; } }
 
-    private int _listener = 0;
-    public int UDPListener
-    {
-        get { return _listener; }
-    }
+//    private int _listener = 0;
+//    public int UDPListener
+//    {
+//        get { return _listener; }
+//    }
 
-}
+//}

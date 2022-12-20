@@ -125,7 +125,7 @@
                         <ColumnDefinition/>
                         <ColumnDefinition Width="75"/>
                     </Grid.ColumnDefinitions>
-                    <CheckBox x:Name="chk_TCPPortsScanOnlyIPsInTable" Grid.Column="0" Content="only IPs in Table" HorizontalAlignment="Left" VerticalAlignment="Center" Width="108" Height="15" Margin="10,0,0,0"/>
+                    <CheckBox x:Name="chk_TCPPortsScanOnlyIPsInTable" Grid.Column="0" Content="only IPs in Table" HorizontalAlignment="Left" VerticalAlignment="Center" Width="108" Height="15" Margin="10,0,0,0" IsChecked="True"/>
                     <CheckBox x:Name="chk_allTCPPorts" Grid.Column="1" Content="all Ports" HorizontalAlignment="Left" VerticalAlignment="Center" Width="67" Height="15" Margin="10,0,0,0" VerticalContentAlignment="Center"/>
                 </Grid>
 

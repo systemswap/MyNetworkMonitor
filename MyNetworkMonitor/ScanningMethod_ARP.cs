@@ -26,7 +26,8 @@ namespace MyNetworkMonitor
         //public event EventHandler<ARP_Request_Task_Finished_EventArgs> ARP_Request_Task_Finished;
         public event EventHandler<ScanTask_Finished_EventArgs> ARP_Request_Task_Finished;
 
-        public event EventHandler<ARP_Request_Finished_EventArgs> ARP_Request_Finished;
+        //public event EventHandler<ARP_Request_Finished_EventArgs> ARP_Request_Finished;
+        public event EventHandler<Method_Finished_EventArgs> ARP_Request_Finished;
 
 
         [DllImport("iphlpapi.dll", ExactSpelling = true)]
@@ -88,7 +89,7 @@ namespace MyNetworkMonitor
 
 
 
-        public async Task SendARPRequestAsync(List<IPToRefresh> ipsToRefresh)
+        public async Task SendARPRequestAsync(List<IPToScan> ipsToRefresh)
         {
             var tasks = new List<Task>();
 
@@ -104,11 +105,11 @@ namespace MyNetworkMonitor
 
             if (ARP_Request_Finished != null)
             {
-                ARP_Request_Finished(this, new ARP_Request_Finished_EventArgs(true));
+                ARP_Request_Finished(this, new Method_Finished_EventArgs());
             }
         }
 
-        private async Task ArpRequestTask(IPToRefresh IPAddr)
+        private async Task ArpRequestTask(IPToScan IPAddr)
         {
             IPAddress IP = IPAddress.Parse(IPAddr.IP);
             byte[] macAddr = new byte[6];
@@ -140,12 +141,12 @@ namespace MyNetworkMonitor
                 {
                     //ARP_Request_Task_Finished(this, new ARP_Request_Task_Finished_EventArgs(IPAddr.IPGroupDescription, IPAddr.DeviceDescription, IPAddr.IP, mac, support.GetVendorFromMac(mac).First()));
                     ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
-                    scanTask_Finished.IPGroupDescription = IPAddr.IPGroupDescription;
-                    scanTask_Finished.DeviceDescription= IPAddr.DeviceDescription;
-                    scanTask_Finished.IP = IPAddr.IP;
-                    scanTask_Finished.MAC= mac;
-                    scanTask_Finished.Vendor = support.GetVendorFromMac(mac).First();
-                    scanTask_Finished.DNSServers = string.Join(',', IPAddr.DNSServers);
+                    scanTask_Finished.ipToScan.IPGroupDescription = IPAddr.IPGroupDescription;
+                    scanTask_Finished.ipToScan.DeviceDescription= IPAddr.DeviceDescription;
+                    scanTask_Finished.ipToScan.IP = IPAddr.IP;
+                    scanTask_Finished.ipToScan.MAC= mac;
+                    scanTask_Finished.ipToScan.Vendor = support.GetVendorFromMac(mac).First();
+                    scanTask_Finished.ipToScan.DNSServers = (IPAddr.DNSServerList != null) ? string.Join(',', IPAddr.DNSServerList) : string.Empty;
 
                     ARP_Request_Task_Finished(this, scanTask_Finished);
                 }
@@ -163,7 +164,7 @@ namespace MyNetworkMonitor
         /// Retrieves the IPInfo for All machines on the local network.
         /// </summary>
         /// <returns></returns>
-        public async Task ARP_A(List<IPToRefresh> IPs)
+        public async Task ARP_A(List<IPToScan> IPs)
         {
             try
             {
@@ -194,21 +195,21 @@ namespace MyNetworkMonitor
                                 ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
                                 try
                                 {                                   
-                                    scanTask_Finished.IPGroupDescription = IPs.Where(i => string.Equals(i.IP, ip)).Select(i => i.IPGroupDescription).ToList()[0];
-                                    scanTask_Finished.DeviceDescription = IPs.Where(i => string.Equals(i.IP, ip)).Select(i => i.DeviceDescription).ToList()[0];
-                                    scanTask_Finished.DNSServers = string.Join(',', IPs.Where(i => string.Equals(i.IP, ip)).Select(i => i.DNSServers).ToList());
+                                    scanTask_Finished.ipToScan.IPGroupDescription = IPs.Where(i => string.Equals(i.IP, ip)).Select(i => i.IPGroupDescription).ToList()[0];
+                                    scanTask_Finished.ipToScan.DeviceDescription = IPs.Where(i => string.Equals(i.IP, ip)).Select(i => i.DeviceDescription).ToList()[0];
+                                    scanTask_Finished.ipToScan.DNSServers = string.Join(',', IPs.Where(i => string.Equals(i.IP, ip)).Select(i => i.DNSServerList).ToList());
                                 }
                                 catch (Exception)
                                 {
 
-                                    scanTask_Finished.IPGroupDescription = "not specified";
-                                    scanTask_Finished.DeviceDescription = "not specified";
+                                    scanTask_Finished.ipToScan.IPGroupDescription = "not specified";
+                                    scanTask_Finished.ipToScan.DeviceDescription = "not specified";
                                 }
                                 
-                                scanTask_Finished.ARPStatus = true;
-                                scanTask_Finished.IP = ip;
-                                scanTask_Finished.MAC = mac;
-                                scanTask_Finished.Vendor = vendor[0];
+                                scanTask_Finished.ipToScan.ARPStatus = true;
+                                scanTask_Finished.ipToScan.IP = ip;
+                                scanTask_Finished.ipToScan.MAC = mac;
+                                scanTask_Finished.ipToScan.Vendor = vendor[0];
 
                                 ARP_A_newDevice(this, scanTask_Finished);
                             }
@@ -341,15 +342,14 @@ namespace MyNetworkMonitor
 
     //}
 
-    public class ARP_Request_Finished_EventArgs : EventArgs
-    {
-        public ARP_Request_Finished_EventArgs(bool ARP_Request_Finished)
-        {
-            _finished = ARP_Request_Finished;
-        }
+    //public class ARP_Request_Finished_EventArgs : EventArgs
+    //{
+    //    public ARP_Request_Finished_EventArgs(bool ARP_Request_Finished)
+    //    {
+    //        _finished = ARP_Request_Finished;
+    //    }
 
-        private bool _finished = false;
-        public bool ARP_Request_Finished { get { return _finished; } }
-        
-    }
+    //    private bool _finished = false;
+    //    public bool ARP_Request_Finished { get { return _finished; } }        
+    //}
 }

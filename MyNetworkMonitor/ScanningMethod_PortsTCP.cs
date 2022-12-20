@@ -31,7 +31,8 @@ namespace MyNetworkMonitor
         //public event EventHandler<TcpPortScan_Task_FinishedEventArgs>? TcpPortScan_Task_Finished;
         public event EventHandler<ScanTask_Finished_EventArgs>? TcpPortScan_Task_Finished;
 
-        public event EventHandler<TcpPortScan_Finished_EventArgs>? TcpPortScan_Finished;
+        //public event EventHandler<TcpPortScan_Finished_EventArgs>? TcpPortScan_Finished;
+        public event EventHandler<Method_Finished_EventArgs>? TcpPortScan_Finished;
 
         private CancellationToken _clt = new CancellationToken();
 
@@ -45,29 +46,29 @@ namespace MyNetworkMonitor
         }
 
 
-        public async void ScanTCPPorts(List<IPToRefresh> IPs, TimeSpan TimeOut)
+        public async void ScanTCPPorts(List<IPToScan> IPs, TimeSpan TimeOut)
         {
             var tasks = new List<Task>();
            
-            foreach(IPToRefresh ip in IPs)
+            foreach(IPToScan ip in IPs)
             {
                 {                   
-                    var task = ScanTCPPorts_Task(ip, new PortCollection().TCPPorts, TimeOut);
+                    var task = Task.Run(() => ScanTCPPorts_Task(ip, new PortCollection().TCPPorts, TimeOut));
                     if (task != null) tasks.Add(task);
                 }
             }
 
             await Task.WhenAll(tasks.Where(t => t != null));
 
-            if (TcpPortScan_Finished != null) TcpPortScan_Finished(this, new TcpPortScan_Finished_EventArgs(true));
+            if (TcpPortScan_Finished != null) TcpPortScan_Finished(this, new Method_Finished_EventArgs());
         }
 
 
-        public async void ScanTCPPorts(List<IPToRefresh> IPs, List<int> TCP_Ports, TimeSpan TimeOut)
+        public async void ScanTCPPorts(List<IPToScan> IPs, List<int> TCP_Ports, TimeSpan TimeOut)
         {
             var tasks = new List<Task>();
 
-            foreach (IPToRefresh ip in IPs)
+            foreach (IPToScan ip in IPs)
             {
                 var task = ScanTCPPorts_Task(ip, TCP_Ports, TimeOut);
                 if (task != null) tasks.Add(task);
@@ -75,11 +76,11 @@ namespace MyNetworkMonitor
 
             await Task.WhenAll(tasks.Where(t => t != null));
 
-            if (TcpPortScan_Finished != null) TcpPortScan_Finished(this, new TcpPortScan_Finished_EventArgs(true));
+            if (TcpPortScan_Finished != null) TcpPortScan_Finished(this, new Method_Finished_EventArgs());
         }
 
 
-        private async Task ScanTCPPorts_Task(IPToRefresh ip, List<int> Ports, TimeSpan TimeOut)
+        private async Task ScanTCPPorts_Task(IPToScan ip, List<int> Ports, TimeSpan TimeOut)
         {
             //List<int> _tcpPorts = new List<int>();
 
@@ -89,10 +90,10 @@ namespace MyNetworkMonitor
             //scannedPorts.IP = IP.IP;
 
             ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
-            scanTask_Finished.IPGroupDescription = ip.IPGroupDescription;
-            scanTask_Finished.DeviceDescription = ip.DeviceDescription;
-            scanTask_Finished.IP = ip.IP;
-            scanTask_Finished.DNSServers = string.Join(',', ip.DNSServers);
+            scanTask_Finished.ipToScan.IPGroupDescription = ip.IPGroupDescription;
+            scanTask_Finished.ipToScan.DeviceDescription = ip.DeviceDescription;
+            scanTask_Finished.ipToScan.IP = ip.IP;
+            if(ip.DNSServerList != null) scanTask_Finished.ipToScan.DNSServers = string.Join(',', ip.DNSServerList);
            
 
             List<Task> tasks = new List<Task>();
@@ -119,15 +120,15 @@ namespace MyNetworkMonitor
                             switch (task.Result.PortState)
                             {
                                 case PortScanState.PortIsOpen:
-                                scanTask_Finished.TCP_OpenPorts.Add((int)task.Result.Port);
+                                scanTask_Finished.ipToScan.TCP_OpenPorts.Add((int)task.Result.Port);
                                     break;
 
                                 case PortScanState.FirewallBlockedPort:
-                                scanTask_Finished.TCP_FirewallBlockedPorts.Add((int)task.Result.Port);
+                                scanTask_Finished.ipToScan.TCP_FirewallBlockedPorts.Add((int)task.Result.Port);
                                     break;
 
                                 case PortScanState.TargetDeniedAccessToPort:
-                                scanTask_Finished.TCP_TargetDeniedAccessToPorts.Add((int)task.Result.Port);
+                                scanTask_Finished.ipToScan.TCP_TargetDeniedAccessToPorts.Add((int)task.Result.Port);
                                     break;
 
                                 case PortScanState.TargetNotReachable:
@@ -152,13 +153,13 @@ namespace MyNetworkMonitor
 
             await Task.WhenAll(tasks.Where(t => t != null));
 
-            scanTask_Finished.TCP_OpenPorts.Sort();
-            scanTask_Finished.TCP_FirewallBlockedPorts.Sort();
-            scanTask_Finished.TCP_TargetDeniedAccessToPorts.Sort();
+            scanTask_Finished.ipToScan.TCP_OpenPorts.Sort();
+            scanTask_Finished.ipToScan.TCP_FirewallBlockedPorts.Sort();
+            scanTask_Finished.ipToScan.TCP_TargetDeniedAccessToPorts.Sort();
 
             if (TcpPortScan_Task_Finished != null)
             {
-                int founded = scanTask_Finished.TCP_OpenPorts.Count + scanTask_Finished.TCP_FirewallBlockedPorts.Count + scanTask_Finished.TCP_TargetDeniedAccessToPorts.Count;
+                int founded = scanTask_Finished.ipToScan.TCP_OpenPorts.Count + scanTask_Finished.ipToScan.TCP_FirewallBlockedPorts.Count + scanTask_Finished.ipToScan.TCP_TargetDeniedAccessToPorts.Count;
                 //int founded = scanTask_Finished.TCP_OpenPorts.Count + scanTask_Finished.TCP_FirewallBlockedPorts.Count;
 
                 if (founded > 0)
@@ -360,16 +361,16 @@ namespace MyNetworkMonitor
         //    public ScannedPorts ScannedPorts { get { return _ScannedPorts; } }
         //}
 
-        public class TcpPortScan_Finished_EventArgs : EventArgs
-        {
-            public TcpPortScan_Finished_EventArgs(bool Finished)
-            {
-                _finished = Finished;
-            }
-            private bool _finished = false;
-            public bool Finished { get { return _finished; } }
+        //public class TcpPortScan_Finished_EventArgs : EventArgs
+        //{
+        //    public TcpPortScan_Finished_EventArgs(bool Finished)
+        //    {
+        //        _finished = Finished;
+        //    }
+        //    private bool _finished = false;
+        //    public bool Finished { get { return _finished; } }
 
-        }
+        //}
     }
 }
 
