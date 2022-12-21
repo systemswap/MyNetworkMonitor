@@ -45,17 +45,17 @@ namespace MyNetworkMonitor
             }
         }
 
-        private async Task LookupTask(IPToScan ip)
+        private async Task LookupTask(IPToScan ipToScan)
         {
             IPHostEntry _entry;
             try
             {
-                _entry = await Dns.GetHostEntryAsync(ip.HostName);
+                _entry = await Dns.GetHostEntryAsync(ipToScan.HostName);
 
                 bool _LookUpStatus = false;
                 string _LookUpIPs = string.Empty;
 
-                if (_entry.AddressList.ToList().Count == 1 && ip.IP == _entry.AddressList[0].ToString())
+                if (_entry.AddressList.ToList().Count == 1 && ipToScan.IP == _entry.AddressList[0].ToString())
                 {
                     _LookUpStatus = true;
                 }
@@ -76,14 +76,16 @@ namespace MyNetworkMonitor
                 if (Lookup_Task_Finished != null)
                 {
                     //Lookup_Task_Finished(this, new Lookup_Task_Finished_EventArgs(ip.IP, _ReverseLookupStatus, _ReverseLookUpIPs, _entry));
+                                        
+                    //scanTask_Finished.ipToScan.IP = ipToScan.IP;
+                    ipToScan.LookUpStatus = _LookUpStatus;
+                    ipToScan.LookUpIPs = _LookUpIPs;
+                    ipToScan.IP_HostEntry = _entry;
+                    //scanTask_Finished.ipToScan.DNSServers = string.Join(',', ip.DNSServerList);
 
                     ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
-                    scanTask_Finished.ipToScan.IP = ip.IP;
-                    scanTask_Finished.ipToScan.LookUpStatus = _LookUpStatus;
-                    scanTask_Finished.ipToScan.LookUpIPs = _LookUpIPs;
-                    scanTask_Finished.ipToScan.IP_HostEntry = _entry;                   
-                    scanTask_Finished.ipToScan.DNSServers = string.Join(',', ip.DNSServerList);
-                    
+                    scanTask_Finished.ipToScan = ipToScan;
+
                     Lookup_Task_Finished(this, scanTask_Finished);
                 }
             }

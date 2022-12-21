@@ -7,7 +7,7 @@
          xmlns:scm="clr-namespace:System.ComponentModel;assembly=WindowsBase"
         
         mc:Ignorable="d"
-        Title="My Network Monitor" Height="800" Width="1855" MinWidth="1800" MinHeight="450">
+        Title="My Network Monitor" Height="800" Width="1855" MinWidth="1855" MinHeight="450">
     <Window.Resources>
         <CollectionViewSource x:Key="cvs" Source="{Binding}" IsLiveSortingRequested="True" IsLiveGroupingRequested="True">
             <!-- Sorting -->
@@ -84,8 +84,9 @@
                     <ColumnDefinition Width="330"/>
                     <ColumnDefinition Width="195"/>
                     <ColumnDefinition Width="81"/>
+                    <ColumnDefinition Width="87"/>
                     <ColumnDefinition/>
-                    <ColumnDefinition Width="147"/>
+                    <ColumnDefinition Width="136"/>
                     <ColumnDefinition Width="110"/>
                     <ColumnDefinition Width="110"/>
                     <ColumnDefinition Width="127"/>
@@ -112,14 +113,14 @@
                 <CheckBox x:Name="chk_Methodes_ScanUDPPorts" Content="UDP Ports" Grid.Column="5" HorizontalAlignment="Center" Width="82" VerticalContentAlignment="Center" VerticalAlignment="Center" Height="15"/>
 
 
-                <TextBox x:Name="tb_IP_Address" Grid.Column="7" TextWrapping="Wrap" VerticalAlignment="Center" Height="20" Margin="9,0,9,0"/>
-                <TextBox x:Name="tb_TCPPorts" Grid.Column="8" TextWrapping="Wrap" VerticalAlignment="Center" Height="20" Margin="7,0,10,0"/>
-                <TextBox x:Name="tb_UDPPorts" Grid.Column="9" TextWrapping="Wrap" VerticalAlignment="Center" Height="20" Margin="10,0,10,0"/>
-                <Button x:Name="bt_ScanIP" Click="bt_ScanIP_Click"   Content="Scan Selected IP" Grid.Column="10" VerticalAlignment="Center" Height="20" Margin="16,0,0,0" HorizontalAlignment="Left" Width="101" />
+                <TextBox x:Name="tb_IP_Address" Grid.Column="8" TextWrapping="Wrap" VerticalAlignment="Center" Height="20" Margin="1,0,9,0"/>
+                <TextBox x:Name="tb_TCPPorts" Grid.Column="9" TextWrapping="Wrap" VerticalAlignment="Center" Height="20" Margin="7,0,10,0"/>
+                <TextBox x:Name="tb_UDPPorts" Grid.Column="10" TextWrapping="Wrap" VerticalAlignment="Center" Height="20" Margin="10,0,10,0"/>
+                <Button x:Name="bt_ScanIP" Click="bt_ScanIP_Click"   Content="Scan Selected IP" Grid.Column="11" VerticalAlignment="Center" Height="20" Margin="16,0,0,0" HorizontalAlignment="Left" Width="101" />
 
 
                 <CheckBox x:Name="chk_Methodes_ARP_A" Content="arp -a" Margin="10,0,0,0" HorizontalAlignment="Left" Width="54" Grid.Column="6" VerticalContentAlignment="Center" VerticalAlignment="Center" Height="15"/>
-                <CheckBox x:Name="chk_ARP_DeleteCacheBefore" Content="arp -d" VerticalAlignment="Center" Height="16" Click="chk_ARP_DeleteCacheBefore_Click" Grid.Column="6" Grid.Row="1" HorizontalAlignment="Left" Width="56" Margin="28,0,0,0"/>
+                <CheckBox x:Name="chk_ARP_DeleteCacheBefore" Content="arp -d" VerticalAlignment="Center" Height="16" Click="chk_ARP_DeleteCacheBefore_Click" Grid.Column="6" Grid.Row="1" HorizontalAlignment="Left" Width="54" Margin="28,0,0,0"/>
                 <Grid Grid.Column="4" Grid.Row="1">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition/>

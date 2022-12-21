@@ -49,7 +49,7 @@ namespace MyNetworkMonitor
 
 
 
-        private async Task GetHost_Aliases_Task(IPToScan ip)
+        private async Task GetHost_Aliases_Task(IPToScan ipToScan)
         {
             try
             {
@@ -58,9 +58,9 @@ namespace MyNetworkMonitor
 
                 List<NameServer> dnsServers = new List<NameServer>();
                 DnsClient.LookupClient client = null;
-                if (ip.DNSServerList != null && ip.DNSServerList.Count > 0 && !string.IsNullOrEmpty(string.Join(string.Empty, ip.DNSServerList)))
+                if (ipToScan.DNSServerList != null && ipToScan.DNSServerList.Count > 0 && !string.IsNullOrEmpty(string.Join(string.Empty, ipToScan.DNSServerList)))
                 {
-                    foreach (string s in ip.DNSServerList)
+                    foreach (string s in ipToScan.DNSServerList)
                     {
                         dnsServers.Add(IPAddress.Parse(s));
                     }
@@ -70,7 +70,7 @@ namespace MyNetworkMonitor
                 {
                     client = new DnsClient.LookupClient();
                 }
-                IPHostEntry _IPHostEntry = await client.GetHostEntryAsync(ip.IP);
+                IPHostEntry _IPHostEntry = await client.GetHostEntryAsync(ipToScan.IP);
 
                 if (_IPHostEntry == null)                
                 {
@@ -83,14 +83,16 @@ namespace MyNetworkMonitor
                 {
                     //GetHostAliases_Task_Finished(this, new GetHostAndAliasFromIP_Task_Finished_EventArgs(ip.IPGroupDescription, ip.DeviceDescription, ip.IP, entry.HostName, string.Join("\r\n", entry.Aliases)));
 
-                    ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
-                    scanTask_Finished.ipToScan.IPGroupDescription = ip.IPGroupDescription;
-                    scanTask_Finished.ipToScan.DeviceDescription = ip.DeviceDescription;
-                    scanTask_Finished.ipToScan.IP = ip.IP;
-                    scanTask_Finished.ipToScan.HostName = _IPHostEntry.HostName;
-                    scanTask_Finished.ipToScan.Aliases = (_IPHostEntry.Aliases != null) ? string.Join("\r\n", _IPHostEntry.Aliases) : string.Empty;  
-                    scanTask_Finished.ipToScan.DNSServers = (ip.DNSServerList != null) ? string.Join(',', ip.DNSServerList) : string.Empty;
+                    
+                    //ipToScan.IPGroupDescription = ipToScan.IPGroupDescription;
+                    //ipToScan.DeviceDescription = ipToScan.DeviceDescription;
+                    //ipToScan.IP = ipToScan.IP;
+                    ipToScan.HostName = _IPHostEntry.HostName;
+                    ipToScan.Aliases = (_IPHostEntry.Aliases != null) ? string.Join("\r\n", _IPHostEntry.Aliases) : string.Empty;  
+                    //ipToScan.DNSServers = (ipToScan.DNSServerList != null) ? string.Join(',', ipToScan.DNSServerList) : string.Empty;
 
+                    ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
+                    scanTask_Finished.ipToScan = ipToScan;
                     GetHostAliases_Task_Finished(this, scanTask_Finished);
                 }
             }

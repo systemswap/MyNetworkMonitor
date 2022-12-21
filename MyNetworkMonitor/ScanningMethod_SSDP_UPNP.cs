@@ -43,26 +43,48 @@ namespace MyNetworkMonitor
                     string deviceIP = foundDevice.DescriptionLocation.Host;
                     if (SSDP_foundNewDevice != null && !_ips.Contains(deviceIP))
                     {
+                        //need to check for duplicates
                         _ips.Add(deviceIP);
 
-                        ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
+
+                        
+                        
+                        //try
+                        //{
+                        //    scanTask_Finished.ipToScan.IPGroupDescription = IPs.Where(i => string.Equals(i.IP, deviceIP)).Select(i => i.IPGroupDescription).ToList()[0];
+                        //    scanTask_Finished.ipToScan.DeviceDescription = IPs.Where(i => string.Equals(i.IP, deviceIP)).Select(i => i.DeviceDescription).ToList()[0];
+                        //    //scanTask_Finished.ipToScan.DNSServers = string.Join(',', IPs.Where(i => string.Equals(i.IP, deviceIP)).Select(i => i.DNSServerList).ToList());
+                        //    scanTask_Finished.ipToScan.DNSServerList = IPs.Where(i => string.Equals(i.IP, deviceIP)).Select(i => i.DNSServerList).ToList()[0];
+                        //}
+                        //catch (Exception)
+                        //{
+                        //    scanTask_Finished.ipToScan.IPGroupDescription = "not specified";
+                        //    scanTask_Finished.ipToScan.DeviceDescription = "not specified";
+                        //}
+
+                        IPToScan ipToScan;
                         try
                         {
-                            scanTask_Finished.ipToScan.IPGroupDescription = IPs.Where(i => string.Equals(i.IP, deviceIP)).Select(i => i.IPGroupDescription).ToList()[0];
-                            scanTask_Finished.ipToScan.DeviceDescription = IPs.Where(i => string.Equals(i.IP, deviceIP)).Select(i => i.DeviceDescription).ToList()[0];                            
-                            scanTask_Finished.ipToScan.DNSServers = string.Join(',', IPs.Where(i => string.Equals(i.IP, deviceIP)).Select(i => i.DNSServerList).ToList());
+                            ipToScan = IPs.Where(i => string.Equals(i.IP, deviceIP)).ToList()[0];
+                            ipToScan.SSDPStatus = true;
                         }
                         catch (Exception)
                         {
+                            ipToScan = new IPToScan();
+                            ipToScan.IPGroupDescription = "not specified";
+                            ipToScan.DeviceDescription = "not specified";
+                            ipToScan.IP = deviceIP;
 
-                            scanTask_Finished.ipToScan.IPGroupDescription = "not specified";
-                            scanTask_Finished.ipToScan.DeviceDescription = "not specified";
+                            ipToScan.ARPStatus = true;
                         }
 
-                        scanTask_Finished.ipToScan.SSDPStatus = true;
-                        scanTask_Finished.ipToScan.IP = deviceIP;
+                        
 
                         //SSDP_NewDevice(this, new SSDP_Device_EventArgs(true, deviceIP));
+
+                        ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
+                        scanTask_Finished.ipToScan = ipToScan;
+
                         SSDP_foundNewDevice(this, scanTask_Finished);
                     }
                 }

@@ -50,10 +50,10 @@ namespace MyNetworkMonitor
         {
             var tasks = new List<Task>();
            
-            foreach(IPToScan ip in IPs)
+            foreach(IPToScan ipToScan in IPs)
             {
                 {                   
-                    var task = Task.Run(() => ScanTCPPorts_Task(ip, new PortCollection().TCPPorts, TimeOut));
+                    var task = Task.Run(() => ScanTCPPorts_Task(ipToScan, new PortCollection().TCPPorts, TimeOut));
                     if (task != null) tasks.Add(task);
                 }
             }
@@ -68,9 +68,9 @@ namespace MyNetworkMonitor
         {
             var tasks = new List<Task>();
 
-            foreach (IPToScan ip in IPs)
+            foreach (IPToScan ipToScan in IPs)
             {
-                var task = ScanTCPPorts_Task(ip, TCP_Ports, TimeOut);
+                var task = ScanTCPPorts_Task(ipToScan, TCP_Ports, TimeOut);
                 if (task != null) tasks.Add(task);
             }
 
@@ -80,7 +80,7 @@ namespace MyNetworkMonitor
         }
 
 
-        private async Task ScanTCPPorts_Task(IPToScan ip, List<int> Ports, TimeSpan TimeOut)
+        private async Task ScanTCPPorts_Task(IPToScan ipToScan, List<int> Ports, TimeSpan TimeOut)
         {
             //List<int> _tcpPorts = new List<int>();
 
@@ -89,11 +89,11 @@ namespace MyNetworkMonitor
             //scannedPorts.DeviceDescription= IP.DeviceDescription;
             //scannedPorts.IP = IP.IP;
 
-            ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
-            scanTask_Finished.ipToScan.IPGroupDescription = ip.IPGroupDescription;
-            scanTask_Finished.ipToScan.DeviceDescription = ip.DeviceDescription;
-            scanTask_Finished.ipToScan.IP = ip.IP;
-            if(ip.DNSServerList != null) scanTask_Finished.ipToScan.DNSServers = string.Join(',', ip.DNSServerList);
+            //ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
+            //scanTask_Finished.ipToScan.IPGroupDescription = ipToScan.IPGroupDescription;
+            //scanTask_Finished.ipToScan.DeviceDescription = ipToScan.DeviceDescription;
+            //scanTask_Finished.ipToScan.IP = ipToScan.IP;
+            //if(ip.DNSServerList != null) scanTask_Finished.ipToScan.DNSServers = string.Join(',', ip.DNSServerList);
            
 
             List<Task> tasks = new List<Task>();
@@ -105,7 +105,7 @@ namespace MyNetworkMonitor
                     return;
                 }
 
-                if (!string.IsNullOrEmpty(ip.IP))
+                if (!string.IsNullOrEmpty(ipToScan.IP))
                 {
                     //var task = ScanTCP_Port(IP, port, TimeOut);
                     try
@@ -115,20 +115,20 @@ namespace MyNetworkMonitor
                         //if(true)
                         //{
                         
-                            var task = ScanTCP_Port_via_Socket_Async(ip.IP, port, TimeOut);
+                            var task = ScanTCP_Port_via_Socket_Async(ipToScan.IP, port, TimeOut);
                        
                             switch (task.Result.PortState)
                             {
                                 case PortScanState.PortIsOpen:
-                                scanTask_Finished.ipToScan.TCP_OpenPorts.Add((int)task.Result.Port);
+                                ipToScan.TCP_OpenPorts.Add((int)task.Result.Port);
                                     break;
 
                                 case PortScanState.FirewallBlockedPort:
-                                scanTask_Finished.ipToScan.TCP_FirewallBlockedPorts.Add((int)task.Result.Port);
+                                ipToScan.TCP_FirewallBlockedPorts.Add((int)task.Result.Port);
                                     break;
 
                                 case PortScanState.TargetDeniedAccessToPort:
-                                scanTask_Finished.ipToScan.TCP_TargetDeniedAccessToPorts.Add((int)task.Result.Port);
+                                ipToScan.TCP_TargetDeniedAccessToPorts.Add((int)task.Result.Port);
                                     break;
 
                                 case PortScanState.TargetNotReachable:
@@ -153,18 +153,21 @@ namespace MyNetworkMonitor
 
             await Task.WhenAll(tasks.Where(t => t != null));
 
-            scanTask_Finished.ipToScan.TCP_OpenPorts.Sort();
-            scanTask_Finished.ipToScan.TCP_FirewallBlockedPorts.Sort();
-            scanTask_Finished.ipToScan.TCP_TargetDeniedAccessToPorts.Sort();
+            ipToScan.TCP_OpenPorts.Sort();
+            ipToScan.TCP_FirewallBlockedPorts.Sort();
+            ipToScan.TCP_TargetDeniedAccessToPorts.Sort();
 
             if (TcpPortScan_Task_Finished != null)
             {
-                int founded = scanTask_Finished.ipToScan.TCP_OpenPorts.Count + scanTask_Finished.ipToScan.TCP_FirewallBlockedPorts.Count + scanTask_Finished.ipToScan.TCP_TargetDeniedAccessToPorts.Count;
+                int founded = ipToScan.TCP_OpenPorts.Count + ipToScan.TCP_FirewallBlockedPorts.Count + ipToScan.TCP_TargetDeniedAccessToPorts.Count;
                 //int founded = scanTask_Finished.TCP_OpenPorts.Count + scanTask_Finished.TCP_FirewallBlockedPorts.Count;
 
                 if (founded > 0)
                 {
                     //TcpPortScan_Task_Finished(this, new TcpPortScan_Task_FinishedEventArgs(scannedPorts));
+                    ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
+                    scanTask_Finished.ipToScan = ipToScan;
+
                     TcpPortScan_Task_Finished(this, scanTask_Finished);
                 }
                 else

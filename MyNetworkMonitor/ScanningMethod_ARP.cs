@@ -109,13 +109,13 @@ namespace MyNetworkMonitor
             }
         }
 
-        private async Task ArpRequestTask(IPToScan IPAddr)
+        private async Task ArpRequestTask(IPToScan ipToScan)
         {
-            IPAddress IP = IPAddress.Parse(IPAddr.IP);
+            IPAddress ipAddress = IPAddress.Parse(ipToScan.IP);
             byte[] macAddr = new byte[6];
             uint macAddrLen = (uint)macAddr.Length;
 
-            int arp_respone = await Task.Run(() => SendARP((int)IP.Address, 0, macAddr, ref macAddrLen));
+            int arp_respone = await Task.Run(() => SendARP((int)ipAddress.Address, 0, macAddr, ref macAddrLen));
 
             if (arp_respone != 0)
             {
@@ -140,13 +140,16 @@ namespace MyNetworkMonitor
                 if (ARP_Request_Task_Finished != null)
                 {
                     //ARP_Request_Task_Finished(this, new ARP_Request_Task_Finished_EventArgs(IPAddr.IPGroupDescription, IPAddr.DeviceDescription, IPAddr.IP, mac, support.GetVendorFromMac(mac).First()));
+                    
+                    //ipToScan.IPGroupDescription = ipToScan.IPGroupDescription;
+                    //ipToScan.DeviceDescription= ipToScan.DeviceDescription;
+                    //ipToScan.IP = ipToScan.IP;
+                    ipToScan.MAC= mac;
+                    ipToScan.Vendor = support.GetVendorFromMac(mac).First();
+                    //ipToScan.DNSServers = (ipToScan.DNSServerList != null) ? string.Join(',', ipToScan.DNSServerList) : string.Empty;
+
                     ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
-                    scanTask_Finished.ipToScan.IPGroupDescription = IPAddr.IPGroupDescription;
-                    scanTask_Finished.ipToScan.DeviceDescription= IPAddr.DeviceDescription;
-                    scanTask_Finished.ipToScan.IP = IPAddr.IP;
-                    scanTask_Finished.ipToScan.MAC= mac;
-                    scanTask_Finished.ipToScan.Vendor = support.GetVendorFromMac(mac).First();
-                    scanTask_Finished.ipToScan.DNSServers = (IPAddr.DNSServerList != null) ? string.Join(',', IPAddr.DNSServerList) : string.Empty;
+                    scanTask_Finished.ipToScan = ipToScan;
 
                     ARP_Request_Task_Finished(this, scanTask_Finished);
                 }
@@ -192,24 +195,43 @@ namespace MyNetworkMonitor
                             if (ARP_A_newDevice != null)
                             {
                                 //ARP_A_newDevice(this, new ARP_A_newDevice_EventArgs(true, ip, mac, vendor[0]));
-                                ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
+
+                                //try
+                                //{
+                                //    scanTask_Finished.ipToScan.IPGroupDescription = IPs.Where(i => string.Equals(i.IP, ip)).Select(i => i.IPGroupDescription).ToList()[0];
+                                //    scanTask_Finished.ipToScan.DeviceDescription = IPs.Where(i => string.Equals(i.IP, ip)).Select(i => i.DeviceDescription).ToList()[0];
+                                //    scanTask_Finished.ipToScan.DNSServers = string.Join(',', IPs.Where(i => string.Equals(i.IP, ip)).Select(i => i.DNSServerList).ToList()[0]);
+                                //    scanTask_Finished.ipToScan.DNSServerList = IPs.Where(i => string.Equals(i.IP, ip)).Select(i => i.DNSServerList).ToList()[0];
+                                //}
+                                //catch (Exception)
+                                //{
+
+                                //}
+
+
+
+                                IPToScan ipToScan;
+
                                 try
-                                {                                   
-                                    scanTask_Finished.ipToScan.IPGroupDescription = IPs.Where(i => string.Equals(i.IP, ip)).Select(i => i.IPGroupDescription).ToList()[0];
-                                    scanTask_Finished.ipToScan.DeviceDescription = IPs.Where(i => string.Equals(i.IP, ip)).Select(i => i.DeviceDescription).ToList()[0];
-                                    scanTask_Finished.ipToScan.DNSServers = string.Join(',', IPs.Where(i => string.Equals(i.IP, ip)).Select(i => i.DNSServerList).ToList());
+                                {                                    
+                                    ipToScan = IPs.Where(i => string.Equals(i.IP, ip)).ToList()[0];
+                                    ipToScan.ARPStatus = true;
+                                    ipToScan.MAC = mac;
+                                    ipToScan.Vendor = vendor[0];
                                 }
                                 catch (Exception)
                                 {
-
-                                    scanTask_Finished.ipToScan.IPGroupDescription = "not specified";
-                                    scanTask_Finished.ipToScan.DeviceDescription = "not specified";
+                                    ipToScan = new IPToScan();
+                                    ipToScan.ARPStatus = true;
+                                    ipToScan.IP = ip;
+                                    ipToScan.MAC = mac;
+                                    ipToScan.Vendor = vendor[0];
+                                    ipToScan.IPGroupDescription = "not specified";
+                                    ipToScan.DeviceDescription = "not specified";
                                 }
-                                
-                                scanTask_Finished.ipToScan.ARPStatus = true;
-                                scanTask_Finished.ipToScan.IP = ip;
-                                scanTask_Finished.ipToScan.MAC = mac;
-                                scanTask_Finished.ipToScan.Vendor = vendor[0];
+
+                                ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
+                                scanTask_Finished.ipToScan = ipToScan;
 
                                 ARP_A_newDevice(this, scanTask_Finished);
                             }

@@ -62,13 +62,13 @@ namespace MyNetworkMonitor
         private bool _LookUpStatus = false;
         private string _LookUpIPs = string.Empty;
         private IPHostEntry _IP_HostEntry = null;
-        private string _str_DNSServers = string.Empty;
+        //private string _str_DNSServers = string.Empty;
         private List<string> _lst_DNSServers;
         public bool LookUpStatus { get { return _LookUpStatus; } set { _LookUpStatus = value; } }
         public string LookUpIPs { get { return _LookUpIPs; } set { _LookUpIPs = value; } }
         public IPHostEntry IP_HostEntry { get { return _IP_HostEntry; } set { _IP_HostEntry = value; } }
-        public string DNSServers { get { return _str_DNSServers; } set { _str_DNSServers = value; } }
-        public List<string> DNSServerList { get { return _lst_DNSServers; } set { _lst_DNSServers = value; } }
+        //public string DNSServers { get { return _str_DNSServers; } set { _str_DNSServers = value; } }
+        public List<string> DNSServerList { get { return _lst_DNSServers; } set { _lst_DNSServers = value; }}
 
         
         
@@ -105,6 +105,13 @@ namespace MyNetworkMonitor
 
         private int _TimeOut = 250;
         public int TimeOut { get { return _TimeOut; } set { _TimeOut = value; } }
+
+
+
+        private string _GatewayIP = string.Empty;
+        private string _GatewayPort = string.Empty;
+        public string GatewayIP { get { return _GatewayIP; } set { _GatewayIP = value; } }
+        public string GatewayPort { get { return _GatewayPort; } set { _GatewayPort = value; } }
     }
 
 
@@ -136,6 +143,8 @@ namespace MyNetworkMonitor
             dt_NetworkResults.Columns.Add("Vendor", typeof(string));
             dt_NetworkResults.Columns.Add("Exception", typeof(string));
             dt_NetworkResults.Columns.Add("DNSServers", typeof(string));
+            dt_NetworkResults.Columns.Add("GatewayIP", typeof(string));
+            dt_NetworkResults.Columns.Add("GatewayPort", typeof(string));
         }
 
         public DataTable dt_NetworkResults = new DataTable();
@@ -264,6 +273,7 @@ namespace MyNetworkMonitor
             dt.Columns.Add("AutomaticScan", typeof(bool));
             dt.Columns.Add("ScanIntervalMinutes", typeof(string));            
             dt.Columns.Add("GatewayIP", typeof(string));
+            dt.Columns.Add("GatewayPort", typeof(string));
         }
 
         
