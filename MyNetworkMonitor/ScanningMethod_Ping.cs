@@ -54,9 +54,9 @@ namespace MyNetworkMonitor
             }
         }
 
-        private async Task PingTask(IPToScan ip, int TimeOut, bool ShowUnused)
+        private async Task PingTask(IPToScan ipToScan, int TimeOut, bool ShowUnused)
         {
-            if (!new SupportMethods().Is_Valid_IP(ip.IP)) return;
+            if (!new SupportMethods().Is_Valid_IP(ipToScan.IP)) return;
 
             try
             {                
@@ -66,7 +66,7 @@ namespace MyNetworkMonitor
                 PingOptions options = new PingOptions(200, true);
 
                 Ping ping = new Ping();
-                PingReply reply = await ping.SendPingAsync(ip.IP, TimeOut, buffer, options);
+                PingReply reply = await ping.SendPingAsync(ipToScan.IP, TimeOut, buffer, options);
 
                 bool PingStatus = false;
                 string IP = string.Empty;
@@ -81,21 +81,24 @@ namespace MyNetworkMonitor
                 else if (ShowUnused && reply.Status != IPStatus.Success)
                 {
                     PingStatus = false;
-                    IP = ip.IP;
+                    IP = ipToScan.IP;
                     ResponseTime = string.Empty;
                 }
 
                 if (Ping_Task_Finished != null)
                 {
-                    ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
-                    scanTask_Finished.ipToScan.IPGroupDescription = ip.IPGroupDescription;
-                    scanTask_Finished.ipToScan.DeviceDescription = ip.DeviceDescription;
-                    scanTask_Finished.ipToScan.IP = IP;
-                    scanTask_Finished.ipToScan.ResponseTime = ResponseTime;
-                    scanTask_Finished.ipToScan.PingStatus= PingStatus;
-                    scanTask_Finished.ipToScan.DNSServers = (ip.DNSServerList != null) ? string.Join(',', ip.DNSServerList) : string.Empty;
-                    
+                    //ipToScan.IPGroupDescription = ipToScan.IPGroupDescription;
+                    //scanTask_Finished.ipToScan.DeviceDescription = ipToScan.DeviceDescription;
+                    ipToScan.IP = IP;
+                    ipToScan.ResponseTime = ResponseTime;
+                    ipToScan.PingStatus= PingStatus;
+                    //scanTask_Finished.ipToScan.DNSServers = (ip.DNSServerList != null) ? string.Join(',', ip.DNSServerList) : string.Empty;
+
                     //Ping_Task_Finished(this, new Ping_Task_Finished_EventArgs(ip.IPGroupDescription, ip.DeviceDescription, IP, PingStatus, ResponseTime));
+
+                    ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
+                    scanTask_Finished.ipToScan = ipToScan;
+
                     Ping_Task_Finished(this, scanTask_Finished);
                 }
             }

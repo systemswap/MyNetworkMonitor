@@ -66,34 +66,62 @@ namespace MyNetworkMonitor
                 //OpenPorts devicePorts = new OpenPorts();
                 //devicePorts.IP = item.Key.ToString();
 
-                ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
-                scanTask_Finished.ipToScan.IP = item.Key.ToString();
+                //ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
+                //scanTask_Finished.ipToScan.IP = item.Key.ToString();
 
+                //try
+                //{
+                //    scanTask_Finished.ipToScan.IPGroupDescription = IPs.Where(i => string.Equals(i.IP, scanTask_Finished.ipToScan.IP)).Select(i => i.IPGroupDescription).ToList()[0];
+                //    scanTask_Finished.ipToScan.DeviceDescription = IPs.Where(i => string.Equals(i.IP, scanTask_Finished.ipToScan.IP)).Select(i => i.DeviceDescription).ToList()[0];
+                //}
+                //catch (Exception)
+                //{
+
+                //    scanTask_Finished.ipToScan.IPGroupDescription = "not specified";
+                //    scanTask_Finished.ipToScan.DeviceDescription = "not specified";
+                //}
+
+                //foreach (var ep in item)
+                //{
+                //    //devicePorts.Ports.Add(ep.Port);
+                //    scanTask_Finished.ipToScan.UDP_OpenPorts.Add(ep.Port);
+                //}
+                //openPorts.Add(devicePorts);
+
+                //scanTask_Finished.ipToScan.UDP_ListenerFound = groupedIPEndpoints.Count;
+
+
+                IPToScan ipToScan;
+                string ip = item.Key.ToString();
                 try
                 {
-                    scanTask_Finished.ipToScan.IPGroupDescription = IPs.Where(i => string.Equals(i.IP, scanTask_Finished.ipToScan.IP)).Select(i => i.IPGroupDescription).ToList()[0];
-                    scanTask_Finished.ipToScan.DeviceDescription = IPs.Where(i => string.Equals(i.IP, scanTask_Finished.ipToScan.IP)).Select(i => i.DeviceDescription).ToList()[0];
+                    ipToScan = IPs.Where(i => string.Equals(i.IP, ip)).ToList()[0];
+                    ipToScan.SSDPStatus = true;
                 }
                 catch (Exception)
                 {
+                    ipToScan = new IPToScan();
+                    ipToScan.IPGroupDescription = "not specified";
+                    ipToScan.DeviceDescription = "not specified";
+                    ipToScan.IP = ip;
 
-                    scanTask_Finished.ipToScan.IPGroupDescription = "not specified";
-                    scanTask_Finished.ipToScan.DeviceDescription = "not specified";
+                    ipToScan.ARPStatus = true;
                 }
 
                 foreach (var ep in item)
                 {
-                    //devicePorts.Ports.Add(ep.Port);
-                    scanTask_Finished.ipToScan.UDP_OpenPorts.Add(ep.Port);
+                    ipToScan.UDP_OpenPorts.Add(ep.Port);
                 }
-                //openPorts.Add(devicePorts);
 
-                scanTask_Finished.ipToScan.UDP_ListenerFound = groupedIPEndpoints.Count;
-
+                ipToScan.UDP_ListenerFound = groupedIPEndpoints.Count;
 
                 if (UDPPortScan_Task_Finished != null)
                 {
                     //if (new SupportMethods().Is_Valid_IP(devicePorts.IP)) UDPPortScan_Task_Finished(this, new UDPPortScan_Task_FinishedEventArgs(devicePorts));
+
+                    ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
+                    scanTask_Finished.ipToScan = ipToScan;
+
                     if (new SupportMethods().Is_Valid_IP(scanTask_Finished.ipToScan.IP)) UDPPortScan_Task_Finished(this, scanTask_Finished);
                 }                        
             }
