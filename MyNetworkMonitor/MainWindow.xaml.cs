@@ -715,7 +715,7 @@ namespace MyNetworkMonitor
 
                 if (ipToScan.UsedScanMethod == ScanMethod.SSDP) 
                 { 
-                    _scannResults.ResultTable.Rows[rowIndex]["SSDPStatus"] = ipToScan.SSDPStatus ? Properties.Resources.green_dot : null; 
+                    _scannResults.ResultTable.Rows[rowIndex]["SSDPStatus"] = ipToScan.SSDPStatus ? Properties.Resources.green_dot : Properties.Resources.red_dot; 
                 }
 
                 if (ipToScan.UsedScanMethod == ScanMethod.ARP)
@@ -767,7 +767,7 @@ namespace MyNetworkMonitor
 
                 if (ipToScan.UsedScanMethod == ScanMethod.SSDP)
                 {
-                    row["SSDPStatus"] = ipToScan.SSDPStatus ? Properties.Resources.green_dot : null;
+                    row["SSDPStatus"] = ipToScan.SSDPStatus ? Properties.Resources.green_dot : Properties.Resources.red_dot;
                 }
 
                 if (ipToScan.UsedScanMethod == ScanMethod.ARP) 
