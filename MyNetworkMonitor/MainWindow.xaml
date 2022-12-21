@@ -105,7 +105,7 @@
                     </Grid.ColumnDefinitions>
                     <RadioButton x:Name="rb_ScanHostnames_onlyKnown" Content="only IPs in Table" HorizontalAlignment="Center" VerticalAlignment="Center" Height="19" Width="112" IsChecked="True" VerticalContentAlignment="Center"/>
                     <RadioButton x:Name="rb_ScanHostnames_All_IPs" Grid.Column="1" Content="all" HorizontalAlignment="Center" VerticalAlignment="Center" Height="19" Width="34" VerticalContentAlignment="Center"/>
-                    <CheckBox x:Name="chk_Methodes_ReverseLookUp" Content="Reverse Lookup" Grid.Column="2" Margin="10,2,0,0" HorizontalAlignment="Left" Width="122"/>
+                    <CheckBox x:Name="chk_Methodes_LookUp" Content="do Lookup scan" Grid.Column="2" Margin="10,2,0,0" HorizontalAlignment="Left" Width="122"/>
                 </Grid>
 
                 <CheckBox x:Name="chk_Methodes_ScanTCPPorts" Content="TCP Ports" Grid.Column="4" HorizontalAlignment="Left" Width="76" VerticalContentAlignment="Center" VerticalAlignment="Center" Height="15" Margin="10,0,0,0"/>
@@ -153,8 +153,8 @@
                             <Image Source="{Binding Path=SSDPStatus}" Width="16" Height="16"/>
                         </DataTemplate>
 
-                        <DataTemplate x:Key="ReverseLookUpStatus">
-                            <Image Source="{Binding Path=ReverseLookUpStatus}" Width="16" Height="16"/>
+                        <DataTemplate x:Key="LookUpStatus">
+                            <Image Source="{Binding Path=LookUpStatus}" Width="16" Height="16"/>
                         </DataTemplate>
 
                     </DataGrid.Resources>

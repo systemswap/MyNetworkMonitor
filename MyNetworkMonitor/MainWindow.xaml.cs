@@ -17,6 +17,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Documents;
+using System.Windows.Media;
 using static MyNetworkMonitor.SendReceiveDataUDP;
 using static System.Net.Mime.MediaTypeNames;
 
@@ -44,9 +45,9 @@ namespace MyNetworkMonitor
             scanningMethods_Ping.Ping_Task_Finished += Ping_Task_Finished;
             scanningMethods_Ping.PingFinished += PingFinished_Event;
 
-            scanningMethode_DNS = new ScanningMethod_DNS();
-            scanningMethode_DNS.GetHostAliases_Task_Finished += DNS_GetHostAliases_Task_Finished;
-            scanningMethode_DNS.GetHostAliases_Finished += DNS_GetHostAndAliasFromIP_Finished;
+            scanningMethode_ReverseLookupToHostAndAliases = new ScanningMethod_ReverseLookupToHostAndAlieases();
+            scanningMethode_ReverseLookupToHostAndAliases.GetHostAliases_Task_Finished += DNS_GetHostAliases_Task_Finished;
+            scanningMethode_ReverseLookupToHostAndAliases.GetHostAliases_Finished += DNS_GetHostAndAliasFromIP_Finished;
 
             scanningMethod_LookUp = new ScanningMethod_LookUp();
             scanningMethod_LookUp.Lookup_Task_Finished += Lookup_Task_Finished;
@@ -94,14 +95,14 @@ namespace MyNetworkMonitor
         //List<string> IPsToRefresh = new List<string>();
         int _TimeOut = 250;
 
-        List<IPToScan> _IPsToRefresh = new List<IPToScan>();
+        List<IPToScan> _IPsToScan = new List<IPToScan>();
         ScanResults _scannResults = new ScanResults();
         DataView dv_resultTable;
 
         ScanningMethod_ARP scanningMethode_ARP;
         ScanningMethods_Ping scanningMethods_Ping;
         ScanningMethod_SSDP_UPNP scanningMethode_SSDP_UPNP;
-        ScanningMethod_DNS scanningMethode_DNS;
+        ScanningMethod_ReverseLookupToHostAndAlieases scanningMethode_ReverseLookupToHostAndAliases;
         ScanningMethod_LookUp scanningMethod_LookUp;
         ScanningMethod_PortsTCP scanningMethode_PortsTCP;
         ScanningMethod_PortsUDP scanningMethode_PortsUDP;
@@ -133,10 +134,10 @@ namespace MyNetworkMonitor
         int CountedHostnames = 0;
         int responsedHostNamesCount = 0;
 
-        ScanStatus reverseLookup_state = ScanStatus.ignored;
-        int currentReverseLookupCount = 0;
-        int CountedReverseLookups = 0;
-        int responsedReverseLookupDevices = 0;
+        ScanStatus Lookup_state = ScanStatus.ignored;
+        int currentLookupCount = 0;
+        int CountedLookups = 0;
+        int responsedLookupDevices = 0;
 
         ScanStatus arpRequest_state = ScanStatus.ignored;
         int currentARPRequest = 0;        
@@ -159,7 +160,7 @@ namespace MyNetworkMonitor
                 $"ARP-Request: {arpRequest_state.ToString()}  {currentARPRequest} from {CountedARPRequests} found {responsedARPRequestCount}        " +
                 $"Ping Status: {ping_state.ToString()} {currentPingCount} of {CountedPings}        " +                
                 $"HostNames: {dns_state.ToString()} {currentHostnameCount.ToString()} from {CountedHostnames.ToString()} found {responsedHostNamesCount.ToString()}        " +
-                $"NSLookUps: {reverseLookup_state.ToString()}  {currentReverseLookupCount.ToString()} from {CountedReverseLookups.ToString()} found: {responsedReverseLookupDevices}        " +
+                $"NSLookUps: {Lookup_state.ToString()}  {currentLookupCount.ToString()} from {CountedLookups.ToString()} found: {responsedLookupDevices}        " +
                 $"TCP Scan: {tcp_port_Scan_state.ToString()} {current_TCPPortScan_Count} from {Counted_TCPPortScans} answerd: {responsedTCPPortScanDevices}         " +
                 $"UDP Scan: {udp_port_Scan_state.ToString()} added: {current_UDPPortScan_Count} of {Counted_UDPListener}        " +
                 $"arp-a: {arp_a_state.ToString()}");
@@ -186,10 +187,10 @@ namespace MyNetworkMonitor
                 e.Column.Visibility = Visibility.Hidden;
             }
 
-            if (e.PropertyName == "GatewayIP")
-            {
-                e.Column.Visibility = Visibility.Hidden;                
-            }
+            //if (e.PropertyName == "GatewayIP")
+            //{
+            //    e.Column.Visibility = Visibility.Hidden;                
+            //}
         }
 
             private void dgv_ScanResults_OnAutoGeneratingColumn(object sender, DataGridAutoGeneratingColumnEventArgs e)
@@ -230,13 +231,13 @@ namespace MyNetworkMonitor
                 };
             }
 
-            if (e.PropertyName == "ReverseLookUpStatus")
+            if (e.PropertyName == "LookUpStatus")
             {
                 // replace text column with image column
                 e.Column = new DataGridTemplateColumn
                 {
                     // searching for predefined tenplate in Resources
-                    CellTemplate = (sender as DataGrid).Resources["ReverseLookUpStatus"] as DataTemplate,
+                    CellTemplate = (sender as DataGrid).Resources["LookUpStatus"] as DataTemplate,
                     HeaderTemplate = e.Column.HeaderTemplate,
                     Header = e.Column.Header
                 };
@@ -247,7 +248,7 @@ namespace MyNetworkMonitor
 
         private void bt_ScanIP_Click(object sender, RoutedEventArgs e)
         {
-            _IPsToRefresh.Clear();
+            _IPsToScan.Clear();
             List<int> TCPPorts = new List<int>();
 
             if ((bool)chk_Methodes_ScanTCPPorts.IsChecked && !(bool)chk_allTCPPorts.IsChecked)
@@ -284,7 +285,7 @@ namespace MyNetworkMonitor
                     //ipToScan.GatewayIP = row["GatewayIP"].ToString();
                     //ipToScan.GatewayPort = row["GatewayPort"].ToString();
 
-                    _IPsToRefresh.Add(ipToScan);
+                    _IPsToScan.Add(ipToScan);
                 }
                 else
                 {
@@ -305,7 +306,7 @@ namespace MyNetworkMonitor
                             //ipToScan.GatewayIP = row["GatewayIP"].ToString();
                             //ipToScan.GatewayPort = row["GatewayPort"].ToString();
 
-                            _IPsToRefresh.Add(ipToScan);
+                            _IPsToScan.Add(ipToScan);
                         }
                     }
                 }
@@ -314,7 +315,7 @@ namespace MyNetworkMonitor
             {
                 foreach (DataRowView row in dgv_Results.SelectedItems)
                 {
-                    if (_IPsToRefresh.Where(i => i.IP == row.Row["IP"].ToString()).Count() == 0)
+                    if (_IPsToScan.Where(i => i.IP == row.Row["IP"].ToString()).Count() == 0)
                     {
                         IPToScan ipToScan = new IPToScan();
                         ipToScan.IPGroupDescription = row.Row["IPGroupDescription"].ToString();
@@ -322,24 +323,23 @@ namespace MyNetworkMonitor
                         ipToScan.IP = row.Row["IP"].ToString();
                         ipToScan.HostName = row.Row["Hostname"].ToString();
                         ipToScan.TCPPortsToScan = TCPPorts;
-                        ipToScan.UDPPortsToScan = null;
-                        //toRefresh.DNSServers = row.Row["DNSServers"].ToString();
+                        ipToScan.UDPPortsToScan = null;                        
                         ipToScan.DNSServerList = row.Row["DNSServers"].ToString().Split(',').ToList();
                         ipToScan.TimeOut = _TimeOut;
                         ipToScan.GatewayIP = row["GatewayIP"].ToString();
                         ipToScan.GatewayPort = row["GatewayPort"].ToString();
 
-                        _IPsToRefresh.Add(ipToScan);
+                        _IPsToScan.Add(ipToScan);
                     }
                 }
-            } 
+            }
             DoWork(true);
         }
 
        
         private void bt_Scan_IP_Ranges_Click(object sender, RoutedEventArgs e)
         {
-            _IPsToRefresh.Clear();
+            _IPsToScan.Clear();
 
             List<string> IPs = new List<string>();
             string myIP = new SupportMethods().GetLocalIPv4(System.Net.NetworkInformation.NetworkInterfaceType.Ethernet);
@@ -390,7 +390,7 @@ namespace MyNetworkMonitor
                             ipToScan.GatewayIP = row["GatewayIP"].ToString();
                             ipToScan.GatewayPort = row["GatewayPort"].ToString();
 
-                            _IPsToRefresh.Add(ipToScan);
+                            _IPsToScan.Add(ipToScan);
                         }
                         else
                         {
@@ -411,7 +411,7 @@ namespace MyNetworkMonitor
                                     ipToScan.GatewayIP = row["GatewayIP"].ToString();
                                     ipToScan.GatewayPort = row["GatewayPort"].ToString();
 
-                                    _IPsToRefresh.Add(ipToScan);
+                                    _IPsToScan.Add(ipToScan);
                                 }
                             }
                         }
@@ -437,7 +437,7 @@ namespace MyNetworkMonitor
                             ipToScan.GatewayIP = row["GatewayIP"].ToString();
                             ipToScan.GatewayPort = row["GatewayPort"].ToString();
 
-                            _IPsToRefresh.Add(ipToScan);
+                            _IPsToScan.Add(ipToScan);
                         }
                     }
                 }                    
@@ -458,9 +458,9 @@ namespace MyNetworkMonitor
             CountedHostnames = 0;
             responsedHostNamesCount = 0;
 
-            currentReverseLookupCount = 0;
-            CountedReverseLookups = 0;
-            responsedReverseLookupDevices = 0;
+            currentLookupCount = 0;
+            CountedLookups = 0;
+            responsedLookupDevices = 0;
 
             currentARPRequest = 0;
             CountedARPRequests = 0;
@@ -480,31 +480,30 @@ namespace MyNetworkMonitor
 
             foreach (DataRow row in _scannResults.ResultTable.Rows)
             {
+                if ((_IPsToScan.Where(i => i.IP == row["IP"].ToString()).Count() > 0 && (bool)chk_Methodes_ARP_A.IsChecked) || ClearTable) row["ARPStatus"] = null;
 
-                if ((_IPsToRefresh.Where(i => i.IP == row["IP"].ToString()).Count() > 0 && (bool)chk_Methodes_ARP_A.IsChecked) || ClearTable) row["ARPStatus"] = null;
 
+                if ((_IPsToScan.Where(i => i.IP == row["IP"].ToString()).Count() > 0 && (bool)chk_Methodes_Ping.IsChecked) || ClearTable) row["PingStatus"] = null;
+                if ((_IPsToScan.Where(i => i.IP == row["IP"].ToString()).Count() > 0 && (bool)chk_Methodes_Ping.IsChecked) || ClearTable) row["ResponseTime"] = string.Empty;
 
-                if ((_IPsToRefresh.Where(i => i.IP == row["IP"].ToString()).Count() > 0 && (bool)chk_Methodes_Ping.IsChecked) || ClearTable) row["PingStatus"] = null;
-                if ((_IPsToRefresh.Where(i => i.IP == row["IP"].ToString()).Count() > 0 && (bool)chk_Methodes_Ping.IsChecked) || ClearTable) row["ResponseTime"] = string.Empty;
+                if ((_IPsToScan.Where(i => i.IP == row["IP"].ToString()).Count() > 0 && (bool)chk_Methodes_SSDP.IsChecked) || ClearTable) row["SSDPStatus"] = null;
 
-                if ((_IPsToRefresh.Where(i => i.IP == row["IP"].ToString()).Count() > 0 && (bool)chk_Methodes_SSDP.IsChecked) || ClearTable) row["SSDPStatus"] = null;
-
-                if ((_IPsToRefresh.Where(i => i.IP == row["IP"].ToString()).Count() > 0 && (bool)chk_Methodes_ScanTCPPorts.IsChecked) || ClearTable) row["TCP_Ports"] = null;
-                if ((_IPsToRefresh.Where(i => i.IP == row["IP"].ToString()).Count() > 0 && (bool)chk_Methodes_ScanUDPPorts.IsChecked) || ClearTable) row["OpenUDP_Ports"] = null;
+                if ((_IPsToScan.Where(i => i.IP == row["IP"].ToString()).Count() > 0 && (bool)chk_Methodes_ScanTCPPorts.IsChecked) || ClearTable) row["TCP_Ports"] = null;
+                if ((_IPsToScan.Where(i => i.IP == row["IP"].ToString()).Count() > 0 && (bool)chk_Methodes_ScanUDPPorts.IsChecked) || ClearTable) row["OpenUDP_Ports"] = null;
 
 
             
-                if ((_IPsToRefresh.Where(i => i.IP == row["IP"].ToString()).Count() > 0 && (bool)chk_Methodes_ScanHostnames.IsChecked) || ClearTable)
+                if ((_IPsToScan.Where(i => i.IP == row["IP"].ToString()).Count() > 0 && (bool)chk_Methodes_ScanHostnames.IsChecked) || ClearTable)
                 {
                     row["Hostname"] = string.Empty;
                     row["Aliases"] = string.Empty;
                 }
 
 
-                if ((_IPsToRefresh.Where(i => i.IP == row["IP"].ToString()).Count() > 0 && (bool)chk_Methodes_ReverseLookUp.IsChecked) || ClearTable)
+                if ((_IPsToScan.Where(i => i.IP == row["IP"].ToString()).Count() > 0 && (bool)chk_Methodes_LookUp.IsChecked) || ClearTable)
                 {
-                    row["ReverseLookUpStatus"] = null;
-                    row["ReverseLookUpIPs"] = string.Empty;
+                    row["LookUpStatus"] = null;
+                    row["LookUpIPs"] = string.Empty;
                 }
             }
             
@@ -514,7 +513,7 @@ namespace MyNetworkMonitor
             if ((bool)chk_ARPRequest.IsChecked) arpRequest_state = ScanStatus.waiting;
             if ((bool)chk_Methodes_Ping.IsChecked) ping_state = ScanStatus.waiting;
             if ((bool)chk_Methodes_ScanHostnames.IsChecked) dns_state = ScanStatus.waiting;
-            if ((bool)chk_Methodes_ReverseLookUp.IsChecked) reverseLookup_state = ScanStatus.waiting;
+            if ((bool)chk_Methodes_LookUp.IsChecked) Lookup_state = ScanStatus.waiting;
             if ((bool)chk_Methodes_ScanTCPPorts.IsChecked) tcp_port_Scan_state = ScanStatus.waiting;
             if ((bool)chk_Methodes_ScanUDPPorts.IsChecked) udp_port_Scan_state = ScanStatus.waiting;
             if ((bool)chk_Methodes_ARP_A.IsChecked) arp_a_state = ScanStatus.waiting;
@@ -536,28 +535,28 @@ namespace MyNetworkMonitor
             if ((bool)chk_Methodes_SSDP.IsChecked)
             {
                 ssdp_state = ScanStatus.running;
-                CountedSSDPs = _IPsToRefresh.Count;
+                CountedSSDPs = _IPsToScan.Count;
                 Status();
-                Task.Run(() => scanningMethode_SSDP_UPNP.ScanForSSDP(_IPsToRefresh));
+                Task.Run(() => scanningMethode_SSDP_UPNP.ScanForSSDP(_IPsToScan));
             }
 
 
             if ((bool)chk_ARPRequest.IsChecked)
             {
-                CountedARPRequests = _IPsToRefresh.Count;
+                CountedARPRequests = _IPsToScan.Count;
                 arpRequest_state = ScanStatus.running;
                 Status();
 
-                await Task.Run(() => scanningMethode_ARP.SendARPRequestAsync(_IPsToRefresh));
+                await Task.Run(() => scanningMethode_ARP.SendARPRequestAsync(_IPsToScan));
             }            
 
 
             if ((bool)chk_Methodes_Ping.IsChecked)
             {
                 ping_state = ScanStatus.running;
-                CountedPings = _IPsToRefresh.Count;
+                CountedPings = _IPsToScan.Count;
                 Status();
-                await scanningMethods_Ping.PingIPsAsync(_IPsToRefresh, false);
+                await scanningMethods_Ping.PingIPsAsync(_IPsToScan, false);
             }
 
 
@@ -567,23 +566,25 @@ namespace MyNetworkMonitor
 
                 if (_scannResults.ResultTable.Rows.Count == 0 || (bool)rb_ScanHostnames_All_IPs.IsChecked || IsSelectiveScan)
                 {
-                    IPsForHostnameScan = _IPsToRefresh;
+                    IPsForHostnameScan = _IPsToScan;
                 }
                 else
                 {
                     foreach (DataRow row in _scannResults.ResultTable.Rows)
                     {
-                        IPToScan toRefresh = new IPToScan();
-                        toRefresh.IPGroupDescription = row["IPGroupDescription"].ToString();
-                        toRefresh.DeviceDescription = row["DeviceDescription"].ToString();
-                        toRefresh.IP = row["ip"].ToString();
-                        toRefresh.HostName = string.Empty;
-                        toRefresh.TCPPortsToScan = new PortCollection().TCPPorts;
-                        toRefresh.UDPPortsToScan = new PortCollection().UDPPorts;
-                        toRefresh.DNSServerList = row["DNSServers"].ToString().Split(',').ToList();
-                        toRefresh.TimeOut = _TimeOut;
+                        IPToScan ipToScan = new IPToScan();
+                        ipToScan.IPGroupDescription = row["IPGroupDescription"].ToString();
+                        ipToScan.DeviceDescription = row["DeviceDescription"].ToString();
+                        ipToScan.IP = row["ip"].ToString();
+                        ipToScan.HostName = string.Empty;
+                        ipToScan.TCPPortsToScan = new PortCollection().TCPPorts;
+                        ipToScan.UDPPortsToScan = new PortCollection().UDPPorts;
+                        ipToScan.DNSServerList = row["DNSServers"].ToString().Split(',').ToList();
+                        ipToScan.TimeOut = _TimeOut;
+                        ipToScan.GatewayIP = row["GatewayIP"].ToString();
+                        ipToScan.GatewayPort = row["GatewayPort"].ToString();
 
-                        IPsForHostnameScan.Add(toRefresh);
+                        IPsForHostnameScan.Add(ipToScan);
                     }
                 }
 
@@ -592,26 +593,26 @@ namespace MyNetworkMonitor
                 //CountedHostnames = _IPsToRefresh.Count;
                 Status();
 
-                if ((bool)chk_Methodes_ReverseLookUp.IsChecked)
+                if ((bool)chk_Methodes_LookUp.IsChecked)
                 {
-                    reverseLookup_state = ScanStatus.waiting;
+                    Lookup_state = ScanStatus.waiting;
                     Status();
                 }
 
-                await Task.Run(() => scanningMethode_DNS.GetHost_Aliases(IPsForHostnameScan));
+                await Task.Run(() => scanningMethode_ReverseLookupToHostAndAliases.GetHost_Aliases(IPsForHostnameScan));
                 //await Task.Run(() => scanningMethode_DNS.Get_Host_and_Alias_From_IP(_IPsToRefresh));
             }
 
 
-            if ((bool)chk_Methodes_ReverseLookUp.IsChecked)
+            if ((bool)chk_Methodes_LookUp.IsChecked)
             {
                 //give some time to insert the results of DNS Hostname into Datatable
                 await Task.Run(() => Thread.Sleep(1000));
 
-                List<IPToScan> IPsForReverseLookUp = new List<IPToScan>();
-                foreach (IPToScan ip in IPsForHostnameScan)
+                List<IPToScan> IPsForLookUp = new List<IPToScan>();
+                foreach (IPToScan _ipToScan in IPsForHostnameScan)
                 {
-                    List<DataRow> rows = _scannResults.ResultTable.Select("IP = '" + ip.IP + "'").ToList();                    
+                    List<DataRow> rows = _scannResults.ResultTable.Select("IP = '" + _ipToScan.IP + "'").ToList();                    
 
                     if(rows.Count > 0)
                     {
@@ -619,24 +620,25 @@ namespace MyNetworkMonitor
 
                         if (!string.IsNullOrEmpty(_scannResults.ResultTable.Rows[rowIndex]["Hostname"].ToString()))
                         {
-                            IPToScan toRefresh = new IPToScan();
-                            toRefresh.IPGroupDescription = _scannResults.ResultTable.Rows[rowIndex]["IPGroupDescription"].ToString();
-                            toRefresh.DeviceDescription = _scannResults.ResultTable.Rows[rowIndex]["DeviceDescription"].ToString();
-                            toRefresh.IP = ip.IP;
-                            toRefresh.HostName = _scannResults.ResultTable.Rows[rowIndex]["Hostname"].ToString();
-                            toRefresh.DNSServerList = _scannResults.ResultTable.Rows[rowIndex]["DNSServers"].ToString().Split(',').ToList();
+                            IPToScan ipToScan = new IPToScan();
+                            ipToScan.IPGroupDescription = _scannResults.ResultTable.Rows[rowIndex]["IPGroupDescription"].ToString();
+                            ipToScan.DeviceDescription = _scannResults.ResultTable.Rows[rowIndex]["DeviceDescription"].ToString();
+                            ipToScan.IP = _ipToScan.IP;
+                            ipToScan.HostName = _scannResults.ResultTable.Rows[rowIndex]["Hostname"].ToString();
+                            ipToScan.DNSServerList = _scannResults.ResultTable.Rows[rowIndex]["DNSServers"].ToString().Split(',').ToList();
+                            ipToScan.GatewayIP = _scannResults.ResultTable.Rows[rowIndex]["GatewayIP"].ToString();
+                            ipToScan.GatewayPort = _scannResults.ResultTable.Rows[rowIndex]["GatewayPort"].ToString();
 
-                            IPsForReverseLookUp.Add(toRefresh);
+                            IPsForLookUp.Add(ipToScan);
                         }
                     }
                 }
 
-                reverseLookup_state = ScanStatus.running;
-                CountedReverseLookups = IPsForReverseLookUp.Count;
-                //CountedReverseLookups = _IPsToRefresh.Count;
+                Lookup_state = ScanStatus.running;
+                CountedLookups = IPsForLookUp.Count;
                 Status();
 
-                scanningMethod_LookUp.LookupAsync(IPsForReverseLookUp);
+                Task.Run(() => scanningMethod_LookUp.LookupAsync(IPsForLookUp));
             }
 
             List<IPToScan> _IPsForTCPPortScan = new List<IPToScan>();
@@ -644,23 +646,25 @@ namespace MyNetworkMonitor
             {
                 if (_scannResults.ResultTable.Rows.Count == 0 || !(bool)chk_TCPPortsScanOnlyIPsInTable.IsChecked || IsSelectiveScan)
                 {
-                    _IPsForTCPPortScan = _IPsToRefresh;
+                    _IPsForTCPPortScan = _IPsToScan;
                 }
                 else
                 {
                     foreach (DataRow row in _scannResults.ResultTable.Rows)
                     {
-                        IPToScan toRefresh = new IPToScan();
-                        toRefresh.IPGroupDescription = row["IPGroupDescription"].ToString();
-                        toRefresh.DeviceDescription = row["DeviceDescription"].ToString();
-                        toRefresh.IP = row["ip"].ToString();
-                        toRefresh.HostName = string.Empty;
-                        toRefresh.TCPPortsToScan = new PortCollection().TCPPorts;
-                        toRefresh.UDPPortsToScan = new PortCollection().UDPPorts;
-                        toRefresh.DNSServerList = row["DNSServers"].ToString().Split(',').ToList();
-                        toRefresh.TimeOut = _TimeOut;
+                        IPToScan ipToScan = new IPToScan();
+                        ipToScan.IPGroupDescription = row["IPGroupDescription"].ToString();
+                        ipToScan.DeviceDescription = row["DeviceDescription"].ToString();
+                        ipToScan.IP = row["ip"].ToString();
+                        ipToScan.HostName = string.Empty;
+                        ipToScan.TCPPortsToScan = new PortCollection().TCPPorts;
+                        ipToScan.UDPPortsToScan = new PortCollection().UDPPorts;
+                        ipToScan.DNSServerList = row["DNSServers"].ToString().Split(',').ToList();
+                        ipToScan.TimeOut = _TimeOut;
+                        ipToScan.GatewayIP = row["GatewayIP"].ToString();
+                        ipToScan.GatewayPort = row["GatewayPort"].ToString();
 
-                        _IPsForTCPPortScan.Add(toRefresh);
+                        _IPsForTCPPortScan.Add(ipToScan);
                     }
                 }
                 
@@ -668,7 +672,7 @@ namespace MyNetworkMonitor
                 Counted_TCPPortScans = _IPsForTCPPortScan.Count;
                 Status();
 
-                Task.Run(() => scanningMethode_PortsTCP.ScanTCPPorts(_IPsForTCPPortScan, new TimeSpan(0, 0, 0, 0, _TimeOut)));
+                await Task.Run(() => scanningMethode_PortsTCP.ScanTCPPorts(_IPsForTCPPortScan, new TimeSpan(0, 0, 0, 0, _TimeOut)));
             }
 
 
@@ -677,7 +681,7 @@ namespace MyNetworkMonitor
                 udp_port_Scan_state = ScanStatus.running;
                 Status();
 
-                Task.Run(() => scanningMethode_PortsUDP.Get_All_UPD_Listener_as_List(_IPsToRefresh));
+                Task.Run(() => scanningMethode_PortsUDP.Get_All_UPD_Listener_as_List(_IPsToScan));
             }
 
 
@@ -686,76 +690,145 @@ namespace MyNetworkMonitor
                 arp_a_state = ScanStatus.running;
                 Status();
 
-                Task.Run(() => scanningMethode_ARP.ARP_A(_IPsToRefresh));
+                Task.Run(() => scanningMethode_ARP.ARP_A(_IPsToScan));
             }        
+        }
+
+        public void InsertIPToScanResult(IPToScan ipToScan)
+        {
+            List<DataRow> rows = _scannResults.ResultTable.Select("IP = '" + ipToScan.IP + "'").ToList();
+
+            List<string> ports = new List<string>();
+            if (ipToScan.TCP_OpenPorts.Count > 0) ports.Add(string.Format($"Open: {string.Join("; ", ipToScan.TCP_OpenPorts)}"));
+            if (ipToScan.TCP_FirewallBlockedPorts.Count > 0) ports.Add(string.Format($"ACL blocked: {string.Join("; ", ipToScan.TCP_FirewallBlockedPorts)}"));
+
+
+            if (rows.Count > 0)
+            {
+                int rowIndex = _scannResults.ResultTable.Rows.IndexOf(rows[0]);
+                _scannResults.ResultTable.Rows[rowIndex]["IPGroupDescription"] = ipToScan.IPGroupDescription;
+                _scannResults.ResultTable.Rows[rowIndex]["DeviceDescription"] = ipToScan.DeviceDescription;
+                _scannResults.ResultTable.Rows[rowIndex]["IP"] = ipToScan.IP;
+                _scannResults.ResultTable.Rows[rowIndex]["DNSServers"] = string.Join(',', ipToScan.DNSServerList);
+                _scannResults.ResultTable.Rows[rowIndex]["GatewayIP"] = ipToScan.GatewayIP;
+                _scannResults.ResultTable.Rows[rowIndex]["GatewayPort"] = ipToScan.GatewayPort;
+
+                if (ipToScan.UsedScanMethod == ScanMethod.SSDP) 
+                { 
+                    _scannResults.ResultTable.Rows[rowIndex]["SSDPStatus"] = ipToScan.SSDPStatus ? Properties.Resources.green_dot : null; 
+                }
+
+                if (ipToScan.UsedScanMethod == ScanMethod.ARP)
+                {
+                    _scannResults.ResultTable.Rows[rowIndex]["ARPStatus"] = ipToScan.ARPStatus ? Properties.Resources.green_dot : Properties.Resources.red_dot;
+                    _scannResults.ResultTable.Rows[rowIndex]["MAC"] = ipToScan.MAC;
+                    _scannResults.ResultTable.Rows[rowIndex]["Vendor"] = ipToScan.Vendor;
+                }
+
+                
+                
+                if (ipToScan.UsedScanMethod == ScanMethod.Ping)
+                {
+                    _scannResults.ResultTable.Rows[rowIndex]["PingStatus"] = ipToScan.PingStatus ? Properties.Resources.green_dot : Properties.Resources.red_dot;
+                    _scannResults.ResultTable.Rows[rowIndex]["ResponseTime"] = ipToScan.ResponseTime;
+                }
+
+                if (ipToScan.UsedScanMethod == ScanMethod.ReverseLookup)
+                {
+                    _scannResults.ResultTable.Rows[rowIndex]["Hostname"] = ipToScan.HostName;
+                    _scannResults.ResultTable.Rows[rowIndex]["Aliases"] = string.Join("\r\n", ipToScan.Aliases);
+                }
+
+                if (ipToScan.UsedScanMethod == ScanMethod.Lookup)
+                {
+                    _scannResults.ResultTable.Rows[rowIndex]["LookUpStatus"] = ipToScan.LookUpStatus ? Properties.Resources.green_dot : Properties.Resources.red_dot;
+                    _scannResults.ResultTable.Rows[rowIndex]["LookUpIPs"] = ipToScan.LookUpIPs;
+                }
+
+                if (ipToScan.UsedScanMethod == ScanMethod.TCPPorts)
+                {
+                    _scannResults.ResultTable.Rows[rowIndex]["TCP_Ports"] = string.Join("\r\n", ports);
+                }
+
+                if (ipToScan.UsedScanMethod == ScanMethod.UDPPorts)
+                {
+                    _scannResults.ResultTable.Rows[rowIndex]["OpenUDP_Ports"] = string.Join("; ", ipToScan.UDP_OpenPorts);
+                }
+            }
+            else
+            {
+                DataRow row = _scannResults.ResultTable.NewRow();
+                row["IPGroupDescription"] = ipToScan.IPGroupDescription;
+                row["DeviceDescription"] = ipToScan.DeviceDescription;
+                row["IP"] = ipToScan.IP;
+                row["DNSServers"] = string.Join(',', ipToScan.DNSServerList);
+                row["GatewayIP"] = ipToScan.GatewayIP;
+                row["GatewayPort"] = ipToScan.GatewayPort;
+
+                if (ipToScan.UsedScanMethod == ScanMethod.SSDP)
+                {
+                    row["SSDPStatus"] = ipToScan.SSDPStatus ? Properties.Resources.green_dot : null;
+                }
+
+                if (ipToScan.UsedScanMethod == ScanMethod.ARP) 
+                { 
+                    row["ARPStatus"] = ipToScan.ARPStatus ? Properties.Resources.green_dot : Properties.Resources.red_dot;
+                    row["MAC"] = ipToScan.MAC;
+                    row["Vendor"] = ipToScan.Vendor;
+                }
+
+                if (ipToScan.UsedScanMethod == ScanMethod.Ping)
+                {
+                    row["PingStatus"] = ipToScan.PingStatus ? Properties.Resources.green_dot : Properties.Resources.red_dot;
+                }
+
+                if (ipToScan.UsedScanMethod == ScanMethod.Ping)
+                {
+                    row["ResponseTime"] = ipToScan.ResponseTime;
+                }
+
+                if (ipToScan.UsedScanMethod == ScanMethod.ReverseLookup)
+                {
+                    row["Hostname"] = ipToScan.HostName;
+                    row["Aliases"] = string.Join("\r\n", ipToScan.Aliases);
+                }
+
+                if (ipToScan.UsedScanMethod == ScanMethod.Lookup)
+                {
+                    row["LookUpStatus"] = ipToScan.LookUpStatus ? Properties.Resources.green_dot : Properties.Resources.red_dot;
+                    row["LookUpIPs"] = ipToScan.LookUpIPs;
+                }
+
+                if (ipToScan.UsedScanMethod == ScanMethod.TCPPorts)
+                {
+                    row["TCP_Ports"] = string.Join("\r\n", ports);
+                }
+
+                if (ipToScan.UsedScanMethod == ScanMethod.UDPPorts)
+                {
+                    row["OpenUDP_Ports"] = string.Join("; ", ipToScan.UDP_OpenPorts);
+                }
+
+                _scannResults.ResultTable.Rows.Add(row);
+            }
         }
 
         private void ARP_A_newDevive_Finished(object? sender, ScanTask_Finished_EventArgs e)
         {
             Dispatcher.BeginInvoke(() =>
             {
-                List<DataRow> rows = _scannResults.ResultTable.Select("IP = '" + e.ipToScan.IP + "'").ToList();
-
-                if (rows.Count == 0)
-                {
-                    DataRow row = _scannResults.ResultTable.NewRow();
-                    row["IPGroupDescription"] = e.ipToScan.IPGroupDescription;
-                    row["DeviceDescription"] = e.ipToScan.DeviceDescription;
-                    row["ARPStatus"] = e.ipToScan.ARPStatus ? Properties.Resources.green_dot : Properties.Resources.red_dot;
-                    row["IP"] = e.ipToScan.IP;
-                    row["MAC"] = e.ipToScan.MAC;
-                    row["Vendor"] = e.ipToScan.Vendor;
-                    row["DNSServers"] = string.Join(',', e.ipToScan.DNSServerList);
-
-                    _scannResults.ResultTable.Rows.Add(row);
-                }
-                else
-                {
-                    int rowIndex = _scannResults.ResultTable.Rows.IndexOf(rows[0]);
-                    _scannResults.ResultTable.Rows[rowIndex]["ARPStatus"] = e.ipToScan.ARPStatus ? Properties.Resources.green_dot : Properties.Resources.red_dot;
-                    _scannResults.ResultTable.Rows[rowIndex]["IP"] = e.ipToScan.IP;
-                    _scannResults.ResultTable.Rows[rowIndex]["MAC"] = e.ipToScan.MAC;
-                    _scannResults.ResultTable.Rows[rowIndex]["Vendor"] = e.ipToScan.Vendor;
-                    _scannResults.ResultTable.Rows[rowIndex]["DNSServers"] = string.Join(',', e.ipToScan.DNSServerList);
-                }
+                InsertIPToScanResult(e.ipToScan);
 
                 arp_a_state = ScanStatus.finished;
                 Status();
             });
         }
 
-
-
         private void Ping_Task_Finished(object? sender, ScanTask_Finished_EventArgs e)
         {
             Dispatcher.BeginInvoke(() => 
-            {
-                List<DataRow> rows = _scannResults.ResultTable.Select("IP = '" + e.ipToScan.IP + "'").ToList();
-
-                if (rows.Count == 0)
-                {
-                    if (!string.IsNullOrEmpty(e.ipToScan.IP)) {
-                        DataRow row = _scannResults.ResultTable.NewRow();
-                        row["IPGroupDescription"] = e.ipToScan.IPGroupDescription;
-                        row["DeviceDescription"] = e.ipToScan.DeviceDescription;
-                        row["PingStatus"] = e.ipToScan.PingStatus ? Properties.Resources.green_dot : Properties.Resources.red_dot;
-                        row["IP"] = e.ipToScan.IP;
-                        row["ResponseTime"] = e.ipToScan.ResponseTime;                        
-                        row["DNSServers"] = string.Join(',', e.ipToScan.DNSServerList);
-
-                        _scannResults.ResultTable.Rows.Add(row);
-                    } 
-                }
-                else
-                {
-                    int rowIndex = _scannResults.ResultTable.Rows.IndexOf(rows[0]);
-                    _scannResults.ResultTable.Rows[rowIndex]["IPGroupDescription"] = e.ipToScan.IPGroupDescription;
-                    _scannResults.ResultTable.Rows[rowIndex]["DeviceDescription"] = e.ipToScan.DeviceDescription;
-                    _scannResults.ResultTable.Rows[rowIndex]["IP"] = e.ipToScan.IP;
-                    _scannResults.ResultTable.Rows[rowIndex]["PingStatus"] = e.ipToScan.PingStatus ? Properties.Resources.green_dot : Properties.Resources.red_dot;                    
-                    _scannResults.ResultTable.Rows[rowIndex]["ResponseTime"] = e.ipToScan.ResponseTime;
-                    _scannResults.ResultTable.Rows[rowIndex]["DNSServers"] = string.Join(',', e.ipToScan.DNSServerList);
-                }
+            {               
+                InsertIPToScanResult(e.ipToScan);
 
                 ++currentPingCount;
                 Status();
@@ -776,26 +849,7 @@ namespace MyNetworkMonitor
         {
             Dispatcher.BeginInvoke(() =>
             {
-                List<DataRow> rows = _scannResults.ResultTable.Select("IP = '" + e.ipToScan.IP + "'").ToList();
-
-                if (rows.Count == 0)
-                {
-                    DataRow row = _scannResults.ResultTable.NewRow();
-
-                    row["IPGroupDescription"] = e.ipToScan.IPGroupDescription;
-                    row["DeviceDescription"] = e.ipToScan.DeviceDescription;
-                    row["SSDPStatus"] = Properties.Resources.green_dot;
-                    row["IP"] = e.ipToScan.IP;                   
-                    row["DNSServers"] = string.Join(',', e.ipToScan.DNSServerList);
-
-                    _scannResults.ResultTable.Rows.Add(row);                    
-                }
-                else
-                {
-                    int rowIndex = _scannResults.ResultTable.Rows.IndexOf(rows[0]);
-                    _scannResults.ResultTable.Rows[rowIndex]["SSDPStatus"] = Properties.Resources.green_dot;
-                    _scannResults.ResultTable.Rows[rowIndex]["DNSServers"] = string.Join(',', e.ipToScan.DNSServerList);                    
-                }
+                InsertIPToScanResult(e.ipToScan);
 
                 ++currentSSDPCount;
                 Status();
@@ -823,35 +877,10 @@ namespace MyNetworkMonitor
                 {
                     return;
                 }
+               
+                InsertIPToScanResult(e.ipToScan);
 
-                List<DataRow> rows = _scannResults.ResultTable.Select("IP = '" + e.ipToScan.IP + "'").ToList();
-                if (rows.ToList().Count == 0)
-                {
-                    DataRow row = _scannResults.ResultTable.NewRow();
-                    row["IPGroupDescription"] = e.ipToScan.IPGroupDescription;
-                    row["DeviceDescription"] = e.ipToScan.DeviceDescription;
-                    row["IP"] = e.ipToScan.IP;
-                    row["ARPStatus"] = Properties.Resources.green_dot;
-                    row["Mac"] = e.ipToScan.MAC;
-                    row["Vendor"] = e.ipToScan.Vendor;                   
-                    row["DNSServers"] = string.Join(',', e.ipToScan.DNSServerList);
-
-                    _scannResults.ResultTable.Rows.Add(row);
-                    ++responsedARPRequestCount;
-                }
-                else
-                {
-                    int rowIndex = _scannResults.ResultTable.Rows.IndexOf(rows[0]);
-                    _scannResults.ResultTable.Rows[rowIndex]["IPGroupDescription"] = e.ipToScan.IPGroupDescription;
-                    _scannResults.ResultTable.Rows[rowIndex]["DeviceDescription"] = e.ipToScan.DeviceDescription;
-                    _scannResults.ResultTable.Rows[rowIndex]["ARPStatus"] = Properties.Resources.green_dot;
-                    _scannResults.ResultTable.Rows[rowIndex]["Mac"] = e.ipToScan.MAC;
-                    _scannResults.ResultTable.Rows[rowIndex]["Vendor"] = e.ipToScan.Vendor;
-                    _scannResults.ResultTable.Rows[rowIndex]["DNSServers"] = string.Join(',', e.ipToScan.DNSServerList);
-                    
-                    ++responsedARPRequestCount;
-                }
-                
+                ++responsedARPRequestCount;
                 Status();
             });
         }
@@ -878,32 +907,9 @@ namespace MyNetworkMonitor
                     return;
                 }
 
-                List<DataRow> rows = _scannResults.ResultTable.Select("IP = '" + e.ipToScan.IP + "'").ToList();
-                if (rows.ToList().Count == 0)
-                {
-                    DataRow row = _scannResults.ResultTable.NewRow();
-                    row["IPGroupDescription"] = e.ipToScan.IPGroupDescription;
-                    row["DeviceDescription"] = e.ipToScan.DeviceDescription;
-                    row["IP"] = e.ipToScan.IP;
-                    row["Hostname"] = e.ipToScan.HostName;
-                    row["Aliases"] = string.Join("\r\n", e.ipToScan.Aliases);                  
-                    row["DNSServers"] = string.Join(',', e.ipToScan.DNSServerList);
+                InsertIPToScanResult(e.ipToScan);
 
-                    _scannResults.ResultTable.Rows.Add(row);
-                    ++responsedHostNamesCount;
-                }
-                else
-                {
-                    int rowIndex = _scannResults.ResultTable.Rows.IndexOf(rows[0]);
-                    _scannResults.ResultTable.Rows[rowIndex]["IPGroupDescription"] = e.ipToScan.IPGroupDescription;
-                    _scannResults.ResultTable.Rows[rowIndex]["DeviceDescription"] = e.ipToScan.DeviceDescription;
-                    _scannResults.ResultTable.Rows[rowIndex]["Hostname"] = e.ipToScan.HostName;
-                    _scannResults.ResultTable.Rows[rowIndex]["Aliases"] = string.Join("\r\n", e.ipToScan.Aliases);
-                    _scannResults.ResultTable.Rows[rowIndex]["DNSServers"] = string.Join(',', e.ipToScan.DNSServerList);
-                    
-                    ++responsedHostNamesCount;
-                }
-
+                ++responsedHostNamesCount;
                 Status();
             });
         }
@@ -922,31 +928,14 @@ namespace MyNetworkMonitor
         {
             Dispatcher.BeginInvoke(() =>
             {
-                ++currentReverseLookupCount;
+                ++currentLookupCount;
                 Status();
 
-                List<DataRow> rows = _scannResults.ResultTable.Select("IP = '" + e.ipToScan.IP + "'").ToList();
 
-                if (rows.ToList().Count == 0)
-                {
-                    DataRow row = _scannResults.ResultTable.NewRow();
-                    row["IP"] = e.ipToScan.IP;                    
-                    row["ReverseLookUpStatus"] = e.ipToScan.LookUpStatus ? Properties.Resources.green_dot: Properties.Resources.red_dot;
-                    row["ReverseLookUpIPs"] = e.ipToScan.LookUpIPs;                   
-                    row["DNSServers"] = string.Join(',', e.ipToScan.DNSServerList);
+                InsertIPToScanResult(e.ipToScan);
 
-                    _scannResults.ResultTable.Rows.Add(row);
-                    ++responsedReverseLookupDevices;
-                }
-                else
-                {
-                    int rowIndex = _scannResults.ResultTable.Rows.IndexOf(rows[0]);                    
-                    _scannResults.ResultTable.Rows[rowIndex]["ReverseLookUpStatus"] = e.ipToScan.LookUpStatus ? Properties.Resources.green_dot : Properties.Resources.red_dot;
-                    _scannResults.ResultTable.Rows[rowIndex]["ReverseLookUpIPs"] = e.ipToScan.LookUpIPs;
-                    _scannResults.ResultTable.Rows[rowIndex]["DNSServers"] = string.Join(',', e.ipToScan.DNSServerList);
 
-                    ++responsedReverseLookupDevices;
-                }
+                ++responsedLookupDevices;
                 Status();
             });
         }
@@ -954,53 +943,11 @@ namespace MyNetworkMonitor
         {
             Dispatcher.BeginInvoke(() => 
             {
-                reverseLookup_state = ScanStatus.finished;
+                Lookup_state = ScanStatus.finished;
                 Status();
             });
         }
 
-
-
-        //private void TcpPortScan_Task_Finished(object? sender, ScanningMethod_PortsTCP.TcpPortScan_Task_FinishedEventArgs e)
-        //{
-        //    Dispatcher.BeginInvoke(() =>
-        //    {
-        //        ++current_TCPPortScan_Count;
-        //        Status();
-
-        //        if (e.ScannedPorts == null)
-        //        {
-        //            return;
-        //        }
-
-
-        //        List<string> ports= new List<string>();
-        //        if(e.ScannedPorts.openPorts.Count > 0) ports.Add(string.Format($"Open: {string.Join("; ", e.ScannedPorts.openPorts)}"));
-        //        if (e.ScannedPorts.FirewallBlockedPorts.Count > 0) ports.Add(string.Format($"ACL blocked: {string.Join("; ", e.ScannedPorts.FirewallBlockedPorts)}"));
-
-        //        DataRow[] rows = _scannResults.ResultTable.Select("IP = '" + e.ScannedPorts.IP + "'");
-        //        if (rows.ToList().Count > 0)
-        //        {
-        //            int rowIndex = _scannResults.ResultTable.Rows.IndexOf(rows[0]);
-        //            _scannResults.ResultTable.Rows[rowIndex]["IPGroupDescription"] = e.ScannedPorts.IPGroupDescription;
-        //            _scannResults.ResultTable.Rows[rowIndex]["DeviceDescription"] = e.ScannedPorts.DeviceDescription;
-        //            _scannResults.ResultTable.Rows[rowIndex]["TCP_Ports"] = string.Join("\r\n", ports);
-        //            ++responsedTCPPortScanDevices;
-        //            Status();
-        //        }
-        //        else
-        //        {
-        //            DataRow row = _scannResults.ResultTable.NewRow();
-        //            row["IPGroupDescription"] = e.ScannedPorts.IPGroupDescription;
-        //            row["DeviceDescription"] = e.ScannedPorts.DeviceDescription;
-        //            row["IP"] = e.ScannedPorts.IP;
-        //            row["TCP_Ports"] = string.Join("\r\n", ports);
-        //            _scannResults.ResultTable.Rows.Add(row);
-        //            ++responsedTCPPortScanDevices;
-        //            Status();
-        //        }
-        //    });
-        //}
 
 
         private void TcpPortScan_Task_Finished(object? sender, ScanTask_Finished_EventArgs e)
@@ -1014,40 +961,15 @@ namespace MyNetworkMonitor
                 {
                     return;
                 }
+               
+
+                InsertIPToScanResult(e.ipToScan);
 
 
-                List<string> ports = new List<string>();
-                if (e.ipToScan.TCP_OpenPorts.Count > 0) ports.Add(string.Format($"Open: {string.Join("; ", e.ipToScan.TCP_OpenPorts)}"));
-                if (e.ipToScan.TCP_FirewallBlockedPorts.Count > 0) ports.Add(string.Format($"ACL blocked: {string.Join("; ", e.ipToScan.TCP_FirewallBlockedPorts)}"));
-
-                DataRow[] rows = _scannResults.ResultTable.Select("IP = '" + e.ipToScan.IP + "'");
-                if (rows.ToList().Count > 0)
-                {
-                    int rowIndex = _scannResults.ResultTable.Rows.IndexOf(rows[0]);
-                    _scannResults.ResultTable.Rows[rowIndex]["IPGroupDescription"] = e.ipToScan.IPGroupDescription;
-                    _scannResults.ResultTable.Rows[rowIndex]["DeviceDescription"] = e.ipToScan.DeviceDescription;
-                    _scannResults.ResultTable.Rows[rowIndex]["TCP_Ports"] = string.Join("\r\n", ports);
-                    _scannResults.ResultTable.Rows[rowIndex]["DNSServers"] = string.Join(',', e.ipToScan.DNSServerList);                   
-
-                    ++responsedTCPPortScanDevices;
-                    Status();
-                }
-                else
-                {
-                    DataRow row = _scannResults.ResultTable.NewRow();
-                    row["IPGroupDescription"] = e.ipToScan.IPGroupDescription;
-                    row["DeviceDescription"] = e.ipToScan.DeviceDescription;
-                    row["IP"] = e.ipToScan.IP;
-                    row["TCP_Ports"] = string.Join("\r\n", ports);                   
-                    row["DNSServers"] = string.Join(',', e.ipToScan.DNSServerList);
-
-                    _scannResults.ResultTable.Rows.Add(row);
-                    ++responsedTCPPortScanDevices;
-                    Status();
-                }
+                ++responsedTCPPortScanDevices;
+                Status();
             });
         }
-
         private void TcpPortScan_Finished(object? sender, Method_Finished_EventArgs e)
         {
             Dispatcher.BeginInvoke(() =>
@@ -1062,31 +984,10 @@ namespace MyNetworkMonitor
         private void UDPPortScan_Task_Finished(object? sender, ScanTask_Finished_EventArgs e)
         {
             Dispatcher.BeginInvoke(() =>
-            {
-                DataRow[] rows = _scannResults.ResultTable.Select("IP = '" + e.ipToScan.IP + "'");
-                if (rows.ToList().Count > 0)
-                {
-                    int rowIndex = _scannResults.ResultTable.Rows.IndexOf(rows[0]);
-                    _scannResults.ResultTable.Rows[rowIndex]["OpenUDP_Ports"] = string.Join("; ", e.ipToScan.UDP_OpenPorts);
-                    _scannResults.ResultTable.Rows[rowIndex]["DNSServers"] = string.Join(',', e.ipToScan.DNSServerList);                   
+            {                
+                InsertIPToScanResult(e.ipToScan);
 
-                    ++current_UDPPortScan_Count;
-                }
-                else
-                {
-                    //use if you would like to see all UDP Listener incl.IPv6
-                    DataRow row = _scannResults.ResultTable.NewRow();
-                    row["IPGroupDescription"] = e.ipToScan.IPGroupDescription;
-                    row["DeviceDescription"] = e.ipToScan.DeviceDescription;
-                    row["IP"] = e.ipToScan.IP;
-                    row["OpenUDP_Ports"] = string.Join("; ", e.ipToScan.UDP_OpenPorts);                   
-                    row["DNSServers"] = string.Join(',', e.ipToScan.DNSServerList);
-
-                    Counted_UDPListener = e.ipToScan.UDP_ListenerFound;
-
-                    _scannResults.ResultTable.Rows.Add(row);
-                    ++current_UDPPortScan_Count;
-                }                
+                ++current_UDPPortScan_Count;
                 Status();
             });
         }
