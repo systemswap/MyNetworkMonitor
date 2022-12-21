@@ -8,10 +8,22 @@ using System.Threading.Tasks;
 
 namespace MyNetworkMonitor
 {
+    public enum ScanMethod
+    {
+        failed,
+        SSDP,
+        ARP,
+        Ping,
+        ReverseLookup,
+        Lookup,
+        TCPPorts,
+        UDPPorts,        
+    }
+
     [Serializable]
     public class IPToScan
     {
-        public IPToScan() 
+        public IPToScan()
         {
             _lst_DNSServers = new List<string>();
 
@@ -25,7 +37,10 @@ namespace MyNetworkMonitor
             _UDP_OpenPorts = new List<int>();
             _UDP_FirewallBlockedPorts = new List<int>();
             _UDP_TargetDeniedAccessToPorts = new List<int>();
-    }
+        }
+
+        private ScanMethod _UsedScanMethod;
+        public ScanMethod UsedScanMethod { get { return _UsedScanMethod; } set { _UsedScanMethod = value; } }
 
         private string _IPGroupDescription = string.Empty;
         private string _DeviceDescription = string.Empty;
@@ -124,18 +139,18 @@ namespace MyNetworkMonitor
         public ScanResults()
         {
             dt_NetworkResults.Columns.Add("IPGroupDescription", typeof(string));
-            dt_NetworkResults.Columns.Add("DeviceDescription", typeof(string));            
-            dt_NetworkResults.Columns.Add("PingStatus", typeof(byte[]));
-            dt_NetworkResults.Columns.Add("ARPStatus", typeof(byte[]));
+            dt_NetworkResults.Columns.Add("DeviceDescription", typeof(string));
             dt_NetworkResults.Columns.Add("SSDPStatus", typeof(byte[]));
+            dt_NetworkResults.Columns.Add("ARPStatus", typeof(byte[]));
+            dt_NetworkResults.Columns.Add("PingStatus", typeof(byte[]));            
             //dt_NetworkResults.Columns.Add("SendAlert", typeof(bool));
             dt_NetworkResults.Columns.Add("IP", typeof(string));
             dt_NetworkResults.Columns.Add("ResponseTime", typeof(string));
             dt_NetworkResults.Columns.Add("InternalName", typeof(string));
             dt_NetworkResults.Columns.Add("Hostname", typeof(string));            
             dt_NetworkResults.Columns.Add("Aliases", typeof(string));
-            dt_NetworkResults.Columns.Add("ReverseLookUpStatus", typeof(byte[]));
-            dt_NetworkResults.Columns.Add("ReverseLookUpIPs", typeof(string));
+            dt_NetworkResults.Columns.Add("LookUpStatus", typeof(byte[]));
+            dt_NetworkResults.Columns.Add("LookUpIPs", typeof(string));
             dt_NetworkResults.Columns.Add("TCP_Ports", typeof(string));
             dt_NetworkResults.Columns.Add("OpenUDP_Ports", typeof(string));
             dt_NetworkResults.Columns.Add("Comment", typeof(string));
