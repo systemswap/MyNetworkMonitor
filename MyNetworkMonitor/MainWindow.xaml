@@ -113,10 +113,10 @@
                 <CheckBox x:Name="chk_Methodes_ScanUDPPorts" Content="UDP Ports" Grid.Column="5" HorizontalAlignment="Center" Width="82" VerticalContentAlignment="Center" VerticalAlignment="Center" Height="15"/>
 
 
-                <TextBox x:Name="tb_IP_Address" Grid.Column="8" TextWrapping="Wrap" VerticalAlignment="Center" Height="20" Margin="1,0,9,0"/>
+                <TextBox x:Name="tb_IP_Address" Grid.Column="8" TextWrapping="Wrap" VerticalAlignment="Center" Height="20" Margin="10,0,9,0"/>
                 <TextBox x:Name="tb_TCPPorts" Grid.Column="9" TextWrapping="Wrap" VerticalAlignment="Center" Height="20" Margin="7,0,10,0"/>
                 <TextBox x:Name="tb_UDPPorts" Grid.Column="10" TextWrapping="Wrap" VerticalAlignment="Center" Height="20" Margin="10,0,10,0"/>
-                <Button x:Name="bt_ScanIP" Click="bt_ScanIP_Click"   Content="Scan Selected IP" Grid.Column="11" VerticalAlignment="Center" Height="20" Margin="16,0,0,0" HorizontalAlignment="Left" Width="101" />
+                <Button x:Name="bt_ScanIP" Click="bt_ScanIP_Click"   Content="Scan Selected IP" Grid.Column="8" VerticalAlignment="Center" Height="20" Margin="10,0,0,0" HorizontalAlignment="Left" Width="463" Grid.Row="1" Grid.ColumnSpan="4" />
 
 
                 <CheckBox x:Name="chk_Methodes_ARP_A" Content="arp -a" Margin="10,0,0,0" HorizontalAlignment="Left" Width="54" Grid.Column="6" VerticalContentAlignment="Center" VerticalAlignment="Center" Height="15"/>
@@ -180,15 +180,18 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="171"/>
                     <ColumnDefinition Width="162"/>
+                    <ColumnDefinition Width="645"/>
                     <ColumnDefinition/>
-                    <ColumnDefinition Width="142"/>
-                    <ColumnDefinition Width="115"/>
-                    <ColumnDefinition Width="251"/>
+                    <ColumnDefinition Width="140"/>
+                    <ColumnDefinition Width="100"/>
+                    <ColumnDefinition Width="117"/>
+                    <ColumnDefinition Width="134"/>
                 </Grid.ColumnDefinitions>
-                <Label Grid.Column="3" Content="IP-Address" HorizontalAlignment="Left" VerticalAlignment="Center" Width="91" Height="25" Margin="10,0,0,0"/>
-                <Label Grid.Column="4" Content="TCP-Ports" HorizontalAlignment="Left" Margin="10,-2,0,0" VerticalAlignment="Top" Height="26" Width="82"/>
-                <Label Grid.Column="5" Content="UDP-Ports" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Center" Height="25" Width="65"/>
+                <Label Grid.Column="4" Content="IP / Hostname.domain" VerticalAlignment="Center" Height="25" Margin="7,0,16,0"/>
+                <Label Grid.Column="5" Content="TCP-Ports" HorizontalAlignment="Center" Margin="0,-2,0,0" VerticalAlignment="Top" Height="26" Width="82"/>
+                <Label Grid.Column="6" Content="UDP-Ports" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Center" Height="25" Width="65"/>
                 <Label Content="Methodes to find Device:" Grid.Column="0" Margin="10,0,0,1" HorizontalAlignment="Left" Width="147"/>
+                <Label Grid.Column="7" Content="Diff. DNS Server" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Center" Width="103"/>
             </Grid>
         </Grid>
 
