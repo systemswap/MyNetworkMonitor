@@ -63,6 +63,16 @@ namespace MyNetworkMonitor.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
+        internal static byte[] gray_dot {
+            get {
+                object obj = ResourceManager.GetObject("gray_dot", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Byte[].
+        /// </summary>
         internal static byte[] green_dot {
             get {
                 object obj = ResourceManager.GetObject("green_dot", resourceCulture);
