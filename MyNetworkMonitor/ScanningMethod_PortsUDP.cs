@@ -60,7 +60,7 @@ namespace MyNetworkMonitor
                 string ip = item.Key.ToString();
                 try
                 {
-                    ipToScan = IPs.Where(i => string.Equals(i.IP, ip)).ToList()[0];
+                    ipToScan = IPs.Where(i => string.Equals(i.IPorHostname, ip)).ToList()[0];
                     ipToScan.SSDPStatus = true;
                 }
                 catch (Exception)
@@ -68,7 +68,7 @@ namespace MyNetworkMonitor
                     ipToScan = new IPToScan();
                     ipToScan.IPGroupDescription = "not specified";
                     ipToScan.DeviceDescription = "not specified";
-                    ipToScan.IP = ip;
+                    ipToScan.IPorHostname = ip;
 
                     ipToScan.ARPStatus = true;
                 }
@@ -87,7 +87,7 @@ namespace MyNetworkMonitor
                     ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
                     scanTask_Finished.ipToScan = ipToScan;
 
-                    if (new SupportMethods().Is_Valid_IP(scanTask_Finished.ipToScan.IP)) UDPPortScan_Task_Finished(this, scanTask_Finished);
+                    if (new SupportMethods().Is_Valid_IP(scanTask_Finished.ipToScan.IPorHostname)) UDPPortScan_Task_Finished(this, scanTask_Finished);
                 }
             }
 

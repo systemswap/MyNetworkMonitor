@@ -45,12 +45,12 @@ namespace MyNetworkMonitor
             IPHostEntry _entry;
             try
             {
-                _entry = await Dns.GetHostEntryAsync(ipToScan.HostName);
+                _entry = await Dns.GetHostEntryAsync(ipToScan.HostnameWithDomain);
 
                 bool _LookUpStatus = false;
                 string _LookUpIPs = string.Empty;
 
-                if (_entry.AddressList.ToList().Count == 1 && ipToScan.IP == _entry.AddressList[0].ToString())
+                if (_entry.AddressList.ToList().Count == 1 && ipToScan.IPorHostname == _entry.AddressList[0].ToString())
                 {
                     _LookUpStatus = true;
                 }

@@ -34,7 +34,7 @@ namespace MyNetworkMonitor
 
             Parallel.ForEach(ipsToRefresh, ip =>
             {
-                if (!string.IsNullOrEmpty(ip.IP))
+                if (!string.IsNullOrEmpty(ip.IPorHostname))
                 {
                     var task = ArpRequestTask(ip);
                     if (task != null) tasks.Add(task);
@@ -50,7 +50,7 @@ namespace MyNetworkMonitor
 
         private async Task ArpRequestTask(IPToScan ipToScan)
         {
-            IPAddress ipAddress = IPAddress.Parse(ipToScan.IP);
+            IPAddress ipAddress = IPAddress.Parse(ipToScan.IPorHostname);
             byte[] macAddr = new byte[6];
             uint macAddrLen = (uint)macAddr.Length;
        
@@ -132,7 +132,7 @@ namespace MyNetworkMonitor
 
                                 try
                                 {
-                                    ipToScan = IPs.Where(i => string.Equals(i.IP, ip)).ToList()[0];
+                                    ipToScan = IPs.Where(i => string.Equals(i.IPorHostname, ip)).ToList()[0];
                                     ipToScan.ARPStatus = true;
                                     ipToScan.MAC = mac;
                                     ipToScan.Vendor = vendor[0];
@@ -141,7 +141,7 @@ namespace MyNetworkMonitor
                                 {
                                     ipToScan = new IPToScan();
                                     ipToScan.ARPStatus = true;
-                                    ipToScan.IP = ip;
+                                    ipToScan.IPorHostname = ip;
                                     ipToScan.MAC = mac;
                                     ipToScan.Vendor = vendor[0];
                                     ipToScan.IPGroupDescription = "not specified";

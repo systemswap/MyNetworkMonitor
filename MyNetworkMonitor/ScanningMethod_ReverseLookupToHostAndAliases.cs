@@ -65,7 +65,7 @@ namespace MyNetworkMonitor
                 {
                     client = new DnsClient.LookupClient();
                 }
-                IPHostEntry _IPHostEntry = await client.GetHostEntryAsync(ipToScan.IP);
+                IPHostEntry _IPHostEntry = await client.GetHostEntryAsync(ipToScan.IPorHostname);
 
                 if (_IPHostEntry == null)
                 {
@@ -74,7 +74,18 @@ namespace MyNetworkMonitor
 
                 if (GetHostAliases_Task_Finished != null)
                 {
-                    ipToScan.HostName = _IPHostEntry.HostName;
+                    if (_IPHostEntry.HostName.Split('.').ToList().Count > 2)
+                    {
+                        List<string> HostDomainSplit = new List<string>();
+                        HostDomainSplit.AddRange(_IPHostEntry.HostName.ToString().Split(".", 2, StringSplitOptions.None).ToList());
+                        ipToScan.HostName = (HostDomainSplit.Count >= 1) ? HostDomainSplit[0] : string.Empty;
+                        ipToScan.Domain = (HostDomainSplit.Count >= 2) ? HostDomainSplit[1] : string.Empty;
+                    }
+                    else
+                    {
+                        ipToScan.HostName = _IPHostEntry.HostName;
+                    }
+
                     ipToScan.Aliases = (_IPHostEntry.Aliases != null) ? string.Join("\r\n", _IPHostEntry.Aliases) : string.Empty;
 
                     ipToScan.UsedScanMethod = ScanMethod.ReverseLookup;

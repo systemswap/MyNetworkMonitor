@@ -85,12 +85,12 @@ namespace MyNetworkMonitor
                     return;
                 }
 
-                if (!string.IsNullOrEmpty(ipToScan.IP))
+                if (!string.IsNullOrEmpty(ipToScan.IPorHostname))
                 {
                     try
                     {
 
-                        var task = ScanTCP_Port_via_Socket_Async(ipToScan.IP, port, TimeOut);
+                        var task = ScanTCP_Port_via_Socket_Async(ipToScan.IPorHostname, port, TimeOut);
 
                         switch (task.Result.PortState)
                         {

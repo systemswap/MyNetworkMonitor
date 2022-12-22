@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
+using System.DirectoryServices.ActiveDirectory;
 using System.Linq;
 using System.Net;
 using System.Text;
@@ -47,7 +48,7 @@ namespace MyNetworkMonitor
         private string _IP = string.Empty;
         public string IPGroupDescription { get { return _IPGroupDescription; } set { _IPGroupDescription = value; } }
         public string DeviceDescription { get { return _DeviceDescription; } set { _DeviceDescription = value; } }
-        public string IP { get { return _IP; } set { _IP = value; } }
+        public string IPorHostname { get { return _IP; } set { _IP = value; } }
 
 
 
@@ -67,11 +68,24 @@ namespace MyNetworkMonitor
 
 
 
-        private string _Hostname = string.Empty;
+        private string _HostName = string.Empty;        
+        private string _Domain = string.Empty;
         private string _Aliases = string.Empty;
-        public string HostName { get { return _Hostname; } set { _Hostname = value; } }
-        public string Aliases { get { return _Aliases; } set { _Aliases = value; } }
+        public string HostName { get { return _HostName; } set { _HostName = value; } }
+        public string Domain { get { return _Domain; } set { _Domain = value; } }
+        public string HostnameWithDomain 
+        { 
+            get 
+            {
+                List<string> list = new List<string>();
+                if (!string.IsNullOrEmpty(_HostName)) list.Add(_HostName);
+                if (!string.IsNullOrEmpty(_Domain)) list.Add(_Domain);
 
+                return string.Join('.', list);
+            }
+        }
+        public string Aliases { get { return _Aliases; } set { _Aliases = value; } }
+       
 
 
         private bool _LookUpStatus = false;
@@ -147,7 +161,8 @@ namespace MyNetworkMonitor
             dt_NetworkResults.Columns.Add("IP", typeof(string));
             dt_NetworkResults.Columns.Add("ResponseTime", typeof(string));
             dt_NetworkResults.Columns.Add("InternalName", typeof(string));
-            dt_NetworkResults.Columns.Add("Hostname", typeof(string));            
+            dt_NetworkResults.Columns.Add("Hostname", typeof(string));
+            dt_NetworkResults.Columns.Add("Domain", typeof(string));
             dt_NetworkResults.Columns.Add("Aliases", typeof(string));
             dt_NetworkResults.Columns.Add("LookUpStatus", typeof(byte[]));
             dt_NetworkResults.Columns.Add("LookUpIPs", typeof(string));
@@ -284,11 +299,12 @@ namespace MyNetworkMonitor
             dt.Columns.Add("DeviceDescription", typeof(string));
             dt.Columns.Add("FirstIP", typeof(string));
             dt.Columns.Add("LastIP", typeof(string));
-            dt.Columns.Add("DNSServers", typeof(string));
-            dt.Columns.Add("AutomaticScan", typeof(bool));
-            dt.Columns.Add("ScanIntervalMinutes", typeof(string));            
+            dt.Columns.Add("Domain", typeof(string));
+            dt.Columns.Add("DNSServers", typeof(string));                    
             dt.Columns.Add("GatewayIP", typeof(string));
             dt.Columns.Add("GatewayPort", typeof(string));
+            dt.Columns.Add("AutomaticScan", typeof(bool));
+            dt.Columns.Add("ScanIntervalMinutes", typeof(string));
         }
 
         
