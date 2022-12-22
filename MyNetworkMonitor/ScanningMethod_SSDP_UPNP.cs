@@ -46,7 +46,7 @@ namespace MyNetworkMonitor
                         IPToScan ipToScan;
                         try
                         {
-                            ipToScan = IPs.Where(i => string.Equals(i.IP, deviceIP)).ToList()[0];
+                            ipToScan = IPs.Where(i => string.Equals(i.IPorHostname, deviceIP)).ToList()[0];
                             ipToScan.SSDPStatus = true;
                         }
                         catch (Exception)
@@ -54,7 +54,7 @@ namespace MyNetworkMonitor
                             ipToScan = new IPToScan();
                             ipToScan.IPGroupDescription = "not specified";
                             ipToScan.DeviceDescription = "not specified";
-                            ipToScan.IP = deviceIP;
+                            ipToScan.IPorHostname = deviceIP;
 
                             ipToScan.SSDPStatus = true;
                         }

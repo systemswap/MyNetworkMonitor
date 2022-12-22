@@ -53,7 +53,7 @@ namespace MyNetworkMonitor
 
         private async Task PingTask(IPToScan ipToScan, int TimeOut, bool ShowUnused)
         {
-            if (!new SupportMethods().Is_Valid_IP(ipToScan.IP)) return;
+            if (!new SupportMethods().Is_Valid_IP(ipToScan.IPorHostname)) return;
 
             bool sendResult = false;
 
@@ -65,7 +65,7 @@ namespace MyNetworkMonitor
                 PingOptions options = new PingOptions(200, true);
 
                 Ping ping = new Ping();
-                PingReply reply = await ping.SendPingAsync(ipToScan.IP, TimeOut, buffer, options);
+                PingReply reply = await ping.SendPingAsync(ipToScan.IPorHostname, TimeOut, buffer, options);
 
                 bool PingStatus = false;
                 //string IP = string.Empty;
@@ -120,7 +120,7 @@ namespace MyNetworkMonitor
                 PingOptions options = new PingOptions(200, true);
 
                 Ping ping = new Ping();
-                reply = await ping.SendPingAsync(ipToScan.IP, TimeOut, buffer, options);
+                reply = await ping.SendPingAsync(ipToScan.IPorHostname, TimeOut, buffer, options);
 
                 return reply;
             }

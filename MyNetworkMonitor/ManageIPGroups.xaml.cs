@@ -58,10 +58,12 @@ namespace MyNetworkMonitor
             tb_DeviceDescription.Text = _dt.Rows[indexOfCurrentRow]["DeviceDescription"].ToString();
             tb_firstIP.Text = _dt.Rows[indexOfCurrentRow]["FirstIP"].ToString();
             tb_LastIP.Text = _dt.Rows[indexOfCurrentRow]["LastIP"].ToString();
+            tb_Domain.Text = _dt.Rows[indexOfCurrentRow]["Domain"].ToString();
             tb_DNSServer.Text = _dt.Rows[indexOfCurrentRow]["DNSServers"].ToString();
+            tb_IPWhereNetworkMonitorRunAsGateway.Text = _dt.Rows[indexOfCurrentRow]["GatewayIP"].ToString();
+            tb_GatewayPort.Text = _dt.Rows[indexOfCurrentRow]["GatewayPort"].ToString();
             chk_AutomaticScan.IsChecked = Convert.ToBoolean(_dt.Rows[indexOfCurrentRow]["AutomaticScan"]);
             tb_ScanInterval.Text = _dt.Rows[indexOfCurrentRow]["ScanIntervalMinutes"].ToString();
-            _ = _dt.Rows[indexOfCurrentRow]["GatewayIP"].ToString();
         }
 
         private void bt_addEntry_Click(object sender, RoutedEventArgs e)
@@ -74,10 +76,12 @@ namespace MyNetworkMonitor
                 row["DeviceDescription"] = tb_DeviceDescription.Text;
                 row["FirstIP"] = tb_firstIP.Text;
                 row["LastIP"] = tb_LastIP.Text;
+                row["Domain"] = tb_Domain.Text;
                 row["DNSServers"] = tb_DNSServer.Text;
+                row["GatewayIP"] = tb_IPWhereNetworkMonitorRunAsGateway.Text;
+                row["GatewayPort"] = tb_GatewayPort.Text;
                 row["AutomaticScan"] = Convert.ToBoolean(chk_AutomaticScan.IsChecked);
                 row["ScanIntervalMinutes"] = tb_ScanInterval.Text;
-                row["GatewayIP"] = string.Empty;
 
                 _dt.Rows.Add(row);
             }
@@ -88,10 +92,12 @@ namespace MyNetworkMonitor
                 _dt.Rows[indexOfCurrentRow]["DeviceDescription"] = tb_DeviceDescription.Text;
                 _dt.Rows[indexOfCurrentRow]["FirstIP"] = tb_firstIP.Text;
                 _dt.Rows[indexOfCurrentRow]["LastIP"] = tb_LastIP.Text;
+                _dt.Rows[indexOfCurrentRow]["Domain"] = tb_Domain.Text;
                 _dt.Rows[indexOfCurrentRow]["DNSServers"] = tb_DNSServer.Text;
+                _dt.Rows[indexOfCurrentRow]["GatewayIP"] = tb_IPWhereNetworkMonitorRunAsGateway.Text;
+                _dt.Rows[indexOfCurrentRow]["GatewayPort"] = tb_GatewayPort.Text;
                 _dt.Rows[indexOfCurrentRow]["AutomaticScan"] = Convert.ToBoolean(chk_AutomaticScan.IsChecked);
                 _dt.Rows[indexOfCurrentRow]["ScanIntervalMinutes"] = tb_ScanInterval.Text;
-                _dt.Rows[indexOfCurrentRow]["GatewayIP"] = string.Empty;
             }
             indexOfCurrentRow = -1;
         }
