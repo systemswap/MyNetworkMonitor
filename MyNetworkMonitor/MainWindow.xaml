@@ -7,7 +7,7 @@
          xmlns:scm="clr-namespace:System.ComponentModel;assembly=WindowsBase"
         
         mc:Ignorable="d"
-        Title="My Network Monitor" Height="800" Width="1855" MinWidth="1855" MinHeight="450">
+        Title="My Network Monitor" Height="800" Width="1855" MinWidth="1855" MinHeight="450" Closing="Window_Closing">
     <Window.Resources>
         <CollectionViewSource x:Key="cvs" Source="{Binding}" IsLiveSortingRequested="True" IsLiveGroupingRequested="True">
             <!-- Sorting -->
@@ -42,7 +42,7 @@
                 <RowDefinition Height="30" MinHeight="44.04"/>
             </Grid.RowDefinitions>
             <TabControl Margin="10,10,10,10" Grid.Row="2">
-                <TabItem Header="From IP Ranges">
+                <TabItem x:Name="tab_FromIPRange" Header="From IP Ranges">
                     <Grid x:Name="SummaryGrid">
 
                         <Grid.RowDefinitions>
@@ -63,8 +63,19 @@
 
                     </Grid>
                 </TabItem>
-                <TabItem Header="From Remote"/>
-                <TabItem Header="Filter"/>
+                <TabItem x:Name="tab_PortsToScan" Header="Ports To Scan">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="50"/>
+                            <RowDefinition/>
+                            <RowDefinition Height="50"/>
+                        </Grid.RowDefinitions>
+                        <DataGrid x:Name="dg_PortsToScan" Margin="10,10,10,10" Grid.Row="1"/>
+                        <Button x:Name="bt_SavePortsToScan" Content="Save Port Collection" HorizontalAlignment="Center" Grid.Row="2" VerticalAlignment="Center" Width="293" Height="30" Click="bt_SavePortsToScan_Click"/>
+
+                    </Grid>
+                </TabItem>
+                <TabItem x:Name="Tab_SomthingElse" Header="somthing else"/>
 
 
 
@@ -116,7 +127,7 @@
                 <TextBox x:Name="tb_IP_Address" Grid.Column="8" TextWrapping="Wrap" VerticalAlignment="Center" Height="20" Margin="10,0,9,0"/>
                 <TextBox x:Name="tb_TCPPorts" Grid.Column="9" TextWrapping="Wrap" VerticalAlignment="Center" Height="20" Margin="7,0,10,0"/>
                 <TextBox x:Name="tb_UDPPorts" Grid.Column="10" TextWrapping="Wrap" VerticalAlignment="Center" Height="20" Margin="10,0,10,0"/>
-                <Button x:Name="bt_ScanIP" Click="bt_ScanIP_Click"   Content="Scan Selected IP" Grid.Column="8" VerticalAlignment="Center" Height="20" Margin="10,0,0,0" HorizontalAlignment="Left" Width="463" Grid.Row="1" Grid.ColumnSpan="4" />
+                <Button x:Name="bt_ScanIP" Click="bt_ScanIP_Click"   Content="scan above IP or selected rows" Grid.Column="8" VerticalAlignment="Center" Height="20" Margin="10,0,0,0" HorizontalAlignment="Left" Width="463" Grid.Row="1" Grid.ColumnSpan="4" />
 
 
                 <CheckBox x:Name="chk_Methodes_ARP_A" Content="arp -a" Margin="10,0,0,0" HorizontalAlignment="Left" Width="54" Grid.Column="6" VerticalContentAlignment="Center" VerticalAlignment="Center" Height="15"/>
@@ -129,6 +140,7 @@
                     <CheckBox x:Name="chk_TCPPortsScanOnlyIPsInTable" Grid.Column="0" Content="only IPs in Table" HorizontalAlignment="Left" VerticalAlignment="Center" Width="108" Height="15" Margin="10,0,0,0" IsChecked="True"/>
                     <CheckBox x:Name="chk_allTCPPorts" Grid.Column="1" Content="all Ports" HorizontalAlignment="Left" VerticalAlignment="Center" Width="67" Height="15" Margin="10,0,0,0" VerticalContentAlignment="Center"/>
                 </Grid>
+                <TextBox x:Name="tb_DNSServerIP" Grid.Column="11" HorizontalAlignment="Center" TextWrapping="Wrap" VerticalAlignment="Center" Width="107"/>
 
 
             </Grid>
@@ -160,11 +172,20 @@
                     </DataGrid.Resources>
                 </DataGrid>
                 <Grid Grid.Row="1" Margin="0,0,0,10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="17*"/>
+                        <RowDefinition Height="23*"/>
+                    </Grid.RowDefinitions>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="118*"/>
-                        <ColumnDefinition Width="1457*"/>
+                        <ColumnDefinition Width="53*"/>
+                        <ColumnDefinition Width="1278*"/>
+                        <ColumnDefinition Width="156"/>
                     </Grid.ColumnDefinitions>
-                    <Label Content="Filter:" HorizontalAlignment="Left" Margin="34,0,0,0" VerticalAlignment="Center"/>
+                    <Label Content="Filter:" HorizontalAlignment="Center" VerticalAlignment="Center" Height="28" Width="40" VerticalContentAlignment="Center"/>
+                    <Canvas Grid.Column="2" Grid.RowSpan="2">
+                        <CheckBox x:Name="chk_SaveLastScanResult" Content="save last scan result" Height="15" VerticalContentAlignment="Center" Width="128" HorizontalAlignment="Right" Canvas.Left="18" VerticalAlignment="Top" IsChecked="True"/>
+                        <Button x:Name="bt_clearScanResultTable" Content="clear table" Canvas.Left="42" Canvas.Top="20" HorizontalAlignment="Left" VerticalAlignment="Center" Width="104" Click="bt_clearScanResultTable_Click"/>
+                    </Canvas>
                 </Grid>
             </Grid>
             <Slider x:Name="slider_TimeOut" HorizontalAlignment="Left" VerticalAlignment="Top" Width="311" Maximum="3000" Minimum="10" Value="500" TickFrequency="10" SmallChange="10" LargeChange="50" Grid.Row="1" IsSnapToTickEnabled="True" ValueChanged="slider_TimeOut_ValueChanged" Height="18" Margin="18,7,0,0"/>

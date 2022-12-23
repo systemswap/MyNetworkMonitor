@@ -84,11 +84,47 @@ namespace MyNetworkMonitor
             }
 
             DataContext = ipGroupData.IPGroupsDT.DefaultView;
+
+            if (File.Exists(_lastScanResultFile))
+            {
+                try
+                {
+                    _scannResults.ResultTable.ReadXml(_lastScanResultFile);
+                }
+                catch (Exception)
+                {
+                    //throw;
+                }
+            }
+
+
+            if (File.Exists(_portsToScan))
+            {
+                try
+                {
+                    _portCollection.TableOfPortsToScan.Rows.Clear();
+                    _portCollection.TableOfPortsToScan.ReadXml(_portsToScan);
+                }
+                catch (Exception)
+                {
+                    //throw;
+                }
+            }
+            else
+            {
+                new PortCollection().TableOfPortsToScan.WriteXml(_portsToScan);
+                _portCollection.TableOfPortsToScan.ReadXml(_portsToScan);
+            }
+
+            dg_PortsToScan.ItemsSource = _portCollection.TableOfPortsToScan.DefaultView;
+
         }
 
-     
-
+        PortCollection _portCollection = new PortCollection();
+        string _portsToScan = Path.Combine(Environment.CurrentDirectory, @"Settings\portsToScan.xml");
         string _ipGroupsXML = Path.Combine(Environment.CurrentDirectory, @"Settings\ipGroups.xml");
+        string _lastScanResultFile = Path.Combine(Environment.CurrentDirectory, @"Settings\lastScanResult.xml");
+
         IPGroupData ipGroupData = new IPGroupData();
 
 
@@ -253,7 +289,7 @@ namespace MyNetworkMonitor
 
             if ((bool)chk_Methodes_ScanTCPPorts.IsChecked && !(bool)chk_allTCPPorts.IsChecked)
             {
-                TCPPorts.AddRange(new PortCollection().TCPPorts);
+                TCPPorts.AddRange(_portCollection.TCPPorts);
 
                 //Additional Ports from Customer
                 if (!string.IsNullOrEmpty(tb_TCPPorts.Text))
@@ -280,7 +316,7 @@ namespace MyNetworkMonitor
                     ipToScan.HostName = string.Empty;
                     ipToScan.TCPPortsToScan = TCPPorts;
                     ipToScan.UDPPortsToScan = null;
-                    ipToScan.DNSServerList = null;
+                    ipToScan.DNSServerList.Add(tb_DNSServerIP.Text);
                     ipToScan.TimeOut = _TimeOut;
                     //ipToScan.GatewayIP = row["GatewayIP"].ToString();
                     //ipToScan.GatewayPort = row["GatewayPort"].ToString();
@@ -369,7 +405,7 @@ namespace MyNetworkMonitor
             List<int> TCPPorts = new List<int>();
             if ((bool)chk_Methodes_ScanTCPPorts.IsChecked && !(bool)chk_allTCPPorts.IsChecked)
             {
-                TCPPorts.AddRange(new PortCollection().TCPPorts);
+                TCPPorts.AddRange(_portCollection.TCPPorts);
             }
             else
             {
@@ -442,8 +478,8 @@ namespace MyNetworkMonitor
                             ipToScan.IPorHostname = ip;
                             ipToScan.HostName = string.Empty;
                             ipToScan.Domain = row["Domain"].ToString();
-                            ipToScan.TCPPortsToScan = new PortCollection().TCPPorts;
-                            ipToScan.UDPPortsToScan = new PortCollection().UDPPorts;
+                            ipToScan.TCPPortsToScan = _portCollection.TCPPorts;
+                            ipToScan.UDPPortsToScan = _portCollection.UDPPorts;
                             ipToScan.DNSServerList = row["DNSServers"].ToString().Split(',').ToList();
                             ipToScan.TimeOut = _TimeOut;
                             ipToScan.GatewayIP = row["GatewayIP"].ToString();
@@ -486,37 +522,33 @@ namespace MyNetworkMonitor
             Counted_UDPListener= 0;
 
 
-            //if (TCP_Ports == null) TCP_Ports = new PortCollection().TCPPorts;
-            //if (Udp_Ports == null) Udp_Ports = new PortCollection().UDPPorts;
-
-
             foreach (DataRow row in _scannResults.ResultTable.Rows)
             {
-                if ((_IPsToScan.Where(i => i.IPorHostname == row["IP"].ToString()).Count() > 0 && (bool)chk_Methodes_ARP_A.IsChecked) || ClearTable) row["ARPStatus"] = null;
-
-
-                if ((_IPsToScan.Where(i => i.IPorHostname == row["IP"].ToString()).Count() > 0 && (bool)chk_Methodes_Ping.IsChecked) || ClearTable) row["PingStatus"] = null;
-                if ((_IPsToScan.Where(i => i.IPorHostname == row["IP"].ToString()).Count() > 0 && (bool)chk_Methodes_Ping.IsChecked) || ClearTable) row["ResponseTime"] = string.Empty;
-
-                if ((_IPsToScan.Where(i => i.IPorHostname == row["IP"].ToString()).Count() > 0 && (bool)chk_Methodes_SSDP.IsChecked) || ClearTable) row["SSDPStatus"] = null;
-
-                if ((_IPsToScan.Where(i => i.IPorHostname == row["IP"].ToString()).Count() > 0 && (bool)chk_Methodes_ScanTCPPorts.IsChecked) || ClearTable) row["TCP_Ports"] = null;
-                if ((_IPsToScan.Where(i => i.IPorHostname == row["IP"].ToString()).Count() > 0 && (bool)chk_Methodes_ScanUDPPorts.IsChecked) || ClearTable) row["OpenUDP_Ports"] = null;
-
-
-            
-                if ((_IPsToScan.Where(i => i.IPorHostname == row["IP"].ToString()).Count() > 0 && (bool)chk_Methodes_ScanHostnames.IsChecked) || ClearTable)
-                {                    
-                    row["Domain"] = string.Empty;
-                    row["Hostname"] = string.Empty;
-                    row["Aliases"] = string.Empty;
-                }
-
-
-                if ((_IPsToScan.Where(i => i.IPorHostname == row["IP"].ToString()).Count() > 0 && (bool)chk_Methodes_LookUp.IsChecked) || ClearTable)
+                if (_IPsToScan.Where(i => i.IPorHostname == row["IP"].ToString()).Count() > 0)
                 {
-                    row["LookUpStatus"] = null;
-                    row["LookUpIPs"] = string.Empty;
+                    if((bool)chk_Methodes_ARP_A.IsChecked && !string.IsNullOrEmpty(row["ARPStatus"].ToString())) row["ARPStatus"] = Properties.Resources.gray_dot;
+
+
+                    if ((bool)chk_Methodes_Ping.IsChecked && !string.IsNullOrEmpty(row["PingStatus"].ToString())) row["PingStatus"] = Properties.Resources.gray_dot;
+                    if ((bool)chk_Methodes_Ping.IsChecked) row["ResponseTime"] = string.Empty;
+
+                    if ((bool)chk_Methodes_SSDP.IsChecked && !string.IsNullOrEmpty(row["SSDPStatus"].ToString())) row["SSDPStatus"] = Properties.Resources.gray_dot;
+
+                    if ((bool)chk_Methodes_ScanTCPPorts.IsChecked) row["TCP_Ports"] = null;
+                    if ((bool)chk_Methodes_ScanUDPPorts.IsChecked) row["OpenUDP_Ports"] = null;
+
+                    if ((bool)chk_Methodes_ScanHostnames.IsChecked)
+                    {
+                        row["Domain"] = string.Empty;
+                        row["Hostname"] = string.Empty;
+                        row["Aliases"] = string.Empty;
+                    }
+
+                    if ((bool)chk_Methodes_LookUp.IsChecked && !string.IsNullOrEmpty(row["LookUpStatus"].ToString()))
+                    {
+                        row["LookUpStatus"] = Properties.Resources.gray_dot;
+                        row["LookUpIPs"] = string.Empty;
+                    }
                 }
             }
             
@@ -591,8 +623,8 @@ namespace MyNetworkMonitor
                         ipToScan.IPorHostname = row["ip"].ToString();
                         ipToScan.HostName = row["Hostname"].ToString();
                         ipToScan.Domain = row["Domain"].ToString();
-                        ipToScan.TCPPortsToScan = new PortCollection().TCPPorts;
-                        ipToScan.UDPPortsToScan = new PortCollection().UDPPorts;
+                        ipToScan.TCPPortsToScan = _portCollection.TCPPorts;
+                        ipToScan.UDPPortsToScan = _portCollection.UDPPorts;
                         ipToScan.DNSServerList = row["DNSServers"].ToString().Split(',').ToList();
                         ipToScan.TimeOut = _TimeOut;
                         ipToScan.GatewayIP = row["GatewayIP"].ToString();
@@ -673,8 +705,8 @@ namespace MyNetworkMonitor
                         ipToScan.IPorHostname = row["ip"].ToString();
                         ipToScan.HostName = row["Hostname"].ToString();
                         ipToScan.Domain = row["Domain"].ToString();
-                        ipToScan.TCPPortsToScan = new PortCollection().TCPPorts;
-                        ipToScan.UDPPortsToScan = new PortCollection().UDPPorts;
+                        ipToScan.TCPPortsToScan = _portCollection.TCPPorts;
+                        ipToScan.UDPPortsToScan = _portCollection.UDPPorts;
                         ipToScan.DNSServerList = row["DNSServers"].ToString().Split(',').ToList();
                         ipToScan.TimeOut = _TimeOut;
                         ipToScan.GatewayIP = row["GatewayIP"].ToString();
@@ -1042,6 +1074,41 @@ namespace MyNetworkMonitor
                     MessageBox.Show("you need admin right");
                 }
             }
+        }
+
+        private void bt_clearScanResultTable_Click(object sender, RoutedEventArgs e)
+        {
+            _scannResults.ResultTable.Rows.Clear();
+        }
+
+        private void Window_Closing(object sender, CancelEventArgs e)
+        {
+            if ((bool)chk_SaveLastScanResult.IsChecked)
+            {
+                foreach (DataRow row in _scannResults.ResultTable.Rows)
+                {
+                    if (!string.IsNullOrEmpty(row["SSDPStatus"].ToString())) row["SSDPStatus"] = Properties.Resources.gray_dot;
+                    if (!string.IsNullOrEmpty(row["ARPStatus"].ToString())) row["ARPStatus"] = Properties.Resources.gray_dot;
+                    if (!string.IsNullOrEmpty(row["PingStatus"].ToString())) row["PingStatus"] = Properties.Resources.gray_dot;
+
+                    if (!string.IsNullOrEmpty(row["LookUpStatus"].ToString()))
+                    {
+                        byte[] greenDot = Properties.Resources.green_dot;
+                        byte[] cellValue = (byte[])row["LookUpStatus"];
+                        bool bla = greenDot.SequenceEqual(cellValue);
+                        if (bla) row["LookUpStatus"] = Properties.Resources.gray_dot;
+                    }
+                }
+                _scannResults.ResultTable.WriteXml(_lastScanResultFile, XmlWriteMode.WriteSchema);
+            }
+        }
+
+        private void bt_SavePortsToScan_Click(object sender, RoutedEventArgs e)
+        {
+            DataView dv = _portCollection.TableOfPortsToScan.DefaultView;
+            dv.Sort = "Ports asc";            
+            DataTable sortedtable1 = dv.ToTable();
+            sortedtable1.WriteXml(_portsToScan, XmlWriteMode.WriteSchema);
         }
     }
 }
