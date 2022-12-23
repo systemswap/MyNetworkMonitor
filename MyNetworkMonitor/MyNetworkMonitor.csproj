@@ -10,11 +10,45 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Resources\Add.png" />
+    <None Remove="Resources\AddBlack.png" />
+    <None Remove="Resources\AddWhite.png" />
     <None Remove="Resources\CyberSecurity.ico" />
+    <None Remove="Resources\CyberSecurity.png" />
+    <None Remove="Resources\Delete.png" />
+    <None Remove="Resources\DeleteBlack.png" />
+    <None Remove="Resources\DeleteWhite.png" />
+    <None Remove="Resources\Edit.png" />
+    <None Remove="Resources\EditBlack.png" />
+    <None Remove="Resources\EditWhite.png" />
+    <None Remove="Resources\gray_dot.png" />
+    <None Remove="Resources\green_dot.png" />
+    <None Remove="Resources\red_dot.png" />
+    <None Remove="Resources\SearchDevice.png" />
+    <None Remove="Resources\SearchDevices.png" />
+    <None Remove="Resources\SearchDeviceSmall.png" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Include="CyberSecurity.ico" />
+    <Content Include="Resources\AddBlack.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\DeleteBlack.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\EditBlack.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\SearchDevice.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\SearchDevices.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\SearchDeviceSmall.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>
@@ -44,9 +78,6 @@
     <None Update="MacVendors\mac_vendors.csv">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Resources\CyberSecurity.png">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
   </ItemGroup>
 
   <ItemGroup>
@@ -54,7 +85,42 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Resources\CyberSecurity.ico" />
+    <EmbeddedResource Include="Resources\CyberSecurity.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Resources\Add.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\AddWhite.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\CyberSecurity.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Delete.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\DeleteWhite.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Edit.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\EditWhite.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\gray_dot.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\green_dot.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\red_dot.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>

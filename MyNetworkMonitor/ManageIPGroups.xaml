@@ -47,12 +47,16 @@
                 <ColumnDefinition Width="109"/>
                 <ColumnDefinition Width="166"/>
             </Grid.ColumnDefinitions>
-            <Button x:Name="bt_deleteEntry" Content="delete entry" Margin="10,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Left" Width="111" Click="bt_deleteEntry_Click" Height="20" Background="#BFA4B1BF" OpacityMask="Black">
+            <Button x:Name="bt_deleteEntry" Margin="10,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Left" Width="111" Click="bt_deleteEntry_Click" Height="20" Background="#BFA4B1BF" OpacityMask="Black">
                 <Button.Resources>
                     <Style TargetType="Border">
                         <Setter Property="CornerRadius" Value="5"/>
                     </Style>
                 </Button.Resources>
+                <StackPanel Orientation="Horizontal" Width="103">
+                    <Image Source="/Resources/DeleteBlack.png" Height="14" Margin="5,0,0,0" />
+                    <Label Content="delete entry" Width="78" Height="24" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,0,0,2"/>
+                </StackPanel>
             </Button>
             <Button x:Name="bt_SaveChanges" Content="Save Changes" VerticalAlignment="Center" Click="bt_SaveChanges_Click" Margin="38,0,10,0" Height="20" TabIndex="10" Grid.Column="5" Background="#BFA4B1BF" OpacityMask="Black">
                 <Button.Resources>
@@ -103,19 +107,27 @@
             <Label Grid.Column="8" Content="Gateway Port" HorizontalAlignment="Left" VerticalAlignment="Center" Width="82" Height="26" Margin="10,0,0,0"/>
             <TextBox x:Name="tb_IPWhereNetworkMonitorRunAsGateway" Grid.Column="7" HorizontalAlignment="Left" Margin="10,0,0,0" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Center" Width="162" Height="18"/>
             <TextBox x:Name="tb_GatewayPort" Grid.Column="8" HorizontalAlignment="Center" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Center" Width="108" Height="18"/>
-            <Button x:Name="bt_addEntry" Grid.Column="9" Content="add entry" HorizontalAlignment="Center" VerticalAlignment="Center" Width="149" Height="20" Click="bt_addEntry_Click" TabIndex="9" Grid.Row="2" Background="#BFA4B1BF" OpacityMask="Black">
+            <Button x:Name="bt_addEntry" Grid.Column="9" HorizontalAlignment="Center" VerticalAlignment="Center" Width="149" Height="20" Click="bt_addEntry_Click" TabIndex="9" Grid.Row="2" Background="#BFA4B1BF" OpacityMask="Black">
                 <Button.Resources>
                     <Style TargetType="Border">
                         <Setter Property="CornerRadius" Value="5"/>
                     </Style>
                 </Button.Resources>
+                <StackPanel Orientation="Horizontal" Width="103">
+                    <Image Source="/Resources/AddBlack.png" Height="14" Margin="5,0,0,0" />
+                    <Label Content="add entry" Width="78" Height="24" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,0,0,2"/>
+                </StackPanel>
             </Button>
-            <Button x:Name="bt_EditRow" Grid.Column="8" Content="edit entry" VerticalAlignment="Center" Height="20" Click="bt_EditRow_Click" Grid.Row="2" HorizontalAlignment="Center" Width="108" Background="#BFA4B1BF" OpacityMask="Black">
+            <Button x:Name="bt_EditRow" Grid.Column="8" VerticalAlignment="Center" Height="20" Click="bt_EditRow_Click" Grid.Row="2" HorizontalAlignment="Center" Width="108" Background="#BFA4B1BF" OpacityMask="Black">
                 <Button.Resources>
                     <Style TargetType="Border">
                         <Setter Property="CornerRadius" Value="5"/>
-                    </Style>
+                    </Style>                   
                 </Button.Resources>
+                <StackPanel Orientation="Horizontal" Width="103">
+                    <Image Source="/Resources/EditBlack.png" Height="14" Margin="5,0,0,0" />
+                    <Label Content="edit entry" Width="78" Height="24" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,0,0,2"/>
+                </StackPanel>
             </Button>
         </Grid>
 
