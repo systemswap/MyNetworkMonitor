@@ -29,73 +29,94 @@
 
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="76"/>
-            <RowDefinition Height="225*"/>
-            <RowDefinition Height="29*"/>
+            <RowDefinition Height="87"/>
+            <RowDefinition Height="38*"/>
+            <RowDefinition Height="5*"/>
         </Grid.RowDefinitions>
         <DataGrid x:Name="dg_IPGroups" Grid.Row="1" Margin="10,10,10,10" ItemsSource="{Binding Source={StaticResource cvs}}" CanUserAddRows="False">
             <DataGrid.GroupStyle>
                 <GroupStyle HeaderTemplate="{StaticResource ResourceKey=GroupingHeader}" />
             </DataGrid.GroupStyle>
         </DataGrid>
-        <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="87*"/>
-                <RowDefinition Height="34*"/>
-            </Grid.RowDefinitions>
-            <Grid Margin="0,0,10,0" Grid.RowSpan="2">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="115"/>
-                    <ColumnDefinition Width="220"/>
-                    <ColumnDefinition Width="220"/>
-                    <ColumnDefinition Width="134"/>
-                    <ColumnDefinition Width="86"/>
-                    <ColumnDefinition Width="157"/>
-                    <ColumnDefinition Width="268"/>
-                    <ColumnDefinition Width="187"/>
-                    <ColumnDefinition/>
-                    <ColumnDefinition Width="169"/>
-
-                </Grid.ColumnDefinitions>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="15*"/>
-                    <RowDefinition Height="23*"/>
-                </Grid.RowDefinitions>
-                <CheckBox x:Name="chk_isActive" Content="is active" HorizontalAlignment="Left" Grid.Row="1" VerticalAlignment="Top" Height="15" Width="78" Margin="27,2,0,0" TabIndex="1"/>
-                <Label Content="Group Description" Margin="4,0,10,0" VerticalAlignment="Center" Height="24" Grid.Column="1"/>
-                <Label Grid.Column="3" Content="First IP / Hostname" HorizontalAlignment="Center" VerticalAlignment="Center" Height="26" Width="116"/>
-                <TextBox x:Name="tb_Description" Grid.Column="1" Margin="9,3,2,0" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Height="18" TabIndex="2"/>
-                <TextBox x:Name="tb_firstIP" Grid.Column="3" Margin="10,3,10,0" Grid.Row="1" TextWrapping="Wrap" VerticalAlignment="Top" Height="18" TabIndex="4"/>
-                <Label Grid.Column="4" Content="Last Host" Margin="10,0,10,0" VerticalAlignment="Center" Height="26"/>
-                <TextBox x:Name="tb_LastIP" Grid.Column="4" Margin="10,2,10,0" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Height="18" TabIndex="5"/>
-                <Label Grid.Column="6" Content="DNS Server IPs (allow comma without space)" HorizontalAlignment="Center" VerticalAlignment="Center" Height="26" Width="248"/>
-                <TextBox x:Name="tb_DNSServer" Grid.Column="6" Margin="10,2,10,0" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Height="18" TabIndex="6"/>
-                <Label Grid.Column="2" Content="Device Description" VerticalAlignment="Center" Margin="10,0,10,0" Height="26"/>
-                <TextBox x:Name="tb_DeviceDescription" Grid.Column="2" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Margin="10,3,10,0" Height="18" TabIndex="3"/>
-
-
-                <TextBox x:Name="tb_ScanInterval" Grid.Column="9" Margin="10,2,10,0" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Height="18" TabIndex="8"/>
-                <Label Grid.Column="5" Content="Domain" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Center" Height="26" Width="52"/>
-                <TextBox x:Name="tb_Domain" Grid.Column="5" HorizontalAlignment="Center" Margin="0,2,0,0" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="137" Height="18"/>
-                <CheckBox x:Name="chk_AutomaticScan" Grid.Column="9" Content="scan every xxx minutes" Margin="10,0,10,0" VerticalAlignment="Center" Height="16"/>
-                <Label Grid.Column="7" Content="IP where NM run as Gateway" HorizontalAlignment="Left" VerticalAlignment="Center" Height="26" Width="162" Margin="10,0,0,0"/>
-                <Label Grid.Column="8" Content="Gateway Port" HorizontalAlignment="Left" VerticalAlignment="Center" Width="82" Height="26" Margin="10,0,0,0"/>
-                <TextBox x:Name="tb_IPWhereNetworkMonitorRunAsGateway" Grid.Column="7" HorizontalAlignment="Left" Margin="10,2,0,0" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="162" Height="18"/>
-                <TextBox x:Name="tb_GatewayPort" Grid.Column="8" HorizontalAlignment="Center" Margin="0,2,0,0" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="108"/>
-            </Grid>
-        </Grid>
-        <Grid Grid.Row="2" Margin="0,0,10,0">
+        <Grid Grid.Row="2" Margin="10,7,10,0">
             <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="224"/>
                 <ColumnDefinition/>
                 <ColumnDefinition Width="301"/>
                 <ColumnDefinition Width="90"/>
                 <ColumnDefinition Width="109"/>
                 <ColumnDefinition Width="166"/>
             </Grid.ColumnDefinitions>
-            <Button x:Name="bt_EditRow" Grid.Column="1" Content="edit entry" HorizontalAlignment="Left" VerticalAlignment="Top" Height="20" Width="60" Click="bt_EditRow_Click" Margin="231,13,0,0"/>
-            <Button x:Name="bt_addEntry" Grid.Column="2" Content="add entry" HorizontalAlignment="Right" VerticalAlignment="Top" Width="66" Height="20" Click="bt_addEntry_Click" Margin="0,13,10,0" TabIndex="9"/>
-            <Button x:Name="bt_deleteEntry" Content="delete entry" Margin="34,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Left" Width="76" Click="bt_deleteEntry_Click" Height="20"/>
-            <Button x:Name="bt_SaveChanges" Content="Save Changes" VerticalAlignment="Top" Click="bt_SaveChanges_Click" Margin="48,13,0,0" Height="20" TabIndex="10" Grid.Column="4"/>
+            <Button x:Name="bt_deleteEntry" Content="delete entry" Margin="10,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Left" Width="111" Click="bt_deleteEntry_Click" Height="20" Background="#BFA4B1BF" OpacityMask="Black">
+                <Button.Resources>
+                    <Style TargetType="Border">
+                        <Setter Property="CornerRadius" Value="5"/>
+                    </Style>
+                </Button.Resources>
+            </Button>
+            <Button x:Name="bt_SaveChanges" Content="Save Changes" VerticalAlignment="Center" Click="bt_SaveChanges_Click" Margin="38,0,10,0" Height="20" TabIndex="10" Grid.Column="5" Background="#BFA4B1BF" OpacityMask="Black">
+                <Button.Resources>
+                    <Style TargetType="Border">
+                        <Setter Property="CornerRadius" Value="5"/>
+                    </Style>
+                </Button.Resources>
+            </Button>
+        </Grid>
+        <Grid Margin="10,10,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="115"/>
+                <ColumnDefinition Width="220"/>
+                <ColumnDefinition Width="220"/>
+                <ColumnDefinition Width="134"/>
+                <ColumnDefinition Width="86"/>
+                <ColumnDefinition Width="157"/>
+                <ColumnDefinition Width="268"/>
+                <ColumnDefinition Width="187"/>
+                <ColumnDefinition/>
+                <ColumnDefinition Width="169"/>
+
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="20"/>
+                <RowDefinition Height="20"/>
+                <RowDefinition/>
+
+            </Grid.RowDefinitions>
+            <CheckBox x:Name="chk_isActive" Content="is active" HorizontalAlignment="Left" Grid.Row="1" VerticalAlignment="Center" Height="16" Width="78" Margin="27,0,0,0" TabIndex="1"/>
+            <Label Content="Group Description" Margin="4,0,10,0" VerticalAlignment="Center" Height="24" Grid.Column="1"/>
+            <Label Grid.Column="3" Content="First IP / Hostname" HorizontalAlignment="Center" VerticalAlignment="Center" Height="26" Width="116"/>
+            <TextBox x:Name="tb_Description" Grid.Column="1" Margin="9,0,2,0" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Center" Height="18" TabIndex="2"/>
+            <TextBox x:Name="tb_firstIP" Grid.Column="3" Margin="10,0,10,0" Grid.Row="1" TextWrapping="Wrap" VerticalAlignment="Center" Height="18" TabIndex="4"/>
+            <Label Grid.Column="4" Content="Last Host" Margin="10,0,10,0" VerticalAlignment="Center" Height="26"/>
+            <TextBox x:Name="tb_LastIP" Grid.Column="4" Margin="10,0,10,0" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Center" Height="18" TabIndex="5"/>
+            <Label Grid.Column="6" Content="DNS Server IPs (allow comma without space)" HorizontalAlignment="Center" VerticalAlignment="Center" Height="26" Width="248"/>
+            <TextBox x:Name="tb_DNSServer" Grid.Column="6" Margin="10,0,10,0" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Center" Height="18" TabIndex="6"/>
+            <Label Grid.Column="2" Content="Device Description" VerticalAlignment="Center" Margin="10,0,10,0" Height="26"/>
+            <TextBox x:Name="tb_DeviceDescription" Grid.Column="2" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Center" Margin="10,0,10,0" Height="18" TabIndex="3"/>
+
+
+            <TextBox x:Name="tb_ScanInterval" Grid.Column="9" Margin="10,0,10,0" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Center" Height="18" TabIndex="8"/>
+            <Label Grid.Column="5" Content="Domain" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Center" Height="26" Width="52"/>
+            <TextBox x:Name="tb_Domain" Grid.Column="5" HorizontalAlignment="Center" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Center" Width="137" Height="18"/>
+            <CheckBox x:Name="chk_AutomaticScan" Grid.Column="9" Content="scan every xxx minutes" Margin="10,0,10,0" VerticalAlignment="Center" Height="16"/>
+            <Label Grid.Column="7" Content="IP where NM run as Gateway" HorizontalAlignment="Left" VerticalAlignment="Center" Height="26" Width="162" Margin="10,0,0,0"/>
+            <Label Grid.Column="8" Content="Gateway Port" HorizontalAlignment="Left" VerticalAlignment="Center" Width="82" Height="26" Margin="10,0,0,0"/>
+            <TextBox x:Name="tb_IPWhereNetworkMonitorRunAsGateway" Grid.Column="7" HorizontalAlignment="Left" Margin="10,0,0,0" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Center" Width="162" Height="18"/>
+            <TextBox x:Name="tb_GatewayPort" Grid.Column="8" HorizontalAlignment="Center" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Center" Width="108" Height="18"/>
+            <Button x:Name="bt_addEntry" Grid.Column="9" Content="add entry" HorizontalAlignment="Center" VerticalAlignment="Center" Width="149" Height="20" Click="bt_addEntry_Click" TabIndex="9" Grid.Row="2" Background="#BFA4B1BF" OpacityMask="Black">
+                <Button.Resources>
+                    <Style TargetType="Border">
+                        <Setter Property="CornerRadius" Value="5"/>
+                    </Style>
+                </Button.Resources>
+            </Button>
+            <Button x:Name="bt_EditRow" Grid.Column="8" Content="edit entry" VerticalAlignment="Center" Height="20" Click="bt_EditRow_Click" Grid.Row="2" HorizontalAlignment="Center" Width="108" Background="#BFA4B1BF" OpacityMask="Black">
+                <Button.Resources>
+                    <Style TargetType="Border">
+                        <Setter Property="CornerRadius" Value="5"/>
+                    </Style>
+                </Button.Resources>
+            </Button>
         </Grid>
 
 
