@@ -51,15 +51,26 @@
                             <RowDefinition Height="50"/>
                         </Grid.RowDefinitions>
 
-                        <Button x:Name="bt_Edit_IP_Range" Content="Edit Range" Margin="210,10,10,10" Grid.Row="0" Click="bt_Edit_IP_Range_Click" />
-
+                        <Button x:Name="bt_Edit_IP_Range" Content="Edit Range" Margin="210,10,10,10" Grid.Row="0" Click="bt_Edit_IP_Range_Click" Background="#BFA4B1BF" OpacityMask="Black">
+                            <Button.Resources>
+                                <Style TargetType="Border">
+                                    <Setter Property="CornerRadius" Value="5"/>
+                                </Style>
+                            </Button.Resources>
+                        </Button>
                         <DataGrid x:Name="dgv_IP_Ranges" Margin="10,10,10,10" Grid.Row="1" Grid.ColumnSpan="2" AutoGeneratingColumn="dgv_IPRanges_OnAutoGeneratingColumn" ItemsSource="{Binding Source={StaticResource cvs}}" CanUserAddRows="False" CanUserDeleteRows="False">
                             <DataGrid.GroupStyle>
                                 <GroupStyle HeaderTemplate="{StaticResource ResourceKey=GroupingHeader}" />
                             </DataGrid.GroupStyle>
                         </DataGrid>
 
-                        <Button x:Name="bt_Scan_IP_Ranges" Content="Scan IP Range" Click="bt_Scan_IP_Ranges_Click" Grid.ColumnSpan="2" Margin="10,10,10,10" Grid.Row="2" />
+                        <Button x:Name="bt_Scan_IP_Ranges" Content="Scan IP Range" Click="bt_Scan_IP_Ranges_Click" Grid.ColumnSpan="2" Margin="10,10,10,10" Grid.Row="2" Background="#BFA4B1BF" OpacityMask="Black">
+                            <Button.Resources>
+                                <Style TargetType="Border">
+                                    <Setter Property="CornerRadius" Value="5"/>
+                                </Style>
+                            </Button.Resources>
+                        </Button>
 
                     </Grid>
                 </TabItem>
@@ -127,7 +138,13 @@
                 <TextBox x:Name="tb_IP_Address" Grid.Column="8" TextWrapping="Wrap" VerticalAlignment="Center" Height="20" Margin="10,0,9,0"/>
                 <TextBox x:Name="tb_TCPPorts" Grid.Column="9" TextWrapping="Wrap" VerticalAlignment="Center" Height="20" Margin="7,0,10,0"/>
                 <TextBox x:Name="tb_UDPPorts" Grid.Column="10" TextWrapping="Wrap" VerticalAlignment="Center" Height="20" Margin="10,0,10,0"/>
-                <Button x:Name="bt_ScanIP" Click="bt_ScanIP_Click"   Content="scan above IP or selected rows" Grid.Column="8" VerticalAlignment="Center" Height="20" Margin="10,0,0,0" HorizontalAlignment="Left" Width="463" Grid.Row="1" Grid.ColumnSpan="4" />
+                <Button x:Name="bt_ScanIP" Click="bt_ScanIP_Click"   Content="scan above IP or selected rows" Grid.Column="8" VerticalAlignment="Center" Height="20" Margin="10,0,0,0" HorizontalAlignment="Left" Width="463" Grid.Row="1" Grid.ColumnSpan="4" Background="#BFA4B1BF" OpacityMask="Black">
+                    <Button.Resources>
+                        <Style TargetType="Border">
+                            <Setter Property="CornerRadius" Value="5"/>
+                        </Style>
+                    </Button.Resources>
+                </Button>
 
 
                 <CheckBox x:Name="chk_Methodes_ARP_A" Content="arp -a" Margin="10,0,0,0" HorizontalAlignment="Left" Width="54" Grid.Column="6" VerticalContentAlignment="Center" VerticalAlignment="Center" Height="15"/>
@@ -184,7 +201,13 @@
                     <Label Content="Filter:" HorizontalAlignment="Center" VerticalAlignment="Center" Height="28" Width="40" VerticalContentAlignment="Center"/>
                     <Canvas Grid.Column="2" Grid.RowSpan="2">
                         <CheckBox x:Name="chk_SaveLastScanResult" Content="save last scan result" Height="15" VerticalContentAlignment="Center" Width="128" HorizontalAlignment="Right" Canvas.Left="18" VerticalAlignment="Top" IsChecked="True"/>
-                        <Button x:Name="bt_clearScanResultTable" Content="clear table" Canvas.Left="42" Canvas.Top="20" HorizontalAlignment="Left" VerticalAlignment="Center" Width="104" Click="bt_clearScanResultTable_Click"/>
+                        <Button x:Name="bt_clearScanResultTable" Content="clear table" Canvas.Left="42" Canvas.Top="20" HorizontalAlignment="Left" VerticalAlignment="Center" Width="104" Click="bt_clearScanResultTable_Click" Background="#BFA4B1BF" OpacityMask="Black">
+                            <Button.Resources>
+                                <Style TargetType="Border">
+                                    <Setter Property="CornerRadius" Value="5"/>
+                                </Style>
+                            </Button.Resources>
+                        </Button>
                     </Canvas>
                 </Grid>
             </Grid>
