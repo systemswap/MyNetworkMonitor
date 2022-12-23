@@ -84,6 +84,7 @@ namespace MyNetworkMonitor
                     else
                     {
                         ipToScan.HostName = _IPHostEntry.HostName;
+                        ipToScan.Domain = string.Empty;
                     }
 
                     ipToScan.Aliases = (_IPHostEntry.Aliases != null) ? string.Join("\r\n", _IPHostEntry.Aliases) : string.Empty;

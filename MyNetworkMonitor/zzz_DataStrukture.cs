@@ -149,9 +149,9 @@ namespace MyNetworkMonitor
 
     public class ScanResults
     {
-
         public ScanResults()
         {
+            dt_NetworkResults.TableName = "ScanResults";
             dt_NetworkResults.Columns.Add("IPGroupDescription", typeof(string));
             dt_NetworkResults.Columns.Add("DeviceDescription", typeof(string));
             dt_NetworkResults.Columns.Add("SSDPStatus", typeof(byte[]));
@@ -191,9 +191,10 @@ namespace MyNetworkMonitor
     {
         public PortCollection()
         {
+            dt_Ports.TableName = "TableOfPortsToScan";
             dt_Ports.Columns.Add("Ports", typeof(int));
-            dt_Ports.Columns.Add("UseAtTCP", typeof(bool));
-            dt_Ports.Columns.Add("UseAtUDP", typeof(bool));
+            dt_Ports.Columns.Add("TCPScan", typeof(bool));
+            dt_Ports.Columns.Add("UDPScan", typeof(bool));
             dt_Ports.Columns.Add("Description", typeof(string));
 
             dt_Ports.Rows.Add(7, true, true, "ICMP Echo Service Ping");
@@ -261,6 +262,7 @@ namespace MyNetworkMonitor
         }
 
         private DataTable dt_Ports = new DataTable();
+        public DataTable TableOfPortsToScan { get { return dt_Ports; } set { dt_Ports = value; } }
 
         public List<int> TCPPorts
         {
@@ -268,7 +270,7 @@ namespace MyNetworkMonitor
             {
                 List<int> ports = new List<int>();
 
-                ports = dt_Ports.AsEnumerable().Where(row => (bool)row["UseAtTCP"] == true).Select(r => r.Field<int>("Ports")).ToList(); ;
+                ports = dt_Ports.AsEnumerable().Where(row => (bool)row["TCPScan"] == true).Select(r => r.Field<int>("Ports")).ToList(); ;
 
                 return ports;
             }
@@ -280,7 +282,7 @@ namespace MyNetworkMonitor
             {
                 List<int> ports = new List<int>();
 
-                ports = dt_Ports.AsEnumerable().Where(row => (bool)row["UseAtUDP"] == true).Select(r => r.Field<int>("Ports")).ToList(); ;
+                ports = dt_Ports.AsEnumerable().Where(row => (bool)row["UDPScan"] == true).Select(r => r.Field<int>("Ports")).ToList(); ;
 
                 return ports;
             }
