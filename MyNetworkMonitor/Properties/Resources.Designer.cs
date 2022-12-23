@@ -63,6 +63,16 @@ namespace MyNetworkMonitor.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
+        internal static byte[] AddBlack {
+            get {
+                object obj = ResourceManager.GetObject("AddBlack", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Byte[].
+        /// </summary>
         internal static byte[] AddWhite {
             get {
                 object obj = ResourceManager.GetObject("AddWhite", resourceCulture);
@@ -73,9 +83,29 @@ namespace MyNetworkMonitor.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
+        internal static byte[] DeleteBlack {
+            get {
+                object obj = ResourceManager.GetObject("DeleteBlack", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Byte[].
+        /// </summary>
         internal static byte[] DeleteWhite {
             get {
                 object obj = ResourceManager.GetObject("DeleteWhite", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Byte[].
+        /// </summary>
+        internal static byte[] EditBlack {
+            get {
+                object obj = ResourceManager.GetObject("EditBlack", resourceCulture);
                 return ((byte[])(obj));
             }
         }
@@ -116,6 +146,26 @@ namespace MyNetworkMonitor.Properties {
         internal static byte[] red_dot {
             get {
                 object obj = ResourceManager.GetObject("red_dot", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Byte[].
+        /// </summary>
+        internal static byte[] SearchDevices {
+            get {
+                object obj = ResourceManager.GetObject("SearchDevices", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Byte[].
+        /// </summary>
+        internal static byte[] SearchDeviceSmall {
+            get {
+                object obj = ResourceManager.GetObject("SearchDeviceSmall", resourceCulture);
                 return ((byte[])(obj));
             }
         }
