@@ -64,7 +64,7 @@ namespace MyNetworkMonitor
 
             foreach (IPToScan ipToScan in IPs)
             {
-                var task = ScanTCPPorts_Task(ipToScan, TCP_Ports, TimeOut);
+                var task = Task.Run(() => ScanTCPPorts_Task(ipToScan, TCP_Ports, TimeOut));
                 if (task != null) tasks.Add(task);
             }
 
