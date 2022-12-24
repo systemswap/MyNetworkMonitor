@@ -46,38 +46,30 @@
                     <Grid x:Name="SummaryGrid">
 
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="50"/>
-                            <RowDefinition Height="181*"/>
+                            <RowDefinition Height="40"/>
+                            <RowDefinition/>
                             <RowDefinition Height="50"/>
                         </Grid.RowDefinitions>
 
-                        <Button x:Name="bt_Edit_IP_Range" Margin="199,10,0,10" Grid.Row="0" Click="bt_Edit_IP_Range_Click" Background="#BFA4B1BF" OpacityMask="Black" HorizontalAlignment="Left" Width="104">
+                        <Button x:Name="bt_Edit_IP_Range" Content="edit IP ranges" Margin="199,20,0,0" Click="bt_Edit_IP_Range_Click" Background="#BFA4B1BF" OpacityMask="Black" HorizontalAlignment="Left" Width="104" Height="20" VerticalAlignment="Top">
                             <Button.Resources>
                                 <Style TargetType="Border">
                                     <Setter Property="CornerRadius" Value="5"/>
                                 </Style>
                             </Button.Resources>
-                            <StackPanel Orientation="Horizontal" Width="103">
-                                <Image Source="/Resources/EditBlack.png" Height="20" Margin="5,0,0,0" />
-                                <Label Content="edit Range" Width="68" Margin="5,0,0,0"/>
-                            </StackPanel>
                         </Button>
-                        <DataGrid x:Name="dgv_IP_Ranges" Margin="10,10,10,10" Grid.Row="1" Grid.ColumnSpan="2" AutoGeneratingColumn="dgv_IPRanges_OnAutoGeneratingColumn" ItemsSource="{Binding Source={StaticResource cvs}}" CanUserAddRows="False" CanUserDeleteRows="False">
+                        <DataGrid x:Name="dgv_IP_Ranges" Margin="10,10,10,10" Grid.Row="1" AutoGeneratingColumn="dgv_IPRanges_OnAutoGeneratingColumn" ItemsSource="{Binding Source={StaticResource cvs}}" CanUserAddRows="False" CanUserDeleteRows="False">
                             <DataGrid.GroupStyle>
                                 <GroupStyle HeaderTemplate="{StaticResource ResourceKey=GroupingHeader}" />
                             </DataGrid.GroupStyle>
                         </DataGrid>
 
-                        <Button x:Name="bt_Scan_IP_Ranges" Click="bt_Scan_IP_Ranges_Click" Grid.ColumnSpan="2" Margin="10,10,10,10" Grid.Row="2" Background="#BFA4B1BF" OpacityMask="Black">
+                        <Button x:Name="bt_Scan_IP_Ranges" Content="Scan IP Ranges" Click="bt_Scan_IP_Ranges_Click" Margin="10,10,10,10" Grid.Row="2" Background="#BFA4B1BF" OpacityMask="Black">
                             <Button.Resources>
                                 <Style TargetType="Border">
                                     <Setter Property="CornerRadius" Value="5"/>
                                 </Style>
                             </Button.Resources>
-                            <StackPanel Orientation="Horizontal" Width="150">
-                                <Image Source="/Resources/SearchDeviceSmall.png" Height="20" Margin="5,0,0,0" />
-                                <Label Content="Scan IP Range" Width="100" Margin="5,0,0,0"/>
-                            </StackPanel>
                         </Button>
 
                     </Grid>
@@ -85,7 +77,7 @@
                 <TabItem x:Name="tab_PortsToScan" Header="Ports To Scan">
                     <Grid>
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="50"/>
+                            <RowDefinition Height="40"/>
                             <RowDefinition/>
                             <RowDefinition Height="50"/>
                         </Grid.RowDefinitions>
@@ -152,7 +144,7 @@
                 <TextBox x:Name="tb_IP_Address" Grid.Column="8" TextWrapping="Wrap" VerticalAlignment="Center" Height="20" Margin="10,0,9,0"/>
                 <TextBox x:Name="tb_TCPPorts" Grid.Column="9" TextWrapping="Wrap" VerticalAlignment="Center" Height="20" Margin="7,0,10,0"/>
                 <TextBox x:Name="tb_UDPPorts" Grid.Column="10" TextWrapping="Wrap" VerticalAlignment="Center" Height="20" Margin="10,0,10,0"/>
-                <Button x:Name="bt_ScanIP" Click="bt_ScanIP_Click"   Content="scan above IP or selected rows" Grid.Column="8" VerticalAlignment="Center" Height="20" Margin="10,0,0,0" HorizontalAlignment="Left" Width="463" Grid.Row="1" Grid.ColumnSpan="4" Background="#BFA4B1BF" OpacityMask="Black">
+                <Button x:Name="bt_ScanIP" Click="bt_ScanIP_Click"   Content="scan above IP or if empty selected rows" Grid.Column="8" VerticalAlignment="Center" Height="20" Margin="10,0,0,0" HorizontalAlignment="Left" Width="463" Grid.Row="1" Grid.ColumnSpan="4" Background="#BFA4B1BF" OpacityMask="Black">
                     <Button.Resources>
                         <Style TargetType="Border">
                             <Setter Property="CornerRadius" Value="5"/>
