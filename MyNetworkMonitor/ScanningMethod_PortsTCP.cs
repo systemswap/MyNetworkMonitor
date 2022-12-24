@@ -78,7 +78,7 @@ namespace MyNetworkMonitor
         {
             List<Task> tasks = new List<Task>();
 
-            Parallel.ForEach(Ports, async port =>
+            Parallel.ForEach(Ports, port =>
             {
                 if (_clt.IsCancellationRequested)
                 {
@@ -155,7 +155,7 @@ namespace MyNetworkMonitor
 
             scanResult.IP = IP;
             scanResult.Port = Port;
-
+           
             using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
             {
                 try
