@@ -16,7 +16,7 @@ namespace MyNetworkMonitor
         ARPRequest,
         ARP_A,
         Ping,
-        FindIPCameras,
+        ONVIF_IPCam,
         ReverseLookup,
         Lookup,
         TCPPorts,
