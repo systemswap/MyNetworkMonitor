@@ -24,6 +24,24 @@ namespace MyNetworkMonitor
             }
         }
 
+        public void GetNetworkInterfaces()
+        {            
+            foreach (NetworkInterface ni in NetworkInterface.GetAllNetworkInterfaces())
+            {
+                if (ni.NetworkInterfaceType == NetworkInterfaceType.Wireless80211 || ni.NetworkInterfaceType == NetworkInterfaceType.Ethernet)
+                {
+                    var bla = ni.Name;
+                    foreach (UnicastIPAddressInformation ip in ni.GetIPProperties().UnicastAddresses)
+                    {
+                        if (ip.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+                        {
+                            ip.Address.ToString();
+                        }
+                    }
+                }
+            }
+        }
+
         public string GetLocalIPv4(NetworkInterfaceType _type)
         {
             string output = "";

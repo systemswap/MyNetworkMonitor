@@ -16,6 +16,7 @@ namespace MyNetworkMonitor
         ARPRequest,
         ARP_A,
         Ping,
+        FindIPCameras,
         ReverseLookup,
         Lookup,
         TCPPorts,
@@ -58,6 +59,11 @@ namespace MyNetworkMonitor
         public bool PingStatus { get { return _PingStatus; } set { _PingStatus = value; } }        
         public string ResponseTime { get { return _ResponseTime; } set { _ResponseTime = value; } }
 
+
+        private bool _IsIPCam = false;
+        private string _WebCamName = string.Empty;
+        public bool IsIPCam { get { return _IsIPCam; } set { _IsIPCam = value; } }
+        public string IPCamName { get { return _WebCamName; } set { _WebCamName = value; } }
 
 
         private bool _ARPStatus = false;
@@ -157,12 +163,14 @@ namespace MyNetworkMonitor
             dt_NetworkResults.Columns.Add("DeviceDescription", typeof(string));
             dt_NetworkResults.Columns.Add("SSDPStatus", typeof(byte[]));
             dt_NetworkResults.Columns.Add("ARPStatus", typeof(byte[]));
-            dt_NetworkResults.Columns.Add("PingStatus", typeof(byte[]));            
+            dt_NetworkResults.Columns.Add("PingStatus", typeof(byte[]));
+            dt_NetworkResults.Columns.Add("IsIPCam", typeof(byte[]));
             //dt_NetworkResults.Columns.Add("SendAlert", typeof(bool));
             dt_NetworkResults.Columns.Add("IP", typeof(string));
             dt_NetworkResults.Columns.Add("ResponseTime", typeof(string));
             dt_NetworkResults.Columns.Add("InternalName", typeof(string));
             dt_NetworkResults.Columns.Add("Hostname", typeof(string));
+            dt_NetworkResults.Columns.Add("IPCamName", typeof(string));
             dt_NetworkResults.Columns.Add("Domain", typeof(string));
             dt_NetworkResults.Columns.Add("Aliases", typeof(string));
             dt_NetworkResults.Columns.Add("LookUpStatus", typeof(byte[]));

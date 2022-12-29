@@ -53,6 +53,7 @@
 
   <ItemGroup>
     <PackageReference Include="DnsClient" Version="1.7.0" />
+    <PackageReference Include="OnvifDiscovery" Version="1.2.2" />
     <PackageReference Include="Rssdp" Version="4.0.4" />
   </ItemGroup>
 
