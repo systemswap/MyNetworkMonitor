@@ -561,6 +561,8 @@ namespace MyNetworkMonitor
 
                     if ((bool)chk_Methodes_SSDP.IsChecked && !string.IsNullOrEmpty(row["SSDPStatus"].ToString())) row["SSDPStatus"] = Properties.Resources.gray_dotTB;
 
+                    if ((bool)chk_Methodes_ONVIF.IsChecked && !string.IsNullOrEmpty(row["IsIPCam"].ToString())) row["IsIPCam"] = Properties.Resources.gray_dotTB;
+
                     if ((bool)chk_Methodes_ScanTCPPorts.IsChecked) row["TCP_Ports"] = null;
                     if ((bool)chk_Methodes_ScanUDPPorts.IsChecked) row["OpenUDP_Ports"] = null;
 
@@ -582,7 +584,7 @@ namespace MyNetworkMonitor
 
             /* set the states */
             if ((bool)chk_Methodes_SSDP.IsChecked) ssdp_state = ScanStatus.waiting;
-            if ((bool)chk_Method_ONVIF.IsChecked) IPCams_state = ScanStatus.waiting;
+            if ((bool)chk_Methodes_ONVIF.IsChecked) IPCams_state = ScanStatus.waiting;
             if ((bool)chk_ARPRequest.IsChecked) arpRequest_state = ScanStatus.waiting;
             if ((bool)chk_Methodes_Ping.IsChecked) ping_state = ScanStatus.waiting;
             if ((bool)chk_Methodes_ScanHostnames.IsChecked) dns_state = ScanStatus.waiting;
@@ -613,7 +615,7 @@ namespace MyNetworkMonitor
                 Task.Run(() => scanningMethode_SSDP_UPNP.ScanForSSDP(_IPsToScan));
             }
 
-            if ((bool)chk_Method_ONVIF.IsChecked)
+            if ((bool)chk_Methodes_ONVIF.IsChecked)
             {
                 IPCams_state = ScanStatus.running;               
                 Status();
