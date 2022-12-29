@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
        xmlns:scm="clr-namespace:System.ComponentModel;assembly=WindowsBase"
         
-        Title="Manage IP Groups" Height="576" Width="1694">
+        Title="Manage IP Groups" Height="576" Width="1694" Closing="Window_Closing">
 
     <Window.Resources>
         <CollectionViewSource x:Key="cvs" Source="{Binding}" IsLiveSortingRequested="True" IsLiveGroupingRequested="True">
@@ -33,7 +33,7 @@
             <RowDefinition Height="38*"/>
             <RowDefinition Height="5*"/>
         </Grid.RowDefinitions>
-        <DataGrid x:Name="dg_IPGroups" Grid.Row="1" Margin="10,10,10,10" ItemsSource="{Binding Source={StaticResource cvs}}" CanUserAddRows="False">
+        <DataGrid x:Name="dg_IPGroups" Grid.Row="1" Margin="10,10,10,10" ItemsSource="{Binding Source={StaticResource cvs}}" CanUserAddRows="False" CanUserDeleteRows="False">
             <DataGrid.GroupStyle>
                 <GroupStyle HeaderTemplate="{StaticResource ResourceKey=GroupingHeader}" />
             </DataGrid.GroupStyle>

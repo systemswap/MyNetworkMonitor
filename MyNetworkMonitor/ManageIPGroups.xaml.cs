@@ -109,6 +109,11 @@ namespace MyNetworkMonitor
 
             _dt.Rows[indexOfCurrentRow].Delete();
         }
+
+        private void Window_Closing(object sender, CancelEventArgs e)
+        {
+
+        }
     }
    
 }

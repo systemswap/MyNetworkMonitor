@@ -32,8 +32,8 @@ namespace MyNetworkMonitor
         {
             InitializeComponent();
 
-            //ScanningMethod_FindIPCameras c = new ScanningMethod_FindIPCameras();
-            //var bla = c.GetSoapResponsesFromCamerasAsync(IPAddress.Parse("192.168.178.255"));
+            supportMethods = new SupportMethods();
+            //supportMethods.GetNetworkInterfaces();            
 
             scanningMethode_SSDP_UPNP = new ScanningMethod_SSDP_UPNP();
             scanningMethode_SSDP_UPNP.SSDP_foundNewDevice += SSDP_foundNewDevice;
@@ -47,6 +47,10 @@ namespace MyNetworkMonitor
             scanningMethods_Ping = new ScanningMethods_Ping();
             scanningMethods_Ping.Ping_Task_Finished += Ping_Task_Finished;
             scanningMethods_Ping.PingFinished += PingFinished_Event;
+
+            scanningMethod_FindIPCameras = new ScanningMethod_FindIPCameras();
+            scanningMethod_FindIPCameras.newIPCameraFound_Task_Finished += newIPCameraFound_Task_Finished;
+            scanningMethod_FindIPCameras.IPCameraScan_Finished += IPCameraScan_Finished;
 
             scanningMethode_ReverseLookupToHostAndAliases = new ScanningMethod_ReverseLookupToHostAndAlieases();
             scanningMethode_ReverseLookupToHostAndAliases.GetHostAliases_Task_Finished += DNS_GetHostAliases_Task_Finished;
@@ -64,7 +68,6 @@ namespace MyNetworkMonitor
             scanningMethode_PortsUDP.UDPPortScan_Task_Finished += UDPPortScan_Task_Finished;
             scanningMethode_PortsUDP.UDPPortScan_Finished += UDPPortScan_Finished;
 
-            supportMethods = new SupportMethods();
 
             dv_resultTable = new DataView(_scannResults.ResultTable);
 
@@ -123,6 +126,11 @@ namespace MyNetworkMonitor
 
         }
 
+       
+
+      
+        
+
         PortCollection _portCollection = new PortCollection();
         string _portsToScan = Path.Combine(Environment.CurrentDirectory, @"Settings\portsToScan.xml");
         string _ipGroupsXML = Path.Combine(Environment.CurrentDirectory, @"Settings\ipGroups.xml");
@@ -140,6 +148,7 @@ namespace MyNetworkMonitor
 
         ScanningMethod_ARP scanningMethode_ARP;
         ScanningMethods_Ping scanningMethods_Ping;
+        ScanningMethod_FindIPCameras scanningMethod_FindIPCameras;
         ScanningMethod_SSDP_UPNP scanningMethode_SSDP_UPNP;
         ScanningMethod_ReverseLookupToHostAndAlieases scanningMethode_ReverseLookupToHostAndAliases;
         ScanningMethod_LookUp scanningMethod_LookUp;
@@ -167,6 +176,8 @@ namespace MyNetworkMonitor
         ScanStatus ssdp_state = ScanStatus.ignored;
         int currentSSDPCount = 0;
         int CountedSSDPs = 0;
+
+        ScanStatus IPCams_state = ScanStatus.ignored;
 
         ScanStatus dns_state = ScanStatus.ignored;
         int currentHostnameCount = 0;        
@@ -232,8 +243,21 @@ namespace MyNetworkMonitor
             //}
         }
 
-            private void dgv_ScanResults_OnAutoGeneratingColumn(object sender, DataGridAutoGeneratingColumnEventArgs e)
+        private void dgv_ScanResults_OnAutoGeneratingColumn(object sender, DataGridAutoGeneratingColumnEventArgs e)
         {
+
+            if (e.PropertyName == "SSDPStatus")
+            {
+                // replace text column with image column
+                e.Column = new DataGridTemplateColumn
+                {
+                    // searching for predefined tenplate in Resources
+                    CellTemplate = (sender as DataGrid).Resources["SSDPStatus"] as DataTemplate,
+                    HeaderTemplate = e.Column.HeaderTemplate,
+                    Header = e.Column.Header
+                };
+            }
+
             if (e.PropertyName == "ARPStatus")
             {
                 // replace text column with image column
@@ -258,13 +282,13 @@ namespace MyNetworkMonitor
                 };
             }
 
-            if (e.PropertyName == "SSDPStatus")
+            if (e.PropertyName == "IsIPCam")
             {
                 // replace text column with image column
                 e.Column = new DataGridTemplateColumn
                 {
                     // searching for predefined tenplate in Resources
-                    CellTemplate = (sender as DataGrid).Resources["SSDPStatus"] as DataTemplate,
+                    CellTemplate = (sender as DataGrid).Resources["IsIPCam"] as DataTemplate,
                     HeaderTemplate = e.Column.HeaderTemplate,
                     Header = e.Column.Header
                 };
@@ -558,6 +582,7 @@ namespace MyNetworkMonitor
 
             /* set the states */
             if ((bool)chk_Methodes_SSDP.IsChecked) ssdp_state = ScanStatus.waiting;
+            if ((bool)chk_FindIPCams.IsChecked) IPCams_state = ScanStatus.waiting;
             if ((bool)chk_ARPRequest.IsChecked) arpRequest_state = ScanStatus.waiting;
             if ((bool)chk_Methodes_Ping.IsChecked) ping_state = ScanStatus.waiting;
             if ((bool)chk_Methodes_ScanHostnames.IsChecked) dns_state = ScanStatus.waiting;
@@ -588,6 +613,14 @@ namespace MyNetworkMonitor
                 Task.Run(() => scanningMethode_SSDP_UPNP.ScanForSSDP(_IPsToScan));
             }
 
+            if ((bool)chk_FindIPCams.IsChecked)
+            {
+                IPCams_state = ScanStatus.running;               
+                Status();
+                scanningMethod_FindIPCameras.Discover(_IPsToScan);
+
+                //Task.Run(() => scanningMethod_FindIPCameras.GetSoapResponsesFromCamerasAsync(IPAddress.Parse("192.168.178.255"), _IPsToScan));
+            }
 
             if ((bool)chk_ARPRequest.IsChecked)
             {
@@ -801,6 +834,12 @@ namespace MyNetworkMonitor
                     _scannResults.ResultTable.Rows[rowIndex]["ResponseTime"] = ipToScan.ResponseTime;
                 }
 
+                if (ipToScan.UsedScanMethod == ScanMethod.FindIPCameras)
+                {
+                    _scannResults.ResultTable.Rows[rowIndex]["IsIPCam"] = ipToScan.IsIPCam ? Properties.Resources.green_dot : null;
+                    _scannResults.ResultTable.Rows[rowIndex]["IPCamName"] = ipToScan.IPCamName;
+                }
+
                 if (ipToScan.UsedScanMethod == ScanMethod.ReverseLookup)
                 {
                     _scannResults.ResultTable.Rows[rowIndex]["Hostname"] = ipToScan.HostName;
@@ -867,11 +906,15 @@ namespace MyNetworkMonitor
                 if (ipToScan.UsedScanMethod == ScanMethod.Ping)
                 {
                     row["PingStatus"] = ipToScan.PingStatus ? Properties.Resources.green_dot : Properties.Resources.red_dot;
+                    row["ResponseTime"] = ipToScan.ResponseTime;
                 }
 
-                if (ipToScan.UsedScanMethod == ScanMethod.Ping)
+                
+
+                if (ipToScan.UsedScanMethod == ScanMethod.FindIPCameras)
                 {
-                    row["ResponseTime"] = ipToScan.ResponseTime;
+                    row["IsIPCam"] = ipToScan.IsIPCam ? Properties.Resources.green_dot : null;
+                    row["IPCamName"] = ipToScan.IPCamName;
                 }
 
                 if (ipToScan.UsedScanMethod == ScanMethod.ReverseLookup)
@@ -930,6 +973,24 @@ namespace MyNetworkMonitor
             });
         }
 
+
+
+        private void newIPCameraFound_Task_Finished(object? sender, ScanTask_Finished_EventArgs e)
+        {
+            Dispatcher.BeginInvoke(() =>
+            {
+                InsertIPToScanResult(e.ipToScan);
+
+                //IPCameraScanFinishet = true;
+                //Status();
+            });
+        }
+
+        private void IPCameraScan_Finished(object? sender, Method_Finished_EventArgs e)
+        {
+            //IPCameraScanFinishet = true;
+            //Status();
+        }
 
 
         private void SSDP_foundNewDevice(object? sender, ScanTask_Finished_EventArgs e)
@@ -1128,14 +1189,15 @@ namespace MyNetworkMonitor
                     if (!string.IsNullOrEmpty(row["SSDPStatus"].ToString())) row["SSDPStatus"] = Properties.Resources.gray_dot;
                     if (!string.IsNullOrEmpty(row["ARPStatus"].ToString())) row["ARPStatus"] = Properties.Resources.gray_dot;
                     if (!string.IsNullOrEmpty(row["PingStatus"].ToString())) row["PingStatus"] = Properties.Resources.gray_dot;
+                    if (!string.IsNullOrEmpty(row["IsIPCam"].ToString())) row["IsIPCam"] = Properties.Resources.gray_dot;
 
-                    if (!string.IsNullOrEmpty(row["LookUpStatus"].ToString()))
-                    {
-                        byte[] greenDot = Properties.Resources.green_dot;
-                        byte[] cellValue = (byte[])row["LookUpStatus"];
-                        bool bla = greenDot.SequenceEqual(cellValue);
-                        if (bla) row["LookUpStatus"] = Properties.Resources.gray_dot;
-                    }
+                    //if (!string.IsNullOrEmpty(row["LookUpStatus"].ToString()))
+                    //{
+                    //    byte[] greenDot = Properties.Resources.green_dot;
+                    //    byte[] cellValue = (byte[])row["LookUpStatus"];
+                    //    bool bla = greenDot.SequenceEqual(cellValue);
+                    //    if (bla) row["LookUpStatus"] = Properties.Resources.gray_dot;
+                    //}
                 }
                 _scannResults.ResultTable.WriteXml(_lastScanResultFile, XmlWriteMode.WriteSchema);
             }
