@@ -12,6 +12,9 @@ using System.Net.NetworkInformation;
 using System.Xml.Linq;
 using System.Xml;
 using System.Xml.XPath;
+using OnvifDiscovery;
+using System.Threading;
+using OnvifDiscovery.Models;
 
 namespace MyNetworkMonitor
 {
@@ -19,7 +22,36 @@ namespace MyNetworkMonitor
     {
         public ScanningMethod_FindIPCameras() { }
 
-        public async Task<List<string>> GetSoapResponsesFromCamerasAsync(IPAddress IPForBroadcast)
+        public event EventHandler<ScanTask_Finished_EventArgs>? newIPCameraFound_Task_Finished;
+        public event EventHandler<Method_Finished_EventArgs>? IPCameraScan_Finished;
+
+        List<IPToScan> _IPs = new List<IPToScan>();
+    public void Discover(List<IPToScan> IPs)
+        {
+            _IPs = IPs;
+            // Create a Discovery instance
+            var onvifDiscovery = new Discovery();
+
+            // You can call Discover with a callback (Action) and CancellationToken
+            CancellationTokenSource cancellation = new CancellationTokenSource();
+            Task.Run(() => onvifDiscovery.Discover(5, OnNewDevice, cancellation.Token));
+        }
+
+        private void OnNewDevice(DiscoveryDevice device)
+        {
+            IPToScan ipToScan = new IPToScan();
+
+            ipToScan.UsedScanMethod = ScanMethod.FindIPCameras;
+            ipToScan.IsIPCam = true;
+            ipToScan.IPorHostname = device.Address;
+            ipToScan.IPCamName = device.Mfr;
+
+            ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
+            scanTask_Finished.ipToScan = ipToScan;
+
+            newIPCameraFound_Task_Finished(this, scanTask_Finished);
+        }
+        public async Task<List<string>> GetSoapResponsesFromCamerasAsync(IPAddress IPForBroadcast, List<IPToScan> IPs)
         {
             var result = new List<string>();
 
@@ -52,7 +84,6 @@ namespace MyNetworkMonitor
                     Console.WriteLine(exception.Message);
                 }
             }
-
             return result;
         }
 
