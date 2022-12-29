@@ -26,7 +26,7 @@ namespace MyNetworkMonitor
         public event EventHandler<Method_Finished_EventArgs>? IPCameraScan_Finished;
 
         List<IPToScan> _IPs = new List<IPToScan>();
-    public void Discover(List<IPToScan> IPs)
+        public async void Discover(List<IPToScan> IPs)
         {
             _IPs = IPs;
             // Create a Discovery instance
@@ -34,8 +34,10 @@ namespace MyNetworkMonitor
 
             // You can call Discover with a callback (Action) and CancellationToken
             CancellationTokenSource cancellation = new CancellationTokenSource();
-            Task.Run(() => onvifDiscovery.Discover(5, OnNewDevice, cancellation.Token));
+            await Task.Run(() => onvifDiscovery.Discover(5, OnNewDevice, cancellation.Token));
         }
+
+
 
         private void OnNewDevice(DiscoveryDevice device)
         {
