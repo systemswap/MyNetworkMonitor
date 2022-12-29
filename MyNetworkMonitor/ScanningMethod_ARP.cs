@@ -83,7 +83,7 @@ namespace MyNetworkMonitor
                     ipToScan.Vendor = support.GetVendorFromMac(mac).First();
 
 
-                    ipToScan.UsedScanMethod = ScanMethod.ARP;
+                    ipToScan.UsedScanMethod = ScanMethod.ARPRequest;
 
                     ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
                     scanTask_Finished.ipToScan = ipToScan;
@@ -148,7 +148,7 @@ namespace MyNetworkMonitor
                                     ipToScan.DeviceDescription = "not specified";
                                 }
 
-                                ipToScan.UsedScanMethod = ScanMethod.ARP;
+                                ipToScan.UsedScanMethod = ScanMethod.ARP_A;
 
                                 ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
                                 scanTask_Finished.ipToScan = ipToScan;

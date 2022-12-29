@@ -48,7 +48,7 @@
                         <Grid.RowDefinitions>
                             <RowDefinition Height="40"/>
                             <RowDefinition/>
-                            <RowDefinition Height="50"/>
+                            <RowDefinition Height="40"/>
                         </Grid.RowDefinitions>
 
                         <Button x:Name="bt_Edit_IP_Range" Content="edit IP ranges" Margin="199,20,0,0" Click="bt_Edit_IP_Range_Click" Background="#BFA4B1BF" OpacityMask="Black" HorizontalAlignment="Left" Width="104" Height="20" VerticalAlignment="Top">
@@ -79,10 +79,10 @@
                         <Grid.RowDefinitions>
                             <RowDefinition Height="40"/>
                             <RowDefinition/>
-                            <RowDefinition Height="50"/>
+                            <RowDefinition Height="40"/>
                         </Grid.RowDefinitions>
                         <DataGrid x:Name="dg_PortsToScan" Margin="10,10,10,10" Grid.Row="1"/>
-                        <Button x:Name="bt_SavePortsToScan" Content="Save Port Collection" HorizontalAlignment="Center" Grid.Row="2" VerticalAlignment="Center" Width="293" Height="30" Click="bt_SavePortsToScan_Click" Background="#BFA4B1BF" OpacityMask="Black">
+                        <Button x:Name="bt_SavePortsToScan" Content="Save Port Collection" HorizontalAlignment="Center" Grid.Row="2" VerticalAlignment="Center" Width="293" Height="20" Click="bt_SavePortsToScan_Click" Background="#BFA4B1BF" OpacityMask="Black">
                             <Button.Resources>
                                 <Style TargetType="Border">
                                     <Setter Property="CornerRadius" Value="5"/>
@@ -201,20 +201,39 @@
                     </Grid.RowDefinitions>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="53*"/>
-                        <ColumnDefinition Width="1278*"/>
+                        <ColumnDefinition Width="130"/>
+                        <ColumnDefinition Width="130"/>
+                        <ColumnDefinition Width="130"/>
+                        <ColumnDefinition Width="130"/>
+                        <ColumnDefinition Width="130"/>
+                        <ColumnDefinition Width="130"/>
+                        <ColumnDefinition Width="130"/>
+                        <ColumnDefinition Width="290*"/>
                         <ColumnDefinition Width="156"/>
                     </Grid.ColumnDefinitions>
                     <Label Content="Filter:" HorizontalAlignment="Center" VerticalAlignment="Center" Height="28" Width="40" VerticalContentAlignment="Center"/>
-                    <Canvas Grid.Column="2" Grid.RowSpan="2">
-                        <CheckBox x:Name="chk_SaveLastScanResult" Content="save last scan result" Height="15" VerticalContentAlignment="Center" Width="128" HorizontalAlignment="Right" Canvas.Left="18" VerticalAlignment="Top" IsChecked="True"/>
-                        <Button x:Name="bt_clearScanResultTable" Content="clear table" Canvas.Left="42" Canvas.Top="20" HorizontalAlignment="Left" VerticalAlignment="Center" Width="104" Click="bt_clearScanResultTable_Click" Background="#BFA4B1BF" OpacityMask="Black">
-                            <Button.Resources>
-                                <Style TargetType="Border">
-                                    <Setter Property="CornerRadius" Value="5"/>
-                                </Style>
-                            </Button.Resources>
-                        </Button>
-                    </Canvas>
+                    <Label Grid.Column="1" Content="All" HorizontalAlignment="Left" Margin="10,-6,0,0" VerticalAlignment="Top"/>
+                    <Label Grid.Column="2" Content="IP" HorizontalAlignment="Left" Margin="10,-6,0,0" VerticalAlignment="Top"/>
+                    <Label Grid.Column="3" Content="Hostname" HorizontalAlignment="Left" Margin="10,-6,0,0" VerticalAlignment="Top"/>
+                    <Label Grid.Column="4" Content="Internal Name" HorizontalAlignment="Left" Margin="10,-6,0,0" VerticalAlignment="Top"/>
+                    <Label Grid.Column="5" Content="TCP Port" HorizontalAlignment="Left" Margin="10,-6,0,0" VerticalAlignment="Top"/>
+                    <Label Grid.Column="6" Content="Mac" HorizontalAlignment="Left" Margin="10,-6,0,0" VerticalAlignment="Top"/>
+                    <Label Grid.Column="7" Content="Vendor" HorizontalAlignment="Left" Margin="10,-6,0,0" VerticalAlignment="Top"/>
+                    <TextBox x:Name="tb_Filter_All" Grid.Column="1" HorizontalAlignment="Center" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Center" Width="104" TextChanged="tb_Filter_ALL_TextChanged"/>
+                    <TextBox x:Name="tb_Filter_IP" Grid.Column="2" HorizontalAlignment="Center" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Center" Width="104" TextChanged="Filter_Specific_TextChanged"/>
+                    <TextBox x:Name="tb_Filter_HostName" Grid.Column="3" HorizontalAlignment="Left" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Center" Width="104" TextChanged="Filter_Specific_TextChanged" Margin="10,0,0,0"/>
+                    <TextBox x:Name="tb_Filter_InternalName" Grid.Column="4" HorizontalAlignment="Left" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Center" Width="104" TextChanged="Filter_Specific_TextChanged" Margin="10,0,0,0"/>
+                    <TextBox x:Name="tb_Filter_TCPPort" Grid.Column="5" HorizontalAlignment="Left" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Center" Width="104" TextChanged="Filter_Specific_TextChanged" Margin="10,0,0,0"/>
+                    <TextBox x:Name="tb_Filter_Mac" Grid.Column="6" HorizontalAlignment="Left" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Center" Width="104" TextChanged="Filter_Specific_TextChanged" Margin="10,0,0,0"/>
+                    <TextBox x:Name="tb_Filter_Vendor" Grid.Column="7" HorizontalAlignment="Left" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Center" Width="104" TextChanged="Filter_Specific_TextChanged" Margin="10,0,0,0"/>
+                    <CheckBox x:Name="chk_SaveLastScanResult" Content="save last scan result" Height="15" VerticalContentAlignment="Center" Width="128" HorizontalAlignment="Left" VerticalAlignment="Center" IsChecked="True" Grid.Column="9" Margin="18,0,0,0"/>
+                    <Button x:Name="bt_clearScanResultTable" Content="clear table" HorizontalAlignment="Left" VerticalAlignment="Center" Width="104" Click="bt_clearScanResultTable_Click" Background="#BFA4B1BF" OpacityMask="Black" Grid.Column="9" Margin="42,0,0,0" Grid.Row="1">
+                        <Button.Resources>
+                            <Style TargetType="{x:Type Border}">
+                                <Setter Property="CornerRadius" Value="5"/>
+                            </Style>
+                        </Button.Resources>
+                    </Button>
                 </Grid>
             </Grid>
             <Slider x:Name="slider_TimeOut" HorizontalAlignment="Left" VerticalAlignment="Top" Width="311" Maximum="3000" Minimum="10" Value="500" TickFrequency="10" SmallChange="10" LargeChange="50" Grid.Row="1" IsSnapToTickEnabled="True" ValueChanged="slider_TimeOut_ValueChanged" Height="18" Margin="18,7,0,0"/>
