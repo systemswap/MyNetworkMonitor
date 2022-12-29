@@ -15,6 +15,9 @@ using System.Xml.XPath;
 using OnvifDiscovery;
 using System.Threading;
 using OnvifDiscovery.Models;
+using System.Data;
+using System.IO;
+using System.Xml.Serialization;
 
 namespace MyNetworkMonitor
 {
@@ -73,7 +76,8 @@ namespace MyNetworkMonitor
                         {
                             var receiveResult = await client.ReceiveAsync();
                             var text = GetText(receiveResult.Buffer);
-                            result.Add(text);
+                            var Infos = GetAddress(text);
+                            result.Add(Infos.IPv4Address);
                         }
                         else
                         {
@@ -125,14 +129,60 @@ namespace MyNetworkMonitor
             return Encoding.ASCII.GetString(bytes, 0, bytes.Length);
         }
 
-        private string GetAddress(string soapMessage)
+        private IPCamInfos GetAddress(string soapMessage)
         {
             var xmlNamespaceManager = new XmlNamespaceManager(new NameTable());
-            xmlNamespaceManager.AddNamespace("g", "http://schemas.xmlsoap.org/ws/2005/04/discovery");
+            xmlNamespaceManager.AddNamespace("wsa", "http://schemas.xmlsoap.org/ws/2004/08/addressing");
+            xmlNamespaceManager.AddNamespace("wsdd", "http://schemas.xmlsoap.org/ws/2005/04/discovery");
+            
 
-            var element = XElement.Parse(soapMessage).XPathSelectElement("//g:XAddrs[1]", xmlNamespaceManager);
-            return element?.Value ?? string.Empty;
+            var xelement = XElement.Parse(soapMessage);
+            var UUID = XElement.Parse(soapMessage).XPathSelectElement("//wsa:Address[1]", xmlNamespaceManager);
+            var XAddrs = XElement.Parse(soapMessage).XPathSelectElement("//wsdd:XAddrs[1]", xmlNamespaceManager);
+            var Scopes = XElement.Parse(soapMessage).XPathSelectElement("//wsdd:Scopes[1]", xmlNamespaceManager);
+            var MetadataVersion = XElement.Parse(soapMessage).XPathSelectElement("//wsdd:MetadataVersion[1]", xmlNamespaceManager);
+
+            string Address = XAddrs.Value.Replace("http://",string.Empty);
+            string IPv4Address = Address.Remove(Address.IndexOf("/")).Split(":")[0];
+            string Port = Address.Remove(Address.IndexOf("/")).Split(":")[1];
+
+            List<string> lst_Scopes = Scopes.Value.Split(' ').ToList(); 
+            string name = lst_Scopes.Where(i => i.Contains("/name/")).First();
+            string hardware = lst_Scopes.Where(i => i.Contains("/hardware/")).First();
+            string location = lst_Scopes.Where(i => i.Contains("/location/")).First();
+
+            name = name.Substring(name.LastIndexOf('/') + 1);
+            hardware = hardware.Substring(hardware.LastIndexOf('/') + 1);
+            location = location.Substring(location.LastIndexOf('/') + 1);
+
+            string metadataVersion = MetadataVersion.Value;
+
+            string uuid = UUID.Value;
+            uuid = uuid.Remove(0, uuid.LastIndexOf(":") + 1);
+
+            IPCamInfos infos = new IPCamInfos();
+            infos.IPv4Address = IPv4Address;
+            infos.IPv6Address = string.Empty;
+            infos.Port = Port;
+            infos.Name = name;
+            infos.Hardware = hardware;
+            infos.Location = location;
+            infos.MetaVersion = metadataVersion;
+            infos.UUID = uuid;
+
+            return infos;
         }
+    }
 
+    public class IPCamInfos
+    {
+        public string IPv4Address { get; set; }
+        public string IPv6Address { get; set; }
+        public string Port { get; set; }
+        public string Name { get; set; }
+        public string Hardware { get; set; }
+        public string Location { get; set; }
+        public string MetaVersion { get; set; }
+        public string UUID { get; set; }
     }
 }
