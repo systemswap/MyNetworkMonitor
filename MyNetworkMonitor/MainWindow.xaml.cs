@@ -48,7 +48,7 @@ namespace MyNetworkMonitor
             scanningMethods_Ping.Ping_Task_Finished += Ping_Task_Finished;
             scanningMethods_Ping.PingFinished += PingFinished_Event;
 
-            scanningMethod_FindIPCameras = new ScanningMethod_FindIPCameras();
+            scanningMethod_FindIPCameras = new ScanningMethod_ONVIF_IPCam();
             scanningMethod_FindIPCameras.newIPCameraFound_Task_Finished += newIPCameraFound_Task_Finished;
             scanningMethod_FindIPCameras.IPCameraScan_Finished += IPCameraScan_Finished;
 
@@ -148,7 +148,7 @@ namespace MyNetworkMonitor
 
         ScanningMethod_ARP scanningMethode_ARP;
         ScanningMethods_Ping scanningMethods_Ping;
-        ScanningMethod_FindIPCameras scanningMethod_FindIPCameras;
+        ScanningMethod_ONVIF_IPCam scanningMethod_FindIPCameras;
         ScanningMethod_SSDP_UPNP scanningMethode_SSDP_UPNP;
         ScanningMethod_ReverseLookupToHostAndAlieases scanningMethode_ReverseLookupToHostAndAliases;
         ScanningMethod_LookUp scanningMethod_LookUp;
@@ -582,7 +582,7 @@ namespace MyNetworkMonitor
 
             /* set the states */
             if ((bool)chk_Methodes_SSDP.IsChecked) ssdp_state = ScanStatus.waiting;
-            if ((bool)chk_FindIPCams.IsChecked) IPCams_state = ScanStatus.waiting;
+            if ((bool)chk_Method_ONVIF.IsChecked) IPCams_state = ScanStatus.waiting;
             if ((bool)chk_ARPRequest.IsChecked) arpRequest_state = ScanStatus.waiting;
             if ((bool)chk_Methodes_Ping.IsChecked) ping_state = ScanStatus.waiting;
             if ((bool)chk_Methodes_ScanHostnames.IsChecked) dns_state = ScanStatus.waiting;
@@ -613,7 +613,7 @@ namespace MyNetworkMonitor
                 Task.Run(() => scanningMethode_SSDP_UPNP.ScanForSSDP(_IPsToScan));
             }
 
-            if ((bool)chk_FindIPCams.IsChecked)
+            if ((bool)chk_Method_ONVIF.IsChecked)
             {
                 IPCams_state = ScanStatus.running;               
                 Status();
@@ -834,7 +834,7 @@ namespace MyNetworkMonitor
                     _scannResults.ResultTable.Rows[rowIndex]["ResponseTime"] = ipToScan.ResponseTime;
                 }
 
-                if (ipToScan.UsedScanMethod == ScanMethod.FindIPCameras)
+                if (ipToScan.UsedScanMethod == ScanMethod.ONVIF_IPCam)
                 {
                     _scannResults.ResultTable.Rows[rowIndex]["IsIPCam"] = ipToScan.IsIPCam ? Properties.Resources.green_dot : null;
                     _scannResults.ResultTable.Rows[rowIndex]["IPCamName"] = ipToScan.IPCamName;
@@ -911,7 +911,7 @@ namespace MyNetworkMonitor
 
                 
 
-                if (ipToScan.UsedScanMethod == ScanMethod.FindIPCameras)
+                if (ipToScan.UsedScanMethod == ScanMethod.ONVIF_IPCam)
                 {
                     row["IsIPCam"] = ipToScan.IsIPCam ? Properties.Resources.green_dot : null;
                     row["IPCamName"] = ipToScan.IPCamName;
@@ -1232,7 +1232,7 @@ namespace MyNetworkMonitor
             }
         }
 
-        private void Filter_Specific_TextChanged(object sender, TextChangedEventArgs e)
+        private void Filter_ScanResults_Explicite()
         {
                 //MainForm_ModFolderTab_ClearModFilter_pictureBox.Visible = true;
                 string whereFilter = "1 = 1";
@@ -1244,11 +1244,18 @@ namespace MyNetworkMonitor
             if (tb_Filter_Mac.Text.Length > 0) whereFilter += " and Mac Like '%" + tb_Filter_Mac.Text + "%'";
             if (tb_Filter_Vendor.Text.Length > 0) whereFilter += " and Vendor Like '%" + tb_Filter_Vendor.Text + "%'";
 
+            if ((bool)chk_Filter_IsIPCam.IsChecked) whereFilter += " and IsIPCam is not null";
+
             dv_resultTable.RowFilter = string.Format(whereFilter);
            
                 //dv_resultTable.RowFilter = string.Format("IP Like '%*%'");
                 //MainForm_ModFolderTab_ClearModFilter_pictureBox.Visible = false;
             
+        }
+
+        private void Filter_ScanResults_Explicite(object sender, RoutedEventArgs e)
+        {
+            Filter_ScanResults_Explicite();
         }
     }
 }
