@@ -553,13 +553,13 @@ namespace MyNetworkMonitor
             {
                 if (_IPsToScan.Where(i => i.IPorHostname == row["IP"].ToString()).Count() > 0)
                 {
-                    if((bool)chk_Methodes_ARP_A.IsChecked && !string.IsNullOrEmpty(row["ARPStatus"].ToString())) row["ARPStatus"] = Properties.Resources.gray_dot;
+                    if((bool)chk_Methodes_ARP_A.IsChecked && !string.IsNullOrEmpty(row["ARPStatus"].ToString())) row["ARPStatus"] = Properties.Resources.gray_dotTB;
 
 
-                    if ((bool)chk_Methodes_Ping.IsChecked && !string.IsNullOrEmpty(row["PingStatus"].ToString())) row["PingStatus"] = Properties.Resources.gray_dot;
+                    if ((bool)chk_Methodes_Ping.IsChecked && !string.IsNullOrEmpty(row["PingStatus"].ToString())) row["PingStatus"] = Properties.Resources.gray_dotTB;
                     if ((bool)chk_Methodes_Ping.IsChecked) row["ResponseTime"] = string.Empty;
 
-                    if ((bool)chk_Methodes_SSDP.IsChecked && !string.IsNullOrEmpty(row["SSDPStatus"].ToString())) row["SSDPStatus"] = Properties.Resources.gray_dot;
+                    if ((bool)chk_Methodes_SSDP.IsChecked && !string.IsNullOrEmpty(row["SSDPStatus"].ToString())) row["SSDPStatus"] = Properties.Resources.gray_dotTB;
 
                     if ((bool)chk_Methodes_ScanTCPPorts.IsChecked) row["TCP_Ports"] = null;
                     if ((bool)chk_Methodes_ScanUDPPorts.IsChecked) row["OpenUDP_Ports"] = null;
@@ -573,7 +573,7 @@ namespace MyNetworkMonitor
 
                     if ((bool)chk_Methodes_LookUp.IsChecked && !string.IsNullOrEmpty(row["LookUpStatus"].ToString()))
                     {
-                        row["LookUpStatus"] = Properties.Resources.gray_dot;
+                        row["LookUpStatus"] = Properties.Resources.gray_dotTB;
                         row["LookUpIPs"] = string.Empty;
                     }
                 }
@@ -799,12 +799,12 @@ namespace MyNetworkMonitor
 
                 if (ipToScan.UsedScanMethod == ScanMethod.SSDP) 
                 { 
-                    _scannResults.ResultTable.Rows[rowIndex]["SSDPStatus"] = ipToScan.SSDPStatus ? Properties.Resources.green_dot : Properties.Resources.red_dot; 
+                    _scannResults.ResultTable.Rows[rowIndex]["SSDPStatus"] = ipToScan.SSDPStatus ? Properties.Resources.green_dot : Properties.Resources.red_dotTB; 
                 }
 
                 if (ipToScan.UsedScanMethod == ScanMethod.ARPRequest)
                 {
-                    _scannResults.ResultTable.Rows[rowIndex]["ARPStatus"] = ipToScan.ARPStatus ? Properties.Resources.green_dot : Properties.Resources.red_dot;
+                    _scannResults.ResultTable.Rows[rowIndex]["ARPStatus"] = ipToScan.ARPStatus ? Properties.Resources.green_dot : Properties.Resources.red_dotTB;
                     _scannResults.ResultTable.Rows[rowIndex]["MAC"] = ipToScan.MAC;
                     _scannResults.ResultTable.Rows[rowIndex]["Vendor"] = ipToScan.Vendor;
                 }
@@ -816,13 +816,13 @@ namespace MyNetworkMonitor
                         byte[] greenDot = Properties.Resources.green_dot;
                         byte[] cellValue = (byte[])_scannResults.ResultTable.Rows[rowIndex]["ARPStatus"];
                         bool bla = greenDot.SequenceEqual(cellValue);
-                        if (!bla) _scannResults.ResultTable.Rows[rowIndex]["ARPStatus"] = Properties.Resources.gray_dot;
+                        if (!bla) _scannResults.ResultTable.Rows[rowIndex]["ARPStatus"] = Properties.Resources.gray_dotTB;
                     }
                     else
                     {
-                        _scannResults.ResultTable.Rows[rowIndex]["ARPStatus"] = Properties.Resources.gray_dot;
+                        _scannResults.ResultTable.Rows[rowIndex]["ARPStatus"] = Properties.Resources.gray_dotTB;
                     }
-                    //_scannResults.ResultTable.Rows[rowIndex]["ARPStatus"] = ipToScan.ARPStatus ? Properties.Resources.green_dot : Properties.Resources.red_dot;
+                    //_scannResults.ResultTable.Rows[rowIndex]["ARPStatus"] = ipToScan.ARPStatus ? Properties.Resources.green_dot : Properties.Resources.red_dotTB;
                     _scannResults.ResultTable.Rows[rowIndex]["MAC"] = ipToScan.MAC;
                     _scannResults.ResultTable.Rows[rowIndex]["Vendor"] = ipToScan.Vendor;
                 }
@@ -830,7 +830,7 @@ namespace MyNetworkMonitor
 
                 if (ipToScan.UsedScanMethod == ScanMethod.Ping)
                 {
-                    _scannResults.ResultTable.Rows[rowIndex]["PingStatus"] = ipToScan.PingStatus ? Properties.Resources.green_dot : Properties.Resources.red_dot;
+                    _scannResults.ResultTable.Rows[rowIndex]["PingStatus"] = ipToScan.PingStatus ? Properties.Resources.green_dot : Properties.Resources.red_dotTB;
                     _scannResults.ResultTable.Rows[rowIndex]["ResponseTime"] = ipToScan.ResponseTime;
                 }
 
@@ -849,7 +849,7 @@ namespace MyNetworkMonitor
 
                 if (ipToScan.UsedScanMethod == ScanMethod.Lookup)
                 {
-                    _scannResults.ResultTable.Rows[rowIndex]["LookUpStatus"] = ipToScan.LookUpStatus ? Properties.Resources.green_dot : Properties.Resources.red_dot;
+                    _scannResults.ResultTable.Rows[rowIndex]["LookUpStatus"] = ipToScan.LookUpStatus ? Properties.Resources.green_dot : Properties.Resources.red_dotTB;
                     _scannResults.ResultTable.Rows[rowIndex]["LookUpIPs"] = ipToScan.LookUpIPs;
                 }
 
@@ -875,12 +875,12 @@ namespace MyNetworkMonitor
 
                 if (ipToScan.UsedScanMethod == ScanMethod.SSDP)
                 {
-                    row["SSDPStatus"] = ipToScan.SSDPStatus ? Properties.Resources.green_dot : Properties.Resources.red_dot;
+                    row["SSDPStatus"] = ipToScan.SSDPStatus ? Properties.Resources.green_dot : Properties.Resources.red_dotTB;
                 }
 
                 if (ipToScan.UsedScanMethod == ScanMethod.ARPRequest) 
                 { 
-                    row["ARPStatus"] = ipToScan.ARPStatus ? Properties.Resources.green_dot : Properties.Resources.red_dot;
+                    row["ARPStatus"] = ipToScan.ARPStatus ? Properties.Resources.green_dot : Properties.Resources.red_dotTB;
                     row["MAC"] = ipToScan.MAC;
                     row["Vendor"] = ipToScan.Vendor;
                 }
@@ -892,20 +892,20 @@ namespace MyNetworkMonitor
                         byte[] greenDot = Properties.Resources.green_dot;
                         byte[] cellValue = (byte[])row["ARPStatus"];
                         bool bla = greenDot.SequenceEqual(cellValue);
-                        if (!bla) row["ARPStatus"] = Properties.Resources.gray_dot;
+                        if (!bla) row["ARPStatus"] = Properties.Resources.gray_dotTB;
                     }
                     else
                     {
-                        row["ARPStatus"] = Properties.Resources.gray_dot;
+                        row["ARPStatus"] = Properties.Resources.gray_dotTB;
                     }
-                    //row["ARPStatus"] = ipToScan.ARPStatus ? Properties.Resources.green_dot : Properties.Resources.red_dot;
+                    //row["ARPStatus"] = ipToScan.ARPStatus ? Properties.Resources.green_dot : Properties.Resources.red_dotTB;
                     row["MAC"] = ipToScan.MAC;
                     row["Vendor"] = ipToScan.Vendor;
                 }
 
                 if (ipToScan.UsedScanMethod == ScanMethod.Ping)
                 {
-                    row["PingStatus"] = ipToScan.PingStatus ? Properties.Resources.green_dot : Properties.Resources.red_dot;
+                    row["PingStatus"] = ipToScan.PingStatus ? Properties.Resources.green_dot : Properties.Resources.red_dotTB;
                     row["ResponseTime"] = ipToScan.ResponseTime;
                 }
 
@@ -925,7 +925,7 @@ namespace MyNetworkMonitor
 
                 if (ipToScan.UsedScanMethod == ScanMethod.Lookup)
                 {
-                    row["LookUpStatus"] = ipToScan.LookUpStatus ? Properties.Resources.green_dot : Properties.Resources.red_dot;
+                    row["LookUpStatus"] = ipToScan.LookUpStatus ? Properties.Resources.green_dot : Properties.Resources.red_dotTB;
                     row["LookUpIPs"] = ipToScan.LookUpIPs;
                 }
 
@@ -1186,17 +1186,17 @@ namespace MyNetworkMonitor
             {
                 foreach (DataRow row in _scannResults.ResultTable.Rows)
                 {
-                    if (!string.IsNullOrEmpty(row["SSDPStatus"].ToString())) row["SSDPStatus"] = Properties.Resources.gray_dot;
-                    if (!string.IsNullOrEmpty(row["ARPStatus"].ToString())) row["ARPStatus"] = Properties.Resources.gray_dot;
-                    if (!string.IsNullOrEmpty(row["PingStatus"].ToString())) row["PingStatus"] = Properties.Resources.gray_dot;
-                    if (!string.IsNullOrEmpty(row["IsIPCam"].ToString())) row["IsIPCam"] = Properties.Resources.gray_dot;
+                    if (!string.IsNullOrEmpty(row["SSDPStatus"].ToString())) row["SSDPStatus"] = Properties.Resources.gray_dotTB;
+                    if (!string.IsNullOrEmpty(row["ARPStatus"].ToString())) row["ARPStatus"] = Properties.Resources.gray_dotTB;
+                    if (!string.IsNullOrEmpty(row["PingStatus"].ToString())) row["PingStatus"] = Properties.Resources.gray_dotTB;
+                    if (!string.IsNullOrEmpty(row["IsIPCam"].ToString())) row["IsIPCam"] = Properties.Resources.gray_dotTB;
 
                     //if (!string.IsNullOrEmpty(row["LookUpStatus"].ToString()))
                     //{
                     //    byte[] greenDot = Properties.Resources.green_dot;
                     //    byte[] cellValue = (byte[])row["LookUpStatus"];
                     //    bool bla = greenDot.SequenceEqual(cellValue);
-                    //    if (bla) row["LookUpStatus"] = Properties.Resources.gray_dot;
+                    //    if (bla) row["LookUpStatus"] = Properties.Resources.gray_dotTB;
                     //}
                 }
                 _scannResults.ResultTable.WriteXml(_lastScanResultFile, XmlWriteMode.WriteSchema);
