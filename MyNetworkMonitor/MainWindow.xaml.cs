@@ -32,6 +32,9 @@ namespace MyNetworkMonitor
         {
             InitializeComponent();
 
+            //ScanningMethod_FindIPCameras c = new ScanningMethod_FindIPCameras();
+            //var bla = c.GetSoapResponsesFromCamerasAsync(IPAddress.Parse("192.168.178.255"));
+
             scanningMethode_SSDP_UPNP = new ScanningMethod_SSDP_UPNP();
             scanningMethode_SSDP_UPNP.SSDP_foundNewDevice += SSDP_foundNewDevice;
             scanningMethode_SSDP_UPNP.SSDP_Scan_Finished += SSDP_Scan_Finished;
@@ -766,15 +769,32 @@ namespace MyNetworkMonitor
                     _scannResults.ResultTable.Rows[rowIndex]["SSDPStatus"] = ipToScan.SSDPStatus ? Properties.Resources.green_dot : Properties.Resources.red_dot; 
                 }
 
-                if (ipToScan.UsedScanMethod == ScanMethod.ARP)
+                if (ipToScan.UsedScanMethod == ScanMethod.ARPRequest)
                 {
                     _scannResults.ResultTable.Rows[rowIndex]["ARPStatus"] = ipToScan.ARPStatus ? Properties.Resources.green_dot : Properties.Resources.red_dot;
                     _scannResults.ResultTable.Rows[rowIndex]["MAC"] = ipToScan.MAC;
                     _scannResults.ResultTable.Rows[rowIndex]["Vendor"] = ipToScan.Vendor;
                 }
 
-                
-                
+                if (ipToScan.UsedScanMethod == ScanMethod.ARP_A)
+                {
+                    if (!string.IsNullOrEmpty(_scannResults.ResultTable.Rows[rowIndex]["ARPStatus"].ToString()))
+                    {
+                        byte[] greenDot = Properties.Resources.green_dot;
+                        byte[] cellValue = (byte[])_scannResults.ResultTable.Rows[rowIndex]["ARPStatus"];
+                        bool bla = greenDot.SequenceEqual(cellValue);
+                        if (!bla) _scannResults.ResultTable.Rows[rowIndex]["ARPStatus"] = Properties.Resources.gray_dot;
+                    }
+                    else
+                    {
+                        _scannResults.ResultTable.Rows[rowIndex]["ARPStatus"] = Properties.Resources.gray_dot;
+                    }
+                    //_scannResults.ResultTable.Rows[rowIndex]["ARPStatus"] = ipToScan.ARPStatus ? Properties.Resources.green_dot : Properties.Resources.red_dot;
+                    _scannResults.ResultTable.Rows[rowIndex]["MAC"] = ipToScan.MAC;
+                    _scannResults.ResultTable.Rows[rowIndex]["Vendor"] = ipToScan.Vendor;
+                }
+
+
                 if (ipToScan.UsedScanMethod == ScanMethod.Ping)
                 {
                     _scannResults.ResultTable.Rows[rowIndex]["PingStatus"] = ipToScan.PingStatus ? Properties.Resources.green_dot : Properties.Resources.red_dot;
@@ -819,9 +839,27 @@ namespace MyNetworkMonitor
                     row["SSDPStatus"] = ipToScan.SSDPStatus ? Properties.Resources.green_dot : Properties.Resources.red_dot;
                 }
 
-                if (ipToScan.UsedScanMethod == ScanMethod.ARP) 
+                if (ipToScan.UsedScanMethod == ScanMethod.ARPRequest) 
                 { 
                     row["ARPStatus"] = ipToScan.ARPStatus ? Properties.Resources.green_dot : Properties.Resources.red_dot;
+                    row["MAC"] = ipToScan.MAC;
+                    row["Vendor"] = ipToScan.Vendor;
+                }
+
+                if (ipToScan.UsedScanMethod == ScanMethod.ARP_A)
+                {
+                    if (!string.IsNullOrEmpty(row["ARPStatus"].ToString()))
+                    {
+                        byte[] greenDot = Properties.Resources.green_dot;
+                        byte[] cellValue = (byte[])row["ARPStatus"];
+                        bool bla = greenDot.SequenceEqual(cellValue);
+                        if (!bla) row["ARPStatus"] = Properties.Resources.gray_dot;
+                    }
+                    else
+                    {
+                        row["ARPStatus"] = Properties.Resources.gray_dot;
+                    }
+                    //row["ARPStatus"] = ipToScan.ARPStatus ? Properties.Resources.green_dot : Properties.Resources.red_dot;
                     row["MAC"] = ipToScan.MAC;
                     row["Vendor"] = ipToScan.Vendor;
                 }
@@ -1109,6 +1147,46 @@ namespace MyNetworkMonitor
             dv.Sort = "Ports asc";            
             DataTable sortedtable1 = dv.ToTable();
             sortedtable1.WriteXml(_portsToScan, XmlWriteMode.WriteSchema);
+        }
+
+        private void tb_Filter_ALL_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (tb_Filter_All.Text.Length > 0)
+            {
+                //MainForm_ModFolderTab_ClearModFilter_pictureBox.Visible = true;
+                string whereFilter = "1 = 1";
+                whereFilter += " and IP Like '%" + tb_Filter_All.Text + "%'";
+                whereFilter += " or InternalName Like '%" + tb_Filter_All.Text + "%'";
+                whereFilter += " or Hostname Like '%" + tb_Filter_All.Text + "%'";
+                whereFilter += " or TCP_Ports Like '%" + tb_Filter_All.Text + "%'";
+                whereFilter += " or Mac Like '%" + tb_Filter_All.Text + "%'";
+                whereFilter += " or Vendor Like '%" + tb_Filter_All.Text + "%'";
+                dv_resultTable.RowFilter = string.Format(whereFilter);
+            }
+            else
+            {
+                dv_resultTable.RowFilter = string.Format("IP Like '%*%'");
+                //MainForm_ModFolderTab_ClearModFilter_pictureBox.Visible = false;
+            }
+        }
+
+        private void Filter_Specific_TextChanged(object sender, TextChangedEventArgs e)
+        {
+                //MainForm_ModFolderTab_ClearModFilter_pictureBox.Visible = true;
+                string whereFilter = "1 = 1";
+
+            if (tb_Filter_IP.Text.Length > 0) whereFilter += " and IP Like '%" + tb_Filter_IP.Text + "%'";
+            if (tb_Filter_InternalName.Text.Length > 0) whereFilter += " and InternalName Like '%" + tb_Filter_InternalName.Text + "%'";
+            if (tb_Filter_HostName.Text.Length > 0) whereFilter += " and Hostname Like '%" + tb_Filter_HostName.Text + "%'";            
+            if (tb_Filter_TCPPort.Text.Length > 0) whereFilter += " and TCP_Ports Like '%" + tb_Filter_TCPPort.Text + "%'";
+            if (tb_Filter_Mac.Text.Length > 0) whereFilter += " and Mac Like '%" + tb_Filter_Mac.Text + "%'";
+            if (tb_Filter_Vendor.Text.Length > 0) whereFilter += " and Vendor Like '%" + tb_Filter_Vendor.Text + "%'";
+
+            dv_resultTable.RowFilter = string.Format(whereFilter);
+           
+                //dv_resultTable.RowFilter = string.Format("IP Like '%*%'");
+                //MainForm_ModFolderTab_ClearModFilter_pictureBox.Visible = false;
+            
         }
     }
 }

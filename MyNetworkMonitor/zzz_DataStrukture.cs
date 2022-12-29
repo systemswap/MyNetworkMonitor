@@ -13,7 +13,8 @@ namespace MyNetworkMonitor
     {
         failed,
         SSDP,
-        ARP,
+        ARPRequest,
+        ARP_A,
         Ping,
         ReverseLookup,
         Lookup,
