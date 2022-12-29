@@ -21,9 +21,9 @@ using System.Xml.Serialization;
 
 namespace MyNetworkMonitor
 {
-    internal class ScanningMethod_FindIPCameras
+    internal class ScanningMethod_ONVIF_IPCam
     {
-        public ScanningMethod_FindIPCameras() { }
+        public ScanningMethod_ONVIF_IPCam() { }
 
         public event EventHandler<ScanTask_Finished_EventArgs>? newIPCameraFound_Task_Finished;
         public event EventHandler<Method_Finished_EventArgs>? IPCameraScan_Finished;
@@ -39,14 +39,11 @@ namespace MyNetworkMonitor
             CancellationTokenSource cancellation = new CancellationTokenSource();
             await Task.Run(() => onvifDiscovery.Discover(5, OnNewDevice, cancellation.Token));
         }
-
-
-
         private void OnNewDevice(DiscoveryDevice device)
         {
             IPToScan ipToScan = new IPToScan();
 
-            ipToScan.UsedScanMethod = ScanMethod.FindIPCameras;
+            ipToScan.UsedScanMethod = ScanMethod.ONVIF_IPCam;
             ipToScan.IsIPCam = true;
             ipToScan.IPorHostname = device.Address;
             ipToScan.IPCamName = device.Mfr;
@@ -56,6 +53,9 @@ namespace MyNetworkMonitor
 
             newIPCameraFound_Task_Finished(this, scanTask_Finished);
         }
+
+
+
         public async Task<List<string>> GetSoapResponsesFromCamerasAsync(IPAddress IPForBroadcast, List<IPToScan> IPs)
         {
             var result = new List<string>();
@@ -76,7 +76,7 @@ namespace MyNetworkMonitor
                         {
                             var receiveResult = await client.ReceiveAsync();
                             var text = GetText(receiveResult.Buffer);
-                            var Infos = GetAddress(text);
+                            var Infos = GetCamInfos(text);
                             result.Add(Infos.IPv4Address);
                         }
                         else
@@ -129,7 +129,7 @@ namespace MyNetworkMonitor
             return Encoding.ASCII.GetString(bytes, 0, bytes.Length);
         }
 
-        private IPCamInfos GetAddress(string soapMessage)
+        private IPCamInfos GetCamInfos(string soapMessage)
         {
             var xmlNamespaceManager = new XmlNamespaceManager(new NameTable());
             xmlNamespaceManager.AddNamespace("wsa", "http://schemas.xmlsoap.org/ws/2004/08/addressing");
