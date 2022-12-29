@@ -164,7 +164,7 @@
                     <CheckBox x:Name="chk_allTCPPorts" Grid.Column="1" Content="all Ports" HorizontalAlignment="Left" VerticalAlignment="Center" Width="67" Height="15" Margin="10,0,0,0" VerticalContentAlignment="Center"/>
                 </Grid>
                 <TextBox x:Name="tb_DNSServerIP" Grid.Column="11" HorizontalAlignment="Center" TextWrapping="Wrap" VerticalAlignment="Center" Width="107" Height="18"/>
-                <CheckBox x:Name="chk_Method_ONVIF" Content="ONVIF" HorizontalAlignment="Center" Grid.Row="1" VerticalAlignment="Center" Height="15" Width="70" VerticalContentAlignment="Center"/>
+                <CheckBox x:Name="chk_Methodes_ONVIF" Content="ONVIF" HorizontalAlignment="Center" Grid.Row="1" VerticalAlignment="Center" Height="15" Width="70" VerticalContentAlignment="Center"/>
 
 
             </Grid>
