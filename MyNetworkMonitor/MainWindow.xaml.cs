@@ -178,6 +178,7 @@ namespace MyNetworkMonitor
         int CountedSSDPs = 0;
 
         ScanStatus IPCams_state = ScanStatus.ignored;
+        int foundedIPCams = 0;
 
         ScanStatus dns_state = ScanStatus.ignored;
         int currentHostnameCount = 0;        
@@ -206,13 +207,14 @@ namespace MyNetworkMonitor
         public void Status()
         {
             lbl_ScanStatus.Content = string.Format($"" +
-                $"SSDP Status: {ssdp_state.ToString()} found {currentSSDPCount} from {CountedSSDPs}        " +
+                $"SSDP: {ssdp_state.ToString()} found {currentSSDPCount} from {CountedSSDPs}        " +
+                $"IP-Cams: {IPCams_state.ToString()} found {foundedIPCams}        " +
                 $"ARP-Request: {arpRequest_state.ToString()}  {currentARPRequest} from {CountedARPRequests} found {responsedARPRequestCount}        " +
-                $"Ping Status: {ping_state.ToString()} {currentPingCount} of {CountedPings}        " +                
+                $"Ping: {ping_state.ToString()} {currentPingCount} of {CountedPings}        " +                
                 $"HostNames: {dns_state.ToString()} {currentHostnameCount.ToString()} from {CountedHostnames.ToString()} found {responsedHostNamesCount.ToString()}        " +
                 $"NSLookUps: {Lookup_state.ToString()}  {currentLookupCount.ToString()} from {CountedLookups.ToString()} found: {responsedLookupDevices}        " +
-                $"TCP Scan: {tcp_port_Scan_state.ToString()} {current_TCPPortScan_Count} from {Counted_TCPPortScans} answerd: {responsedTCPPortScanDevices}         " +
-                $"UDP Scan: {udp_port_Scan_state.ToString()} added: {current_UDPPortScan_Count} of {Counted_UDPListener}        " +
+                $"TCP Ports: {tcp_port_Scan_state.ToString()} {current_TCPPortScan_Count} from {Counted_TCPPortScans} answerd: {responsedTCPPortScanDevices}         " +
+                $"UDP Ports: {udp_port_Scan_state.ToString()} added: {current_UDPPortScan_Count} of {Counted_UDPListener}        " +
                 $"arp-a: {arp_a_state.ToString()}");
         }
         #endregion
@@ -990,8 +992,11 @@ namespace MyNetworkMonitor
 
         private void IPCameraScan_Finished(object? sender, Method_Finished_EventArgs e)
         {
-            //IPCameraScanFinishet = true;
-            //Status();
+            Dispatcher.BeginInvoke(() =>
+            {
+                IPCams_state = ScanStatus.finished;
+                Status();
+            });
         }
 
 
