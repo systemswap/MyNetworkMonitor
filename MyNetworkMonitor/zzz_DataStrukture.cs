@@ -61,10 +61,11 @@ namespace MyNetworkMonitor
 
 
         private bool _IsIPCam = false;
-        private string _WebCamName = string.Empty;
+        private string _IPCamName = string.Empty;
+        private string _IPCamXAddress = string.Empty;
         public bool IsIPCam { get { return _IsIPCam; } set { _IsIPCam = value; } }
-        public string IPCamName { get { return _WebCamName; } set { _WebCamName = value; } }
-
+        public string IPCamName { get { return _IPCamName; } set { _IPCamName = value; } }
+        public string IPCamXAddress { get { return _IPCamXAddress; } set { _IPCamXAddress = value; } }
 
         private bool _ARPStatus = false;
         private string _MAC = string.Empty;
@@ -171,6 +172,7 @@ namespace MyNetworkMonitor
             dt_NetworkResults.Columns.Add("InternalName", typeof(string));
             dt_NetworkResults.Columns.Add("Hostname", typeof(string));
             dt_NetworkResults.Columns.Add("IPCamName", typeof(string));
+            dt_NetworkResults.Columns.Add("IPCamXAddress", typeof(string));
             dt_NetworkResults.Columns.Add("Domain", typeof(string));
             dt_NetworkResults.Columns.Add("Aliases", typeof(string));
             dt_NetworkResults.Columns.Add("LookUpStatus", typeof(byte[]));
