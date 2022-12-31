@@ -38,6 +38,8 @@ namespace MyNetworkMonitor
             // You can call Discover with a callback (Action) and CancellationToken
             CancellationTokenSource cancellation = new CancellationTokenSource();
             await Task.Run(() => onvifDiscovery.Discover(5, OnNewDevice, cancellation.Token));
+
+            IPCameraScan_Finished(this, new Method_Finished_EventArgs());
         }
         private void OnNewDevice(DiscoveryDevice device)
         {
