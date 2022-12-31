@@ -842,6 +842,7 @@ namespace MyNetworkMonitor
                 {
                     _scannResults.ResultTable.Rows[rowIndex]["IsIPCam"] = ipToScan.IsIPCam ? Properties.Resources.green_dot : null;
                     _scannResults.ResultTable.Rows[rowIndex]["IPCamName"] = ipToScan.IPCamName;
+                    _scannResults.ResultTable.Rows[rowIndex]["IPCamXAddress"] = ipToScan.IPCamXAddress;
                 }
 
                 if (ipToScan.UsedScanMethod == ScanMethod.ReverseLookup)
@@ -919,6 +920,7 @@ namespace MyNetworkMonitor
                 {
                     row["IsIPCam"] = ipToScan.IsIPCam ? Properties.Resources.green_dot : null;
                     row["IPCamName"] = ipToScan.IPCamName;
+                    row["IPCamXAddress"] = ipToScan.IPCamXAddress;
                 }
 
                 if (ipToScan.UsedScanMethod == ScanMethod.ReverseLookup)

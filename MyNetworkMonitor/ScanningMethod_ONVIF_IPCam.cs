@@ -49,6 +49,7 @@ namespace MyNetworkMonitor
             ipToScan.IsIPCam = true;
             ipToScan.IPorHostname = device.Address;
             ipToScan.IPCamName = device.Mfr;
+            ipToScan.IPCamXAddress = string.Join("\r\n", device.XAdresses).Replace("/onvif/device_service", string.Empty);
 
             ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
             scanTask_Finished.ipToScan = ipToScan;
