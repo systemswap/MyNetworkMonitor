@@ -1,7 +1,9 @@
 ﻿
 using DnsClient;
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Data;
 using System.IO;
@@ -68,14 +70,19 @@ namespace MyNetworkMonitor
             scanningMethode_PortsUDP.UDPPortScan_Task_Finished += UDPPortScan_Task_Finished;
             scanningMethode_PortsUDP.UDPPortScan_Finished += UDPPortScan_Finished;
 
-
+            
+            
             dv_resultTable = new DataView(_scannResults.ResultTable);
+            dgv_Results.ItemsSource = dv_resultTable;
 
-            //CollectionViewSource cvs = new CollectionViewSource(); 
-            //cvs.Source = dv_resultTable;
-            //cvs.GroupDescriptions.Add(new PropertyGroupDescription("GroupDescription"));
+            ICollectionView cvTasks = CollectionViewSource.GetDefaultView(dgv_Results.ItemsSource);
+            if (cvTasks != null && cvTasks.CanGroup == true)
+            {
+                cvTasks.GroupDescriptions.Clear();
+                cvTasks.GroupDescriptions.Add(new PropertyGroupDescription("IPGroupDescription"));
+                cvTasks.GroupDescriptions.Add(new PropertyGroupDescription("DeviceDescription"));
+            }
 
-            dgv_Results.ItemsSource = dv_resultTable;        
 
             if (File.Exists(_ipGroupsXML))
             {
@@ -91,6 +98,7 @@ namespace MyNetworkMonitor
 
             DataContext = ipGroupData.IPGroupsDT.DefaultView;
 
+
             if (File.Exists(_lastScanResultFile))
             {
                 try
@@ -102,7 +110,6 @@ namespace MyNetworkMonitor
                     //throw;
                 }
             }
-
 
             if (File.Exists(_portsToScan))
             {
@@ -128,8 +135,8 @@ namespace MyNetworkMonitor
 
        
 
-      
-        
+
+
 
         PortCollection _portCollection = new PortCollection();
         string _portsToScan = Path.Combine(Environment.CurrentDirectory, @"Settings\portsToScan.xml");
@@ -247,6 +254,17 @@ namespace MyNetworkMonitor
 
         private void dgv_ScanResults_OnAutoGeneratingColumn(object sender, DataGridAutoGeneratingColumnEventArgs e)
         {
+            if (e.PropertyName == "IPGroupDescription")
+            {
+                // replace text column with image column
+                e.Column.Visibility = Visibility.Hidden;
+            }
+
+            //if (e.PropertyName == "DeviceDescription")
+            //{
+            //    // replace text column with image column
+            //    e.Column.Visibility = Visibility.Hidden;
+            //}
 
             if (e.PropertyName == "SSDPStatus")
             {
@@ -797,6 +815,12 @@ namespace MyNetworkMonitor
                 _scannResults.ResultTable.Rows[rowIndex]["IPGroupDescription"] = ipToScan.IPGroupDescription;
                 _scannResults.ResultTable.Rows[rowIndex]["DeviceDescription"] = ipToScan.DeviceDescription;
                 _scannResults.ResultTable.Rows[rowIndex]["IP"] = ipToScan.IPorHostname;
+
+                //if (supportMethods.Is_Valid_IP(ipToScan.IPorHostname))
+                //{
+                //    _scannResults.ResultTable.Rows[rowIndex]["IPToSort"] = string.Join('.', ipToScan.IPorHostname.Split('.').Select(o => o.PadLeft(3, '0')));
+                //}
+
                 _scannResults.ResultTable.Rows[rowIndex]["DNSServers"] = string.Join(',', ipToScan.DNSServerList);
                 _scannResults.ResultTable.Rows[rowIndex]["GatewayIP"] = ipToScan.GatewayIP;
                 _scannResults.ResultTable.Rows[rowIndex]["GatewayPort"] = ipToScan.GatewayPort;
@@ -874,6 +898,10 @@ namespace MyNetworkMonitor
                 row["IPGroupDescription"] = ipToScan.IPGroupDescription;
                 row["DeviceDescription"] = ipToScan.DeviceDescription;
                 row["IP"] = ipToScan.IPorHostname;
+                //if (supportMethods.Is_Valid_IP(ipToScan.IPorHostname))
+                //{
+                //    row["IPToSort"] = string.Join('.', ipToScan.IPorHostname.Split('.').Select(o => o.PadLeft(3, '0')));
+                //}
                 row["DNSServers"] = string.Join(',', ipToScan.DNSServerList);
                 row["GatewayIP"] = ipToScan.GatewayIP;
                 row["GatewayPort"] = ipToScan.GatewayPort;
@@ -1265,6 +1293,12 @@ namespace MyNetworkMonitor
         private void Filter_ScanResults_Explicite(object sender, RoutedEventArgs e)
         {
             Filter_ScanResults_Explicite();
+        }
+
+        private void dgv_Results_Sorting(object sender, DataGridSortingEventArgs e)
+        {
+            //_scannResults.ResultTable.AsEnumerable().OrderBy<DataRow, string>(p => p["IP"].ToString(), new IComparer());
+            
         }
     }
 }
