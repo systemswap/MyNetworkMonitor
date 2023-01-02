@@ -165,8 +165,7 @@ namespace MyNetworkMonitor
             dt_NetworkResults.Columns.Add("SSDPStatus", typeof(byte[]));
             dt_NetworkResults.Columns.Add("ARPStatus", typeof(byte[]));
             dt_NetworkResults.Columns.Add("PingStatus", typeof(byte[]));
-            dt_NetworkResults.Columns.Add("IsIPCam", typeof(byte[]));
-            //dt_NetworkResults.Columns.Add("SendAlert", typeof(bool));
+            dt_NetworkResults.Columns.Add("IsIPCam", typeof(byte[]));            
             dt_NetworkResults.Columns.Add("IP", typeof(string));
             dt_NetworkResults.Columns.Add("ResponseTime", typeof(string));
             dt_NetworkResults.Columns.Add("InternalName", typeof(string));
@@ -186,7 +185,8 @@ namespace MyNetworkMonitor
             dt_NetworkResults.Columns.Add("DNSServers", typeof(string));
             dt_NetworkResults.Columns.Add("GatewayIP", typeof(string));
             dt_NetworkResults.Columns.Add("GatewayPort", typeof(string));
-            //dt_NetworkResults.Columns.Add("IPToSort", typeof(string));
+            //dt_NetworkResults.Columns.Add("SendAlert", typeof(bool));
+            dt_NetworkResults.Columns.Add("IPToSort", typeof(string));
         }
 
         public DataTable dt_NetworkResults = new DataTable();
