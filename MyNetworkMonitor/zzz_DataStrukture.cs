@@ -186,6 +186,7 @@ namespace MyNetworkMonitor
             dt_NetworkResults.Columns.Add("DNSServers", typeof(string));
             dt_NetworkResults.Columns.Add("GatewayIP", typeof(string));
             dt_NetworkResults.Columns.Add("GatewayPort", typeof(string));
+            //dt_NetworkResults.Columns.Add("IPToSort", typeof(string));
         }
 
         public DataTable dt_NetworkResults = new DataTable();
