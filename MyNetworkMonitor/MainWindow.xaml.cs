@@ -72,7 +72,7 @@ namespace MyNetworkMonitor
 
             
             
-            dv_resultTable = new DataView(_scannResults.ResultTable);
+            dv_resultTable = new DataView(_scannResults.ResultTable);            
             dgv_Results.ItemsSource = dv_resultTable;
 
             ICollectionView cvTasks = CollectionViewSource.GetDefaultView(dgv_Results.ItemsSource);
@@ -265,6 +265,12 @@ namespace MyNetworkMonitor
             //    // replace text column with image column
             //    e.Column.Visibility = Visibility.Hidden;
             //}
+
+            if (e.PropertyName == "IPToSort")
+            {
+                // replace text column with image column
+                e.Column.Visibility = Visibility.Hidden;
+            }
 
             if (e.PropertyName == "SSDPStatus")
             {
@@ -816,10 +822,10 @@ namespace MyNetworkMonitor
                 _scannResults.ResultTable.Rows[rowIndex]["DeviceDescription"] = ipToScan.DeviceDescription;
                 _scannResults.ResultTable.Rows[rowIndex]["IP"] = ipToScan.IPorHostname;
 
-                //if (supportMethods.Is_Valid_IP(ipToScan.IPorHostname))
-                //{
-                //    _scannResults.ResultTable.Rows[rowIndex]["IPToSort"] = string.Join('.', ipToScan.IPorHostname.Split('.').Select(o => o.PadLeft(3, '0')));
-                //}
+                if (supportMethods.Is_Valid_IP(ipToScan.IPorHostname))
+                {
+                    _scannResults.ResultTable.Rows[rowIndex]["IPToSort"] = string.Join('.', ipToScan.IPorHostname.Split('.').Select(o => o.PadLeft(3, '0')));
+                }
 
                 _scannResults.ResultTable.Rows[rowIndex]["DNSServers"] = string.Join(',', ipToScan.DNSServerList);
                 _scannResults.ResultTable.Rows[rowIndex]["GatewayIP"] = ipToScan.GatewayIP;
@@ -898,10 +904,13 @@ namespace MyNetworkMonitor
                 row["IPGroupDescription"] = ipToScan.IPGroupDescription;
                 row["DeviceDescription"] = ipToScan.DeviceDescription;
                 row["IP"] = ipToScan.IPorHostname;
-                //if (supportMethods.Is_Valid_IP(ipToScan.IPorHostname))
-                //{
-                //    row["IPToSort"] = string.Join('.', ipToScan.IPorHostname.Split('.').Select(o => o.PadLeft(3, '0')));
-                //}
+
+                if (supportMethods.Is_Valid_IP(ipToScan.IPorHostname))
+                {
+                    row["IPToSort"] = string.Join('.', ipToScan.IPorHostname.Split('.').Select(o => o.PadLeft(3, '0')));
+                }
+
+
                 row["DNSServers"] = string.Join(',', ipToScan.DNSServerList);
                 row["GatewayIP"] = ipToScan.GatewayIP;
                 row["GatewayPort"] = ipToScan.GatewayPort;
@@ -1297,8 +1306,23 @@ namespace MyNetworkMonitor
 
         private void dgv_Results_Sorting(object sender, DataGridSortingEventArgs e)
         {
-            //_scannResults.ResultTable.AsEnumerable().OrderBy<DataRow, string>(p => p["IP"].ToString(), new IComparer());
-            
+            if (e.Column.Header == "IP")
+            {
+                if (e.Column.SortDirection == null || e.Column.SortDirection == ListSortDirection.Descending)
+                {
+                    e.Handled= true;
+                    e.Column.SortDirection = ListSortDirection.Ascending;
+                    dv_resultTable.Sort = "IPGroupDescription asc, DeviceDescription asc, IPToSort asc";
+                    
+                    //dgv_Results.Columns[6].SortDirection = ListSortDirection.Ascending;
+                }
+                else
+                {
+                    e.Handled = true;
+                    e.Column.SortDirection = ListSortDirection.Descending;
+                    dv_resultTable.Sort = "IPGroupDescription asc, DeviceDescription asc, IPToSort desc";
+                }
+            }
         }
     }
 }
