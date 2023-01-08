@@ -54,7 +54,7 @@
                                             <Setter Property="Template">
                                                 <Setter.Value>
                                                     <ControlTemplate TargetType="{x:Type GroupItem}">
-                                                        <Expander IsExpanded="True" Background="#ABBEE0"  Foreground="Black" BorderThickness="1,1,1,5">
+                                                        <Expander IsExpanded="True" Background="#189AB4"  Foreground="Black" BorderThickness="1,1,1,5">
                                                             <Expander.Header>
                                                                 <DockPanel>
                                                                     <TextBlock FontWeight="Bold" Margin="5,0,0,0">
@@ -99,7 +99,7 @@
                                             <Setter Property="Template">
                                                 <Setter.Value>
                                                     <ControlTemplate TargetType="{x:Type GroupItem}">
-                                                        <Expander IsExpanded="True" Background="#DFE2F0" BorderBrush="#6B7B9A" Foreground="Black" BorderThickness="1,1,1,3">
+                                                        <Expander IsExpanded="True" Background="#FFC8E7F7" BorderBrush="#6B7B9A" Foreground="Black" BorderThickness="1,1,1,3">
                                                             <Expander.Header>
                                                                 <DockPanel>
                                                                     <TextBlock FontWeight="Bold" Text="{Binding Path=ItemCount}"/>
@@ -246,7 +246,8 @@
                                     <Setter Property="Template">
                                         <Setter.Value>
                                             <ControlTemplate TargetType="{x:Type GroupItem}">
-                                                <Expander IsExpanded="True" Background="#ABBEE0"  Foreground="Black" BorderThickness="1,1,1,5">
+                                                <Expander IsExpanded="True" Background="#189AB4"  Foreground="Black" BorderThickness="1,1,1,5">
+                                                    <!--"#ABBEE0"-->
                                                     <Expander.Header>
                                                         <DockPanel>
                                                             <TextBlock FontWeight="Bold" Margin="5,0,0,0">
@@ -293,7 +294,8 @@
                                     <Setter Property="Template">
                                         <Setter.Value>
                                             <ControlTemplate TargetType="{x:Type GroupItem}">
-                                                <Expander IsExpanded="True" Background="#DFE2F0" BorderBrush="#6B7B9A" Foreground="Black" BorderThickness="1,1,1,3">
+                                                <Expander IsExpanded="True" Background="#FFC8E7F7" BorderBrush="#6B7B9A" Foreground="Black" BorderThickness="1,1,1,3">
+                                                    <!--"#DFE2F0"-->
                                                     <Expander.Header>
                                                         <DockPanel>
                                                             <!--<TextBlock FontWeight="Bold" Margin="5,0,0,0">
@@ -368,6 +370,7 @@
                         <ColumnDefinition Width="125"/>
                         <ColumnDefinition Width="125"/>
                         <ColumnDefinition/>
+                        <ColumnDefinition Width="110"/>
                         <ColumnDefinition Width="156"/>
                     </Grid.ColumnDefinitions>
                     <Label Content="Filter:" HorizontalAlignment="Center" VerticalAlignment="Center" Height="28" Width="40" VerticalContentAlignment="Center"/>
@@ -385,15 +388,16 @@
                     <TextBox x:Name="tb_Filter_TCPPort" Grid.Column="5" HorizontalAlignment="Center" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Center" Width="104" TextChanged="Filter_ScanResults_Explicite" Height="17"/>
                     <TextBox x:Name="tb_Filter_Mac" Grid.Column="6" HorizontalAlignment="Center" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Center" Width="104" TextChanged="Filter_ScanResults_Explicite" Height="17"/>
                     <TextBox x:Name="tb_Filter_Vendor" Grid.Column="7" HorizontalAlignment="Center" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Center" Width="104" TextChanged="Filter_ScanResults_Explicite" Height="17"/>
-                    <CheckBox x:Name="chk_SaveLastScanResult" Content="save last scan result" Height="15" VerticalContentAlignment="Center" Width="128" HorizontalAlignment="Left" VerticalAlignment="Center" IsChecked="True" Grid.Column="10" Margin="18,0,0,0"/>
-                    <Button x:Name="bt_clearScanResultTable" Content="clear table" HorizontalAlignment="Left" VerticalAlignment="Center" Width="104" Click="bt_clearScanResultTable_Click" Background="#BFA4B1BF" OpacityMask="Black" Grid.Column="10" Margin="42,0,0,0" Grid.Row="1" Height="19">
+                    <CheckBox x:Name="chk_SaveLastScanResult" Content="save last scan result" Height="15" VerticalContentAlignment="Center" Width="128" HorizontalAlignment="Left" VerticalAlignment="Center" IsChecked="True" Grid.Column="11" Margin="18,0,0,0"/>
+                    <Button x:Name="bt_clearScanResultTable" Content="clear table" HorizontalAlignment="Left" VerticalAlignment="Center" Width="104" Click="bt_clearScanResultTable_Click" Background="#BFA4B1BF" OpacityMask="Black" Grid.Column="11" Margin="42,0,0,0" Grid.Row="1" Height="19">
                         <Button.Resources>
                             <Style TargetType="{x:Type Border}">
                                 <Setter Property="CornerRadius" Value="5"/>
                             </Style>
                         </Button.Resources>
                     </Button>
-                    <CheckBox x:Name="chk_Filter_IsIPCam" Grid.Column="8" Content="Is IP Cam" HorizontalAlignment="Left" Margin="10,0,0,0" Grid.Row="1" VerticalAlignment="Center" Checked="Filter_ScanResults_Explicite" Unchecked="Filter_ScanResults_Explicite" Width="78"/>
+                    <CheckBox x:Name="chk_Filter_IsIPCam" Grid.Column="8" Content="Is IP Cam" HorizontalAlignment="Left" Margin="10,0,0,0" Grid.Row="1" VerticalAlignment="Center" Checked="Filter_ScanResults_Explicite" Unchecked="Filter_ScanResults_Explicite" Width="78" Height="15"/>
+                    <CheckBox x:Name="chk_ScanResults_groupDevices" Grid.Column="10" Content="group devices" HorizontalAlignment="Left" VerticalAlignment="Center" Height="15" Width="96" Margin="10,0,0,0" IsChecked="True" Click="chk_ScanResults_groupDevices_Click"/>
                 </Grid>
             </Grid>
             <Slider x:Name="slider_TimeOut" HorizontalAlignment="Left" VerticalAlignment="Top" Width="311" Maximum="3000" Minimum="10" Value="500" TickFrequency="10" SmallChange="10" LargeChange="50" Grid.Row="1" IsSnapToTickEnabled="True" ValueChanged="slider_TimeOut_ValueChanged" Height="18" Margin="18,7,0,0"/>
