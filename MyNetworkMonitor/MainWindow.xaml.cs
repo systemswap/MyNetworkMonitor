@@ -75,12 +75,12 @@ namespace MyNetworkMonitor
             dv_resultTable = new DataView(_scannResults.ResultTable);            
             dgv_Results.ItemsSource = dv_resultTable;
 
-            ICollectionView cvTasks = CollectionViewSource.GetDefaultView(dgv_Results.ItemsSource);
-            if (cvTasks != null && cvTasks.CanGroup == true)
+            cvTasks_scanResults = CollectionViewSource.GetDefaultView(dgv_Results.ItemsSource);
+            if (cvTasks_scanResults != null && cvTasks_scanResults.CanGroup == true)
             {
-                cvTasks.GroupDescriptions.Clear();
-                cvTasks.GroupDescriptions.Add(new PropertyGroupDescription("IPGroupDescription"));
-                cvTasks.GroupDescriptions.Add(new PropertyGroupDescription("DeviceDescription"));
+                cvTasks_scanResults.GroupDescriptions.Clear();
+                cvTasks_scanResults.GroupDescriptions.Add(new PropertyGroupDescription("IPGroupDescription"));
+                cvTasks_scanResults.GroupDescriptions.Add(new PropertyGroupDescription("DeviceDescription"));
             }
 
 
@@ -143,7 +143,7 @@ namespace MyNetworkMonitor
 
         }
 
-
+        ICollectionView cvTasks_scanResults;
         ICollectionView cvTasks_IP_Ranges;
 
 
@@ -1345,6 +1345,19 @@ namespace MyNetworkMonitor
             {
                 var itemToRemove = cvTasks_IP_Ranges.GroupDescriptions.OfType<PropertyGroupDescription>().FirstOrDefault(pgd => pgd.PropertyName == "DeviceDescription");
                 cvTasks_IP_Ranges.GroupDescriptions.Remove(itemToRemove);
+            }
+        }
+
+        private void chk_ScanResults_groupDevices_Click(object sender, RoutedEventArgs e)
+        {
+            if ((bool)chk_ScanResults_groupDevices.IsChecked)
+            {
+                cvTasks_scanResults.GroupDescriptions.Add(new PropertyGroupDescription("DeviceDescription"));
+            }
+            else
+            {
+                var itemToRemove = cvTasks_scanResults.GroupDescriptions.OfType<PropertyGroupDescription>().FirstOrDefault(pgd => pgd.PropertyName == "DeviceDescription");
+                cvTasks_scanResults.GroupDescriptions.Remove(itemToRemove);
             }
         }
     }
