@@ -96,7 +96,17 @@ namespace MyNetworkMonitor
                 }
             }
 
-            DataContext = ipGroupData.IPGroupsDT.DefaultView;
+            //DataContext = ipGroupData.IPGroupsDT.DefaultView;
+
+            dgv_IP_Ranges.ItemsSource = ipGroupData.IPGroupsDT.DefaultView;
+
+             cvTasks_IP_Ranges = CollectionViewSource.GetDefaultView(dgv_IP_Ranges.ItemsSource);
+            if (cvTasks_IP_Ranges != null && cvTasks_IP_Ranges.CanGroup == true)
+            {
+                cvTasks_IP_Ranges.GroupDescriptions.Clear();
+                cvTasks_IP_Ranges.GroupDescriptions.Add(new PropertyGroupDescription("IPGroupDescription"));
+                //cvTasks_IP_Ranges.GroupDescriptions.Add(new PropertyGroupDescription("DeviceDescription"));
+            }
 
 
             if (File.Exists(_lastScanResultFile))
@@ -133,8 +143,8 @@ namespace MyNetworkMonitor
 
         }
 
-       
 
+        ICollectionView cvTasks_IP_Ranges;
 
 
 
@@ -1322,6 +1332,19 @@ namespace MyNetworkMonitor
                     e.Column.SortDirection = ListSortDirection.Descending;
                     dv_resultTable.Sort = "IPGroupDescription asc, DeviceDescription asc, IPToSort desc";
                 }
+            }
+        }
+
+        private void chk_IPRanges_groupDevices_Click(object sender, RoutedEventArgs e)
+        {
+            if ((bool)chk_IPRanges_groupDevices.IsChecked)
+            {
+                cvTasks_IP_Ranges.GroupDescriptions.Add(new PropertyGroupDescription("DeviceDescription"));
+            }
+            else
+            {
+                var itemToRemove = cvTasks_IP_Ranges.GroupDescriptions.OfType<PropertyGroupDescription>().FirstOrDefault(pgd => pgd.PropertyName == "DeviceDescription");
+                cvTasks_IP_Ranges.GroupDescriptions.Remove(itemToRemove);
             }
         }
     }
