@@ -135,6 +135,7 @@ namespace MyNetworkMonitor
             }
             else
             {
+                if (!Directory.Exists(Path.GetDirectoryName(_portsToScan))) Directory.CreateDirectory(Path.GetDirectoryName(_portsToScan));
                 new PortCollection().TableOfPortsToScan.WriteXml(_portsToScan);
                 _portCollection.TableOfPortsToScan.ReadXml(_portsToScan);
             }
