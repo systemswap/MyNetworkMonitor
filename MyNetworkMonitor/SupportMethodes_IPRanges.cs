@@ -41,7 +41,10 @@ namespace IpRanges
             for (int i = 0; i < 4; i++)
                 capacity *= endIP[i] - beginIP[i] + 1;
 
-            List<IPAddress> ips = new List<IPAddress>(capacity);
+            List<IPAddress> ips;
+            if (capacity < 0) return ips = new List<IPAddress>(0);
+
+             ips = new List<IPAddress>(capacity);
             for (int i0 = beginIP[0]; i0 <= endIP[0]; i0++)
             {
                 for (int i1 = beginIP[1]; i1 <= endIP[1]; i1++)
