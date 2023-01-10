@@ -27,12 +27,14 @@ namespace MyNetworkMonitor
 {
     // install as Service https://www.youtube.com/watch?v=y64L-3HKuP0
 
-    
+
     public partial class MainWindow : Window
     {
         public MainWindow()
         {
             InitializeComponent();
+
+            if (!Directory.Exists(Path.GetDirectoryName(_portsToScan))) Directory.CreateDirectory(Path.GetDirectoryName(_portsToScan));
 
             supportMethods = new SupportMethods();
             //supportMethods.GetNetworkInterfaces();            
@@ -70,9 +72,9 @@ namespace MyNetworkMonitor
             scanningMethode_PortsUDP.UDPPortScan_Task_Finished += UDPPortScan_Task_Finished;
             scanningMethode_PortsUDP.UDPPortScan_Finished += UDPPortScan_Finished;
 
-            
-            
-            dv_resultTable = new DataView(_scannResults.ResultTable);            
+
+
+            dv_resultTable = new DataView(_scannResults.ResultTable);
             dgv_Results.ItemsSource = dv_resultTable;
 
             cvTasks_scanResults = CollectionViewSource.GetDefaultView(dgv_Results.ItemsSource);
@@ -100,7 +102,7 @@ namespace MyNetworkMonitor
 
             dgv_IP_Ranges.ItemsSource = ipGroupData.IPGroupsDT.DefaultView;
 
-             cvTasks_IP_Ranges = CollectionViewSource.GetDefaultView(dgv_IP_Ranges.ItemsSource);
+            cvTasks_IP_Ranges = CollectionViewSource.GetDefaultView(dgv_IP_Ranges.ItemsSource);
             if (cvTasks_IP_Ranges != null && cvTasks_IP_Ranges.CanGroup == true)
             {
                 cvTasks_IP_Ranges.GroupDescriptions.Clear();
@@ -135,7 +137,6 @@ namespace MyNetworkMonitor
             }
             else
             {
-                if (!Directory.Exists(Path.GetDirectoryName(_portsToScan))) Directory.CreateDirectory(Path.GetDirectoryName(_portsToScan));
                 new PortCollection().TableOfPortsToScan.WriteXml(_portsToScan);
                 _portCollection.TableOfPortsToScan.ReadXml(_portsToScan);
             }
@@ -184,7 +185,7 @@ namespace MyNetworkMonitor
             finished
         }
 
-      
+
         ScanStatus arp_a_state = ScanStatus.ignored;
 
         ScanStatus ping_state = ScanStatus.ignored;
@@ -199,7 +200,7 @@ namespace MyNetworkMonitor
         int foundedIPCams = 0;
 
         ScanStatus dns_state = ScanStatus.ignored;
-        int currentHostnameCount = 0;        
+        int currentHostnameCount = 0;
         int CountedHostnames = 0;
         int responsedHostNamesCount = 0;
 
@@ -209,7 +210,7 @@ namespace MyNetworkMonitor
         int responsedLookupDevices = 0;
 
         ScanStatus arpRequest_state = ScanStatus.ignored;
-        int currentARPRequest = 0;        
+        int currentARPRequest = 0;
         int CountedARPRequests = 0;
         int responsedARPRequestCount = 0;
 
@@ -228,7 +229,7 @@ namespace MyNetworkMonitor
                 $"SSDP: {ssdp_state.ToString()} found {currentSSDPCount} from {CountedSSDPs}        " +
                 $"IP-Cams: {IPCams_state.ToString()} found {foundedIPCams}        " +
                 $"ARP-Request: {arpRequest_state.ToString()}  {currentARPRequest} from {CountedARPRequests} found {responsedARPRequestCount}        " +
-                $"Ping: {ping_state.ToString()} {currentPingCount} of {CountedPings}        " +                
+                $"Ping: {ping_state.ToString()} {currentPingCount} of {CountedPings}        " +
                 $"HostNames: {dns_state.ToString()} {currentHostnameCount.ToString()} from {CountedHostnames.ToString()} found {responsedHostNamesCount.ToString()}        " +
                 $"NSLookUps: {Lookup_state.ToString()}  {currentLookupCount.ToString()} from {CountedLookups.ToString()} found: {responsedLookupDevices}        " +
                 $"TCP Ports: {tcp_port_Scan_state.ToString()} {current_TCPPortScan_Count} from {Counted_TCPPortScans} answerd: {responsedTCPPortScanDevices}         " +
@@ -344,7 +345,7 @@ namespace MyNetworkMonitor
             }
         }
 
-      
+
 
         private void bt_ScanIP_Click(object sender, RoutedEventArgs e)
         {
@@ -434,7 +435,7 @@ namespace MyNetworkMonitor
                         ipToScan.HostName = row.Row["Hostname"].ToString();
                         ipToScan.Domain = row.Row["Domain"].ToString();
                         ipToScan.TCPPortsToScan = TCPPorts;
-                        ipToScan.UDPPortsToScan = null;                        
+                        ipToScan.UDPPortsToScan = null;
                         ipToScan.DNSServerList = row.Row["DNSServers"].ToString().Split(',').ToList();
                         ipToScan.TimeOut = _TimeOut;
                         ipToScan.GatewayIP = row["GatewayIP"].ToString();
@@ -447,13 +448,13 @@ namespace MyNetworkMonitor
             DoWork(true);
         }
 
-       
+
         private void bt_Scan_IP_Ranges_Click(object sender, RoutedEventArgs e)
         {
             _IPsToScan.Clear();
 
             List<string> IPs = new List<string>();
-            string myIP = new SupportMethods().GetLocalIPv4(System.Net.NetworkInformation.NetworkInterfaceType.Ethernet);
+            string myIP = string.Empty; // new SupportMethods().GetLocalIPv4(System.Net.NetworkInformation.NetworkInterfaceType.Ethernet);
 
             myIP = "192.168.178.1";
             //myIP = "10.126.75.1";
@@ -481,7 +482,7 @@ namespace MyNetworkMonitor
             {
                 if ((bool)row["IsActive"])
                 {
-                    
+
 
                     if (string.IsNullOrEmpty(row["LastIP"].ToString()))
                     {
@@ -491,7 +492,7 @@ namespace MyNetworkMonitor
                             IPToScan ipToScan = new IPToScan();
                             ipToScan.IPGroupDescription = row["IPGroupDescription"].ToString();
                             ipToScan.DeviceDescription = row["DeviceDescription"].ToString();
-                            ipToScan.IPorHostname = IP_or_Hostname;                            
+                            ipToScan.IPorHostname = IP_or_Hostname;
                             ipToScan.Domain = row["Domain"].ToString();
                             ipToScan.TCPPortsToScan = TCPPorts;
                             ipToScan.UDPPortsToScan = null;
@@ -506,14 +507,14 @@ namespace MyNetworkMonitor
                         else
                         {
                             IPHostEntry _entry = Task.Run(() => scanningMethod_LookUp.nsLookup(IP_or_Hostname)).Result;
-                            if(_entry != null)
+                            if (_entry != null)
                             {
                                 foreach (IPAddress address in _entry.AddressList)
                                 {
                                     IPToScan ipToScan = new IPToScan();
                                     ipToScan.IPGroupDescription = row["IPGroupDescription"].ToString();
                                     ipToScan.DeviceDescription = row["DeviceDescription"].ToString();
-                                    ipToScan.IPorHostname = address.ToString();                                    
+                                    ipToScan.IPorHostname = address.ToString();
                                     ipToScan.Domain = row["Domain"].ToString();
                                     ipToScan.TCPPortsToScan = TCPPorts;
                                     ipToScan.UDPPortsToScan = null;
@@ -552,12 +553,12 @@ namespace MyNetworkMonitor
                             _IPsToScan.Add(ipToScan);
                         }
                     }
-                }                    
+                }
             }
             DoWork(false);
         }
 
-        
+
         public async void DoWork(bool IsSelectiveScan, bool ClearTable = false)
         {
             currentPingCount = 0;
@@ -565,7 +566,7 @@ namespace MyNetworkMonitor
 
             currentSSDPCount = 0;
             CountedSSDPs = 0;
-            
+
             currentHostnameCount = 0;
             CountedHostnames = 0;
             responsedHostNamesCount = 0;
@@ -582,15 +583,15 @@ namespace MyNetworkMonitor
             Counted_TCPPortScans = 0;
             responsedTCPPortScanDevices = 0;
 
-            current_UDPPortScan_Count =0;
-            Counted_UDPListener= 0;
+            current_UDPPortScan_Count = 0;
+            Counted_UDPListener = 0;
 
 
             foreach (DataRow row in _scannResults.ResultTable.Rows)
             {
                 if (_IPsToScan.Where(i => i.IPorHostname == row["IP"].ToString()).Count() > 0)
                 {
-                    if((bool)chk_Methodes_ARP_A.IsChecked && !string.IsNullOrEmpty(row["ARPStatus"].ToString())) row["ARPStatus"] = Properties.Resources.gray_dotTB;
+                    if ((bool)chk_Methodes_ARP_A.IsChecked && !string.IsNullOrEmpty(row["ARPStatus"].ToString())) row["ARPStatus"] = Properties.Resources.gray_dotTB;
 
 
                     if ((bool)chk_Methodes_Ping.IsChecked && !string.IsNullOrEmpty(row["PingStatus"].ToString())) row["PingStatus"] = Properties.Resources.gray_dotTB;
@@ -617,7 +618,7 @@ namespace MyNetworkMonitor
                     }
                 }
             }
-            
+
 
             /* set the states */
             if ((bool)chk_Methodes_SSDP.IsChecked) ssdp_state = ScanStatus.waiting;
@@ -654,7 +655,7 @@ namespace MyNetworkMonitor
 
             if ((bool)chk_Methodes_ONVIF.IsChecked)
             {
-                IPCams_state = ScanStatus.running;               
+                IPCams_state = ScanStatus.running;
                 Status();
                 scanningMethod_FindIPCameras.Discover(_IPsToScan);
 
@@ -668,7 +669,7 @@ namespace MyNetworkMonitor
                 Status();
 
                 await Task.Run(() => scanningMethode_ARP.SendARPRequestAsync(_IPsToScan));
-            }            
+            }
 
 
             if ((bool)chk_Methodes_Ping.IsChecked)
@@ -733,9 +734,9 @@ namespace MyNetworkMonitor
                 List<IPToScan> IPsForLookUp = new List<IPToScan>();
                 foreach (IPToScan _ipToScan in IPsForHostnameScan)
                 {
-                    List<DataRow> rows = _scannResults.ResultTable.Select("IP = '" + _ipToScan.IPorHostname + "'").ToList();                    
+                    List<DataRow> rows = _scannResults.ResultTable.Select("IP = '" + _ipToScan.IPorHostname + "'").ToList();
 
-                    if(rows.Count > 0)
+                    if (rows.Count > 0)
                     {
                         int rowIndex = _scannResults.ResultTable.Rows.IndexOf(rows[0]);
 
@@ -790,7 +791,7 @@ namespace MyNetworkMonitor
                         _IPsForTCPPortScan.Add(ipToScan);
                     }
                 }
-                
+
                 tcp_port_Scan_state = ScanStatus.running;
                 Counted_TCPPortScans = _IPsForTCPPortScan.Count;
                 Status();
@@ -814,7 +815,7 @@ namespace MyNetworkMonitor
                 Status();
 
                 Task.Run(() => scanningMethode_ARP.ARP_A(_IPsToScan));
-            }        
+            }
         }
 
         public void InsertIPToScanResult(IPToScan ipToScan)
@@ -842,9 +843,9 @@ namespace MyNetworkMonitor
                 _scannResults.ResultTable.Rows[rowIndex]["GatewayIP"] = ipToScan.GatewayIP;
                 _scannResults.ResultTable.Rows[rowIndex]["GatewayPort"] = ipToScan.GatewayPort;
 
-                if (ipToScan.UsedScanMethod == ScanMethod.SSDP) 
-                { 
-                    _scannResults.ResultTable.Rows[rowIndex]["SSDPStatus"] = ipToScan.SSDPStatus ? Properties.Resources.green_dot : Properties.Resources.red_dotTB; 
+                if (ipToScan.UsedScanMethod == ScanMethod.SSDP)
+                {
+                    _scannResults.ResultTable.Rows[rowIndex]["SSDPStatus"] = ipToScan.SSDPStatus ? Properties.Resources.green_dot : Properties.Resources.red_dotTB;
                 }
 
                 if (ipToScan.UsedScanMethod == ScanMethod.ARPRequest)
@@ -931,8 +932,8 @@ namespace MyNetworkMonitor
                     row["SSDPStatus"] = ipToScan.SSDPStatus ? Properties.Resources.green_dot : Properties.Resources.red_dotTB;
                 }
 
-                if (ipToScan.UsedScanMethod == ScanMethod.ARPRequest) 
-                { 
+                if (ipToScan.UsedScanMethod == ScanMethod.ARPRequest)
+                {
                     row["ARPStatus"] = ipToScan.ARPStatus ? Properties.Resources.green_dot : Properties.Resources.red_dotTB;
                     row["MAC"] = ipToScan.MAC;
                     row["Vendor"] = ipToScan.Vendor;
@@ -962,7 +963,7 @@ namespace MyNetworkMonitor
                     row["ResponseTime"] = ipToScan.ResponseTime;
                 }
 
-                
+
 
                 if (ipToScan.UsedScanMethod == ScanMethod.ONVIF_IPCam)
                 {
@@ -1010,8 +1011,8 @@ namespace MyNetworkMonitor
 
         private void Ping_Task_Finished(object? sender, ScanTask_Finished_EventArgs e)
         {
-            Dispatcher.BeginInvoke(() => 
-            {               
+            Dispatcher.BeginInvoke(() =>
+            {
                 InsertIPToScanResult(e.ipToScan);
 
                 ++currentPingCount;
@@ -1082,7 +1083,7 @@ namespace MyNetworkMonitor
                 {
                     return;
                 }
-               
+
                 InsertIPToScanResult(e.ipToScan);
 
                 ++responsedARPRequestCount;
@@ -1091,7 +1092,7 @@ namespace MyNetworkMonitor
         }
         private void ARP_Request_Finished(object? sender, Method_Finished_EventArgs e)
         {
-            Dispatcher.BeginInvoke(() => 
+            Dispatcher.BeginInvoke(() =>
             {
                 arpRequest_state = ScanStatus.finished;
                 Status();
@@ -1146,7 +1147,7 @@ namespace MyNetworkMonitor
         }
         private void Lookup_Finished(object? sender, Method_Finished_EventArgs e)
         {
-            Dispatcher.BeginInvoke(() => 
+            Dispatcher.BeginInvoke(() =>
             {
                 Lookup_state = ScanStatus.finished;
                 Status();
@@ -1166,7 +1167,7 @@ namespace MyNetworkMonitor
                 {
                     return;
                 }
-               
+
 
                 InsertIPToScanResult(e.ipToScan);
 
@@ -1189,7 +1190,7 @@ namespace MyNetworkMonitor
         private void UDPPortScan_Task_Finished(object? sender, ScanTask_Finished_EventArgs e)
         {
             Dispatcher.BeginInvoke(() =>
-            {                
+            {
                 InsertIPToScanResult(e.ipToScan);
 
                 ++current_UDPPortScan_Count;
@@ -1211,7 +1212,7 @@ namespace MyNetworkMonitor
             _TimeOut = (int)slider_TimeOut.Value;
         }
 
-       
+
 
         private void bt_Edit_IP_Range_Click(object sender, RoutedEventArgs e)
         {
@@ -1263,7 +1264,7 @@ namespace MyNetworkMonitor
         private void bt_SavePortsToScan_Click(object sender, RoutedEventArgs e)
         {
             DataView dv = _portCollection.TableOfPortsToScan.DefaultView;
-            dv.Sort = "Ports asc";            
+            dv.Sort = "Ports asc";
             DataTable sortedtable1 = dv.ToTable();
             sortedtable1.WriteXml(_portsToScan, XmlWriteMode.WriteSchema);
         }
@@ -1291,12 +1292,12 @@ namespace MyNetworkMonitor
 
         private void Filter_ScanResults_Explicite()
         {
-                //MainForm_ModFolderTab_ClearModFilter_pictureBox.Visible = true;
-                string whereFilter = "1 = 1";
+            //MainForm_ModFolderTab_ClearModFilter_pictureBox.Visible = true;
+            string whereFilter = "1 = 1";
 
             if (tb_Filter_IP.Text.Length > 0) whereFilter += " and IP Like '%" + tb_Filter_IP.Text + "%'";
             if (tb_Filter_InternalName.Text.Length > 0) whereFilter += " and InternalName Like '%" + tb_Filter_InternalName.Text + "%'";
-            if (tb_Filter_HostName.Text.Length > 0) whereFilter += " and Hostname Like '%" + tb_Filter_HostName.Text + "%'";            
+            if (tb_Filter_HostName.Text.Length > 0) whereFilter += " and Hostname Like '%" + tb_Filter_HostName.Text + "%'";
             if (tb_Filter_TCPPort.Text.Length > 0) whereFilter += " and TCP_Ports Like '%" + tb_Filter_TCPPort.Text + "%'";
             if (tb_Filter_Mac.Text.Length > 0) whereFilter += " and Mac Like '%" + tb_Filter_Mac.Text + "%'";
             if (tb_Filter_Vendor.Text.Length > 0) whereFilter += " and Vendor Like '%" + tb_Filter_Vendor.Text + "%'";
@@ -1304,10 +1305,10 @@ namespace MyNetworkMonitor
             if ((bool)chk_Filter_IsIPCam.IsChecked) whereFilter += " and IsIPCam is not null";
 
             dv_resultTable.RowFilter = string.Format(whereFilter);
-           
-                //dv_resultTable.RowFilter = string.Format("IP Like '%*%'");
-                //MainForm_ModFolderTab_ClearModFilter_pictureBox.Visible = false;
-            
+
+            //dv_resultTable.RowFilter = string.Format("IP Like '%*%'");
+            //MainForm_ModFolderTab_ClearModFilter_pictureBox.Visible = false;
+
         }
 
         private void Filter_ScanResults_Explicite(object sender, RoutedEventArgs e)
@@ -1321,10 +1322,10 @@ namespace MyNetworkMonitor
             {
                 if (e.Column.SortDirection == null || e.Column.SortDirection == ListSortDirection.Descending)
                 {
-                    e.Handled= true;
+                    e.Handled = true;
                     e.Column.SortDirection = ListSortDirection.Ascending;
                     dv_resultTable.Sort = "IPGroupDescription asc, DeviceDescription asc, IPToSort asc";
-                    
+
                     //dgv_Results.Columns[6].SortDirection = ListSortDirection.Ascending;
                 }
                 else
@@ -1359,6 +1360,52 @@ namespace MyNetworkMonitor
             {
                 var itemToRemove = cvTasks_scanResults.GroupDescriptions.OfType<PropertyGroupDescription>().FirstOrDefault(pgd => pgd.PropertyName == "DeviceDescription");
                 cvTasks_scanResults.GroupDescriptions.Remove(itemToRemove);
+            }
+        }
+
+        private void bt_Scan_at_NetworkAdapters_Click(object sender, RoutedEventArgs e)
+        {
+            MessageBoxResult result = MessageBox.Show("All scanning Methodes correctly selected?", "stupid question", MessageBoxButton.YesNo);
+
+            if (result != MessageBoxResult.Yes) { return; }
+
+
+            Supporter_NetworkInterfaces nics = new Supporter_NetworkInterfaces();
+            Window_ScanFromNIC w_ScanFromNIC = new Window_ScanFromNIC(nics.GetNetworkInterfaces());
+
+            w_ScanFromNIC.ShowDialog();
+
+            if (w_ScanFromNIC.IPsToScan.Count > 0)
+            {
+                _IPsToScan.Clear();
+                _IPsToScan = w_ScanFromNIC.IPsToScan;
+
+
+                List<int> TCPPorts = new List<int>();
+
+                if ((bool)chk_Methodes_ScanTCPPorts.IsChecked && !(bool)chk_allTCPPorts.IsChecked)
+                {
+                    TCPPorts.AddRange(_portCollection.TCPPorts);
+
+                    //Additional Ports from Customer
+                    if (!string.IsNullOrEmpty(tb_TCPPorts.Text))
+                    {
+                        TCPPorts.AddRange(tb_TCPPorts.Text.Split(',')?.Select(Int32.Parse)?.ToList());
+                    }
+                }
+
+                if ((bool)chk_Methodes_ScanTCPPorts.IsChecked && (bool)chk_allTCPPorts.IsChecked)
+                {
+                    TCPPorts.AddRange(Enumerable.Range(1, 65536));
+                }
+
+                foreach (IPToScan ip in _IPsToScan)
+                {
+                    ip.TCPPortsToScan = TCPPorts;
+                    ip.TimeOut = _TimeOut;
+                }
+
+                DoWork(false);
             }
         }
     }

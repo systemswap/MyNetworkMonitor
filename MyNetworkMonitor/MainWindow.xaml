@@ -121,16 +121,29 @@
 
 
                         </DataGrid>
-
-                        <Button x:Name="bt_Scan_IP_Ranges" Content="Scan IP Ranges" Click="bt_Scan_IP_Ranges_Click" Margin="10,10,10,10" Grid.Row="2" Background="#BFA4B1BF" OpacityMask="Black">
-                            <!--Background="#BFA4B1BF"-->
-                            <Button.Resources>
-                                <Style TargetType="Border">
-                                    <Setter Property="CornerRadius" Value="5"/>
-                                </Style>
-                            </Button.Resources>
-                        </Button>
                         <CheckBox x:Name="chk_IPRanges_groupDevices" Content="group Devices" HorizontalAlignment="Left" Margin="10,25,0,0" VerticalAlignment="Top" Click="chk_IPRanges_groupDevices_Click"/>
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition/>
+                                <ColumnDefinition/>
+                            </Grid.ColumnDefinitions>
+                            <Button x:Name="bt_Scan_at_NetworkAdapters" Content="Scan @ NICs" Margin="10,10,10,10" Background="#BFA4B1BF" OpacityMask="Black" Click="bt_Scan_at_NetworkAdapters_Click">
+                                <!--Background="#BFA4B1BF"-->
+                                <Button.Resources>
+                                    <Style TargetType="{x:Type Border}">
+                                        <Setter Property="CornerRadius" Value="5"/>
+                                    </Style>
+                                </Button.Resources>
+                            </Button>
+                            <Button x:Name="bt_Scan_IP_Ranges" Content="Scan IP Ranges" Click="bt_Scan_IP_Ranges_Click" Margin="10,10,10,10" Background="#BFA4B1BF" OpacityMask="Black" Grid.Column="1">
+                                <!--Background="#BFA4B1BF"-->
+                                <Button.Resources>
+                                    <Style TargetType="{x:Type Border}">
+                                        <Setter Property="CornerRadius" Value="5"/>
+                                    </Style>
+                                </Button.Resources>
+                            </Button>
+                        </Grid>
 
                     </Grid>
                 </TabItem>
