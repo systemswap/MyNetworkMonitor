@@ -39,7 +39,7 @@ namespace MyNetworkMonitor
                             _nicInfo.IPv4 = ip.Address.ToString();
                             _nicInfo.IPv4Mask = ip.IPv4Mask.ToString();
 
-                            string[] ipRanges = GetIpRange(_nicInfo.IPv4, _nicInfo.IPv4Mask);
+                            string[] ipRanges = GetIpRange(_nicInfo.IPv4, _nicInfo.IPv4Mask, false);
                             _nicInfo.FirstSubnetIP = ipRanges[0];
                             _nicInfo.LastSubnetIP = ipRanges[1];
 
@@ -169,7 +169,7 @@ namespace MyNetworkMonitor
             uint first = ip2 & sub;
             uint last = first | (0xffffffff & ~sub);
 
-            if (filterUsable)
+            if (filterUsable && mask != "255.255.255.255")
             {
                 first += 1;
                 last -= 1;
