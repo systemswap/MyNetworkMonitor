@@ -28,6 +28,8 @@ namespace MyNetworkMonitor
             cb_NetworkAdapters.SelectedIndex = 0;
         }
 
+        bool TextChangedByComboBox = false;
+
         List<NicInfo> nicInfos = new List<NicInfo>();
 
         private void cb_NetworkAdapters_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -35,21 +37,15 @@ namespace MyNetworkMonitor
             NicInfo n = new NicInfo();
             n = nicInfos.Where(name => name.NicName == cb_NetworkAdapters.SelectedItem).FirstOrDefault();
 
+            TextChangedByComboBox = true;
+
             tb_AdapterIP.Text = n.IPv4;
             tb_AdapterSubnetMask.Text = n.IPv4Mask;
             tb_Adapter_FirstSubnetIP.Text = n.FirstSubnetIP;
             tb_Adapter_LastSubnetIP.Text = n.LastSubnetIP;
+            lb_IPsToScan.Content = n.IPsCount;
 
-            try
-            {
-                IpRanges.IPRange range = new IpRanges.IPRange(tb_Adapter_FirstSubnetIP.Text, tb_Adapter_LastSubnetIP.Text);
-                lb_IPsToScan.Content = range.GetAllIP().Count().ToString();
-            }
-            catch (Exception)
-            {
-
-                lb_IPsToScan.Content = "...";
-            }
+            TextChangedByComboBox = false;
         }
 
 
@@ -75,6 +71,8 @@ namespace MyNetworkMonitor
 
         private void tb_Adapter_FirstSubnetIP_TextChanged(object sender, TextChangedEventArgs e)
         {
+            if (TextChangedByComboBox) return;
+            
             try
             {
                 IpRanges.IPRange range = new IpRanges.IPRange(tb_Adapter_FirstSubnetIP.Text, tb_Adapter_LastSubnetIP.Text);
@@ -89,6 +87,8 @@ namespace MyNetworkMonitor
 
         private void tb_Adapter_LastSubnetIP_TextChanged(object sender, TextChangedEventArgs e)
         {
+            if (TextChangedByComboBox) return;
+
             try
             {
                 IpRanges.IPRange range = new IpRanges.IPRange(tb_Adapter_FirstSubnetIP.Text, tb_Adapter_LastSubnetIP.Text);

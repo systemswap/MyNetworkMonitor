@@ -17,6 +17,7 @@ namespace MyNetworkMonitor
         public string IPv4Mask { get; set; }
         public string FirstSubnetIP { get; set; }
         public string LastSubnetIP { get; set; }
+        public string IPsCount { get; set; }
         public string IPv6 { get; set; }
     }
     public class Supporter_NetworkInterfaces
@@ -41,6 +42,9 @@ namespace MyNetworkMonitor
                             string[] ipRanges = GetIpRange(_nicInfo.IPv4, _nicInfo.IPv4Mask);
                             _nicInfo.FirstSubnetIP = ipRanges[0];
                             _nicInfo.LastSubnetIP = ipRanges[1];
+
+                            IpRanges.IPRange range = new IpRanges.IPRange(_nicInfo.FirstSubnetIP, _nicInfo.LastSubnetIP);
+                            _nicInfo.IPsCount = range.GetAllIP().Count().ToString();
 
                             nicInfos.Add(_nicInfo);
                         }
