@@ -69,14 +69,15 @@ namespace MyNetworkMonitor
         private List<IPToScan> _IPsToScan = new List<IPToScan>();
         public List<IPToScan> IPsToScan { get { return _IPsToScan; } }
 
-        private void tb_Adapter_FirstSubnetIP_TextChanged(object sender, TextChangedEventArgs e)
+        private async void tb_Adapter_FirstSubnetIP_TextChanged(object sender, TextChangedEventArgs e)
         {
             if (TextChangedByComboBox) return;
             
             try
             {
                 IpRanges.IPRange range = new IpRanges.IPRange(tb_Adapter_FirstSubnetIP.Text, tb_Adapter_LastSubnetIP.Text);
-                lb_IPsToScan.Content = range.GetAllIP().Count().ToString();
+                lb_IPsToScan.Content = "calc. number of IPs";
+                lb_IPsToScan.Content = await Task.Run(() => range.GetAllIP().Count().ToString());
             }
             catch (Exception)
             {
@@ -85,14 +86,15 @@ namespace MyNetworkMonitor
             }
         }
 
-        private void tb_Adapter_LastSubnetIP_TextChanged(object sender, TextChangedEventArgs e)
+        private async void tb_Adapter_LastSubnetIP_TextChanged(object sender, TextChangedEventArgs e)
         {
             if (TextChangedByComboBox) return;
 
             try
             {
                 IpRanges.IPRange range = new IpRanges.IPRange(tb_Adapter_FirstSubnetIP.Text, tb_Adapter_LastSubnetIP.Text);
-                lb_IPsToScan.Content = range.GetAllIP().Count().ToString();
+                lb_IPsToScan.Content = "calc. number of IPs";
+                lb_IPsToScan.Content = await Task.Run(() => range.GetAllIP().Count().ToString());
             }
             catch (Exception)
             {
