@@ -87,8 +87,7 @@ namespace MyNetworkMonitor
         }
 
         int NumberOfIPsInRange(string StartIP, string EndIP, bool includeStartAndEndAddress = true)
-        {
-            
+        {            
             int _startIP = IPAddress.NetworkToHostOrder(BitConverter.ToInt32(IPAddress.Parse(StartIP).GetAddressBytes(), 0));
             int _endIP = IPAddress.NetworkToHostOrder(BitConverter.ToInt32(IPAddress.Parse(EndIP).GetAddressBytes(), 0));
             int numberOfIPs = 0;
