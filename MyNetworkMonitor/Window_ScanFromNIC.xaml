@@ -1,0 +1,25 @@
+﻿<Window x:Class="MyNetworkMonitor.Window_ScanFromNIC"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:MyNetworkMonitor"
+        mc:Ignorable="d" 
+        Title="Scan From NIC" Height="283" Width="475">
+    <Canvas Background="White">
+        <Label Content="Select Network Adapter" Canvas.Left="24" Canvas.Top="18"/>
+        <ComboBox x:Name="cb_NetworkAdapters" Canvas.Left="24" Canvas.Top="44" Width="419" HorizontalAlignment="Left" VerticalAlignment="Top" SelectionChanged="cb_NetworkAdapters_SelectionChanged"/>
+        <TextBox x:Name="tb_AdapterIP" Canvas.Left="27" TextWrapping="Wrap" IsReadOnly="true" Canvas.Top="106" Width="184" HorizontalAlignment="Left" VerticalAlignment="Top" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Background="#FFEFEFEF"/>
+        <Label Content="IP Address" Canvas.Left="24" Canvas.Top="80" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+        <Label Content="Subnetmask" Canvas.Left="259" Canvas.Top="80" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+        <TextBox x:Name="tb_AdapterSubnetMask" Canvas.Left="259" TextWrapping="Wrap" IsReadOnly="True" Canvas.Top="106" Width="184" HorizontalAlignment="Left" VerticalAlignment="Top" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Background="#FFEFEFEF"/>
+        <Label Content="First Subnet IP" Canvas.Left="24" Canvas.Top="149" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+        <Label Content="Last Subnet IP" Canvas.Left="259" Canvas.Top="149" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+        <TextBox x:Name="tb_Adapter_FirstSubnetIP" Canvas.Left="27" TextWrapping="Wrap"  Canvas.Top="175" Width="184" HorizontalAlignment="Left" VerticalAlignment="Top" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" TextChanged="tb_Adapter_FirstSubnetIP_TextChanged"/>
+        <TextBox x:Name="tb_Adapter_LastSubnetIP" Canvas.Left="259" TextWrapping="Wrap"  Canvas.Top="175" Width="184" HorizontalAlignment="Left" VerticalAlignment="Top" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" TextChanged="tb_Adapter_LastSubnetIP_TextChanged"/>
+        <Button x:Name="bt_StartScan" Content="start scan" Canvas.Left="363" Canvas.Top="215" HorizontalAlignment="Left" VerticalAlignment="Top" Width="80" Click="bt_StartScan_Click"/>
+        <Button x:Name="bt_cancel" Content="cancel" Canvas.Left="259" Canvas.Top="215" HorizontalAlignment="Left" VerticalAlignment="Top" Width="80" Click="bt_cancel_Click"/>
+        <Label Content="IPs to Scan:" Canvas.Left="27" Canvas.Top="212"/>
+        <Label x:Name="lb_IPsToScan" Content="..." Canvas.Left="102" Canvas.Top="212"/>
+    </Canvas>
+</Window>

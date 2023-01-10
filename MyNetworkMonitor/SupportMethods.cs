@@ -26,42 +26,6 @@ namespace MyNetworkMonitor
             }
         }
 
-        public void GetNetworkInterfaces()
-        {            
-            foreach (NetworkInterface ni in NetworkInterface.GetAllNetworkInterfaces())
-            {
-                if (ni.NetworkInterfaceType == NetworkInterfaceType.Wireless80211 || ni.NetworkInterfaceType == NetworkInterfaceType.Ethernet)
-                {
-                    var bla = ni.Name;
-                    foreach (UnicastIPAddressInformation ip in ni.GetIPProperties().UnicastAddresses)
-                    {
-                        if (ip.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
-                        {
-                            ip.Address.ToString();
-                        }
-                    }
-                }
-            }
-        }
-
-        public string GetLocalIPv4(NetworkInterfaceType _type)
-        {
-            string output = "";
-            foreach (NetworkInterface item in NetworkInterface.GetAllNetworkInterfaces())
-            {
-                if (item.NetworkInterfaceType == _type && item.OperationalStatus == OperationalStatus.Up)
-                {
-                    foreach (UnicastIPAddressInformation ip in item.GetIPProperties().UnicastAddresses)
-                    {
-                        if (ip.Address.AddressFamily == AddressFamily.InterNetwork)
-                        {
-                            output = ip.Address.ToString();
-                        }
-                    }
-                }
-            }
-            return output;
-        }
 
         public string[] header;
         private string[][] fields;
@@ -172,68 +136,64 @@ namespace MyNetworkMonitor
         }
     }
 
-    public static class LanguageUtils
-    {
-        /// <summary>
-        /// Runs an operation and ignores any Exceptions that occur.
-        /// Returns true or falls depending on whether catch was
-        /// triggered
-        /// </summary>
-        /// <param name="operation">lambda that performs an operation that might throw</param>
-        /// <returns></returns>
-        public static bool IgnoreErrors(Action operation)
-        {
-            if (operation == null)
-                return false;
-            try
-            {
-                operation.Invoke();
-            }
-            catch
-            {
-                return false;
-            }
+    //public static class LanguageUtils
+    //{
+    //    /// <summary>
+    //    /// Runs an operation and ignores any Exceptions that occur.
+    //    /// Returns true or falls depending on whether catch was
+    //    /// triggered
+    //    /// </summary>
+    //    /// <param name="operation">lambda that performs an operation that might throw</param>
+    //    /// <returns></returns>
+    //    public static bool IgnoreErrors(Action operation)
+    //    {
+    //        if (operation == null)
+    //            return false;
+    //        try
+    //        {
+    //            operation.Invoke();
+    //        }
+    //        catch
+    //        {
+    //            return false;
+    //        }
 
-            return true;
-        }
+    //        return true;
+    //    }
 
-        /// <summary>
-        /// Runs an function that returns a value and ignores any Exceptions that occur.
-        /// Returns true or falls depending on whether catch was
-        /// triggered
-        /// </summary>
-        /// <param name="operation">parameterless lamda that returns a value of T</param>
-        /// <param name="defaultValue">Default value returned if operation fails</param>
-        public static T IgnoreErrors<T>(Func<T> operation, T defaultValue = default(T))
-        {
-            if (operation == null)
-                return defaultValue;
+    //    /// <summary>
+    //    /// Runs an function that returns a value and ignores any Exceptions that occur.
+    //    /// Returns true or falls depending on whether catch was
+    //    /// triggered
+    //    /// </summary>
+    //    /// <param name="operation">parameterless lamda that returns a value of T</param>
+    //    /// <param name="defaultValue">Default value returned if operation fails</param>
+    //    public static T IgnoreErrors<T>(Func<T> operation, T defaultValue = default(T))
+    //    {
+    //        if (operation == null)
+    //            return defaultValue;
 
-            T result;
-            try
-            {
-                result = operation.Invoke();
-            }
-            catch
-            {
-                result = defaultValue;
-            }
+    //        T result;
+    //        try
+    //        {
+    //            result = operation.Invoke();
+    //        }
+    //        catch
+    //        {
+    //            result = defaultValue;
+    //        }
 
-            return result;
-        }
-    }
+    //        return result;
+    //    }
+    //}
 
-    //helps to sort IPs
-    public class IPComparer : IComparer<string>
-    {
-        public int Compare(string a, string b)
-        {
-            return Enumerable.Zip(a.Split('.'), b.Split('.'), (x, y) => int.Parse(x).CompareTo(int.Parse(y))).FirstOrDefault(i => i != 0);
-        }
-    }
-
-
-   
-
+    ////helps to sort IPs
+    //public class IPComparer : IComparer<string>
+    //{
+    //    public int Compare(string a, string b)
+    //    {
+    //        return Enumerable.Zip(a.Split('.'), b.Split('.'), (x, y) => int.Parse(x).CompareTo(int.Parse(y))).FirstOrDefault(i => i != 0);
+    //    }
+    //}
 }
 
