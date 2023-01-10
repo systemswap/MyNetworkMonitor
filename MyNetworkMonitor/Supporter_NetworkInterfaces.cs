@@ -39,7 +39,7 @@ namespace MyNetworkMonitor
                             _nicInfo.IPv4 = ip.Address.ToString();
                             _nicInfo.IPv4Mask = ip.IPv4Mask.ToString();
 
-                            string[] ipRanges = GetIpRange(_nicInfo.IPv4, _nicInfo.IPv4Mask, false);
+                            string[] ipRanges = GetIpRange(_nicInfo.IPv4, _nicInfo.IPv4Mask);
                             _nicInfo.FirstSubnetIP = ipRanges[0];
                             _nicInfo.LastSubnetIP = ipRanges[1];
 
