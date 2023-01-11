@@ -9,6 +9,11 @@ namespace IpRanges
 {
     public class IPRange
     {
+        public IPRange()
+        {
+
+        }
+
         /// <summary>
         /// Allows CIDR Notation 192.168.178.1/24 
         /// or
@@ -131,6 +136,25 @@ namespace IpRanges
 
             return true;
         }
+
+
+        public int NumberOfIPsInRange(string StartIP, string EndIP, bool includeStartAndEndAddress = true)
+        {
+            int _startIP = IPAddress.NetworkToHostOrder(BitConverter.ToInt32(IPAddress.Parse(StartIP).GetAddressBytes(), 0));
+            int _endIP = IPAddress.NetworkToHostOrder(BitConverter.ToInt32(IPAddress.Parse(EndIP).GetAddressBytes(), 0));
+            int numberOfIPs = 0;
+
+            if (includeStartAndEndAddress)
+            {
+                numberOfIPs = _endIP - _startIP + 1;
+            }
+            else
+            {
+                numberOfIPs = _endIP - _startIP - 1;
+            }
+            return numberOfIPs;
+        }
+
 
         private byte[] beginIP;
         private byte[] endIP;

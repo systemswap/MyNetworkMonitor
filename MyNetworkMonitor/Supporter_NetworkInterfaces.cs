@@ -43,8 +43,8 @@ namespace MyNetworkMonitor
                             _nicInfo.FirstSubnetIP = ipRanges[0];
                             _nicInfo.LastSubnetIP = ipRanges[1];
 
-                            IpRanges.IPRange range = new IpRanges.IPRange(_nicInfo.FirstSubnetIP, _nicInfo.LastSubnetIP);
-                            _nicInfo.IPsCount = range.GetAllIP().Count().ToString();
+                            //IpRanges.IPRange range = new IpRanges.IPRange(_nicInfo.FirstSubnetIP, _nicInfo.LastSubnetIP);
+                            _nicInfo.IPsCount = new IpRanges.IPRange().NumberOfIPsInRange(_nicInfo.FirstSubnetIP, _nicInfo.LastSubnetIP).ToString(); //range.GetAllIP().Count().ToString();
 
                             nicInfos.Add(_nicInfo);
                         }
