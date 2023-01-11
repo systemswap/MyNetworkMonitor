@@ -77,7 +77,7 @@ namespace MyNetworkMonitor
             try
             {
                 lb_IPsToScan.Content = "calc. number of IPs";              
-                lb_IPsToScan.Content = NumberOfIPsInRange(tb_Adapter_FirstSubnetIP.Text, tb_Adapter_LastSubnetIP.Text);
+                lb_IPsToScan.Content = new IpRanges.IPRange().NumberOfIPsInRange(tb_Adapter_FirstSubnetIP.Text, tb_Adapter_LastSubnetIP.Text);
             }
             catch (Exception)
             {
@@ -86,22 +86,7 @@ namespace MyNetworkMonitor
             }
         }
 
-        int NumberOfIPsInRange(string StartIP, string EndIP, bool includeStartAndEndAddress = true)
-        {            
-            int _startIP = IPAddress.NetworkToHostOrder(BitConverter.ToInt32(IPAddress.Parse(StartIP).GetAddressBytes(), 0));
-            int _endIP = IPAddress.NetworkToHostOrder(BitConverter.ToInt32(IPAddress.Parse(EndIP).GetAddressBytes(), 0));
-            int numberOfIPs = 0;
-
-            if (includeStartAndEndAddress)
-            {
-                numberOfIPs = _endIP - _startIP + 1;
-            }
-            else
-            {
-                numberOfIPs = _endIP - _startIP - 1;
-            }
-            return numberOfIPs;
-        }
+        
 
         private async void tb_Adapter_LastSubnetIP_TextChanged(object sender, TextChangedEventArgs e)
         {
@@ -110,7 +95,7 @@ namespace MyNetworkMonitor
             try
             {
                 lb_IPsToScan.Content = "calc. number of IPs";
-                lb_IPsToScan.Content = NumberOfIPsInRange(tb_Adapter_FirstSubnetIP.Text, tb_Adapter_LastSubnetIP.Text);
+                lb_IPsToScan.Content = new IpRanges.IPRange().NumberOfIPsInRange(tb_Adapter_FirstSubnetIP.Text, tb_Adapter_LastSubnetIP.Text);
             }
             catch (Exception)
             {
