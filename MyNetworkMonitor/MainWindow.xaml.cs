@@ -1399,8 +1399,8 @@ namespace MyNetworkMonitor
             foreach (var item in range.GetAllIP())
             {
                 IPToScan toScan = new IPToScan();
-                toScan.IPGroupDescription = "@NetworkAdapters";
-                toScan.DeviceDescription = cb_NetworkAdapters.SelectedItem.ToString() + " Adapter";
+                toScan.IPGroupDescription = "NetworkInterface";
+                toScan.DeviceDescription = "NIC: " + cb_NetworkAdapters.SelectedItem.ToString();
                 toScan.IPorHostname = item.ToString();
                 toScan.TCPPortsToScan = TCPPorts;
                 toScan.TimeOut = _TimeOut;
