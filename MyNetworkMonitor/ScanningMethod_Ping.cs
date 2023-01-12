@@ -65,9 +65,16 @@ namespace MyNetworkMonitor
                 PingOptions options = new PingOptions(200, true);
 
                 Ping ping = new Ping();
-                PingReply reply = await ping.SendPingAsync(ipToScan.IPorHostname, TimeOut, buffer, options);
+                
 
-                bool PingStatus = false;
+                
+                PingReply reply = null;
+                for (int i = 0; i < 5; i++)
+                {
+                    reply = await ping.SendPingAsync(ipToScan.IPorHostname, TimeOut, buffer, options);
+                    if (reply.Status == IPStatus.Success) break;
+                }
+                    bool PingStatus = false;
                 //string IP = string.Empty;
                 string ResponseTime = string.Empty;
 
