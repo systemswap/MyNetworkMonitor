@@ -21,8 +21,9 @@ namespace MyNetworkMonitor
         public string IPv6 { get; set; }
     }
     public class Supporter_NetworkInterfaces
-    {
-       
+    {       
+        public List<NicInfo> NetworkInterfaces_Infos { get; set; }
+
         public List<NicInfo> GetNetworkInterfaces()
         {
             List<NicInfo> nicInfos = new List<NicInfo>();
@@ -51,6 +52,7 @@ namespace MyNetworkMonitor
                     }
                 }
             }
+            NetworkInterfaces_Infos = nicInfos;
             return nicInfos;
         }
 

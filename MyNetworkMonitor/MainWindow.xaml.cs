@@ -36,6 +36,11 @@ namespace MyNetworkMonitor
 
             if (!Directory.Exists(Path.GetDirectoryName(_portsToScan))) Directory.CreateDirectory(Path.GetDirectoryName(_portsToScan));
 
+            
+            nicInfos = new Supporter_NetworkInterfaces().GetNetworkInterfaces();
+            cb_NetworkAdapters.ItemsSource = nicInfos.Select(n => n.NicName).ToList();
+            cb_NetworkAdapters.SelectedIndex = 0;
+
             supportMethods = new SupportMethods();
             //supportMethods.GetNetworkInterfaces();            
 
@@ -144,6 +149,9 @@ namespace MyNetworkMonitor
             dg_PortsToScan.ItemsSource = _portCollection.TableOfPortsToScan.DefaultView;
 
         }
+
+        bool TextChangedByComboBox = false;       
+        List<NicInfo> nicInfos = new List<NicInfo>();
 
         ICollectionView cvTasks_scanResults;
         ICollectionView cvTasks_IP_Ranges;
@@ -1363,49 +1371,89 @@ namespace MyNetworkMonitor
             }
         }
 
-        private void bt_Scan_at_NetworkAdapters_Click(object sender, RoutedEventArgs e)
+        private void bt_StartScanFromNIC_Click(object sender, RoutedEventArgs e)
         {
-            MessageBoxResult result = MessageBox.Show("All scanning Methodes correctly selected?", "stupid question", MessageBoxButton.YesNo);
+            _IPsToScan.Clear();
 
-            if (result != MessageBoxResult.Yes) { return; }
+            List<int> TCPPorts = new List<int>();
 
-
-            Supporter_NetworkInterfaces nics = new Supporter_NetworkInterfaces();
-            Window_ScanFromNIC w_ScanFromNIC = new Window_ScanFromNIC(nics.GetNetworkInterfaces());
-
-            w_ScanFromNIC.ShowDialog();
-
-            if (w_ScanFromNIC.IPsToScan.Count > 0)
+            if ((bool)chk_Methodes_ScanTCPPorts.IsChecked && !(bool)chk_allTCPPorts.IsChecked)
             {
-                _IPsToScan.Clear();
-                _IPsToScan = w_ScanFromNIC.IPsToScan;
+                TCPPorts.AddRange(_portCollection.TCPPorts);
 
-
-                List<int> TCPPorts = new List<int>();
-
-                if ((bool)chk_Methodes_ScanTCPPorts.IsChecked && !(bool)chk_allTCPPorts.IsChecked)
+                //Additional Ports from Customer
+                if (!string.IsNullOrEmpty(tb_TCPPorts.Text))
                 {
-                    TCPPorts.AddRange(_portCollection.TCPPorts);
-
-                    //Additional Ports from Customer
-                    if (!string.IsNullOrEmpty(tb_TCPPorts.Text))
-                    {
-                        TCPPorts.AddRange(tb_TCPPorts.Text.Split(',')?.Select(Int32.Parse)?.ToList());
-                    }
+                    TCPPorts.AddRange(tb_TCPPorts.Text.Split(',')?.Select(Int32.Parse)?.ToList());
                 }
+            }
 
-                if ((bool)chk_Methodes_ScanTCPPorts.IsChecked && (bool)chk_allTCPPorts.IsChecked)
-                {
-                    TCPPorts.AddRange(Enumerable.Range(1, 65536));
-                }
+            if ((bool)chk_Methodes_ScanTCPPorts.IsChecked && (bool)chk_allTCPPorts.IsChecked)
+            {
+                TCPPorts.AddRange(Enumerable.Range(1, 65536));
+            }
 
-                foreach (IPToScan ip in _IPsToScan)
-                {
-                    ip.TCPPortsToScan = TCPPorts;
-                    ip.TimeOut = _TimeOut;
-                }
+            IpRanges.IPRange range = new IpRanges.IPRange(tb_Adapter_FirstSubnetIP.Text, tb_Adapter_LastSubnetIP.Text);
 
-                DoWork(false);
+            foreach (var item in range.GetAllIP())
+            {
+                IPToScan toScan = new IPToScan();
+                toScan.IPGroupDescription = "@NetworkAdapters";
+                toScan.DeviceDescription = cb_NetworkAdapters.SelectedItem.ToString() + " Adapter";
+                toScan.IPorHostname = item.ToString();
+                toScan.TCPPortsToScan = TCPPorts;
+                toScan.TimeOut = _TimeOut;
+
+                _IPsToScan.Add(toScan);
+            }
+
+            DoWork(false);
+        }
+
+        private void cb_NetworkAdapters_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            NicInfo n = new NicInfo();
+            n = nicInfos.Where(name => name.NicName == cb_NetworkAdapters.SelectedItem).FirstOrDefault();
+
+            TextChangedByComboBox = true;
+
+            tb_AdapterIP.Text = n.IPv4;
+            tb_AdapterSubnetMask.Text = n.IPv4Mask;
+            tb_Adapter_FirstSubnetIP.Text = n.FirstSubnetIP;
+            tb_Adapter_LastSubnetIP.Text = n.LastSubnetIP;
+            lb_IPsToScan.Content = n.IPsCount;
+
+            TextChangedByComboBox = false;
+        }
+
+        private async void tb_Adapter_FirstSubnetIP_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (TextChangedByComboBox) return;
+
+            try
+            {
+                lb_IPsToScan.Content = "calc. number of IPs";
+                lb_IPsToScan.Content = new IpRanges.IPRange().NumberOfIPsInRange(tb_Adapter_FirstSubnetIP.Text, tb_Adapter_LastSubnetIP.Text);
+            }
+            catch (Exception)
+            {
+
+                lb_IPsToScan.Content = "...";
+            }
+        }
+        private async void tb_Adapter_LastSubnetIP_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (TextChangedByComboBox) return;
+
+            try
+            {
+                lb_IPsToScan.Content = "calc. number of IPs";
+                lb_IPsToScan.Content = new IpRanges.IPRange().NumberOfIPsInRange(tb_Adapter_FirstSubnetIP.Text, tb_Adapter_LastSubnetIP.Text);
+            }
+            catch (Exception)
+            {
+
+                lb_IPsToScan.Content = "...";
             }
         }
     }
