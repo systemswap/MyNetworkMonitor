@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Data;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -1421,7 +1422,7 @@ namespace MyNetworkMonitor
             tb_AdapterSubnetMask.Text = n.IPv4Mask;
             tb_Adapter_FirstSubnetIP.Text = n.FirstSubnetIP;
             tb_Adapter_LastSubnetIP.Text = n.LastSubnetIP;
-            lb_IPsToScan.Content = n.IPsCount;
+            lb_IPsToScan.Content = n.IPsCount.ToString("n0", CultureInfo.GetCultureInfo("de-DE"));
 
             TextChangedByComboBox = false;
         }
@@ -1433,7 +1434,7 @@ namespace MyNetworkMonitor
             try
             {
                 lb_IPsToScan.Content = "calc. number of IPs";
-                lb_IPsToScan.Content = new IpRanges.IPRange().NumberOfIPsInRange(tb_Adapter_FirstSubnetIP.Text, tb_Adapter_LastSubnetIP.Text);
+                lb_IPsToScan.Content = new IpRanges.IPRange().NumberOfIPsInRange(tb_Adapter_FirstSubnetIP.Text, tb_Adapter_LastSubnetIP.Text).ToString("n0", CultureInfo.GetCultureInfo("de-DE"));
             }
             catch (Exception)
             {
@@ -1448,7 +1449,7 @@ namespace MyNetworkMonitor
             try
             {
                 lb_IPsToScan.Content = "calc. number of IPs";
-                lb_IPsToScan.Content = new IpRanges.IPRange().NumberOfIPsInRange(tb_Adapter_FirstSubnetIP.Text, tb_Adapter_LastSubnetIP.Text);
+                lb_IPsToScan.Content = new IpRanges.IPRange().NumberOfIPsInRange(tb_Adapter_FirstSubnetIP.Text, tb_Adapter_LastSubnetIP.Text).ToString("n0", CultureInfo.GetCultureInfo("de-DE"));
             }
             catch (Exception)
             {
