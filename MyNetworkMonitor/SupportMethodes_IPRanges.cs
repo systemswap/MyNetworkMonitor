@@ -138,21 +138,24 @@ namespace IpRanges
         }
 
 
-        public int NumberOfIPsInRange(string StartIP, string EndIP, bool includeStartAndEndAddress = true)
+        public double NumberOfIPsInRange(string StartIP, string EndIP, bool includeStartAndEndAddress = true)
         {
-            int _startIP = IPAddress.NetworkToHostOrder(BitConverter.ToInt32(IPAddress.Parse(StartIP).GetAddressBytes(), 0));
-            int _endIP = IPAddress.NetworkToHostOrder(BitConverter.ToInt32(IPAddress.Parse(EndIP).GetAddressBytes(), 0));
-            int numberOfIPs = 0;
+            int[] start = StartIP.Split('.').Select(Int32.Parse).ToArray();
+            double _start = (double)start[0] * Math.Pow(256, 3);
+            _start += (double)start[1] * Math.Pow(256, 2);
+            _start += (double)start[2] * 256;
+            _start += start[3];
 
-            if (includeStartAndEndAddress)
-            {
-                numberOfIPs = _endIP - _startIP + 1;
-            }
-            else
-            {
-                numberOfIPs = _endIP - _startIP - 1;
-            }
-            return numberOfIPs;
+
+            int[] end = EndIP.Split('.').Select(Int32.Parse).ToArray();
+
+            double _end = (double)end[0] * Math.Pow(256, 3);
+            _end += (double)end[1] * Math.Pow(256, 2);
+            _end += (double)end[2] * 256;
+            _end += end[3];
+
+            double counted = _end - _start;
+            return includeStartAndEndAddress ? counted + 1 : counted - 1;
         }
 
 
