@@ -279,7 +279,7 @@ namespace MyNetworkMonitor
             dt_Ports.Rows.Add(5907, true, false, "UltraVNC");
             dt_Ports.Rows.Add(5908, true, false, "UltraVNC");
             dt_Ports.Rows.Add(5909, true, false, "UltraVNC");
-            dt_Ports.Rows.Add(59010, true, false, "UltraVNC");
+            dt_Ports.Rows.Add(5910, true, false, "UltraVNC");
 
             dt_Ports.Rows.Add(8080, true, false, "HTTP Alternate (see port 80)");
             dt_Ports.Rows.Add(8443, true, false, "HTTPS Alternate (see port 443)");

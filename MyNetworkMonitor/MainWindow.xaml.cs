@@ -144,11 +144,9 @@ namespace MyNetworkMonitor
             else
             {
                 new PortCollection().TableOfPortsToScan.WriteXml(_portsToScan);
-                _portCollection.TableOfPortsToScan.ReadXml(_portsToScan);
+                //_portCollection.TableOfPortsToScan.ReadXml(_portsToScan);
             }
-
             dg_PortsToScan.ItemsSource = _portCollection.TableOfPortsToScan.DefaultView;
-
         }
 
         bool TextChangedByComboBox = false;       
