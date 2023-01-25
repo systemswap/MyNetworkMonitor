@@ -1,4 +1,31 @@
+
+
 using System.Windows;
+using System;
+using System.Reflection;
+
+
+
+
+
+//need the following attribute in the csproj file
+//<PropertyGroup>
+//< GenerateAssemblyInfo > false </ GenerateAssemblyInfo >
+//</PropertyGroup>
+
+
+
+
+
+[assembly: System.Reflection.AssemblyCompanyAttribute("FriendlyReaper")]
+//[assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
+//[assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
+//[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyProductAttribute("MyNetworkMonitor")]
+[assembly: System.Reflection.AssemblyTitleAttribute("MyNetworkMonitor")]
+[assembly: System.Reflection.AssemblyVersionAttribute("3.1.3.15")]
+//[assembly: System.Runtime.Versioning.TargetPlatformAttribute("Windows7.0")]
+//[assembly: System.Runtime.Versioning.SupportedOSPlatformAttribute("Windows7.0")]
 
 [assembly: ThemeInfo(
     ResourceDictionaryLocation.None, //where theme specific resource dictionaries are located
@@ -8,3 +35,7 @@ using System.Windows;
                                               //(used if a resource is not found in the page,
                                               // app, or any theme specific resource dictionaries)
 )]
+
+
+
+
