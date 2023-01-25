@@ -12,6 +12,7 @@ using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
@@ -28,12 +29,15 @@ namespace MyNetworkMonitor
 {
     // install as Service https://www.youtube.com/watch?v=y64L-3HKuP0
 
+    
 
     public partial class MainWindow : Window
     {
         public MainWindow()
         {
             InitializeComponent();
+
+            mainWindow.Title += " - version: " + Assembly.GetExecutingAssembly().GetName().Version.ToString();
 
             if (!Directory.Exists(Path.GetDirectoryName(_portsToScan))) Directory.CreateDirectory(Path.GetDirectoryName(_portsToScan));
 
