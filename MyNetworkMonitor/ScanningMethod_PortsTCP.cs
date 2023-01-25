@@ -160,7 +160,13 @@ namespace MyNetworkMonitor
             {
                 try
                 {
-                   socket.ConnectAsync(new IPEndPoint(IPAddress.Parse(IP), Port)).Wait(timeout, _clt);
+                   
+                    for (int i = 0; i < 4; i++)
+                    {
+                        socket.ConnectAsync(new IPEndPoint(IPAddress.Parse(IP), Port)).Wait(timeout, _clt);
+                        if (socket.Connected) break;
+                    }
+                    
 
                     if (socket.Connected)
                     {
