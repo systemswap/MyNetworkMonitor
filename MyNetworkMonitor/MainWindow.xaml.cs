@@ -39,7 +39,7 @@ namespace MyNetworkMonitor
 
             mainWindow.Title += " - version: " + Assembly.GetExecutingAssembly().GetName().Version.ToString();
 
-            if (!Directory.Exists(Path.GetDirectoryName(_portsToScan))) Directory.CreateDirectory(Path.GetDirectoryName(_portsToScan));
+            if (!Directory.Exists(Path.GetDirectoryName(_portsToScanXML))) Directory.CreateDirectory(Path.GetDirectoryName(_portsToScanXML));
 
             
             nicInfos = new Supporter_NetworkInterfaces().GetNetworkInterfaces();
@@ -121,11 +121,11 @@ namespace MyNetworkMonitor
             }
 
 
-            if (File.Exists(_lastScanResultFile))
+            if (File.Exists(_lastScanResultXML))
             {
                 try
                 {
-                    _scannResults.ResultTable.ReadXml(_lastScanResultFile);
+                    _scannResults.ResultTable.ReadXml(_lastScanResultXML);
                 }
                 catch (Exception)
                 {
@@ -133,12 +133,12 @@ namespace MyNetworkMonitor
                 }
             }
 
-            if (File.Exists(_portsToScan))
+            if (File.Exists(_portsToScanXML))
             {
                 try
                 {
                     _portCollection.TableOfPortsToScan.Rows.Clear();
-                    _portCollection.TableOfPortsToScan.ReadXml(_portsToScan);
+                    _portCollection.TableOfPortsToScan.ReadXml(_portsToScanXML);
                 }
                 catch (Exception)
                 {
@@ -147,10 +147,26 @@ namespace MyNetworkMonitor
             }
             else
             {
-                new PortCollection().TableOfPortsToScan.WriteXml(_portsToScan);
+                new PortCollection().TableOfPortsToScan.WriteXml(_portsToScanXML);
                 //_portCollection.TableOfPortsToScan.ReadXml(_portsToScan);
             }
             dg_PortsToScan.ItemsSource = _portCollection.TableOfPortsToScan.DefaultView;
+
+
+
+            if (File.Exists(_InternalNamesXML))
+            {
+                try
+                {
+                    _internalNames.InternalNames.ReadXml(_InternalNamesXML);
+                }
+                catch (Exception)
+                {
+                    //throw;
+                }
+            }
+            dv_InternalNames = _internalNames.InternalNames.DefaultView;
+            dg_InternalNames.ItemsSource = dv_InternalNames;
         }
 
         bool TextChangedByComboBox = false;       
@@ -162,9 +178,10 @@ namespace MyNetworkMonitor
 
 
         PortCollection _portCollection = new PortCollection();
-        string _portsToScan = Path.Combine(Environment.CurrentDirectory, @"Settings\portsToScan.xml");
+        string _portsToScanXML = Path.Combine(Environment.CurrentDirectory, @"Settings\portsToScan.xml");
         string _ipGroupsXML = Path.Combine(Environment.CurrentDirectory, @"Settings\ipGroups.xml");
-        string _lastScanResultFile = Path.Combine(Environment.CurrentDirectory, @"Settings\lastScanResult.xml");
+        string _lastScanResultXML = Path.Combine(Environment.CurrentDirectory, @"Settings\lastScanResult.xml");
+        string _InternalNamesXML = Path.Combine(Environment.CurrentDirectory, @"Settings\internalNames.xml");
 
         IPGroupData ipGroupData = new IPGroupData();
 
@@ -175,6 +192,10 @@ namespace MyNetworkMonitor
         List<IPToScan> _IPsToScan = new List<IPToScan>();
         ScanResults _scannResults = new ScanResults();
         DataView dv_resultTable;
+
+
+        InternalDeviceNames _internalNames = new InternalDeviceNames();
+        DataView dv_InternalNames = new DataView();
 
         ScanningMethod_ARP scanningMethode_ARP;
         ScanningMethods_Ping scanningMethods_Ping;
@@ -900,6 +921,9 @@ namespace MyNetworkMonitor
 
                 if (ipToScan.UsedScanMethod == ScanMethod.ReverseLookup)
                 {
+
+                    try { _scannResults.ResultTable.Rows[rowIndex]["InternalName"] = _internalNames.InternalNames.Select("Hostname = '" + ipToScan.HostName + "'")[0]["InternalName"].ToString(); } catch { _scannResults.ResultTable.Rows[rowIndex]["InternalName"] = string.Empty; }
+
                     _scannResults.ResultTable.Rows[rowIndex]["Hostname"] = ipToScan.HostName;
                     _scannResults.ResultTable.Rows[rowIndex]["Domain"] = ipToScan.Domain;
                     _scannResults.ResultTable.Rows[rowIndex]["Aliases"] = string.Join("\r\n", ipToScan.Aliases);
@@ -985,6 +1009,8 @@ namespace MyNetworkMonitor
 
                 if (ipToScan.UsedScanMethod == ScanMethod.ReverseLookup)
                 {
+                    try { row["InternalName"] = _internalNames.InternalNames.Select("Hostname = '" + ipToScan.HostName + "'")[0]["InternalName"].ToString(); } catch { row["InternalName"] = string.Empty; }
+
                     row["Hostname"] = ipToScan.HostName;
                     row["Aliases"] = string.Join("\r\n", ipToScan.Aliases);
                 }
@@ -1268,7 +1294,7 @@ namespace MyNetworkMonitor
                     //    if (bla) row["LookUpStatus"] = Properties.Resources.gray_dotTB;
                     //}
                 }
-                _scannResults.ResultTable.WriteXml(_lastScanResultFile, XmlWriteMode.WriteSchema);
+                _scannResults.ResultTable.WriteXml(_lastScanResultXML, XmlWriteMode.WriteSchema);
             }
         }
 
@@ -1277,7 +1303,7 @@ namespace MyNetworkMonitor
             DataView dv = _portCollection.TableOfPortsToScan.DefaultView;
             dv.Sort = "Ports asc";
             DataTable sortedtable1 = dv.ToTable();
-            sortedtable1.WriteXml(_portsToScan, XmlWriteMode.WriteSchema);
+            sortedtable1.WriteXml(_portsToScanXML, XmlWriteMode.WriteSchema);
         }
 
         private void tb_Filter_ALL_TextChanged(object sender, TextChangedEventArgs e)
@@ -1457,6 +1483,67 @@ namespace MyNetworkMonitor
             {
 
                 lb_IPsToScan.Content = "...";
+            }
+        }
+
+        private void bt_SaveNames_Click(object sender, RoutedEventArgs e)
+        {
+            DataView dv = _internalNames.InternalNames.DefaultView;
+            dv.Sort = "Hostname asc";
+            DataTable sortedtable1 = dv.ToTable();
+            sortedtable1.WriteXml(_InternalNamesXML, XmlWriteMode.WriteSchema);
+        }
+
+        private void dg_InternalNames_ContextMenu_Click(object sender, RoutedEventArgs e)
+        {
+            string str_Clipboard = Clipboard.GetText();
+
+            DataGridCellInfo cell = dg_InternalNames.CurrentCell;
+            int columnindex = cell.Column.DisplayIndex;
+            int rowIndex = dg_InternalNames.Items.IndexOf(cell.Item);
+
+           
+
+            foreach (string row in str_Clipboard.Split("\r\n"))
+            {
+                if (rowIndex < _internalNames.InternalNames.Rows.Count)
+                {
+                    if (string.IsNullOrEmpty(row)) continue;
+
+                    List<string> cells = row.Split("\t").ToList();
+                    int cellCount = cells.Count > 4 ? 4 : cells.Count;
+
+                    int currentCell = 0;
+                    
+
+                    for (int i = columnindex; i < 4; i++)
+                    {
+                        if (currentCell >= cells.Count) break;
+
+                        _internalNames.InternalNames.Rows[rowIndex][i] = cells[currentCell];
+                        currentCell++;
+                    }
+                }
+                else
+                {
+                    if (string.IsNullOrEmpty(row)) continue;
+
+                    List<string> cells = row.Split("\t").ToList();
+                    int cellCount = cells.Count > 4 ? 4 : cells.Count;
+
+                    int currentCell = 0;
+                    DataRow datarow = _internalNames.InternalNames.NewRow();
+
+                    for (int i = columnindex; i < 4; i++)
+                    {
+                        if (currentCell >= cells.Count) break;
+
+                        datarow[i] = cells[currentCell];
+                        currentCell++;
+                    }
+                    _internalNames.InternalNames.Rows.Add(datarow);
+                }
+                rowIndex++;
             }
         }
     }
