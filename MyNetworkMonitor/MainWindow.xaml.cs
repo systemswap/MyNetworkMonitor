@@ -1429,7 +1429,7 @@ namespace MyNetworkMonitor
             TextChangedByComboBox = false;
         }
 
-        private async void tb_Adapter_FirstSubnetIP_TextChanged(object sender, TextChangedEventArgs e)
+        private void tb_Adapter_FirstSubnetIP_TextChanged(object sender, TextChangedEventArgs e)
         {
             if (TextChangedByComboBox) return;
 
@@ -1444,7 +1444,7 @@ namespace MyNetworkMonitor
                 lb_IPsToScan.Content = "...";
             }
         }
-        private async void tb_Adapter_LastSubnetIP_TextChanged(object sender, TextChangedEventArgs e)
+        private void tb_Adapter_LastSubnetIP_TextChanged(object sender, TextChangedEventArgs e)
         {
             if (TextChangedByComboBox) return;
 
