@@ -198,6 +198,30 @@
                 </TabItem>
 
 
+                <TabItem x:Name="tab_InternalNames" Header="Internal Names">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="40"/>
+                            <RowDefinition/>
+                            <RowDefinition Height="40"/>
+                        </Grid.RowDefinitions>
+                        <DataGrid x:Name="dg_InternalNames" Margin="10,10,10,10" Grid.Row="1">
+                            <DataGrid.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="Paste" Click="dg_InternalNames_ContextMenu_Click" />
+                                </ContextMenu>
+                            </DataGrid.ContextMenu>
+                        </DataGrid>
+                        <Button x:Name="bt_SaveNames" Content="Save Name Collection" HorizontalAlignment="Center" Grid.Row="2" VerticalAlignment="Center" Width="293" Height="20" Background="#BFA4B1BF" OpacityMask="Black" Click="bt_SaveNames_Click">
+                            <Button.Resources>
+                                <Style TargetType="{x:Type Border}">
+                                    <Setter Property="CornerRadius" Value="5"/>
+                                </Style>
+                            </Button.Resources>
+                        </Button>
+
+                    </Grid>
+                </TabItem>
 
 
             </TabControl>

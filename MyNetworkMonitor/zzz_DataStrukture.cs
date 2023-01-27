@@ -354,4 +354,27 @@ namespace MyNetworkMonitor
             return true;
         }
     }
+
+
+
+    public class InternalDeviceNames
+    {
+        public InternalDeviceNames()
+        {
+            dt.TableName = "InternalDeviceNames";
+
+            dt.Columns.Add("InternalName", typeof(string));
+            dt.Columns.Add("Hostname", typeof(string));
+            dt.Columns.Add("MAC", typeof(string));
+            dt.Columns.Add("StaticIP", typeof(string));           
+        }
+
+        private DataTable dt = new DataTable();
+
+        public DataTable InternalNames
+        {
+            get { return dt; }
+            set { dt = value; }
+        }
+    }
 }
