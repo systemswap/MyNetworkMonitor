@@ -1355,7 +1355,7 @@ namespace MyNetworkMonitor
 
         private void dgv_Results_Sorting(object sender, DataGridSortingEventArgs e)
         {
-            if (e.Column.Header == "IP")
+            if (e.Column.Header.ToString() == "IP")
             {
                 if (e.Column.SortDirection == null || e.Column.SortDirection == ListSortDirection.Descending)
                 {
@@ -1545,6 +1545,21 @@ namespace MyNetworkMonitor
                 }
                 rowIndex++;
             }
+        }
+
+        private void bt_AddInternalNamesToScanResult_Click(object sender, RoutedEventArgs e)
+        {
+            foreach (DataRow row in _scannResults.ResultTable.Rows)
+            {
+                try 
+                { 
+                    row["InternalName"] = _internalNames.InternalNames.Select("Hostname = '" + row["Hostname"] + "'")[0]["InternalName"].ToString(); 
+                } 
+                catch 
+                { 
+                    row["InternalName"] = string.Empty;
+                }
+            }            
         }
     }
 }

@@ -212,13 +212,26 @@
                                 </ContextMenu>
                             </DataGrid.ContextMenu>
                         </DataGrid>
-                        <Button x:Name="bt_SaveNames" Content="Save Name Collection" HorizontalAlignment="Center" Grid.Row="2" VerticalAlignment="Center" Width="293" Height="20" Background="#BFA4B1BF" OpacityMask="Black" Click="bt_SaveNames_Click">
-                            <Button.Resources>
-                                <Style TargetType="{x:Type Border}">
-                                    <Setter Property="CornerRadius" Value="5"/>
-                                </Style>
-                            </Button.Resources>
-                        </Button>
+                        <Grid Grid.Row="1" Margin="1,517,0,0" Grid.RowSpan="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="156*"/>
+                                <ColumnDefinition Width="157*"/>
+                            </Grid.ColumnDefinitions>
+                            <Button x:Name="bt_SaveNames" Content="Save Name Collection" HorizontalAlignment="Center" VerticalAlignment="Center" Width="137" Height="20" Background="#BFA4B1BF" OpacityMask="Black" Click="bt_SaveNames_Click" Grid.Column="1">
+                                <Button.Resources>
+                                    <Style TargetType="{x:Type Border}">
+                                        <Setter Property="CornerRadius" Value="5"/>
+                                    </Style>
+                                </Button.Resources>
+                            </Button>
+                            <Button x:Name="bt_AddInternalNamesToScanResult" Content="add internal names"  Background="#BFA4B1BF" HorizontalAlignment="Center" VerticalAlignment="Center" Width="136" Click="bt_AddInternalNamesToScanResult_Click">
+                                <Button.Resources>
+                                    <Style TargetType="{x:Type Border}">
+                                        <Setter Property="CornerRadius" Value="5"/>
+                                    </Style>
+                                </Button.Resources>
+                            </Button>
+                        </Grid>
 
                     </Grid>
                 </TabItem>
