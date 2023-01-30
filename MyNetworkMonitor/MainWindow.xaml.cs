@@ -1553,7 +1553,7 @@ namespace MyNetworkMonitor
             {
                 try 
                 { 
-                    row["InternalName"] = _internalNames.InternalNames.Select("Hostname = '" + row["Hostname"] + "'")[0]["InternalName"].ToString(); 
+                    if(!string.IsNullOrEmpty(row["Hostname"].ToString()))row["InternalName"] = _internalNames.InternalNames.Select("Hostname = '" + row["Hostname"] + "'")[0]["InternalName"].ToString(); 
                 } 
                 catch 
                 { 
