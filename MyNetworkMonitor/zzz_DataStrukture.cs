@@ -175,6 +175,7 @@ namespace MyNetworkMonitor
             dt_NetworkResults.Columns.Add("Domain", typeof(string));
             dt_NetworkResults.Columns.Add("Aliases", typeof(string));
             dt_NetworkResults.Columns.Add("LookUpStatus", typeof(byte[]));
+            dt_NetworkResults.Columns.Add("MatchedWithInternal", typeof(byte[]));
             dt_NetworkResults.Columns.Add("LookUpIPs", typeof(string));
             dt_NetworkResults.Columns.Add("TCP_Ports", typeof(string));
             dt_NetworkResults.Columns.Add("OpenUDP_Ports", typeof(string));

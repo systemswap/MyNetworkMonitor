@@ -375,6 +375,18 @@ namespace MyNetworkMonitor
                     Header = e.Column.Header
                 };
             }
+            
+                  if (e.PropertyName == "MatchedWithInternal")
+            {
+                // replace text column with image column
+                e.Column = new DataGridTemplateColumn
+                {
+                    // searching for predefined tenplate in Resources
+                    CellTemplate = (sender as DataGrid).Resources["MatchedWithInternal"] as DataTemplate,
+                    HeaderTemplate = e.Column.HeaderTemplate,
+                    Header = e.Column.Header
+                };
+            }
         }
 
 
@@ -920,13 +932,49 @@ namespace MyNetworkMonitor
                 }
 
                 if (ipToScan.UsedScanMethod == ScanMethod.ReverseLookup)
-                {
-
-                    try { _scannResults.ResultTable.Rows[rowIndex]["InternalName"] = _internalNames.InternalNames.Select("Hostname = '" + ipToScan.HostName + "'")[0]["InternalName"].ToString(); } catch { _scannResults.ResultTable.Rows[rowIndex]["InternalName"] = string.Empty; }
+                {                    
 
                     _scannResults.ResultTable.Rows[rowIndex]["Hostname"] = ipToScan.HostName;
                     _scannResults.ResultTable.Rows[rowIndex]["Domain"] = ipToScan.Domain;
                     _scannResults.ResultTable.Rows[rowIndex]["Aliases"] = string.Join("\r\n", ipToScan.Aliases);
+
+                    string resultHostname = _scannResults.ResultTable.Rows[rowIndex]["Hostname"].ToString().ToUpper();
+                    string resultIP = _scannResults.ResultTable.Rows[rowIndex]["IP"].ToString();
+
+                    try
+                    {
+                        if (!string.IsNullOrEmpty(resultHostname)) _scannResults.ResultTable.Rows[rowIndex]["InternalName"] = _internalNames.InternalNames.Select("Hostname = '" + resultHostname + "'")[0]["InternalName"].ToString();
+                    }
+                    catch
+                    {
+                        _scannResults.ResultTable.Rows[rowIndex]["InternalName"] = string.Empty;
+                    }
+
+                    try
+                    {
+                        //check if the IP in the internal names returns the same hostname like the dns server
+                        string InternalNames_Hostname_from_ScannedIP = _internalNames.InternalNames.Select("StaticIP = '" + resultIP + "'")[0]["Hostname"].ToString().ToUpper();
+
+                        bool dnsMatched = false;
+                        dnsMatched = InternalNames_Hostname_from_ScannedIP == resultHostname;
+
+                        if (dnsMatched && !string.IsNullOrEmpty(resultHostname))
+                        {
+                            _scannResults.ResultTable.Rows[rowIndex]["MatchedWithInternal"] = Properties.Resources.green_dot;
+                        }
+                        if (!dnsMatched && !string.IsNullOrEmpty(resultHostname))
+                        {
+                            _scannResults.ResultTable.Rows[rowIndex]["MatchedWithInternal"] = Properties.Resources.red_dotTB;
+                        }
+                        if (string.IsNullOrEmpty(resultHostname))
+                        {
+                            _scannResults.ResultTable.Rows[rowIndex]["MatchedWithInternal"] = null;
+                        }
+                    }
+                    catch (Exception)
+                    {
+                        _scannResults.ResultTable.Rows[rowIndex]["MatchedWithInternal"] = null;
+                    }
                 }
 
                 if (ipToScan.UsedScanMethod == ScanMethod.Lookup)
@@ -1009,7 +1057,44 @@ namespace MyNetworkMonitor
 
                 if (ipToScan.UsedScanMethod == ScanMethod.ReverseLookup)
                 {
-                    try { row["InternalName"] = _internalNames.InternalNames.Select("Hostname = '" + ipToScan.HostName + "'")[0]["InternalName"].ToString(); } catch { row["InternalName"] = string.Empty; }
+                    string resultHostname = row["Hostname"].ToString().ToUpper();
+                    string resultIP = row["IP"].ToString();
+
+                    try
+                    {
+                        if (!string.IsNullOrEmpty(resultHostname)) row["InternalName"] = _internalNames.InternalNames.Select("Hostname = '" + resultHostname + "'")[0]["InternalName"].ToString();
+                    }
+                    catch
+                    {
+                        row["InternalName"] = string.Empty;
+                    }
+
+                    try
+                    {
+                        //check if the IP in the internal names returns the same hostname like the dns server
+                        string InternalNames_Hostname_from_ScannedIP = _internalNames.InternalNames.Select("StaticIP = '" + resultIP + "'")[0]["Hostname"].ToString().ToUpper();
+
+                        bool dnsMatched = false;
+                        dnsMatched = InternalNames_Hostname_from_ScannedIP == resultHostname;
+
+                        if (dnsMatched && !string.IsNullOrEmpty(resultHostname))
+                        {
+                            row["MatchedWithInternal"] = Properties.Resources.green_dot;
+                        }
+                        if (!dnsMatched && !string.IsNullOrEmpty(resultHostname))
+                        {
+                            row["MatchedWithInternal"] = Properties.Resources.red_dotTB;
+                        }
+                        if (string.IsNullOrEmpty(resultHostname))
+                        {
+                            row["MatchedWithInternal"] = null;
+                        }
+                    }
+                    catch (Exception)
+                    {
+
+                        row["MatchedWithInternal"] = null;
+                    }
 
                     row["Hostname"] = ipToScan.HostName;
                     row["Aliases"] = string.Join("\r\n", ipToScan.Aliases);
@@ -1551,13 +1636,43 @@ namespace MyNetworkMonitor
         {
             foreach (DataRow row in _scannResults.ResultTable.Rows)
             {
+                string resultHostname = row["Hostname"].ToString().ToUpper();
+                string resultIP = row["IP"].ToString();
+
                 try 
                 { 
-                    if(!string.IsNullOrEmpty(row["Hostname"].ToString()))row["InternalName"] = _internalNames.InternalNames.Select("Hostname = '" + row["Hostname"] + "'")[0]["InternalName"].ToString(); 
+                    if(!string.IsNullOrEmpty(resultHostname)) row["InternalName"] = _internalNames.InternalNames.Select("Hostname = '" + resultHostname  + "'")[0]["InternalName"].ToString();                    
                 } 
                 catch 
                 { 
-                    row["InternalName"] = string.Empty;
+                    row["InternalName"] = string.Empty;                    
+                }
+
+                try
+                {
+                    //check if the IP in the internal names returns the same hostname like the dns server
+                    string InternalNames_Hostname_from_ScannedIP = _internalNames.InternalNames.Select("StaticIP = '" + resultIP + "'")[0]["Hostname"].ToString().ToUpper();
+
+                    bool dnsMatched = false;
+                    dnsMatched = InternalNames_Hostname_from_ScannedIP == resultHostname;
+
+                    if (dnsMatched && !string.IsNullOrEmpty(resultHostname))
+                    {
+                        row["MatchedWithInternal"] = Properties.Resources.green_dot;
+                    }
+                    if (!dnsMatched && !string.IsNullOrEmpty(resultHostname))
+                    {
+                        row["MatchedWithInternal"] = Properties.Resources.red_dotTB;
+                    }
+                    if (string.IsNullOrEmpty(resultHostname))
+                    {
+                        row["MatchedWithInternal"] = null;
+                    }
+                }
+                catch (Exception)
+                {
+
+                    row["MatchedWithInternal"] = null;
                 }
             }            
         }
