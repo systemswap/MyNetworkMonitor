@@ -224,7 +224,7 @@
                                     </Style>
                                 </Button.Resources>
                             </Button>
-                            <Button x:Name="bt_AddInternalNamesToScanResult" Content="add internal names"  Background="#BFA4B1BF" HorizontalAlignment="Center" VerticalAlignment="Center" Width="136" Click="bt_AddInternalNamesToScanResult_Click">
+                            <Button x:Name="bt_AddInternalNamesToScanResult" Content="internal names to result"  Background="#BFA4B1BF" HorizontalAlignment="Center" VerticalAlignment="Center" Width="136" Click="bt_AddInternalNamesToScanResult_Click">
                                 <Button.Resources>
                                     <Style TargetType="{x:Type Border}">
                                         <Setter Property="CornerRadius" Value="5"/>
@@ -432,6 +432,10 @@
                             <Image Source="{Binding Path=LookUpStatus}" Width="16" Height="16"/>
                         </DataTemplate>
 
+                        <DataTemplate x:Key="MatchedWithInternal">
+                            <Image Source="{Binding Path=MatchedWithInternal}" Width="16" Height="16"/>
+                        </DataTemplate>
+                        
                     </DataGrid.Resources>
                 </DataGrid>
                 <Grid Grid.Row="1" Margin="0,0,0,10">
