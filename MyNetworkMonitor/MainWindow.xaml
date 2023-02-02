@@ -236,6 +236,17 @@
                     </Grid>
                 </TabItem>
 
+                <TabItem Name="Settings" Header="Settings">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="40"/>
+                            <RowDefinition/>
+                        </Grid.RowDefinitions>
+                        <Button x:Name="bt_openApplicationFolder" Content="open application folder" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Center" Click="bt_openApplicationFolder_Click"/>
+
+                    </Grid>
+                </TabItem>
+
 
             </TabControl>
 
@@ -435,7 +446,7 @@
                         <DataTemplate x:Key="MatchedWithInternal">
                             <Image Source="{Binding Path=MatchedWithInternal}" Width="16" Height="16"/>
                         </DataTemplate>
-                        
+
                     </DataGrid.Resources>
                 </DataGrid>
                 <Grid Grid.Row="1" Margin="0,0,0,10">
