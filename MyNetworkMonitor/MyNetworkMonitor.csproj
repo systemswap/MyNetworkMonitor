@@ -9,6 +9,7 @@
     <ApplicationIcon>Resources\NetworkScanner.ico</ApplicationIcon>
     <ProduceReferenceAssembly>True</ProduceReferenceAssembly>
 	<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+	<UseWindowsForms>False</UseWindowsForms>
   </PropertyGroup>
 
   <ItemGroup>

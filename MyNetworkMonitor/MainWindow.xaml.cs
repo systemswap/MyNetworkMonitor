@@ -24,6 +24,7 @@ using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Media;
 using static MyNetworkMonitor.SendReceiveDataUDP;
+using static System.Environment;
 using static System.Net.Mime.MediaTypeNames;
 
 namespace MyNetworkMonitor
@@ -37,8 +38,9 @@ namespace MyNetworkMonitor
         public MainWindow()
         {
             InitializeComponent();
-
-            mainWindow.Title += " - version: " + Assembly.GetExecutingAssembly().GetName().Version.ToString();
+            
+            mainWindow.Title += " - version: " + Assembly.GetExecutingAssembly().GetName().Version.ToString(); 
+           
 
             if (!Directory.Exists(Path.GetDirectoryName(_portsToScanXML))) Directory.CreateDirectory(Path.GetDirectoryName(_portsToScanXML));
 
@@ -179,11 +181,19 @@ namespace MyNetworkMonitor
 
 
         PortCollection _portCollection = new PortCollection();
-        string _portsToScanXML = Path.Combine(Environment.CurrentDirectory, @"Settings\portsToScan.xml");
-        string _ipGroupsXML = Path.Combine(Environment.CurrentDirectory, @"Settings\ipGroups.xml");
-        string _lastScanResultXML = Path.Combine(Environment.CurrentDirectory, @"Settings\lastScanResult.xml");
-        string _InternalNamesXML = Path.Combine(Environment.CurrentDirectory, @"Settings\internalNames.xml");
+        //string _portsToScanXML = Path.Combine(Environment.CurrentDirectory, @"Settings\portsToScan.xml");
+        //string _ipGroupsXML = Path.Combine(Environment.CurrentDirectory, @"Settings\ipGroups.xml");
+        //string _lastScanResultXML = Path.Combine(Environment.CurrentDirectory, @"Settings\lastScanResult.xml");
+        //string _InternalNamesXML = Path.Combine(Environment.CurrentDirectory, @"Settings\internalNames.xml");
 
+
+        string _portsToScanXML = Path.Combine(Path.Combine(Environment.ExpandEnvironmentVariables("%userprofile%"), "Documents"), @"MyNetworkMonitor\Settings\portsToScan.xml");
+        string _ipGroupsXML = Path.Combine(Path.Combine(Environment.ExpandEnvironmentVariables("%userprofile%"), "Documents"), @"MyNetworkMonitor\Settings\ipGroups.xml");
+        string _lastScanResultXML = Path.Combine(Path.Combine(Environment.ExpandEnvironmentVariables("%userprofile%"), "Documents"), @"MyNetworkMonitor\Settings\lastScanResult.xml");
+        string _InternalNamesXML = Path.Combine(Path.Combine(Environment.ExpandEnvironmentVariables("%userprofile%"), "Documents"), @"MyNetworkMonitor\Settings\internalNames.xml");
+
+        
+   
         IPGroupData ipGroupData = new IPGroupData();
 
 
@@ -1684,6 +1694,16 @@ namespace MyNetworkMonitor
             if (Directory.Exists(applicationFolder))
             {
                 ProcessStartInfo startInfo = new ProcessStartInfo("explorer.exe", applicationFolder);
+                Process.Start(startInfo);
+            }
+        }
+
+        private void bt_openSettingsFolder_Click(object sender, RoutedEventArgs e)
+        {
+            string settingsFolder = Path.Combine(Path.Combine(Environment.ExpandEnvironmentVariables("%userprofile%"), "Documents"), @"MyNetworkMonitor\Settings");
+            if (Directory.Exists(settingsFolder))
+            {
+                ProcessStartInfo startInfo = new ProcessStartInfo("explorer.exe", settingsFolder);
                 Process.Start(startInfo);
             }
         }
