@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <ApplicationIcon>Resources\friendlyReaper.ico</ApplicationIcon>
+    <ApplicationIcon>Resources\NetworkScanner.ico</ApplicationIcon>
     <ProduceReferenceAssembly>True</ProduceReferenceAssembly>
 	<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
   </PropertyGroup>
@@ -34,7 +34,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="Resources\friendlyReaper.ico" />
+    <Content Include="Resources\NetworkScanner.ico" />
     <Content Include="Resources\AddBlack.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
