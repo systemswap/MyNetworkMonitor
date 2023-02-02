@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Data;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -29,7 +30,7 @@ namespace MyNetworkMonitor
 {
     // install as Service https://www.youtube.com/watch?v=y64L-3HKuP0
 
-    
+
 
     public partial class MainWindow : Window
     {
@@ -41,7 +42,7 @@ namespace MyNetworkMonitor
 
             if (!Directory.Exists(Path.GetDirectoryName(_portsToScanXML))) Directory.CreateDirectory(Path.GetDirectoryName(_portsToScanXML));
 
-            
+
             nicInfos = new Supporter_NetworkInterfaces().GetNetworkInterfaces();
             cb_NetworkAdapters.ItemsSource = nicInfos.Select(n => n.NicName).ToList();
             cb_NetworkAdapters.SelectedIndex = 0;
@@ -169,7 +170,7 @@ namespace MyNetworkMonitor
             dg_InternalNames.ItemsSource = dv_InternalNames;
         }
 
-        bool TextChangedByComboBox = false;       
+        bool TextChangedByComboBox = false;
         List<NicInfo> nicInfos = new List<NicInfo>();
 
         ICollectionView cvTasks_scanResults;
@@ -375,8 +376,8 @@ namespace MyNetworkMonitor
                     Header = e.Column.Header
                 };
             }
-            
-                  if (e.PropertyName == "MatchedWithInternal")
+
+            if (e.PropertyName == "MatchedWithInternal")
             {
                 // replace text column with image column
                 e.Column = new DataGridTemplateColumn
@@ -932,7 +933,7 @@ namespace MyNetworkMonitor
                 }
 
                 if (ipToScan.UsedScanMethod == ScanMethod.ReverseLookup)
-                {                    
+                {
 
                     _scannResults.ResultTable.Rows[rowIndex]["Hostname"] = ipToScan.HostName;
                     _scannResults.ResultTable.Rows[rowIndex]["Domain"] = ipToScan.Domain;
@@ -1587,7 +1588,7 @@ namespace MyNetworkMonitor
             int columnindex = cell.Column.DisplayIndex;
             int rowIndex = dg_InternalNames.Items.IndexOf(cell.Item);
 
-           
+
 
             foreach (string row in str_Clipboard.Split("\r\n"))
             {
@@ -1599,7 +1600,7 @@ namespace MyNetworkMonitor
                     int cellCount = cells.Count > 4 ? 4 : cells.Count;
 
                     int currentCell = 0;
-                    
+
 
                     for (int i = columnindex; i < 4; i++)
                     {
@@ -1639,13 +1640,13 @@ namespace MyNetworkMonitor
                 string resultHostname = row["Hostname"].ToString().ToUpper();
                 string resultIP = row["IP"].ToString();
 
-                try 
-                { 
-                    if(!string.IsNullOrEmpty(resultHostname)) row["InternalName"] = _internalNames.InternalNames.Select("Hostname = '" + resultHostname  + "'")[0]["InternalName"].ToString();                    
-                } 
-                catch 
-                { 
-                    row["InternalName"] = string.Empty;                    
+                try
+                {
+                    if (!string.IsNullOrEmpty(resultHostname)) row["InternalName"] = _internalNames.InternalNames.Select("Hostname = '" + resultHostname + "'")[0]["InternalName"].ToString();
+                }
+                catch
+                {
+                    row["InternalName"] = string.Empty;
                 }
 
                 try
@@ -1674,7 +1675,17 @@ namespace MyNetworkMonitor
 
                     row["MatchedWithInternal"] = null;
                 }
-            }            
+            }
+        }
+
+        private void bt_openApplicationFolder_Click(object sender, RoutedEventArgs e)
+        {
+            string applicationFolder = AppDomain.CurrentDomain.BaseDirectory;
+            if (Directory.Exists(applicationFolder))
+            {
+                ProcessStartInfo startInfo = new ProcessStartInfo("explorer.exe", applicationFolder);
+                Process.Start(startInfo);
+            }
         }
     }
 }
