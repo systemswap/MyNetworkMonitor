@@ -242,7 +242,8 @@
                             <RowDefinition Height="40"/>
                             <RowDefinition/>
                         </Grid.RowDefinitions>
-                        <Button x:Name="bt_openApplicationFolder" Content="open application folder" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Center" Click="bt_openApplicationFolder_Click"/>
+                        <Button x:Name="bt_openApplicationFolder" Content="open application folder" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Center" Click="bt_openApplicationFolder_Click" Width="133"/>
+                        <Button Grid.Row="1" x:Name="bt_opensettingsFolder" Content="open settings folder" HorizontalAlignment="Left" Margin="10,10,0,0" VerticalAlignment="Top" Click="bt_openSettingsFolder_Click" Width="133"/>
 
                     </Grid>
                 </TabItem>
