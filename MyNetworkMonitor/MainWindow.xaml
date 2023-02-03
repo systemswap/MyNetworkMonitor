@@ -204,6 +204,7 @@
                             <RowDefinition Height="40"/>
                             <RowDefinition/>
                             <RowDefinition Height="40"/>
+                            <RowDefinition Height="40"/>
                         </Grid.RowDefinitions>
                         <DataGrid x:Name="dg_InternalNames" Margin="10,10,10,10" Grid.Row="1">
                             <DataGrid.ContextMenu>
@@ -212,12 +213,12 @@
                                 </ContextMenu>
                             </DataGrid.ContextMenu>
                         </DataGrid>
-                        <Grid Margin="0,10,1,0" Grid.Row="2">
+                        <Grid Margin="0,47,1,0" Grid.Row="2" Grid.RowSpan="2">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="156*"/>
                                 <ColumnDefinition Width="157*"/>
                             </Grid.ColumnDefinitions>
-                            <Button x:Name="bt_SaveNames" Content="save names to xml" HorizontalAlignment="Center" VerticalAlignment="Center" Width="137" Height="20" Background="#BFA4B1BF" OpacityMask="Black" Click="bt_SaveNames_Click" Grid.Column="1">
+                            <Button x:Name="bt_SaveNames" Content="save names to xml" HorizontalAlignment="Center" VerticalAlignment="Center" Background="#BFA4B1BF" OpacityMask="Black" Click="bt_SaveNames_Click" Grid.Column="1" Width="136">
                                 <Button.Resources>
                                     <Style TargetType="{x:Type Border}">
                                         <Setter Property="CornerRadius" Value="5"/>
@@ -232,6 +233,10 @@
                                 </Button.Resources>
                             </Button>
                         </Grid>
+                        <Canvas Grid.Row="2">
+                            <Label Content="Filter:" HorizontalAlignment="Left" Canvas.Left="8" VerticalAlignment="Center" Canvas.Top="-6"/>
+                            <TextBox x:Name="tb_InternalNamesFilter" TextWrapping="Wrap" Text="" Width="294" TextChanged="tb_InternalNamesFilter_TextChanged" HorizontalAlignment="Left" Canvas.Left="9" Canvas.Top="15" VerticalAlignment="Center"/>
+                        </Canvas>
 
                     </Grid>
                 </TabItem>
