@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
+using System.Runtime;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -19,10 +20,14 @@ namespace MyNetworkMonitor
         public string LastSubnetIP { get; set; }
         public double IPsCount { get; set; }
         public string IPv6 { get; set; }
+        public List<string> StandardGateways { get; set; }
+        public List<string> DHCPServers { get; set; }
+        public List<string> DNSServers { get; set; }
+
     }
     public class Supporter_NetworkInterfaces
     {       
-        public List<NicInfo> NetworkInterfaces_Infos { get; set; }
+        public List<NicInfo> NetworkInterfaces_Infos { get; set; }        
 
         public List<NicInfo> GetNetworkInterfaces()
         {
@@ -31,15 +36,23 @@ namespace MyNetworkMonitor
             {
                 if (ni.NetworkInterfaceType == NetworkInterfaceType.Wireless80211 || ni.NetworkInterfaceType == NetworkInterfaceType.Ethernet)
                 {
+                    IPInterfaceProperties niProperties = ni.GetIPProperties();
+
                     NicInfo _nicInfo = new NicInfo();
                     _nicInfo.NicName = ni.Name;
+
+                    //_nicInfo.StandardGateways = niProperties.GatewayAddresses.Select(g => g.Address.ToString()).ToList();
+                    //_nicInfo.DHCPServers = niProperties.DhcpServerAddresses.Select(g => g.Address.ToString()).ToList();
+                    //_nicInfo.DNSServers = niProperties.DnsAddresses.Select(d => d.Address.ToString()).ToList();
+
+
                     foreach (UnicastIPAddressInformation ip in ni.GetIPProperties().UnicastAddresses)
                     {
                         if (ip.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
                         {
                             _nicInfo.IPv4 = ip.Address.ToString();
                             _nicInfo.IPv4Mask = ip.IPv4Mask.ToString();
-
+                            
                             string[] ipRanges = GetIpRange(_nicInfo.IPv4, _nicInfo.IPv4Mask);
                             _nicInfo.FirstSubnetIP = ipRanges[0];
                             _nicInfo.LastSubnetIP = ipRanges[1];
