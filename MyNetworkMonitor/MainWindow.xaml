@@ -231,7 +231,7 @@
 
                         <dxg:GridControl x:Name="dg_InternalNames" EnableSmartColumnsGeneration="True" Grid.Row="1" Margin="0,0,0,10" AutoGenerateColumns="AddNew" Grid.RowSpan="2">
                             <dxg:GridControl.View>
-                                <dxg:TableView x:Name="tbv_internalNames" AllowGrouping="False" NewItemRowPosition="Bottom" ShowDragDropHint="False">
+                                <dxg:TableView x:Name="tbv_internalNames" AllowGrouping="False" NewItemRowPosition="Bottom" ShowDragDropHint="False" AllowMoveColumnToDropArea="False">
                                     <dxg:TableView.FormatConditions>
                                         <dxg:UniqueDuplicateRuleFormatCondition FieldName="MAC" ApplyToRow="true">
                                             <dx:Format Background="#FFFF0000"/>
