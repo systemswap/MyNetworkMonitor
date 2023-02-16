@@ -1594,9 +1594,9 @@ namespace MyNetworkMonitor
         {
             string str_Clipboard = Clipboard.GetText();
 
-            DataGridCellInfo cell = dg_InternalNames.CurrentCell;
-            int columnindex = cell.Column.DisplayIndex;
-            int rowIndex = dg_InternalNames.Items.IndexOf(cell.Item);
+            var bla = tbv_internalNames.GetSelectedCells().First().Row;
+            int columnindex = 0;
+            int rowIndex = 0;
 
 
 
@@ -1706,18 +1706,6 @@ namespace MyNetworkMonitor
                 ProcessStartInfo startInfo = new ProcessStartInfo("explorer.exe", settingsFolder);
                 Process.Start(startInfo);
             }
-        }
-
-        private void tb_InternalNamesFilter_TextChanged(object sender, TextChangedEventArgs e)
-        {
-            string whereFilter = "1 = 1";
-
-            if (tb_InternalNamesFilter.Text.Length > 0) whereFilter += " and InternalName Like '%" + tb_InternalNamesFilter.Text + "%'";
-            if (tb_InternalNamesFilter.Text.Length > 0) whereFilter += " or Hostname Like '%" + tb_InternalNamesFilter.Text + "%'";
-            if (tb_InternalNamesFilter.Text.Length > 0) whereFilter += " or MAC Like '%" + tb_InternalNamesFilter.Text + "%'";
-            if (tb_InternalNamesFilter.Text.Length > 0) whereFilter += " or StaticIP Like '%" + tb_InternalNamesFilter.Text + "%'";
-
-            dv_InternalNames.RowFilter = string.Format(whereFilter);
         }
     }
 }
