@@ -1798,7 +1798,7 @@ namespace MyNetworkMonitor
                     int countedDupIPs = _internalNames.InternalNames.Select("StaticIP = '" + rowStaticIP + "'").Length;
                     if (countedDupIPs > 1)
                     {
-                        e.Row.Background = Brushes.Orange;
+                        e.Row.Background = Brushes.Yellow;
                     }
 
                     int countedDupHostnames = _internalNames.InternalNames.Select("Hostname = '" + rowHostname + "'").Length;
