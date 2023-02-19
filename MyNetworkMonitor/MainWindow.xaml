@@ -206,7 +206,7 @@
                             <RowDefinition Height="40"/>
                             <RowDefinition Height="40"/>
                         </Grid.RowDefinitions>
-                        <DataGrid x:Name="dg_InternalNames" Margin="10,10,10,10" Grid.Row="1">
+                        <DataGrid x:Name="dg_InternalNames" Margin="10,10,10,10" Grid.Row="1" LoadingRow="dg_InternalNames_LoadingRow" ManipulationCompleted="dg_InternalNames_ManipulationCompleted">
                             <DataGrid.ContextMenu>
                                 <ContextMenu>
                                     <MenuItem Header="Paste" Click="dg_InternalNames_ContextMenu_Click" />
@@ -331,7 +331,7 @@
                     <RowDefinition/>
                     <RowDefinition Height="50"/>
                 </Grid.RowDefinitions>
-                <DataGrid x:Name="dgv_Results" Grid.Column="0" Margin="10,10,10,10" Grid.Row="0" AutoGeneratingColumn="dgv_ScanResults_OnAutoGeneratingColumn" CanUserAddRows="False" Sorting="dgv_Results_Sorting" >
+                <DataGrid x:Name="dgv_Results" Grid.Column="0" Margin="10,10,10,10" Grid.Row="0" AutoGeneratingColumn="dgv_ScanResults_OnAutoGeneratingColumn" CanUserAddRows="False" Sorting="dgv_Results_Sorting" LoadingRow="dgv_Results_LoadingRow" ManipulationCompleted="dgv_Results_ManipulationCompleted" >
 
 
                     <DataGrid.GroupStyle>

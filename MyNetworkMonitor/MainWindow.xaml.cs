@@ -1719,5 +1719,115 @@ namespace MyNetworkMonitor
 
             dv_InternalNames.RowFilter = string.Format(whereFilter);
         }
+
+        private void dgv_Results_LoadingRow(object sender, DataGridRowEventArgs e)
+        {
+            int ipIndex = dgv_Results.Columns.Single(c => c.Header.ToString() == "IP").DisplayIndex;
+            int internalNameIndex = dgv_Results.Columns.Single(c => c.Header.ToString() == "InternalName").DisplayIndex;
+            int hostnameIndex = dgv_Results.Columns.Single(c => c.Header.ToString() == "Hostname").DisplayIndex;
+            int macIndex = dgv_Results.Columns.Single(c => c.Header.ToString() == "Mac").DisplayIndex;
+
+            try
+            {
+                if (dgv_Results.Items.Count >= 0)
+                {
+                    var row = e.Row.Item as DataRowView;
+
+                    string rowIP = row[ipIndex].ToString();
+                    string rowInternalName = row[internalNameIndex].ToString();
+                    string rowHostname = row[hostnameIndex].ToString();
+                    string rowMAC = row[macIndex].ToString();
+
+                    int countedDupInternalNames = _scannResults.ResultTable.Select("InternalName = '" + rowInternalName + "'").Length;
+                    if (countedDupInternalNames > 1)
+                    {
+                        if (!string.IsNullOrEmpty(rowInternalName)) e.Row.Background = Brushes.LightGreen;
+                    }
+
+                    int countedDupIPs = _scannResults.ResultTable.Select("IP = '" + rowIP + "'").Length;
+                    if (countedDupIPs > 1)
+                    {
+                        e.Row.Background = Brushes.Orange;
+                    }
+
+                    int countedDupHostnames = _scannResults.ResultTable.Select("Hostname = '" + rowHostname + "'").Length;
+                    if (countedDupHostnames > 1)
+                    {
+                        if (!string.IsNullOrEmpty(rowHostname))
+                        {
+                            e.Row.Background = Brushes.DarkOrange;
+                        }
+                    }
+
+                    int countedDupMac = _scannResults.ResultTable.Select("Mac = '" + rowMAC + "'").Length;
+                    if (countedDupMac > 1)
+                    {
+                        if (!string.IsNullOrEmpty(rowMAC)) e.Row.Background = Brushes.Red;
+                    }
+                }
+            }
+            catch { }
+        }
+
+        private void dgv_Results_ManipulationCompleted(object sender, System.Windows.Input.ManipulationCompletedEventArgs e)
+        {
+            dgv_Results.Dispatcher.BeginInvoke(new Action(() => dgv_Results.Items.Refresh()), System.Windows.Threading.DispatcherPriority.Background);
+        }
+
+        private void dg_InternalNames_LoadingRow(object sender, DataGridRowEventArgs e)
+        {
+            int internalNameIndex = dg_InternalNames.Columns.Single(c => c.Header.ToString() == "InternalName").DisplayIndex;
+            int hostnameIndex = dg_InternalNames.Columns.Single(c => c.Header.ToString() == "Hostname").DisplayIndex;
+            int macIndex = dg_InternalNames.Columns.Single(c => c.Header.ToString() == "MAC").DisplayIndex;
+            int staticIpIndex = dg_InternalNames.Columns.Single(c => c.Header.ToString() == "StaticIP").DisplayIndex;
+
+            try
+            {
+                if (dg_InternalNames.Items.Count >= 0)
+                {
+                    var row = e.Row.Item as DataRowView;
+
+                    if (row == null) { return; }
+
+                    string rowInternalName = row[internalNameIndex].ToString();
+                    string rowHostname = row[hostnameIndex].ToString();
+                    string rowMAC = row[macIndex].ToString();
+                    string rowStaticIP = row[staticIpIndex].ToString();
+
+                    int countedDupInternalNames = _internalNames.InternalNames.Select("InternalName = '" + rowInternalName + "'").Length;
+                    if (countedDupInternalNames > 1)
+                    {
+                        if (!string.IsNullOrEmpty(rowInternalName)) e.Row.Background = Brushes.LightGreen;
+                    }
+
+                    int countedDupIPs = _internalNames.InternalNames.Select("StaticIP = '" + rowStaticIP + "'").Length;
+                    if (countedDupIPs > 1)
+                    {
+                        e.Row.Background = Brushes.Orange;
+                    }
+
+                    int countedDupHostnames = _internalNames.InternalNames.Select("Hostname = '" + rowHostname + "'").Length;
+                    if (countedDupHostnames > 1)
+                    {
+                        if (!string.IsNullOrEmpty(rowHostname))
+                        {
+                            e.Row.Background = Brushes.DarkOrange;
+                        }
+                    }
+
+                    int countedDupMac = _internalNames.InternalNames.Select("MAC = '" + rowMAC + "'").Length;
+                    if (countedDupMac > 1)
+                    {
+                        if (!string.IsNullOrEmpty(rowMAC)) e.Row.Background = Brushes.Red;
+                    }
+                }
+            }
+            catch { }
+        }
+
+        private void dg_InternalNames_ManipulationCompleted(object sender, System.Windows.Input.ManipulationCompletedEventArgs e)
+        {
+            dg_InternalNames.Dispatcher.BeginInvoke(new Action(() => dg_InternalNames.Items.Refresh()), System.Windows.Threading.DispatcherPriority.Background);
+        }
     }
 }
