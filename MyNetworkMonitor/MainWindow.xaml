@@ -252,7 +252,7 @@
                         </Grid.RowDefinitions>
                         <Button x:Name="bt_openApplicationFolder" Content="open application folder" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Center" Click="bt_openApplicationFolder_Click" Width="133"/>
                         <Button Grid.Row="1" x:Name="bt_opensettingsFolder" Content="open settings folder" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Center" Click="bt_openSettingsFolder_Click" Width="133"/>
-                        <Label Content="color description of duplicat values" HorizontalAlignment="Center" Grid.Row="2" VerticalAlignment="Bottom" Width="293" VerticalContentAlignment="Bottom"/>
+                        <Label Content="color description of duplicate values" HorizontalAlignment="Center" Grid.Row="2" VerticalAlignment="Bottom" Width="293" VerticalContentAlignment="Bottom"/>
                         <Label Content="InternalName" Background="LightGreen" HorizontalAlignment="Left" Margin="10,2,0,0" Grid.Row="3" VerticalAlignment="Top" Width="70" FontSize="10" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
                         <Label Content="IP-Address" Background="Yellow" HorizontalAlignment="Left" Margin="85,2,0,0" Grid.Row="3" VerticalAlignment="Top" Width="70" FontSize="10" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
                         <Label Content="Hostname" Background="DarkOrange" HorizontalAlignment="Left" Margin="160,2,0,0" Grid.Row="3" VerticalAlignment="Top" Width="70" FontSize="10" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
