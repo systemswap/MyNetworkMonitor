@@ -1,9 +1,9 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.4.33110.190
+VisualStudioVersion = 17.4.33403.182
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MyNetworkMonitor", "MyNetworkMonitor\MyNetworkMonitor.csproj", "{F29860A5-D30F-44E8-97EC-70F53FCF936E}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MyNetworkMonitor", "MyNetworkMonitor\MyNetworkMonitor.csproj", "{2F57621E-7E5B-4B45-83FB-3855BEEB1C61}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -11,15 +11,15 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{F29860A5-D30F-44E8-97EC-70F53FCF936E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{F29860A5-D30F-44E8-97EC-70F53FCF936E}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{F29860A5-D30F-44E8-97EC-70F53FCF936E}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{F29860A5-D30F-44E8-97EC-70F53FCF936E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2F57621E-7E5B-4B45-83FB-3855BEEB1C61}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2F57621E-7E5B-4B45-83FB-3855BEEB1C61}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2F57621E-7E5B-4B45-83FB-3855BEEB1C61}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2F57621E-7E5B-4B45-83FB-3855BEEB1C61}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {837B1165-EF91-4EA9-A764-A71B0D1A6EFE}
+		SolutionGuid = {CAA8ABB8-A095-44DA-92F8-4F27CD2B9FD7}
 	EndGlobalSection
 EndGlobal

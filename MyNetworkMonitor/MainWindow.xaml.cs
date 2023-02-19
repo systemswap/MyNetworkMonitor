@@ -1768,12 +1768,7 @@ namespace MyNetworkMonitor
             }
             catch { }
         }
-
-        private void dgv_Results_ManipulationCompleted(object sender, System.Windows.Input.ManipulationCompletedEventArgs e)
-        {
-            dgv_Results.Dispatcher.BeginInvoke(new Action(() => dgv_Results.Items.Refresh()), System.Windows.Threading.DispatcherPriority.Background);
-        }
-
+      
         private void dg_InternalNames_LoadingRow(object sender, DataGridRowEventArgs e)
         {
             int internalNameIndex = dg_InternalNames.Columns.Single(c => c.Header.ToString() == "InternalName").DisplayIndex;
@@ -1825,9 +1820,20 @@ namespace MyNetworkMonitor
             catch { }
         }
 
-        private void dg_InternalNames_ManipulationCompleted(object sender, System.Windows.Input.ManipulationCompletedEventArgs e)
+        private void dgv_Results_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
         {
-            dg_InternalNames.Dispatcher.BeginInvoke(new Action(() => dg_InternalNames.Items.Refresh()), System.Windows.Threading.DispatcherPriority.Background);
+            if (e.EditAction == DataGridEditAction.Commit)
+            {
+                dgv_Results.Dispatcher.BeginInvoke(new Action(() => dgv_Results.Items.Refresh()), System.Windows.Threading.DispatcherPriority.Background);
+            }
+         }
+
+        private void dg_InternalNames_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
+        {
+            if (e.EditAction == DataGridEditAction.Commit)
+            {
+                dg_InternalNames.Dispatcher.BeginInvoke(new Action(() => dg_InternalNames.Items.Refresh()), System.Windows.Threading.DispatcherPriority.Background);
+            }
         }
     }
 }
