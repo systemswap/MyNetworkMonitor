@@ -20,6 +20,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Media;
@@ -1795,10 +1796,14 @@ namespace MyNetworkMonitor
                         if (!string.IsNullOrEmpty(rowInternalName)) e.Row.Background = Brushes.LightGreen;
                     }
 
+                    var bla = _internalNames.InternalNames.Select("StaticIP = '" + rowStaticIP + "'");
                     int countedDupIPs = _internalNames.InternalNames.Select("StaticIP = '" + rowStaticIP + "'").Length;
                     if (countedDupIPs > 1)
                     {
-                        e.Row.Background = Brushes.Yellow;
+                        if (!string.IsNullOrEmpty(rowStaticIP))
+                        {
+                            e.Row.Background = Brushes.Yellow;
+                        }
                     }
 
                     int countedDupHostnames = _internalNames.InternalNames.Select("Hostname = '" + rowHostname + "'").Length;
@@ -1832,8 +1837,44 @@ namespace MyNetworkMonitor
         {
             if (e.EditAction == DataGridEditAction.Commit)
             {
-                dg_InternalNames.Dispatcher.BeginInvoke(new Action(() => dg_InternalNames.Items.Refresh()), System.Windows.Threading.DispatcherPriority.Background);//
+                dg_InternalNames.Dispatcher.BeginInvoke(new Action(() => dg_InternalNames.Items.Refresh()), System.Windows.Threading.DispatcherPriority.Background);
             }
         }
+
+        private void dg_InternalNames_Scroll(object sender, RoutedEventArgs e)
+        {
+            ScrollEventArgs scrollEvent = e as ScrollEventArgs;
+            if (scrollEvent != null)
+            {
+                if (scrollEvent.ScrollEventType == ScrollEventType.EndScroll)
+                {
+                    isScrolling = false;
+                }
+                else
+                {
+                    isScrolling = true;
+                    dg_InternalNames.Dispatcher.BeginInvoke(new Action(() => dg_InternalNames.Items.Refresh()), System.Windows.Threading.DispatcherPriority.Background);                    
+                }
+            }
+        }
+
+        bool isScrolling = false;
+        private void dgv_Results_Scroll(object sender, RoutedEventArgs e)
+        {
+            ScrollEventArgs scrollEvent = e as ScrollEventArgs;
+            if (scrollEvent != null && !isScrolling)
+            {
+                if (scrollEvent.ScrollEventType == ScrollEventType.EndScroll)
+                {
+                    isScrolling = false;                    
+                }
+                else
+                {
+                    isScrolling = true;
+                    dgv_Results.Dispatcher.BeginInvoke(new Action(() => dgv_Results.Items.Refresh()), System.Windows.Threading.DispatcherPriority.Background);                    
+                }
+            }
+        }
+
     }
 }
