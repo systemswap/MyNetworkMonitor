@@ -1832,7 +1832,7 @@ namespace MyNetworkMonitor
         {
             if (e.EditAction == DataGridEditAction.Commit)
             {
-                dg_InternalNames.Dispatcher.BeginInvoke(new Action(() => dg_InternalNames.Items.Refresh()), System.Windows.Threading.DispatcherPriority.Background);
+                dg_InternalNames.Dispatcher.BeginInvoke(new Action(() => dg_InternalNames.Items.Refresh()), System.Windows.Threading.DispatcherPriority.Background);//
             }
         }
     }
