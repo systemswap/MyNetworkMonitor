@@ -58,6 +58,7 @@ namespace MyNetworkMonitor
             scanningMethode_SSDP_UPNP.SSDP_Scan_Finished += SSDP_Scan_Finished;
 
             scanningMethode_SNMP = new ScanningMethod_SNMP();
+            scanningMethode_SNMP.SNMP_SendRequest += SNMP_SendRequest;
             scanningMethode_SNMP.SNMP_Task_Finished += SNMP_Task_Finished;
             scanningMethode_SNMP.SNMPFinished += SNMPFinished;
 
@@ -178,6 +179,8 @@ namespace MyNetworkMonitor
             dg_InternalNames.ItemsSource = dv_InternalNames;
         }
 
+      
+
         bool TextChangedByComboBox = false;
         List<NicInfo> nicInfos = new List<NicInfo>();
 
@@ -250,8 +253,8 @@ namespace MyNetworkMonitor
         int foundedIPCams = 0;
 
         ScanStatus SNMP_state = ScanStatus.ignored;
-        int currentSNMPCount = 0;
-        int CountedSNMPDevices = 0;
+        int requestedSNMPCount = 0;
+        int repliedSNMPDevices = 0;
 
         ScanStatus dns_state = ScanStatus.ignored;
         int currentHostnameCount = 0;
@@ -281,6 +284,7 @@ namespace MyNetworkMonitor
         {
             lbl_ScanStatus.Content = string.Format($"" +
                 $"SSDP: {ssdp_state.ToString()} found {currentSSDPCount} from {CountedSSDPs}        " +
+                $"SNMP: {SNMP_state.ToString()} replied {repliedSNMPDevices} from {requestedSNMPCount} " +
                 $"IP-Cams: {IPCams_state.ToString()} found {foundedIPCams}        " +
                 $"ARP-Request: {arpRequest_state.ToString()}  {currentARPRequest} from {CountedARPRequests} found {responsedARPRequestCount}        " +
                 $"Ping: {ping_state.ToString()} {currentPingCount} of {CountedPings}        " +
@@ -725,7 +729,7 @@ namespace MyNetworkMonitor
             if((bool)chk_Methodes_SNMP.IsChecked)
             {
                 SNMP_state = ScanStatus.running;
-                CountedSNMPDevices = _IPsToScan.Count;
+                //requestedSNMPCount = _IPsToScan.Count;
                 Status();
                 Task.Run(() => scanningMethode_SNMP.ScanAsync(_IPsToScan));
             }
@@ -931,6 +935,7 @@ namespace MyNetworkMonitor
                 {
                     _scannResults.ResultTable.Rows[rowIndex]["SNMPSysName"] = ipToScan.SNMPSysName;
                     _scannResults.ResultTable.Rows[rowIndex]["SNMPSysDesc"] = ipToScan.SNMPSysDesc;
+                    _scannResults.ResultTable.Rows[rowIndex]["SNMPLocation"] = ipToScan.SNMPLocation;
                 }
 
 
@@ -1061,6 +1066,7 @@ namespace MyNetworkMonitor
                 {
                     row["SNMPSysName"] = ipToScan.SNMPSysName;
                     row["SNMPSysDesc"] = ipToScan.SNMPSysDesc;
+                    row["SNMPLocation"] = ipToScan.SNMPLocation;
                 }
 
                 if (ipToScan.UsedScanMethod == ScanMethod.ARPRequest)
@@ -1240,8 +1246,15 @@ namespace MyNetworkMonitor
             }));
         }
 
-
-
+        private void SNMP_SendRequest(object? sender, ScanningMethod_SNMP.CounterEventArgs e)
+        {
+            //throw new NotImplementedException();
+            Dispatcher.BeginInvoke(() =>
+            {
+               requestedSNMPCount = e.Value;
+                Status();
+            });
+        }
 
 
         private void SNMP_Task_Finished(object? sender, ScanTask_Finished_EventArgs e)
@@ -1251,7 +1264,7 @@ namespace MyNetworkMonitor
             {
                 InsertIPToScanResult(e.ipToScan);
 
-                ++currentSSDPCount;
+                ++repliedSNMPDevices;
                 Status();
             });
         }
