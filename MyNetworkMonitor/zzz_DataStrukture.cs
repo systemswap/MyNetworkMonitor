@@ -72,9 +72,10 @@ namespace MyNetworkMonitor
 
         private string _SNMPSysName = string.Empty;
         private string _SNMPSysDesc = string.Empty;
+        private string _SNMPLocation = string.Empty;
         public string SNMPSysName { get { return _SNMPSysName; } set { _SNMPSysName = value; } }
         public string SNMPSysDesc { get { return _SNMPSysDesc; } set { _SNMPSysDesc = value; } }
-
+        public string SNMPLocation { get { return _SNMPLocation; } set { _SNMPLocation = value; } }
 
 
         private bool _ARPStatus = false;
@@ -183,8 +184,8 @@ namespace MyNetworkMonitor
 
 
             dt_NetworkResults.Columns.Add("SNMPSysName", typeof(string));
-            dt_NetworkResults.Columns.Add("SNMPSysDesc", typeof(string));            
-
+            dt_NetworkResults.Columns.Add("SNMPSysDesc", typeof(string));
+            dt_NetworkResults.Columns.Add("SNMPLocation", typeof(string));
 
             dt_NetworkResults.Columns.Add("IPCamName", typeof(string));
             dt_NetworkResults.Columns.Add("IPCamXAddress", typeof(string));
