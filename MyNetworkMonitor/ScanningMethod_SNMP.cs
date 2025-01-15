@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO.Pipes;
 using System.Linq;
+using System.Net;
 using System.Net.NetworkInformation;
 using System.Text;
 using System.Threading.Tasks;
@@ -63,8 +64,8 @@ namespace MyNetworkMonitor
         {
             if (!new SupportMethods().Is_Valid_IP(ipToScan.IPorHostname)) return;
 
-            try 
-            { 
+            try
+            {
                 if (SNMP_Task_Finished != null)
                 {
                     // Geben Sie die IP-Adresse des Druckers ein
@@ -82,51 +83,99 @@ namespace MyNetworkMonitor
                     }
 
                     ipToScan.UsedScanMethod = ScanMethod.SNMP;
-                    // OIDs                 
-                    // "1.3.6.1.2.1.1.5.0" // sysName
-                    // "1.3.6.1.2.1.1.1.0" // sysDescr
-                    // "1.3.6.1.2.1.1.4.0" // sysContact: Kontaktinformationen des Administrators.
-                    // "1.3.6.1.2.1.43.5.1.1.1.1" // prtGeneralPrinterName: Name des Druckers.
 
-                    
+                    // OIDs  
+                    string ZebraSysName = "1.3.6.1.4.1.10642.20.3.5.0"; //
                     string sysName = "1.3.6.1.2.1.1.5.0"; // SNMP-OID für sysName (Hostname) bei Canon: Geräteverwaltung -> Einstellungen Geräte-Information
+
                     string sysDescr = "1.3.6.1.2.1.1.1.0"; // bei Canon: Netzwerk -> Einstellungen Computername / Name Arbeitsgruppe
-                    string prtName = "1.3.6.1.2.1.43.5.1.1.1.1";
-                    string sysContact = "1.3.6.1.2.1.1.4.0";
                     string ptrLocation = "1.3.6.1.2.1.1.6.0";
+                    string prtName = "1.3.6.1.2.1.43.5.1.1.1.1"; // prtGeneralPrinterName: Name des Druckers.
+                    string sysContact = "1.3.6.1.2.1.1.4.0"; // sysContact: Kontaktinformationen des Administrators.
+
 
                     // abfrage mit walk
-                    string ptrCurrentIP = "1.3.6.1.2.1.4.22.1.2";
-                    string prtModelDesc = "1.3.6.1.2.1.43.5.1.1.17.1";
-                    string prtDeviceName = "1.3.6.1.2.1.25.3.2.1.3";
+                    //string ptrCurrentIP = "1.3.6.1.2.1.4.22.1.2";
+                    //string prtModelDesc = "1.3.6.1.2.1.43.5.1.1.17.1";
+                    //string prtDeviceName = "1.3.6.1.2.1.25.3.2.1.3";
+
+
+
+
+                    try
+                    {
+                        // Die OID, die abgefragt werden soll
+                        Oid oid = new Oid("1.3.6.1.4.1.10642.20.3.5.0");
+
+                        // Erstelle das IPAddress-Objekt
+                        IPAddress ip = IPAddress.Parse(printerIp);
+
+                        // Erstelle das UdpTarget-Objekt mit IP-Adresse und Port 161 (Standardport für SNMP)
+                        UdpTarget target = new UdpTarget(ip, 161, 2000, 1); // Timeout 2000ms
+
+                        // Erstelle das Pdu-Objekt (PduType.Get für eine GET-Anfrage)
+                        Pdu pdu = new Pdu(PduType.Get);
+                        pdu.VbList.Add(oid);  // Füge die OID der Anfrage hinzu
+
+                        // Erstelle AgentParameters mit dem Community-String und der SNMP-Version
+                        AgentParameters parameters = new AgentParameters(SnmpVersion.Ver2, new OctetString(community));
+
+                        // Sende die SNMP-GET-Anfrage und erhalte die Antwort
+                        SnmpV2Packet response = (SnmpV2Packet)target.Request(pdu, parameters);
+
+                        if (response.Pdu.ErrorStatus == 0)  // Fehlerstatus 0 bedeutet Erfolg
+                        {
+                            string ZebraName = response.Pdu.VbList[0].Value.ToString();
+                        }
+                    }
+                    catch (Exception)
+                    {
+
+                        //throw;
+                    }
+
+
+
+
+
+
+
+
+
 
                     // SNMP-Abfrage
-                    var result = snmp.Get(SnmpVersion.Ver1, new[] { sysName, sysDescr, ptrLocation, prtName, sysContact });
+                    var result = snmp.Get(SnmpVersion.Ver1, new[] { sysName, sysDescr, ptrLocation});
 
-                    var prtIP = snmp.Walk(SnmpVersion.Ver1, ptrCurrentIP);
-                    var prtModel = snmp.Walk(SnmpVersion.Ver1, prtModelDesc);
-                    var prtDevice = snmp.Walk(SnmpVersion.Ver1, prtDeviceName);
+                    //var ZebraNameResult = snmp.Walk(SnmpVersion.Ver1, ZebraSNMP_Name);
+                    //var prtIP = snmp.Walk(SnmpVersion.Ver1, ptrCurrentIP);
+                    //var prtModel = snmp.Walk(SnmpVersion.Ver1, prtModelDesc);
+                    //var prtDevice = snmp.Walk(SnmpVersion.Ver1, prtDeviceName);
 
                     if (result == null)
                     {
-                        result = snmp.Get(SnmpVersion.Ver2, new[] { sysName, sysDescr, ptrLocation, prtName, sysContact });
+                        result = snmp.Get(SnmpVersion.Ver2, new[] { sysName, sysDescr, ptrLocation});
 
-                        prtIP = snmp.Walk(SnmpVersion.Ver2, ptrCurrentIP);
-                        prtModel = snmp.Walk(SnmpVersion.Ver2, prtModelDesc);
-                        prtDevice = snmp.Walk(SnmpVersion.Ver2, prtDeviceName);
+                        //prtIP = snmp.Walk(SnmpVersion.Ver2, ptrCurrentIP);
+                        //prtModel = snmp.Walk(SnmpVersion.Ver2, prtModelDesc);
+                        //prtDevice = snmp.Walk(SnmpVersion.Ver2, prtDeviceName);
                     }
 
                     if (result == null)
                     {
-                        result = snmp.Get(SnmpVersion.Ver3, new[] { sysName, sysDescr, ptrLocation, prtName, sysContact });
+                        result = snmp.Get(SnmpVersion.Ver3, new[] { sysName, sysDescr, ptrLocation });
 
-                        prtIP = snmp.Walk(SnmpVersion.Ver3, ptrCurrentIP);
-                        prtModel = snmp.Walk(SnmpVersion.Ver3, prtModelDesc);
-                        prtDevice = snmp.Walk(SnmpVersion.Ver3, prtDeviceName);
-                    }                  
-
+                        //prtIP = snmp.Walk(SnmpVersion.Ver3, ptrCurrentIP);
+                        //prtModel = snmp.Walk(SnmpVersion.Ver3, prtModelDesc);
+                        //prtDevice = snmp.Walk(SnmpVersion.Ver3, prtDeviceName);
+                    }
 
                     ipToScan.SNMPSysName = result.ElementAt(0).Value.ToString();
+
+                    //if (result.ElementAt(1).Value.ToString().Contains("Zebra"))
+                    //{
+                    //    ipToScan.SNMPSysName = result.ElementAt(3).Value.ToString();
+                    //}
+                    
                     ipToScan.SNMPSysDesc = result.ElementAt(1).Value.ToString();
                     ipToScan.SNMPLocation = result.ElementAt(2).Value.ToString();
 
