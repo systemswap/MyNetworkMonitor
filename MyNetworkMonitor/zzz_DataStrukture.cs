@@ -17,6 +17,7 @@ namespace MyNetworkMonitor
         ARP_A,
         Ping,
         ONVIF_IPCam,
+        SNMP,
         ReverseLookup,
         Lookup,
         TCPPorts,
@@ -66,6 +67,15 @@ namespace MyNetworkMonitor
         public bool IsIPCam { get { return _IsIPCam; } set { _IsIPCam = value; } }
         public string IPCamName { get { return _IPCamName; } set { _IPCamName = value; } }
         public string IPCamXAddress { get { return _IPCamXAddress; } set { _IPCamXAddress = value; } }
+
+
+
+        private string _SNMPSysName = string.Empty;
+        private string _SNMPSysDesc = string.Empty;
+        public string SNMPSysName { get { return _SNMPSysName; } set { _SNMPSysName = value; } }
+        public string SNMPSysDesc { get { return _SNMPSysDesc; } set { _SNMPSysDesc = value; } }
+
+
 
         private bool _ARPStatus = false;
         private string _MAC = string.Empty;
@@ -170,6 +180,12 @@ namespace MyNetworkMonitor
             dt_NetworkResults.Columns.Add("ResponseTime", typeof(string));
             dt_NetworkResults.Columns.Add("InternalName", typeof(string));
             dt_NetworkResults.Columns.Add("Hostname", typeof(string));
+
+
+            dt_NetworkResults.Columns.Add("SNMPSysName", typeof(string));
+            dt_NetworkResults.Columns.Add("SNMPSysDesc", typeof(string));            
+
+
             dt_NetworkResults.Columns.Add("IPCamName", typeof(string));
             dt_NetworkResults.Columns.Add("IPCamXAddress", typeof(string));
             dt_NetworkResults.Columns.Add("Domain", typeof(string));
