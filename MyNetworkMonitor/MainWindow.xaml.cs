@@ -57,6 +57,11 @@ namespace MyNetworkMonitor
             scanningMethode_SSDP_UPNP.SSDP_foundNewDevice += SSDP_foundNewDevice;
             scanningMethode_SSDP_UPNP.SSDP_Scan_Finished += SSDP_Scan_Finished;
 
+            scanningMethode_SNMP = new ScanningMethod_SNMP();
+            scanningMethode_SNMP.SNMP_Task_Finished += SNMP_Task_Finished;
+            scanningMethode_SNMP.SNMPFinished += SNMPFinished;
+
+
             scanningMethode_ARP = new ScanningMethod_ARP();
             scanningMethode_ARP.ARP_A_newDevice += ARP_A_newDevive_Finished;
             scanningMethode_ARP.ARP_Request_Task_Finished += ARP_Request_Task_Finished;
@@ -213,6 +218,7 @@ namespace MyNetworkMonitor
         ScanningMethods_Ping scanningMethods_Ping;
         ScanningMethod_ONVIF_IPCam scanningMethod_FindIPCameras;
         ScanningMethod_SSDP_UPNP scanningMethode_SSDP_UPNP;
+        ScanningMethod_SNMP scanningMethode_SNMP;
         ScanningMethod_ReverseLookupToHostAndAlieases scanningMethode_ReverseLookupToHostAndAliases;
         ScanningMethod_LookUp scanningMethod_LookUp;
         ScanningMethod_PortsTCP scanningMethode_PortsTCP;
@@ -242,6 +248,10 @@ namespace MyNetworkMonitor
 
         ScanStatus IPCams_state = ScanStatus.ignored;
         int foundedIPCams = 0;
+
+        ScanStatus SNMP_state = ScanStatus.ignored;
+        int currentSNMPCount = 0;
+        int CountedSNMPDevices = 0;
 
         ScanStatus dns_state = ScanStatus.ignored;
         int currentHostnameCount = 0;
@@ -623,6 +633,8 @@ namespace MyNetworkMonitor
             currentSSDPCount = 0;
             CountedSSDPs = 0;
 
+           
+
             currentHostnameCount = 0;
             CountedHostnames = 0;
             responsedHostNamesCount = 0;
@@ -708,6 +720,16 @@ namespace MyNetworkMonitor
                 Status();
                 Task.Run(() => scanningMethode_SSDP_UPNP.ScanForSSDP(_IPsToScan));
             }
+
+
+            if((bool)chk_Methodes_SNMP.IsChecked)
+            {
+                SNMP_state = ScanStatus.running;
+                CountedSNMPDevices = _IPsToScan.Count;
+                Status();
+                Task.Run(() => scanningMethode_SNMP.ScanAsync(_IPsToScan));
+            }
+
 
             if ((bool)chk_Methodes_ONVIF.IsChecked)
             {
@@ -904,6 +926,14 @@ namespace MyNetworkMonitor
                     _scannResults.ResultTable.Rows[rowIndex]["SSDPStatus"] = ipToScan.SSDPStatus ? Properties.Resources.green_dot : Properties.Resources.red_dotTB;
                 }
 
+
+                if (ipToScan.UsedScanMethod == ScanMethod.SNMP)
+                {
+                    _scannResults.ResultTable.Rows[rowIndex]["SNMPSysName"] = ipToScan.SNMPSysName;
+                    _scannResults.ResultTable.Rows[rowIndex]["SNMPSysDesc"] = ipToScan.SNMPSysDesc;
+                }
+
+
                 if (ipToScan.UsedScanMethod == ScanMethod.ARPRequest)
                 {
                     _scannResults.ResultTable.Rows[rowIndex]["ARPStatus"] = ipToScan.ARPStatus ? Properties.Resources.green_dot : Properties.Resources.red_dotTB;
@@ -1025,6 +1055,12 @@ namespace MyNetworkMonitor
                 if (ipToScan.UsedScanMethod == ScanMethod.SSDP)
                 {
                     row["SSDPStatus"] = ipToScan.SSDPStatus ? Properties.Resources.green_dot : Properties.Resources.red_dotTB;
+                }
+
+                if (ipToScan.UsedScanMethod == ScanMethod.SNMP)
+                {
+                    row["SNMPSysName"] = ipToScan.SNMPSysName;
+                    row["SNMPSysDesc"] = ipToScan.SNMPSysDesc;
                 }
 
                 if (ipToScan.UsedScanMethod == ScanMethod.ARPRequest)
@@ -1204,6 +1240,30 @@ namespace MyNetworkMonitor
             }));
         }
 
+
+
+
+
+        private void SNMP_Task_Finished(object? sender, ScanTask_Finished_EventArgs e)
+        {
+            //throw new NotImplementedException();
+            Dispatcher.BeginInvoke(() =>
+            {
+                InsertIPToScanResult(e.ipToScan);
+
+                ++currentSSDPCount;
+                Status();
+            });
+        }
+        private void SNMPFinished(object? sender, Method_Finished_EventArgs e)
+        {
+            //throw new NotImplementedException();
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                SNMP_state = ScanStatus.finished;
+                Status();
+            }));
+        }
 
 
         private void ARP_Request_Task_Finished(object? sender, ScanTask_Finished_EventArgs e)
