@@ -85,7 +85,7 @@ namespace MyNetworkMonitor
                     ipToScan.UsedScanMethod = ScanMethod.SNMP;
 
                     // OIDs  
-                    string ZebraSysName = "1.3.6.1.4.1.10642.20.3.5.0"; //
+                   
                     string sysName = "1.3.6.1.2.1.1.5.0"; // SNMP-OID für sysName (Hostname) bei Canon: Geräteverwaltung -> Einstellungen Geräte-Information
 
                     string sysDescr = "1.3.6.1.2.1.1.1.0"; // bei Canon: Netzwerk -> Einstellungen Computername / Name Arbeitsgruppe
@@ -101,38 +101,38 @@ namespace MyNetworkMonitor
 
 
 
+                    //string ZebraSysName = string.Empty;
+                    //try
+                    //{
+                    //    // Zebra SysNameOid
+                    //    Oid ZebraSysNameOid = new Oid("1.3.6.1.4.1.10642.20.3.5.0");
 
-                    try
-                    {
-                        // Die OID, die abgefragt werden soll
-                        Oid oid = new Oid("1.3.6.1.4.1.10642.20.3.5.0");
+                    //    // Erstelle das IPAddress-Objekt
+                    //    IPAddress ip = IPAddress.Parse(printerIp);
 
-                        // Erstelle das IPAddress-Objekt
-                        IPAddress ip = IPAddress.Parse(printerIp);
+                    //    // Erstelle das UdpTarget-Objekt mit IP-Adresse und Port 161 (Standardport für SNMP)
+                    //    UdpTarget target = new UdpTarget(ip, 161, 2000, 1); // Timeout 2000ms
 
-                        // Erstelle das UdpTarget-Objekt mit IP-Adresse und Port 161 (Standardport für SNMP)
-                        UdpTarget target = new UdpTarget(ip, 161, 2000, 1); // Timeout 2000ms
+                    //    // Erstelle das Pdu-Objekt (PduType.Get für eine GET-Anfrage)
+                    //    Pdu pdu = new Pdu(PduType.Get);
+                    //    pdu.VbList.Add(ZebraSysNameOid);  // Füge die OID der Anfrage hinzu
 
-                        // Erstelle das Pdu-Objekt (PduType.Get für eine GET-Anfrage)
-                        Pdu pdu = new Pdu(PduType.Get);
-                        pdu.VbList.Add(oid);  // Füge die OID der Anfrage hinzu
+                    //    // Erstelle AgentParameters mit dem Community-String und der SNMP-Version
+                    //    AgentParameters parameters = new AgentParameters(SnmpVersion.Ver2, new OctetString(community));
 
-                        // Erstelle AgentParameters mit dem Community-String und der SNMP-Version
-                        AgentParameters parameters = new AgentParameters(SnmpVersion.Ver2, new OctetString(community));
+                    //    // Sende die SNMP-GET-Anfrage und erhalte die Antwort
+                    //    SnmpV2Packet response = (SnmpV2Packet)target.Request(pdu, parameters);
 
-                        // Sende die SNMP-GET-Anfrage und erhalte die Antwort
-                        SnmpV2Packet response = (SnmpV2Packet)target.Request(pdu, parameters);
+                    //    if (response.Pdu.ErrorStatus == 0)  // Fehlerstatus 0 bedeutet Erfolg
+                    //    {
+                    //        ZebraSysName = response.Pdu.VbList[0].Value.ToString();
+                    //    }
+                    //}
+                    //catch (Exception)
+                    //{
 
-                        if (response.Pdu.ErrorStatus == 0)  // Fehlerstatus 0 bedeutet Erfolg
-                        {
-                            string ZebraName = response.Pdu.VbList[0].Value.ToString();
-                        }
-                    }
-                    catch (Exception)
-                    {
-
-                        //throw;
-                    }
+                    //    //throw;
+                    //}
 
 
 
@@ -144,40 +144,86 @@ namespace MyNetworkMonitor
 
 
                     // SNMP-Abfrage
-                    var result = snmp.Get(SnmpVersion.Ver1, new[] { sysName, sysDescr, ptrLocation});
+                    Dictionary<Oid, AsnType> result = new Dictionary<Oid, AsnType>();
+                    for (int i = 0; i < 6; i++)
+                    {
+                        result = snmp.Get(SnmpVersion.Ver1, new[] { sysName, sysDescr, ptrLocation });
+                        if (result == null) continue;                        
+
+                        if (result.Count >= 1)
+                        {
+                            break;
+                        }
+                    } 
+                    
 
                     //var ZebraNameResult = snmp.Walk(SnmpVersion.Ver1, ZebraSNMP_Name);
                     //var prtIP = snmp.Walk(SnmpVersion.Ver1, ptrCurrentIP);
                     //var prtModel = snmp.Walk(SnmpVersion.Ver1, prtModelDesc);
                     //var prtDevice = snmp.Walk(SnmpVersion.Ver1, prtDeviceName);
 
-                    if (result == null)
-                    {
-                        result = snmp.Get(SnmpVersion.Ver2, new[] { sysName, sysDescr, ptrLocation});
+                    //if (result == null)
+                    //{
+                        //result = snmp.Get(SnmpVersion.Ver2, new[] { sysName, sysDescr, ptrLocation});
 
                         //prtIP = snmp.Walk(SnmpVersion.Ver2, ptrCurrentIP);
                         //prtModel = snmp.Walk(SnmpVersion.Ver2, prtModelDesc);
                         //prtDevice = snmp.Walk(SnmpVersion.Ver2, prtDeviceName);
-                    }
+                    //}
 
-                    if (result == null)
-                    {
-                        result = snmp.Get(SnmpVersion.Ver3, new[] { sysName, sysDescr, ptrLocation });
+                    //if (result == null)
+                    //{
+                        //result = snmp.Get(SnmpVersion.Ver3, new[] { sysName, sysDescr, ptrLocation });
 
                         //prtIP = snmp.Walk(SnmpVersion.Ver3, ptrCurrentIP);
                         //prtModel = snmp.Walk(SnmpVersion.Ver3, prtModelDesc);
                         //prtDevice = snmp.Walk(SnmpVersion.Ver3, prtDeviceName);
-                    }
+                    //}
 
                     ipToScan.SNMPSysName = result.ElementAt(0).Value.ToString();
-
-                    //if (result.ElementAt(1).Value.ToString().Contains("Zebra"))
-                    //{
-                    //    ipToScan.SNMPSysName = result.ElementAt(3).Value.ToString();
-                    //}
-                    
                     ipToScan.SNMPSysDesc = result.ElementAt(1).Value.ToString();
                     ipToScan.SNMPLocation = result.ElementAt(2).Value.ToString();
+
+
+                    if (ipToScan.SNMPSysDesc.Contains("Zebra Technologies"))
+                    {
+                        try
+                        {
+                            // Zebra SysNameOid
+                            Oid ZebraSysNameOid = new Oid("1.3.6.1.4.1.10642.20.3.5.0");
+
+                            // Erstelle das IPAddress-Objekt
+                            IPAddress ip = IPAddress.Parse(printerIp);
+
+                            // Erstelle das UdpTarget-Objekt mit IP-Adresse und Port 161 (Standardport für SNMP)
+                            UdpTarget target = new UdpTarget(ip, 161, 2000, 1); // Timeout 2000ms
+
+                            // Erstelle das Pdu-Objekt (PduType.Get für eine GET-Anfrage)
+                            Pdu pdu = new Pdu(PduType.Get);
+                            pdu.VbList.Add(ZebraSysNameOid);  // Füge die OID der Anfrage hinzu
+
+                            // Erstelle AgentParameters mit dem Community-String und der SNMP-Version
+                            AgentParameters parameters = new AgentParameters(SnmpVersion.Ver2, new OctetString(community));
+
+                            // Sende die SNMP-GET-Anfrage und erhalte die Antwort
+                            SnmpV2Packet response;
+                            for (int i = 0; i < 6; i++)
+                            {                                
+                                response = (SnmpV2Packet)target.Request(pdu, parameters);
+                                if (response.Pdu.ErrorStatus == 0)  // Fehlerstatus 0 bedeutet Erfolg
+                                {
+                                    ipToScan.SNMPSysName = response.Pdu.VbList[0].Value.ToString();
+                                    break;
+                                }
+                            }
+                        }
+                        catch (Exception)
+                        {
+                            //throw;
+                        }
+                    }
+
+                    
 
 
                     ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
