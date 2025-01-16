@@ -637,7 +637,8 @@ namespace MyNetworkMonitor
             currentSSDPCount = 0;
             CountedSSDPs = 0;
 
-           
+            requestedSNMPCount = 0;
+            repliedSNMPDevices = 0;
 
             currentHostnameCount = 0;
             CountedHostnames = 0;
