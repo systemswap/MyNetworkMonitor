@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using SnmpSharpNet;
 
@@ -183,6 +184,13 @@ namespace MyNetworkMonitor
                     ipToScan.SNMPSysName = result.ElementAt(0).Value.ToString();
                     ipToScan.SNMPSysDesc = result.ElementAt(1).Value.ToString();
                     ipToScan.SNMPLocation = result.ElementAt(2).Value.ToString();
+
+
+                    if (Regex.IsMatch(ipToScan.SNMPLocation, @"\A\b[0-9a-fA-F\s]+\b\Z"))
+                    {
+                        byte[] bytes = ipToScan.SNMPLocation.Split(' ').Select(hex => Convert.ToByte(hex, 16)).ToArray();
+                        ipToScan.SNMPLocation = Encoding.ASCII.GetString(bytes);                        
+                    }
 
 
                     if (ipToScan.SNMPSysDesc.Contains("Zebra Technologies"))
