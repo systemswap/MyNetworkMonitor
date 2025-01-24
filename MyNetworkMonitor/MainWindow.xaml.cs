@@ -1,5 +1,6 @@
 ﻿
 using DnsClient;
+using Microsoft.Win32;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -7,6 +8,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Data;
 using System.Diagnostics;
+using System.Dynamic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -23,6 +25,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Documents;
+using System.Windows.Input;
 using System.Windows.Media;
 using static MyNetworkMonitor.SendReceiveDataUDP;
 using static System.Environment;
@@ -96,6 +99,11 @@ namespace MyNetworkMonitor
 
             dv_resultTable = new DataView(_scannResults.ResultTable);
             dgv_Results.ItemsSource = dv_resultTable;
+
+            if (!(bool)chk_allowDeleteRow.IsChecked)
+            {
+                dgv_Results.SelectionUnit = DataGridSelectionUnit.Cell;
+            }
 
             cvTasks_scanResults = CollectionViewSource.GetDefaultView(dgv_Results.ItemsSource);
             if (cvTasks_scanResults != null && cvTasks_scanResults.CanGroup == true)
@@ -1950,5 +1958,164 @@ namespace MyNetworkMonitor
             }
         }
 
+        private void bt_exportResult_Click(object sender, RoutedEventArgs e)
+        {
+            // Frage den Benutzer, ob alle Zeilen oder nur die ausgewählten Zeilen exportiert werden sollen
+            MessageBoxResult result = MessageBox.Show("Möchten Sie alle Zeilen exportieren? \r\n Für nur Selektierte Zeilen bitte \"Nein\" wählen", "Exportoptionen", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+
+            if (result == MessageBoxResult.Cancel)
+            {
+                return; // Abbrechen
+            }
+            int exportedLines = 0;
+            bool exportAllRows = (result == MessageBoxResult.Yes);
+
+            // Hole die DataView aus der ItemsSource des DataGrids
+            DataView dataView = dgv_Results.ItemsSource as DataView;
+            if (dataView == null) return;
+
+            // Erstelle einen StringBuilder für den CSV-Inhalt
+            StringBuilder csvContent = new StringBuilder();
+
+            // Füge die Header hinzu
+            foreach (DataColumn column in dataView.Table.Columns)
+            {
+                csvContent.Append(column.ColumnName + ";");
+            }
+            csvContent.AppendLine();
+
+            // Füge die Zeilen hinzu
+            if (exportAllRows)
+            {
+                // Exportiere alle Zeilen
+                foreach (DataRow row in dataView.Table.Rows)
+                {
+                    ++exportedLines;
+                    foreach (var item in row.ItemArray)
+                    {
+                        csvContent.Append(item?.ToString() + ";");
+                    }
+                    csvContent.AppendLine();                    
+                }
+            }
+            else
+            {
+                // Exportiere nur die ausgewählten Zeilen
+                // Exportiere nur die Zeilen, die markierte Zellen enthalten
+                HashSet<DataRowView> rowsToExport = new HashSet<DataRowView>();
+
+                foreach (var selectedCell in dgv_Results.SelectedCells)
+                {
+                    if (selectedCell.Item is DataRowView dataRowView)
+                    {
+                        rowsToExport.Add(dataRowView);
+                    }
+                }
+
+                foreach (var rowView in rowsToExport)
+                {
+                    ++exportedLines;
+                    foreach (var item in rowView.Row.ItemArray)
+                    {
+                        csvContent.Append(item?.ToString() + ";");
+                    }
+                    csvContent.AppendLine();
+                }
+            }
+
+            // Zeige den Speichern-Dialog an
+            SaveFileDialog saveFileDialog = new SaveFileDialog
+            {
+                Filter = "CSV files (*.csv)|*.csv",
+                DefaultExt = "csv",
+                FileName = "Export.csv",
+                InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Desktop)
+            };
+
+            if (saveFileDialog.ShowDialog() == true)
+            {
+                // Speichere die CSV-Datei
+                File.WriteAllText(saveFileDialog.FileName, csvContent.ToString(), Encoding.UTF8);
+            }
+            MessageBox.Show(exportedLines + " wurden exportiert");
+        }
+
+        private void dgv_Results_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.Key == Key.Delete)
+            {
+                var dataGrid = sender as DataGrid;
+                if (dataGrid != null && dataGrid.CurrentCell != null)
+                {
+                    if ((bool)chk_allowDeleteRow.IsChecked == true)
+                    {
+                        // Lösche die gesamte Zeile
+                        // Hole die DataView aus der ItemsSource des DataGrids
+                        DataView dataView = dgv_Results.ItemsSource as DataView;
+                        if (dataView != null)
+                        {
+                            // Erstelle eine Liste der zu löschenden DataRowView-Objekte
+                            List<DataRowView> rowsToDelete = new List<DataRowView>();
+
+                            // Füge die ausgewählten Zeilen zur Liste hinzu
+                            foreach (var selectedItem in dgv_Results.SelectedItems)
+                            {
+                                if (selectedItem is DataRowView dataRowView)
+                                {
+                                    rowsToDelete.Add(dataRowView);
+                                }
+                            }
+
+                            // Entferne die ausgewählten Zeilen aus der DataView
+                            foreach (var row in rowsToDelete)
+                            {
+                                dataView.Table.Rows.Remove(row.Row);
+                            }
+
+                            // Aktualisiere das DataGrid
+                            dgv_Results.Items.Refresh();
+                        }
+
+                    }
+                    else
+                    {
+                        // Lösche nur den Inhalt der Zelle
+                        foreach (var selectedCell in dgv_Results.SelectedCells)
+                        {
+                            var dataRowView = selectedCell.Item as DataRowView;
+                            if (dataRowView != null)
+                            {
+                                var column = selectedCell.Column as DataGridBoundColumn;
+                                if (column != null)
+                                {
+                                    var bindingPath = (column.Binding as Binding)?.Path.Path;
+                                    if (bindingPath != null)
+                                    {
+                                        // Setze den Wert der DataView-Zelle auf einen leeren String
+                                        dataRowView[bindingPath] = string.Empty;
+                                    }
+                                }
+                            }
+                        }
+
+                        // Aktualisiere das DataGrid
+                        dgv_Results.Items.Refresh();
+                    }
+                }
+                e.Handled = true;
+            }
+        }
+
+        private void chk_allowDeleteRow_Click(object sender, RoutedEventArgs e)
+        {
+            if (!(bool)chk_allowDeleteRow.IsChecked)
+            {
+                dgv_Results.SelectionUnit = DataGridSelectionUnit.Cell;
+            }
+            else
+            {
+                dgv_Results.SelectionUnit = DataGridSelectionUnit.FullRow;
+            }
+        }
     }
 }
