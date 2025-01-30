@@ -18,6 +18,9 @@ namespace MyNetworkMonitor
         Ping,
         ONVIF_IPCam,
         SNMP,
+        NetBios,
+        SMB,
+        Services,
         ReverseLookup,
         Lookup,
         TCPPorts,
@@ -105,7 +108,12 @@ namespace MyNetworkMonitor
         }
         public string Aliases { get { return _Aliases; } set { _Aliases = value; } }
        
+        private string _NetBiosHostname = string.Empty;
+        public string NetBiosHostname { get { return _NetBiosHostname; } set { _NetBiosHostname= value; } }
 
+
+        private string _destectedServices = string.Empty;
+        public string detectedServices { get { return _destectedServices; } set { _destectedServices = value; } }
 
         private bool _LookUpStatus = false;
         private string _LookUpIPs = string.Empty;
@@ -182,6 +190,8 @@ namespace MyNetworkMonitor
             dt_NetworkResults.Columns.Add("InternalName", typeof(string));
             dt_NetworkResults.Columns.Add("Hostname", typeof(string));
 
+            dt_NetworkResults.Columns.Add("NetBiosHostname", typeof(string));
+            dt_NetworkResults.Columns.Add("detectedServices", typeof(string));
 
             dt_NetworkResults.Columns.Add("SNMPSysName", typeof(string));
             dt_NetworkResults.Columns.Add("SNMPSysDesc", typeof(string));
