@@ -294,8 +294,8 @@
                 <CheckBox x:Name="chk_Methodes_Ping" Content="Ping" Grid.Column="2" HorizontalAlignment="Center" Width="60" VerticalContentAlignment="Center" VerticalAlignment="Center" Height="35"/>
 
                 <CheckBox x:Name="chk_Methodes_ScanHostnames" Content="scan Hostname" Grid.Column="3" HorizontalAlignment="Center" Width="106" VerticalContentAlignment="Center" VerticalAlignment="Center" Height="35"/>
-                <CheckBox x:Name="chk_Methodes_ScanNetBios" Content="NetBios" Grid.Column="4" HorizontalAlignment="Center" Width="106" VerticalContentAlignment="Center" VerticalAlignment="Center" Height="35"/>
-                <CheckBox x:Name="chk_Methodes_ScanServices" Content="Services" Grid.Column="5" HorizontalAlignment="Center" Width="106" VerticalContentAlignment="Center" VerticalAlignment="Center" Height="35"/>
+                <CheckBox x:Name="chk_Methodes_ScanNetBios" Content="NetBios" Grid.Column="4" HorizontalAlignment="Center" Width="70" VerticalContentAlignment="Center" VerticalAlignment="Center" Height="35"/>
+                <CheckBox x:Name="chk_Methodes_ScanServices" Content="SMB / Services" Grid.Column="5" HorizontalAlignment="Center" Width="106" VerticalContentAlignment="Center" VerticalAlignment="Center" Height="35"/>
                 <Grid Grid.Column="3" Margin="0,2,0,3" HorizontalAlignment="Center" Width="310" Grid.Row="1" Grid.ColumnSpan="3">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="125"/>
@@ -340,7 +340,7 @@
 
 
             </Grid>
-            <Label x:Name="lbl_ScanStatus" Content="..." HorizontalAlignment="Left" Grid.Row="3" VerticalAlignment="Center" Width="1806" Height="26" Grid.ColumnSpan="2" HorizontalContentAlignment="Center" Margin="18,0,0,0"/>
+            <Label x:Name="lbl_ScanStatus" Content="..." Grid.Row="3" VerticalAlignment="Bottom" Height="26" Grid.ColumnSpan="2" HorizontalContentAlignment="Center" Margin="18,0,2,9"/>
             <Grid Grid.Column="1" Grid.Row="2" Margin="0,10,0,10">
                 <Grid.RowDefinitions>
                     <RowDefinition/>
