@@ -25,35 +25,63 @@ namespace MyNetworkMonitor
         {
 
         }
-
+        
+        //current, responsed, total
+        public event Action<int, int, int> ProgressUpdated;
         public event EventHandler<ScanTask_Finished_EventArgs>? Ping_Task_Finished;
         public event EventHandler<Method_Finished_EventArgs>? PingFinished;
+        private int current = 0;
+        private int responsed = 0;
+        private int total = 0;
 
         /// <summary>
         /// to get the Ping result call the Propertie PingResults
         /// </summary>
         /// <param name="IPs"></param>
         /// <param name="DNS_Server_IP"></param>
+        //public async Task PingIPsAsync(List<IPToScan> IPsToRefresh, bool ShowUnused = false)
+        //{
+        //    var tasks = new List<Task>();
+
+        //    total = IPsToRefresh.Count;
+
+        //    await Parallel.ForEach(IPsToRefresh, ip =>
+        //    {
+        //        ++current;
+        //        ProgressUpdated?.Invoke(current, responsed, total);
+
+        //        var task = PingTask(ip, ip.TimeOut, ShowUnused);
+        //        if (task != null) tasks.Add(task);
+        //    });
+
+        //    await Task.WhenAll(tasks.Where(t => t != null));
+        //    if (PingFinished != null)
+        //    {
+        //        PingFinished(this, new Method_Finished_EventArgs());
+        //    }
+        //}
+
         public async Task PingIPsAsync(List<IPToScan> IPsToRefresh, bool ShowUnused = false)
         {
-            var tasks = new List<Task>();
+            current = 0;
+            responsed = 0;
+            total = IPsToRefresh.Count;
 
-            Parallel.ForEach(IPsToRefresh, ip =>
+            await Parallel.ForEachAsync(IPsToRefresh, async (ip, token) =>
             {
-                var task = PingTask(ip, ip.TimeOut, ShowUnused);
-                if (task != null) tasks.Add(task);
+                int currentValue = Interlocked.Increment(ref current);
+                ProgressUpdated?.Invoke(current, responsed, total); 
+
+                await PingTask(ip, ip.TimeOut, ShowUnused);
             });
 
-            await Task.WhenAll(tasks.Where(t => t != null));
-            if (PingFinished != null)
-            {
-                PingFinished(this, new Method_Finished_EventArgs());
-            }
+            PingFinished?.Invoke(this, new Method_Finished_EventArgs());
         }
+
 
         private async Task PingTask(IPToScan ipToScan, int TimeOut, bool ShowUnused)
         {
-            if (!new SupportMethods().Is_Valid_IP(ipToScan.IPorHostname)) return;
+            if (!new SupportMethods().Is_Valid_IP(ipToScan.IPorHostname)) return;            
 
             bool sendResult = false;
 
@@ -105,6 +133,9 @@ namespace MyNetworkMonitor
 
                     ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
                     scanTask_Finished.ipToScan = ipToScan;
+
+                    ++responsed;
+                    ProgressUpdated?.Invoke(current, responsed, total);
 
                     Ping_Task_Finished(this, scanTask_Finished);
                 }
