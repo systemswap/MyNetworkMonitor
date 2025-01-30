@@ -4,6 +4,7 @@ using System;
 using System.Net.Sockets;
 using System.Threading.Tasks;
 using System.Threading;
+using System.Linq;
 
 public class ScanningMethod_SMBVersionCheck
 {

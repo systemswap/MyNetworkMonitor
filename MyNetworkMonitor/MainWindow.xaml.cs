@@ -65,6 +65,18 @@ namespace MyNetworkMonitor
             scanningMethode_SNMP.SNMP_Task_Finished += SNMP_Task_Finished;
             scanningMethode_SNMP.SNMPFinished += SNMPFinished;
 
+            scanningMethode_NetBios = new ScanningMethod_NetBios();
+            scanningMethode_NetBios.ProgressUpdated += ScanningMethode_NetBios_ProgressUpdated;
+            scanningMethode_NetBios.NetbiosIPScanFinished += ScanningMethod_NetBios_NetbiosIPScanFinished;
+            scanningMethode_NetBios.NetbiosScanFinished += ScanningMethod_NetBios_NetbiosScanFinished;
+
+            scanningMethod_SMBVersionCheck = new ScanningMethod_SMBVersionCheck();
+            scanningMethod_SMBVersionCheck.SMBIPScanFinished += ScanningMethod_SMBVersionCheck_SMBIPScanFinished;
+            scanningMethod_SMBVersionCheck.SMBScanFinished += ScanningMethod_SMBVersionCheck_SMBScanFinished;
+
+            scanningMethod_Services = new ScanningMethod_Services();
+            scanningMethod_Services.ServiceIPScanFinished += ScanningMethod_Services_ServiceIPScanFinished;
+            scanningMethod_Services.ServiceIPScanFinished += ScanningMethod_Services_ServiceIPScanFinished1;
 
             scanningMethode_ARP = new ScanningMethod_ARP();
             scanningMethode_ARP.ARP_A_newDevice += ARP_A_newDevive_Finished;
@@ -187,7 +199,7 @@ namespace MyNetworkMonitor
             dg_InternalNames.ItemsSource = dv_InternalNames;
         }
 
-      
+        
 
         bool TextChangedByComboBox = false;
         List<NicInfo> nicInfos = new List<NicInfo>();
@@ -229,6 +241,11 @@ namespace MyNetworkMonitor
         ScanningMethods_Ping scanningMethods_Ping;
         ScanningMethod_ONVIF_IPCam scanningMethod_FindIPCameras;
         ScanningMethod_SSDP_UPNP scanningMethode_SSDP_UPNP;
+
+        ScanningMethod_NetBios scanningMethode_NetBios;
+        ScanningMethod_SMBVersionCheck scanningMethod_SMBVersionCheck;
+        ScanningMethod_Services scanningMethod_Services;
+
         ScanningMethod_SNMP scanningMethode_SNMP;
         ScanningMethod_ReverseLookupToHostAndAlieases scanningMethode_ReverseLookupToHostAndAliases;
         ScanningMethod_LookUp scanningMethod_LookUp;
@@ -260,14 +277,27 @@ namespace MyNetworkMonitor
         ScanStatus IPCams_state = ScanStatus.ignored;
         int foundedIPCams = 0;
 
-        ScanStatus SNMP_state = ScanStatus.ignored;
-        int requestedSNMPCount = 0;
-        int repliedSNMPDevices = 0;
+        
 
         ScanStatus dns_state = ScanStatus.ignored;
         int currentHostnameCount = 0;
         int CountedHostnames = 0;
         int responsedHostNamesCount = 0;
+
+        ScanStatus netBios_state = ScanStatus.ignored;
+        int totalNetBiosInfosCount = 0;
+        int CountedNetBiosInfos = 0;
+        int currentNetBiosScan = 0;
+        int responsedNetBiosInfosCount = 0;
+
+        ScanStatus detectServices_state = ScanStatus.ignored;
+        int detectedServicesCount = 0;
+        int CountedDetectedServices = 0;
+        int responsedDetectedServicesCount = 0;
+
+        ScanStatus SNMP_state = ScanStatus.ignored;
+        int requestedSNMPCount = 0;
+        int repliedSNMPDevices = 0;
 
         ScanStatus Lookup_state = ScanStatus.ignored;
         int currentLookupCount = 0;
@@ -297,6 +327,7 @@ namespace MyNetworkMonitor
                 $"ARP-Request: {arpRequest_state.ToString()}  {currentARPRequest} from {CountedARPRequests} found {responsedARPRequestCount}        " +
                 $"Ping: {ping_state.ToString()} {currentPingCount} of {CountedPings}        " +
                 $"HostNames: {dns_state.ToString()} {currentHostnameCount.ToString()} from {CountedHostnames.ToString()} found {responsedHostNamesCount.ToString()}        " +
+                $"NetBios: {netBios_state.ToString()} {currentNetBiosScan.ToString()} / {responsedNetBiosInfosCount.ToString()} / {totalNetBiosInfosCount.ToString()}        " +
                 $"NSLookUps: {Lookup_state.ToString()}  {currentLookupCount.ToString()} from {CountedLookups.ToString()} found: {responsedLookupDevices}        " +
                 $"TCP Ports: {tcp_port_Scan_state.ToString()} {current_TCPPortScan_Count} from {Counted_TCPPortScans} answerd: {responsedTCPPortScanDevices}         " +
                 $"UDP Ports: {udp_port_Scan_state.ToString()} added: {current_UDPPortScan_Count} of {Counted_UDPListener}        " +
@@ -620,6 +651,11 @@ namespace MyNetworkMonitor
                             ipToScan.DeviceDescription = row["DeviceDescription"].ToString();
                             ipToScan.IPorHostname = ip;
                             ipToScan.HostName = string.Empty;
+                            //ipToScan.NetBiosHostname = string.Empty;
+                            //ipToScan.destectedServices = string.Empty;
+                            //ipToScan.SNMPSysName = string.Empty;
+                            //ipToScan.SNMPSysDesc = string.Empty;
+                            //ipToScan.SNMPLocation = string.Empty;
                             ipToScan.Domain = row["Domain"].ToString();
                             ipToScan.TCPPortsToScan = _portCollection.TCPPorts;
                             ipToScan.UDPPortsToScan = _portCollection.UDPPorts;
@@ -651,6 +687,14 @@ namespace MyNetworkMonitor
             currentHostnameCount = 0;
             CountedHostnames = 0;
             responsedHostNamesCount = 0;
+
+            totalNetBiosInfosCount = 0;
+            CountedNetBiosInfos = 0;
+            responsedNetBiosInfosCount = 0;
+
+            detectedServicesCount = 0;
+            CountedDetectedServices = 0;
+            responsedDetectedServicesCount = 0;
 
             currentLookupCount = 0;
             CountedLookups = 0;
@@ -707,6 +751,9 @@ namespace MyNetworkMonitor
             if ((bool)chk_ARPRequest.IsChecked) arpRequest_state = ScanStatus.waiting;
             if ((bool)chk_Methodes_Ping.IsChecked) ping_state = ScanStatus.waiting;
             if ((bool)chk_Methodes_ScanHostnames.IsChecked) dns_state = ScanStatus.waiting;
+            if ((bool)chk_Methodes_ScanNetBios.IsChecked) dns_state = ScanStatus.waiting;
+            if ((bool)chk_Methodes_ScanServices.IsChecked) dns_state = ScanStatus.waiting;
+            if ((bool)chk_Methodes_SNMP.IsChecked) dns_state = ScanStatus.waiting;
             if ((bool)chk_Methodes_LookUp.IsChecked) Lookup_state = ScanStatus.waiting;
             if ((bool)chk_Methodes_ScanTCPPorts.IsChecked) tcp_port_Scan_state = ScanStatus.waiting;
             if ((bool)chk_Methodes_ScanUDPPorts.IsChecked) udp_port_Scan_state = ScanStatus.waiting;
@@ -816,6 +863,16 @@ namespace MyNetworkMonitor
                 //await Task.Run(() => scanningMethode_DNS.Get_Host_and_Alias_From_IP(_IPsToRefresh));
             }
 
+            if ((bool)chk_Methodes_ScanNetBios.IsChecked)
+            {
+                netBios_state = ScanStatus.running;
+                await Task.Run(() => scanningMethode_NetBios.ScanMultipleIPsAsync(_IPsToScan, CancellationToken.None));
+            }
+
+            if ((bool)chk_Methodes_ScanServices.IsChecked)
+            {
+
+            }
 
             if ((bool)chk_Methodes_LookUp.IsChecked)
             {
@@ -939,6 +996,16 @@ namespace MyNetworkMonitor
                     _scannResults.ResultTable.Rows[rowIndex]["SSDPStatus"] = ipToScan.SSDPStatus ? Properties.Resources.green_dot : Properties.Resources.red_dotTB;
                 }
 
+
+                if (ipToScan.UsedScanMethod == ScanMethod.NetBios)
+                {
+                    _scannResults.ResultTable.Rows[rowIndex]["NetBiosHostname"] = ipToScan.NetBiosHostname;        
+                }
+
+                if (ipToScan.UsedScanMethod == ScanMethod.Services)
+                {
+                    _scannResults.ResultTable.Rows[rowIndex]["detectedServices"] += ipToScan.detectedServices;
+                }
 
                 if (ipToScan.UsedScanMethod == ScanMethod.SNMP)
                 {
@@ -1076,6 +1143,16 @@ namespace MyNetworkMonitor
                     row["SNMPSysName"] = ipToScan.SNMPSysName;
                     row["SNMPSysDesc"] = ipToScan.SNMPSysDesc;
                     row["SNMPLocation"] = ipToScan.SNMPLocation;
+                }
+
+                if (ipToScan.UsedScanMethod == ScanMethod.NetBios)
+                {
+                    row["NetBiosHostname"] = ipToScan.NetBiosHostname;
+                }
+
+                if (ipToScan.UsedScanMethod == ScanMethod.Services)
+                {
+                    row["detectedServices"] += ipToScan.detectedServices;
                 }
 
                 if (ipToScan.UsedScanMethod == ScanMethod.ARPRequest)
@@ -1286,6 +1363,64 @@ namespace MyNetworkMonitor
                 Status();
             }));
         }
+
+
+        private void ScanningMethod_SMBVersionCheck_SMBScanFinished()
+        {
+            //throw new NotImplementedException();
+        }
+
+        private void ScanningMethod_SMBVersionCheck_SMBIPScanFinished(SMBResponse obj)
+        {
+            //throw new NotImplementedException();
+        }
+
+        private void ScanningMethod_Services_ServiceIPScanFinished1(ServiceScanResult obj)
+        {
+            //throw new NotImplementedException();
+        }
+
+        private void ScanningMethod_NetBios_NetbiosIPScanFinished(IPToScan e)
+        {
+            //throw new NotImplementedException();
+            Dispatcher.BeginInvoke(() =>
+            {
+                ++responsedNetBiosInfosCount;
+                Status();
+
+                if (string.IsNullOrEmpty(e.NetBiosHostname))
+                {
+                    return;
+                }
+
+                InsertIPToScanResult(e);
+
+                ++responsedARPRequestCount;
+                Status();
+            });
+        }
+        private void ScanningMethode_NetBios_ProgressUpdated(int current, int responsed, int total)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                currentNetBiosScan = current;
+                responsedNetBiosInfosCount = responsed;
+                totalNetBiosInfosCount = total;
+                Status();
+            });
+            
+        }
+        private void ScanningMethod_Services_ServiceIPScanFinished(ServiceScanResult obj)
+        {
+            //throw new NotImplementedException();
+        }
+
+        private void ScanningMethod_NetBios_NetbiosScanFinished(bool obj)
+        {
+            //throw new NotImplementedException();
+        }
+
+     
 
 
         private void ARP_Request_Task_Finished(object? sender, ScanTask_Finished_EventArgs e)
