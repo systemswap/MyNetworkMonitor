@@ -57,6 +57,7 @@ namespace MyNetworkMonitor
             //supportMethods.GetNetworkInterfaces();            
 
             scanningMethode_SSDP_UPNP = new ScanningMethod_SSDP_UPNP();
+            scanningMethode_SSDP_UPNP.ProgressUpdated += ScanningMethode_SSDP_UPNP_ProgressUpdated;
             scanningMethode_SSDP_UPNP.SSDP_foundNewDevice += SSDP_foundNewDevice;
             scanningMethode_SSDP_UPNP.SSDP_Scan_Finished += SSDP_Scan_Finished;
 
@@ -84,6 +85,7 @@ namespace MyNetworkMonitor
             scanningMethode_ARP.ARP_Request_Finished += ARP_Request_Finished;
 
             scanningMethods_Ping = new ScanningMethods_Ping();
+            scanningMethods_Ping.ProgressUpdated += ScanningMethods_Ping_ProgressUpdated;
             scanningMethods_Ping.Ping_Task_Finished += Ping_Task_Finished;
             scanningMethods_Ping.PingFinished += PingFinished_Event;
 
@@ -199,7 +201,7 @@ namespace MyNetworkMonitor
             dg_InternalNames.ItemsSource = dv_InternalNames;
         }
 
-        
+     
 
         bool TextChangedByComboBox = false;
         List<NicInfo> nicInfos = new List<NicInfo>();
@@ -264,74 +266,95 @@ namespace MyNetworkMonitor
         }
 
 
-        ScanStatus arp_a_state = ScanStatus.ignored;
+        ScanStatus status_ARP_A_Scan = ScanStatus.ignored;
 
-        ScanStatus ping_state = ScanStatus.ignored;
-        int currentPingCount = 0;
-        int CountedPings = 0;
+        ScanStatus status_Ping_Scan = ScanStatus.ignored;
+        int counted_current_Ping_Scan = 0;
+        int counted_responded_Ping_Scan = 0;
+        int counted_total_Ping_Scan = 0;
 
-        ScanStatus ssdp_state = ScanStatus.ignored;
-        int currentSSDPCount = 0;
-        int CountedSSDPs = 0;
+        ScanStatus status_SSDP_Scan = ScanStatus.ignored;
+        int counted_responded_SSDP_device = 0;
+        int counted_total_SSDPs = 0;
 
-        ScanStatus IPCams_state = ScanStatus.ignored;
-        int foundedIPCams = 0;
+        ScanStatus status_IP_Cam_Scan = ScanStatus.ignored;
+        int counted_responded_IP_Cams = 0;
 
         
 
-        ScanStatus dns_state = ScanStatus.ignored;
-        int currentHostnameCount = 0;
-        int CountedHostnames = 0;
-        int responsedHostNamesCount = 0;
+        ScanStatus status_DNS_HostName_Scan = ScanStatus.ignored;
+        int counted_current_DNS_HostNames = 0;
+        int counted_responded_DNS_HostNames = 0;
+        int counted_total_DNS_HostNames = 0;
+        
 
-        ScanStatus netBios_state = ScanStatus.ignored;
-        int totalNetBiosInfosCount = 0;
-        int CountedNetBiosInfos = 0;
-        int currentNetBiosScan = 0;
-        int responsedNetBiosInfosCount = 0;
+        ScanStatus status_NetBios_Scan = ScanStatus.ignored;              
+        int counted_current_NetBiosScan = 0;
+        int counted_responded_NetBiosInfos = 0;
+        int counted_total_NetBiosInfos = 0;
 
-        ScanStatus detectServices_state = ScanStatus.ignored;
-        int detectedServicesCount = 0;
-        int CountedDetectedServices = 0;
-        int responsedDetectedServicesCount = 0;
+        ScanStatus status_SMBVersionCheck = ScanStatus.ignored;
+        int counted_current_SMBVersionCheck = 0;
+        int counted_responded_SMBVersionCheck = 0;   
+        int counted_total_SMBVersionCheck = 0;
 
-        ScanStatus SNMP_state = ScanStatus.ignored;
-        int requestedSNMPCount = 0;
-        int repliedSNMPDevices = 0;
+        ScanStatus status_Services_Scan = ScanStatus.ignored;
+        int counted_current_IPService_Scan = 0;
+        int counted_responded_IPService_Scan = 0;
+        int counted_total_IPService_Scan = 0;
 
-        ScanStatus Lookup_state = ScanStatus.ignored;
-        int currentLookupCount = 0;
-        int CountedLookups = 0;
-        int responsedLookupDevices = 0;
+        ScanStatus status_SNMP_Scan = ScanStatus.ignored;
+        int counted_current_SNMP_Scan = 0;
+        int counted_responded_SNMP_Devices = 0;
 
-        ScanStatus arpRequest_state = ScanStatus.ignored;
-        int currentARPRequest = 0;
-        int CountedARPRequests = 0;
-        int responsedARPRequestCount = 0;
+        ScanStatus status_Lookup_Scan = ScanStatus.ignored;
+        int counted_current_Lookup_Scan = 0;
+        int counted_responded_Lookup_Devices = 0;
+        int counted_total_Lookup_Scans = 0;
+        
 
-        ScanStatus tcp_port_Scan_state = ScanStatus.ignored;
-        int current_TCPPortScan_Count = 0;
-        int Counted_TCPPortScans = 0;
-        int responsedTCPPortScanDevices = 0;
+        ScanStatus status_ARP_Request_Scan = ScanStatus.ignored;
+        int counted_current_ARP_Requests = 0;
+        int counted_responded_ARP_Requests = 0;
+        int counted_total_ARP_Requests = 0;
+        
 
-        ScanStatus udp_port_Scan_state = ScanStatus.ignored;
-        int current_UDPPortScan_Count = 0;
-        int Counted_UDPListener = 0;
+        ScanStatus status_TCP_Port_Scan = ScanStatus.ignored;
+        int counted_current_TCP_Port_Scan = 0;
+        int counted_responded_TCP_Port_Scan_Devices = 0;
+        int counted_total_TCP_Port_Scans = 0;
+       
+
+        ScanStatus status_UDP_Port_Scan = ScanStatus.ignored;
+        int counted_current_UDP_Port_Scan = 0;
+        int counted_responded_UDP_Port_Devices = 0;
+        int counted_total_UDP_Port_Devices = 0;
+
+
+
 
         public void Status()
         {
-            lbl_ScanStatus.Content = string.Format($"" +
-                $"SSDP: {ssdp_state.ToString()} found {currentSSDPCount} from {CountedSSDPs}        " +
-                $"SNMP: {SNMP_state.ToString()} replied {repliedSNMPDevices} from {requestedSNMPCount} " +
-                $"IP-Cams: {IPCams_state.ToString()} found {foundedIPCams}        " +
-                $"ARP-Request: {arpRequest_state.ToString()}  {currentARPRequest} from {CountedARPRequests} found {responsedARPRequestCount}        " +
-                $"Ping: {ping_state.ToString()} {currentPingCount} of {CountedPings}        " +
-                $"HostNames: {dns_state.ToString()} {currentHostnameCount.ToString()} from {CountedHostnames.ToString()} found {responsedHostNamesCount.ToString()}        " +
-                $"NetBios: {netBios_state.ToString()} {currentNetBiosScan.ToString()} / {responsedNetBiosInfosCount.ToString()} / {totalNetBiosInfosCount.ToString()}        " +
-                $"NSLookUps: {Lookup_state.ToString()}  {currentLookupCount.ToString()} from {CountedLookups.ToString()} found: {responsedLookupDevices}        " +
-                $"TCP Ports: {tcp_port_Scan_state.ToString()} {current_TCPPortScan_Count} from {Counted_TCPPortScans} answerd: {responsedTCPPortScanDevices}         " +
-                $"UDP Ports: {udp_port_Scan_state.ToString()} added: {current_UDPPortScan_Count} of {Counted_UDPListener}        " +
-                $"arp-a: {arp_a_state.ToString()}");
+            List<string> lst_statusUpdate = new List<string>();
+            List<string> lst_ignored =  new List<string>();
+
+            lst_statusUpdate.Add(" * current / responded / total * ");
+
+            if (status_SSDP_Scan == ScanStatus.ignored) { lst_ignored.Add("SSDP: ignored"); } else { lst_statusUpdate.Add($"SSDP: {status_SSDP_Scan.ToString()} ... / {counted_responded_SSDP_device} / ..."); }
+            if (status_SNMP_Scan == ScanStatus.ignored) { lst_ignored.Add("SNMP: ignored"); } else { lst_statusUpdate.Add($"SNMP: {status_SNMP_Scan.ToString()} {counted_current_SNMP_Scan} / {counted_responded_SNMP_Devices} / {counted_total_SSDPs}"); }
+            if (status_IP_Cam_Scan == ScanStatus.ignored) { lst_ignored.Add("IP-Cam`s: ignored"); } else { lst_statusUpdate.Add($"IP-Cam`s: {status_IP_Cam_Scan.ToString()} ... / {counted_responded_IP_Cams} / ..."); }
+            if (status_ARP_Request_Scan == ScanStatus.ignored) { lst_ignored.Add("ARP Request: ignored"); } else { lst_statusUpdate.Add($"ARP Request: {status_ARP_Request_Scan.ToString()} {counted_current_ARP_Requests} / {counted_responded_ARP_Requests} / {counted_total_ARP_Requests}"); }
+            if (status_Ping_Scan == ScanStatus.ignored) { lst_ignored.Add("Ping: ignored"); } else { lst_statusUpdate.Add($"Ping: {status_Ping_Scan.ToString()} {counted_current_Ping_Scan} / {counted_responded_Ping_Scan} / {counted_total_Ping_Scan}"); }
+            if (status_DNS_HostName_Scan == ScanStatus.ignored) { lst_ignored.Add("DNS Hostnames: ignored"); } else { lst_statusUpdate.Add($"DNS Hostnames: {status_DNS_HostName_Scan.ToString()} {counted_current_DNS_HostNames} / {counted_responded_DNS_HostNames} / {counted_total_DNS_HostNames}"); }
+            if (status_NetBios_Scan == ScanStatus.ignored) { lst_ignored.Add("NetBios: ignored"); } else { lst_statusUpdate.Add($"NetBios: {status_NetBios_Scan.ToString()} {counted_current_NetBiosScan} / {counted_responded_NetBiosInfos} / {counted_total_NetBiosInfos}"); }
+            if (status_SMBVersionCheck == ScanStatus.ignored) { lst_ignored.Add("SMB Check: ignored"); } else { lst_statusUpdate.Add($"SMB Check: {status_SMBVersionCheck.ToString()} {counted_current_SMBVersionCheck} / {counted_responded_SMBVersionCheck} / {counted_total_SMBVersionCheck}"); }
+            if (status_Services_Scan == ScanStatus.ignored) { lst_ignored.Add("Services: ignored"); } else { lst_statusUpdate.Add($"Services: {status_Services_Scan.ToString()} {counted_current_IPService_Scan} / {counted_responded_IPService_Scan} / {counted_total_IPService_Scan}"); }
+            if (status_Lookup_Scan == ScanStatus.ignored) { lst_ignored.Add("Lookup: ignored"); } else { lst_statusUpdate.Add($"Lookup: {status_Lookup_Scan.ToString()} {counted_current_Lookup_Scan} / {counted_responded_Lookup_Devices} / {counted_total_Lookup_Scans}"); }
+            if (status_TCP_Port_Scan == ScanStatus.ignored) { lst_ignored.Add("TCP Ports: ignored"); } else { lst_statusUpdate.Add($"TCP Ports: {status_TCP_Port_Scan.ToString()} {counted_current_TCP_Port_Scan} / {counted_responded_TCP_Port_Scan_Devices} / {counted_total_TCP_Port_Scans}"); }
+            if (status_UDP_Port_Scan == ScanStatus.ignored) { lst_ignored.Add("UDP Ports: ignored"); } else { lst_statusUpdate.Add($"UDP Ports: {status_UDP_Port_Scan.ToString()} {counted_current_UDP_Port_Scan} / {counted_responded_UDP_Port_Devices} / {counted_total_UDP_Port_Devices}"); }
+            if (status_ARP_A_Scan == ScanStatus.ignored) { lst_ignored.Add("ARP A: ignored"); } else { lst_statusUpdate.Add($"APR A: {status_ARP_A_Scan.ToString()} ... / ... / ..."); }
+
+            lbl_ScanStatus.Content = string.Join("    ", lst_statusUpdate).Replace(ScanStatus.finished.ToString(), string.Empty);// + "    ||    " + ( string.Join("    ", lst_ignored).Replace(ScanStatus.finished.ToString(), string.Empty));
         }
         #endregion
 
@@ -675,41 +698,41 @@ namespace MyNetworkMonitor
 
         public async void DoWork(bool IsSelectiveScan, bool ClearTable = false)
         {
-            currentPingCount = 0;
-            CountedPings = 0;
+            counted_current_Ping_Scan = 0;
+            counted_total_Ping_Scan = 0;
 
-            currentSSDPCount = 0;
-            CountedSSDPs = 0;
+            counted_responded_SSDP_device = 0;
+            counted_total_SSDPs = 0;
 
-            requestedSNMPCount = 0;
-            repliedSNMPDevices = 0;
+            counted_current_SNMP_Scan = 0;
+            counted_responded_SNMP_Devices = 0;
 
-            currentHostnameCount = 0;
-            CountedHostnames = 0;
-            responsedHostNamesCount = 0;
+            counted_current_DNS_HostNames = 0;
+            counted_total_DNS_HostNames = 0;
+            counted_responded_DNS_HostNames = 0;
 
-            totalNetBiosInfosCount = 0;
-            CountedNetBiosInfos = 0;
-            responsedNetBiosInfosCount = 0;
+            counted_total_NetBiosInfos = 0;
+            counted_current_NetBiosScan = 0;
+            counted_responded_NetBiosInfos = 0;
 
-            detectedServicesCount = 0;
-            CountedDetectedServices = 0;
-            responsedDetectedServicesCount = 0;
+            counted_current_IPService_Scan = 0;
+            counted_responded_IPService_Scan = 0;
+            counted_total_IPService_Scan = 0;
 
-            currentLookupCount = 0;
-            CountedLookups = 0;
-            responsedLookupDevices = 0;
+            counted_current_Lookup_Scan = 0;
+            counted_total_Lookup_Scans = 0;
+            counted_responded_Lookup_Devices = 0;
 
-            currentARPRequest = 0;
-            CountedARPRequests = 0;
-            responsedARPRequestCount = 0;
+            counted_current_ARP_Requests = 0;
+            counted_total_ARP_Requests = 0;
+            counted_responded_ARP_Requests = 0;
 
-            current_TCPPortScan_Count = 0;
-            Counted_TCPPortScans = 0;
-            responsedTCPPortScanDevices = 0;
+            counted_current_TCP_Port_Scan = 0;
+            counted_total_TCP_Port_Scans = 0;
+            counted_responded_TCP_Port_Scan_Devices = 0;
 
-            current_UDPPortScan_Count = 0;
-            Counted_UDPListener = 0;
+            counted_current_UDP_Port_Scan = 0;
+            counted_total_UDP_Port_Devices = 0;
 
 
             foreach (DataRow row in _scannResults.ResultTable.Rows)
@@ -746,18 +769,18 @@ namespace MyNetworkMonitor
 
 
             /* set the states */
-            if ((bool)chk_Methodes_SSDP.IsChecked) ssdp_state = ScanStatus.waiting;
-            if ((bool)chk_Methodes_ONVIF.IsChecked) IPCams_state = ScanStatus.waiting;
-            if ((bool)chk_ARPRequest.IsChecked) arpRequest_state = ScanStatus.waiting;
-            if ((bool)chk_Methodes_Ping.IsChecked) ping_state = ScanStatus.waiting;
-            if ((bool)chk_Methodes_ScanHostnames.IsChecked) dns_state = ScanStatus.waiting;
-            if ((bool)chk_Methodes_ScanNetBios.IsChecked) dns_state = ScanStatus.waiting;
-            if ((bool)chk_Methodes_ScanServices.IsChecked) dns_state = ScanStatus.waiting;
-            if ((bool)chk_Methodes_SNMP.IsChecked) dns_state = ScanStatus.waiting;
-            if ((bool)chk_Methodes_LookUp.IsChecked) Lookup_state = ScanStatus.waiting;
-            if ((bool)chk_Methodes_ScanTCPPorts.IsChecked) tcp_port_Scan_state = ScanStatus.waiting;
-            if ((bool)chk_Methodes_ScanUDPPorts.IsChecked) udp_port_Scan_state = ScanStatus.waiting;
-            if ((bool)chk_Methodes_ARP_A.IsChecked) arp_a_state = ScanStatus.waiting;
+            if ((bool)chk_Methodes_SSDP.IsChecked) status_SSDP_Scan = ScanStatus.waiting;
+            if ((bool)chk_Methodes_ONVIF.IsChecked) status_IP_Cam_Scan = ScanStatus.waiting;
+            if ((bool)chk_ARPRequest.IsChecked) status_ARP_Request_Scan = ScanStatus.waiting;
+            if ((bool)chk_Methodes_Ping.IsChecked) status_Ping_Scan = ScanStatus.waiting;
+            if ((bool)chk_Methodes_ScanHostnames.IsChecked) status_DNS_HostName_Scan = ScanStatus.waiting;
+            if ((bool)chk_Methodes_ScanNetBios.IsChecked) status_NetBios_Scan = ScanStatus.waiting;
+            if ((bool)chk_Methodes_ScanServices.IsChecked) status_Services_Scan = ScanStatus.waiting;
+            if ((bool)chk_Methodes_SNMP.IsChecked) status_SNMP_Scan = ScanStatus.waiting;
+            if ((bool)chk_Methodes_LookUp.IsChecked) status_Lookup_Scan = ScanStatus.waiting;
+            if ((bool)chk_Methodes_ScanTCPPorts.IsChecked) status_TCP_Port_Scan = ScanStatus.waiting;
+            if ((bool)chk_Methodes_ScanUDPPorts.IsChecked) status_UDP_Port_Scan = ScanStatus.waiting;
+            if ((bool)chk_Methodes_ARP_A.IsChecked) status_ARP_A_Scan = ScanStatus.waiting;
 
 
             if ((bool)chk_ARP_DeleteCacheBefore.IsChecked)
@@ -775,16 +798,16 @@ namespace MyNetworkMonitor
 
             if ((bool)chk_Methodes_SSDP.IsChecked)
             {
-                ssdp_state = ScanStatus.running;
-                CountedSSDPs = _IPsToScan.Count;
+                status_SSDP_Scan = ScanStatus.running;
+                counted_total_SSDPs = _IPsToScan.Count;
                 Status();
-                Task.Run(() => scanningMethode_SSDP_UPNP.ScanForSSDP(_IPsToScan));
+                Task.Run(() => scanningMethode_SSDP_UPNP.Scan_for_SSDP_devices_async());
             }
 
 
             if((bool)chk_Methodes_SNMP.IsChecked)
             {
-                SNMP_state = ScanStatus.running;
+                status_SNMP_Scan = ScanStatus.running;
                 //requestedSNMPCount = _IPsToScan.Count;
                 Status();
                 Task.Run(() => scanningMethode_SNMP.ScanAsync(_IPsToScan));
@@ -793,7 +816,7 @@ namespace MyNetworkMonitor
 
             if ((bool)chk_Methodes_ONVIF.IsChecked)
             {
-                IPCams_state = ScanStatus.running;
+                status_IP_Cam_Scan = ScanStatus.running;
                 Status();
                 scanningMethod_FindIPCameras.Discover(_IPsToScan);
 
@@ -802,8 +825,8 @@ namespace MyNetworkMonitor
 
             if ((bool)chk_ARPRequest.IsChecked)
             {
-                CountedARPRequests = _IPsToScan.Count;
-                arpRequest_state = ScanStatus.running;
+                counted_total_ARP_Requests = _IPsToScan.Count;
+                status_ARP_Request_Scan = ScanStatus.running;
                 Status();
 
                 await Task.Run(() => scanningMethode_ARP.SendARPRequestAsync(_IPsToScan));
@@ -812,8 +835,8 @@ namespace MyNetworkMonitor
 
             if ((bool)chk_Methodes_Ping.IsChecked)
             {
-                ping_state = ScanStatus.running;
-                CountedPings = _IPsToScan.Count;
+                status_Ping_Scan = ScanStatus.running;
+                counted_total_Ping_Scan = _IPsToScan.Count;
                 Status();
                 await scanningMethods_Ping.PingIPsAsync(_IPsToScan, false);
             }
@@ -848,14 +871,14 @@ namespace MyNetworkMonitor
                     }
                 }
 
-                dns_state = ScanStatus.running;
-                CountedHostnames = IPsForHostnameScan.Count;
+                status_DNS_HostName_Scan = ScanStatus.running;
+                counted_total_DNS_HostNames = IPsForHostnameScan.Count;
                 //CountedHostnames = _IPsToRefresh.Count;
                 Status();
 
                 if ((bool)chk_Methodes_LookUp.IsChecked)
                 {
-                    Lookup_state = ScanStatus.waiting;
+                    status_Lookup_Scan = ScanStatus.waiting;
                     Status();
                 }
 
@@ -865,7 +888,7 @@ namespace MyNetworkMonitor
 
             if ((bool)chk_Methodes_ScanNetBios.IsChecked)
             {
-                netBios_state = ScanStatus.running;
+                status_NetBios_Scan = ScanStatus.running;
                 await Task.Run(() => scanningMethode_NetBios.ScanMultipleIPsAsync(_IPsToScan, CancellationToken.None));
             }
 
@@ -905,8 +928,8 @@ namespace MyNetworkMonitor
                     }
                 }
 
-                Lookup_state = ScanStatus.running;
-                CountedLookups = IPsForLookUp.Count;
+                status_Lookup_Scan = ScanStatus.running;
+                counted_total_Lookup_Scans = IPsForLookUp.Count;
                 Status();
 
                 Task.Run(() => scanningMethod_LookUp.LookupAsync(IPsForLookUp));
@@ -940,8 +963,8 @@ namespace MyNetworkMonitor
                     }
                 }
 
-                tcp_port_Scan_state = ScanStatus.running;
-                Counted_TCPPortScans = _IPsForTCPPortScan.Count;
+                status_TCP_Port_Scan = ScanStatus.running;
+                counted_total_TCP_Port_Scans = _IPsForTCPPortScan.Count;
                 Status();
 
                 await Task.Run(() => scanningMethode_PortsTCP.ScanTCPPorts(_IPsForTCPPortScan, new TimeSpan(0, 0, 0, 0, _TimeOut)));
@@ -950,7 +973,7 @@ namespace MyNetworkMonitor
 
             if ((bool)chk_Methodes_ScanUDPPorts.IsChecked)
             {
-                udp_port_Scan_state = ScanStatus.running;
+                status_UDP_Port_Scan = ScanStatus.running;
                 Status();
 
                 Task.Run(() => scanningMethode_PortsUDP.Get_All_UPD_Listener_as_List(_IPsToScan));
@@ -959,7 +982,7 @@ namespace MyNetworkMonitor
 
             if ((bool)chk_Methodes_ARP_A.IsChecked)
             {
-                arp_a_state = ScanStatus.running;
+                status_ARP_A_Scan = ScanStatus.running;
                 Status();
 
                 Task.Run(() => scanningMethode_ARP.ARP_A(_IPsToScan));
@@ -1266,7 +1289,20 @@ namespace MyNetworkMonitor
             {
                 InsertIPToScanResult(e.ipToScan);
 
-                arp_a_state = ScanStatus.finished;
+                status_ARP_A_Scan = ScanStatus.finished;
+                Status();
+            });
+        }
+
+
+        private void ScanningMethods_Ping_ProgressUpdated(int arg1, int arg2, int arg3)
+        {
+            //throw new NotImplementedException();
+            Dispatcher.Invoke(() =>
+            {
+                counted_current_Ping_Scan = arg1;
+                counted_responded_Ping_Scan = arg2;
+                counted_total_Ping_Scan = arg3;
                 Status();
             });
         }
@@ -1277,15 +1313,15 @@ namespace MyNetworkMonitor
             {
                 InsertIPToScanResult(e.ipToScan);
 
-                ++currentPingCount;
-                Status();
+                //++counted_current_Ping_Scan;
+                //Status();
             });
         }
         private void PingFinished_Event(object? sender, Method_Finished_EventArgs e)
         {
             Dispatcher.BeginInvoke(() =>
             {
-                ping_state = ScanStatus.finished;
+                status_Ping_Scan = ScanStatus.finished;
                 Status();
             });
         }
@@ -1307,7 +1343,7 @@ namespace MyNetworkMonitor
         {
             Dispatcher.BeginInvoke(() =>
             {
-                IPCams_state = ScanStatus.finished;
+                status_IP_Cam_Scan = ScanStatus.finished;
                 Status();
             });
         }
@@ -1318,16 +1354,26 @@ namespace MyNetworkMonitor
             Dispatcher.BeginInvoke(() =>
             {
                 InsertIPToScanResult(e.ipToScan);
+            });
+        }
 
-                ++currentSSDPCount;
+        private void ScanningMethode_SSDP_UPNP_ProgressUpdated(int arg1, int arg2, int arg3)
+        {
+            //throw new NotImplementedException();
+
+            //throw new NotImplementedException();
+            Dispatcher.Invoke(() =>
+            {                
+                counted_responded_SSDP_device = arg2;
                 Status();
             });
         }
+
         private void SSDP_Scan_Finished(object? sender, Method_Finished_EventArgs e)
         {
             Dispatcher.BeginInvoke(new Action(() =>
             {
-                ssdp_state = ScanStatus.finished;
+                status_SSDP_Scan = ScanStatus.finished;
                 Status();
             }));
         }
@@ -1337,7 +1383,7 @@ namespace MyNetworkMonitor
             //throw new NotImplementedException();
             Dispatcher.BeginInvoke(() =>
             {
-               requestedSNMPCount = e.Value;
+               counted_current_SNMP_Scan = e.Value;
                 Status();
             });
         }
@@ -1350,7 +1396,7 @@ namespace MyNetworkMonitor
             {
                 InsertIPToScanResult(e.ipToScan);
 
-                ++repliedSNMPDevices;
+                ++counted_responded_SNMP_Devices;
                 Status();
             });
         }
@@ -1359,7 +1405,7 @@ namespace MyNetworkMonitor
             //throw new NotImplementedException();
             Dispatcher.BeginInvoke(new Action(() =>
             {
-                SNMP_state = ScanStatus.finished;
+                status_SNMP_Scan = ScanStatus.finished;
                 Status();
             }));
         }
@@ -1385,7 +1431,7 @@ namespace MyNetworkMonitor
             //throw new NotImplementedException();
             Dispatcher.BeginInvoke(() =>
             {
-                ++responsedNetBiosInfosCount;
+                ++counted_responded_NetBiosInfos;
                 Status();
 
                 if (string.IsNullOrEmpty(e.NetBiosHostname))
@@ -1395,7 +1441,7 @@ namespace MyNetworkMonitor
 
                 InsertIPToScanResult(e);
 
-                ++responsedARPRequestCount;
+                ++counted_responded_ARP_Requests;
                 Status();
             });
         }
@@ -1403,22 +1449,31 @@ namespace MyNetworkMonitor
         {
             Dispatcher.Invoke(() =>
             {
-                currentNetBiosScan = current;
-                responsedNetBiosInfosCount = responsed;
-                totalNetBiosInfosCount = total;
+                counted_current_NetBiosScan = current;
+                counted_responded_NetBiosInfos = responsed;
+                counted_total_NetBiosInfos = total;
                 Status();
             });
             
         }
+        private void ScanningMethod_NetBios_NetbiosScanFinished(bool obj)
+        {
+           
+
+            // Falls die Methode aus einem Hintergrund-Thread kommt, UI-Update über Dispatcher
+            Dispatcher.Invoke(() =>
+            {
+                status_NetBios_Scan = ScanStatus.finished;
+                Status(); // Falls Status() UI-Elemente aktualisiert
+            });
+        }
+
         private void ScanningMethod_Services_ServiceIPScanFinished(ServiceScanResult obj)
         {
             //throw new NotImplementedException();
         }
 
-        private void ScanningMethod_NetBios_NetbiosScanFinished(bool obj)
-        {
-            //throw new NotImplementedException();
-        }
+     
 
      
 
@@ -1427,7 +1482,7 @@ namespace MyNetworkMonitor
         {
             Dispatcher.BeginInvoke(() =>
             {
-                ++currentARPRequest;
+                ++counted_current_ARP_Requests;
                 Status();
 
                 if (string.IsNullOrEmpty(e.ipToScan.IPorHostname))
@@ -1437,7 +1492,7 @@ namespace MyNetworkMonitor
 
                 InsertIPToScanResult(e.ipToScan);
 
-                ++responsedARPRequestCount;
+                ++counted_responded_ARP_Requests;
                 Status();
             });
         }
@@ -1445,7 +1500,7 @@ namespace MyNetworkMonitor
         {
             Dispatcher.BeginInvoke(() =>
             {
-                arpRequest_state = ScanStatus.finished;
+                status_ARP_Request_Scan = ScanStatus.finished;
                 Status();
             });
         }
@@ -1456,7 +1511,7 @@ namespace MyNetworkMonitor
         {
             Dispatcher.BeginInvoke(() =>
             {
-                ++currentHostnameCount;
+                ++counted_current_DNS_HostNames;
                 Status();
 
                 if (e == null || string.IsNullOrEmpty(e.ipToScan.HostName))
@@ -1466,7 +1521,7 @@ namespace MyNetworkMonitor
 
                 InsertIPToScanResult(e.ipToScan);
 
-                ++responsedHostNamesCount;
+                ++counted_responded_DNS_HostNames;
                 Status();
             });
         }
@@ -1474,7 +1529,7 @@ namespace MyNetworkMonitor
         {
             Dispatcher.BeginInvoke(() =>
             {
-                dns_state = ScanStatus.finished;
+                status_DNS_HostName_Scan = ScanStatus.finished;
                 Status();
             });
         }
@@ -1485,14 +1540,14 @@ namespace MyNetworkMonitor
         {
             Dispatcher.BeginInvoke(() =>
             {
-                ++currentLookupCount;
+                ++counted_current_Lookup_Scan;
                 Status();
 
 
                 InsertIPToScanResult(e.ipToScan);
 
 
-                ++responsedLookupDevices;
+                ++counted_responded_Lookup_Devices;
                 Status();
             });
         }
@@ -1500,7 +1555,7 @@ namespace MyNetworkMonitor
         {
             Dispatcher.BeginInvoke(() =>
             {
-                Lookup_state = ScanStatus.finished;
+                status_Lookup_Scan = ScanStatus.finished;
                 Status();
             });
         }
@@ -1511,7 +1566,7 @@ namespace MyNetworkMonitor
         {
             Dispatcher.BeginInvoke(() =>
             {
-                ++current_TCPPortScan_Count;
+                ++counted_current_TCP_Port_Scan;
                 Status();
 
                 if (e == null)
@@ -1523,7 +1578,7 @@ namespace MyNetworkMonitor
                 InsertIPToScanResult(e.ipToScan);
 
 
-                ++responsedTCPPortScanDevices;
+                ++counted_responded_TCP_Port_Scan_Devices;
                 Status();
             });
         }
@@ -1531,7 +1586,7 @@ namespace MyNetworkMonitor
         {
             Dispatcher.BeginInvoke(() =>
             {
-                tcp_port_Scan_state = ScanStatus.finished;
+                status_TCP_Port_Scan = ScanStatus.finished;
                 Status();
             });
         }
@@ -1544,7 +1599,7 @@ namespace MyNetworkMonitor
             {
                 InsertIPToScanResult(e.ipToScan);
 
-                ++current_UDPPortScan_Count;
+                ++counted_current_UDP_Port_Scan;
                 Status();
             });
         }
@@ -1552,7 +1607,7 @@ namespace MyNetworkMonitor
         {
             Dispatcher.BeginInvoke(() =>
             {
-                udp_port_Scan_state = ScanStatus.finished;
+                status_UDP_Port_Scan = ScanStatus.finished;
                 //Counted_UDPListener = e.UDPListener;
                 Status();
             });
