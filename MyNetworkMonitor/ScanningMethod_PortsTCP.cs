@@ -1,21 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Diagnostics;
 using System.Linq;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows.Media;
-using System.Windows.Threading;
+
 using System.Net;
-using System.Text;
-using Rssdp.Infrastructure;
-using static System.Net.Mime.MediaTypeNames;
-using System.Security.Cryptography;
-using System.Windows;
-using System.Text.RegularExpressions;
-using System.Net.NetworkInformation;
+
 
 namespace MyNetworkMonitor
 {
