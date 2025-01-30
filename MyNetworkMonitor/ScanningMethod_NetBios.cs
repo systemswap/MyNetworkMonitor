@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MyNetworkMonitor;
+using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
@@ -6,64 +7,75 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-public class ScanResult
-{
-    public string IP { get; set; }
-    public string Hostname { get; set; }
-    public string Workgroup { get; set; }
-    public string MacAddress { get; set; } = "00-00-00-00-00-00";
-    public List<string> NameTypes { get; set; } = new List<string>();
-    public bool IsNetBiosActive { get; set; }
-    public string ErrorText { get; set; }
-}
+//public class ScanResult
+//{
+//    public string IP { get; set; }
+//    public string Hostname { get; set; }
+//    public string Workgroup { get; set; }
+//    public string MacAddress { get; set; } = "00-00-00-00-00-00";
+//    public List<string> NameTypes { get; set; } = new List<string>();
+//    public bool IsNetBiosActive { get; set; }
+//    public string ErrorText { get; set; }
+//}
 
 public class ScanningMethod_NetBios
 {
-    public event Action<ScanResult> NetbiosIPScanFinished;
-    public event Action<int, int> ProgressUpdated;
+    public event Action<IPToScan> NetbiosIPScanFinished;
+    //current, responsed, total
+    public event Action<int, int, int> ProgressUpdated;
     public event Action<bool> NetbiosScanFinished;
 
-    public async Task ScanMultipleIPsAsync(List<string> ipAddresses, CancellationToken cancellationToken)
+    int current = 0;
+    int responsed = 0;
+    int total = 0;
+
+    public async Task ScanMultipleIPsAsync(List<IPToScan> iPToScans, CancellationToken cancellationToken)
     {
-        int total = ipAddresses.Count;
-        int completed = 0;
+        current = 0;
+        responsed = 0;
+        total = iPToScans.Count;
 
-        foreach (var ip in ipAddresses)
+        await Parallel.ForEachAsync(iPToScans, cancellationToken, async (ip, token) =>
         {
-            if (cancellationToken.IsCancellationRequested)
-                break;
+            if (token.IsCancellationRequested)
+                return; // Statt `break`, um parallele Tasks nicht abrupt zu beenden
 
-            await QueryNetBiosAsync(ip, cancellationToken);
-            Interlocked.Increment(ref completed);
-            ProgressUpdated?.Invoke(completed, total);
-        }
+            int currentValue = Interlocked.Increment(ref current);
+            ProgressUpdated?.Invoke(current, responsed, total);
+
+            ip.UsedScanMethod = ScanMethod.NetBios;
+            await QueryNetBiosAsync(ip, token);           
+        });
 
         NetbiosScanFinished?.Invoke(true);
     }
 
-    public async Task QueryNetBiosAsync(string ipAddress, CancellationToken cancellationToken)
+
+    private async Task QueryNetBiosAsync(IPToScan iPToScan, CancellationToken cancellationToken)
     {
-        ScanResult result = new ScanResult { IP = ipAddress };
+        
         try
         {
-            if (GetRemoteNetBiosName(IPAddress.Parse(ipAddress), out string nbName, out string nbDomain, out string macAddress))
+            if (GetRemoteNetBiosName(IPAddress.Parse(iPToScan.IPorHostname), out string nbName, out string nbDomain, out string macAddress))
             {
-                result.Hostname = nbName;
-                result.Workgroup = nbDomain;
-                result.MacAddress = macAddress;
-                result.IsNetBiosActive = true;
+                iPToScan.NetBiosHostname = nbName;
+                //result.Workgroup = nbDomain;
+                //result.MacAddress = macAddress;
+                //result.IsNetBiosActive = true;
             }
             else
             {
-                result.ErrorText = "Keine NetBIOS-Antwort erhalten.";
+                //result.ErrorText = "Keine NetBIOS-Antwort erhalten.";
             }
         }
         catch (Exception ex)
         {
-            result.ErrorText = $"Fehler: {ex.Message}";
+            //result.ErrorText = $"Fehler: {ex.Message}";
         }
 
-        NetbiosIPScanFinished?.Invoke(result);
+        int responsedValue = Interlocked.Increment(ref responsed);
+        ProgressUpdated?.Invoke(current, responsedValue, total);
+        NetbiosIPScanFinished?.Invoke(iPToScan);
     }
 
     private static bool GetRemoteNetBiosName(IPAddress targetAddress, out string nbName, out string nbDomainOrWorkgroupName, out string macAddress, int receiveTimeOut = 5000, int retries = 1)
