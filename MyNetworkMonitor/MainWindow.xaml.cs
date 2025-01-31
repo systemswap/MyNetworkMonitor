@@ -71,9 +71,10 @@ namespace MyNetworkMonitor
             scanningMethode_NetBios.NetbiosIPScanFinished += ScanningMethod_NetBios_NetbiosIPScanFinished;
             scanningMethode_NetBios.NetbiosScanFinished += ScanningMethod_NetBios_NetbiosScanFinished;
 
-            scanningMethod_SMBVersionCheck = new ScanningMethod_SMBVersionCheck();
-            scanningMethod_SMBVersionCheck.SMBIPScanFinished += ScanningMethod_SMBVersionCheck_SMBIPScanFinished;
-            scanningMethod_SMBVersionCheck.SMBScanFinished += ScanningMethod_SMBVersionCheck_SMBScanFinished;
+            scanningMethod_SMB_VersionCheck = new ScanningMethod_SMBVersionCheck();
+            scanningMethod_SMB_VersionCheck.ProgressUpdated += ScanningMethod_SMB_VersionCheck_ProgressUpdated; ;
+            scanningMethod_SMB_VersionCheck.SMBIPScanFinished += ScanningMethod_SMB_VersionCheck_SMB_IP_Scan_Finished;
+            scanningMethod_SMB_VersionCheck.SMBScanFinished += ScanningMethod_SMBVersionCheck_SMB_Scan_Finished;
 
             scanningMethod_Services = new ScanningMethod_Services();
             scanningMethod_Services.ServiceIPScanFinished += ScanningMethod_Services_ServiceIPScanFinished;
@@ -201,7 +202,8 @@ namespace MyNetworkMonitor
             dv_InternalNames = _internalNames.InternalNames.DefaultView;
             dg_InternalNames.ItemsSource = dv_InternalNames;
         }
-      
+
+        
 
         bool TextChangedByComboBox = false;
         List<NicInfo> nicInfos = new List<NicInfo>();
@@ -245,7 +247,7 @@ namespace MyNetworkMonitor
         ScanningMethod_SSDP_UPNP scanningMethode_SSDP_UPNP;
 
         ScanningMethod_NetBios scanningMethode_NetBios;
-        ScanningMethod_SMBVersionCheck scanningMethod_SMBVersionCheck;
+        ScanningMethod_SMBVersionCheck scanningMethod_SMB_VersionCheck;
         ScanningMethod_Services scanningMethod_Services;
 
         ScanningMethod_SNMP scanningMethode_SNMP;
@@ -293,15 +295,15 @@ namespace MyNetworkMonitor
         int counted_responded_NetBiosInfos = 0;
         int counted_total_NetBiosInfos = 0;
 
-        ScanStatus status_SMBVersionCheck = ScanStatus.ignored;
-        int counted_current_SMBVersionCheck = 0;
-        int counted_responded_SMBVersionCheck = 0;   
-        int counted_total_SMBVersionCheck = 0;
+        ScanStatus status_SMB_VersionCheck = ScanStatus.ignored;
+        int counted_current_SMB_VersionCheck = 0;
+        int counted_responded_SMB_VersionCheck = 0;   
+        int counted_total_SMB_VersionCheck = 0;
 
         ScanStatus status_Services_Scan = ScanStatus.ignored;
-        int counted_current_IPService_Scan = 0;
-        int counted_responded_IPService_Scan = 0;
-        int counted_total_IPService_Scan = 0;
+        int counted_current_Service_IP_Scan = 0;
+        int counted_responded_Services_IP_Scan = 0;
+        int counted_total_Services_IP_Scan = 0;
 
         ScanStatus status_SNMP_Scan = ScanStatus.ignored;
         int counted_current_SNMP_Scan = 0;
@@ -347,8 +349,8 @@ namespace MyNetworkMonitor
             if (status_Ping_Scan == ScanStatus.ignored) { lst_ignored.Add("Ping: ignored"); } else { lst_statusUpdate.Add($"Ping: {status_Ping_Scan.ToString()} {counted_current_Ping_Scan} / {counted_responded_Ping_Scan} / {counted_total_Ping_Scan}"); }
             if (status_DNS_HostName_Scan == ScanStatus.ignored) { lst_ignored.Add("DNS Hostnames: ignored"); } else { lst_statusUpdate.Add($"DNS Hostnames: {status_DNS_HostName_Scan.ToString()} {counted_current_DNS_HostNames} / {counted_responded_DNS_HostNames} / {counted_total_DNS_HostNames}"); }
             if (status_NetBios_Scan == ScanStatus.ignored) { lst_ignored.Add("NetBios: ignored"); } else { lst_statusUpdate.Add($"NetBios: {status_NetBios_Scan.ToString()} {counted_current_NetBiosScan} / {counted_responded_NetBiosInfos} / {counted_total_NetBiosInfos}"); }
-            if (status_SMBVersionCheck == ScanStatus.ignored) { lst_ignored.Add("SMB Check: ignored"); } else { lst_statusUpdate.Add($"SMB Check: {status_SMBVersionCheck.ToString()} {counted_current_SMBVersionCheck} / {counted_responded_SMBVersionCheck} / {counted_total_SMBVersionCheck}"); }
-            if (status_Services_Scan == ScanStatus.ignored) { lst_ignored.Add("Services: ignored"); } else { lst_statusUpdate.Add($"Services: {status_Services_Scan.ToString()} {counted_current_IPService_Scan} / {counted_responded_IPService_Scan} / {counted_total_IPService_Scan}"); }
+            if (status_SMB_VersionCheck == ScanStatus.ignored) { lst_ignored.Add("SMB Check: ignored"); } else { lst_statusUpdate.Add($"SMB Check: {status_SMB_VersionCheck.ToString()} {counted_current_SMB_VersionCheck} / {counted_responded_SMB_VersionCheck} / {counted_total_SMB_VersionCheck}"); }
+            if (status_Services_Scan == ScanStatus.ignored) { lst_ignored.Add("Services: ignored"); } else { lst_statusUpdate.Add($"Services: {status_Services_Scan.ToString()} {counted_current_Service_IP_Scan} / {counted_responded_Services_IP_Scan} / {counted_total_Services_IP_Scan}"); }
             if (status_Lookup_Scan == ScanStatus.ignored) { lst_ignored.Add("Lookup: ignored"); } else { lst_statusUpdate.Add($"Lookup: {status_Lookup_Scan.ToString()} {counted_current_Lookup_Scan} / {counted_responded_Lookup_Devices} / {counted_total_Lookup_Scans}"); }
             if (status_TCP_Port_Scan == ScanStatus.ignored) { lst_ignored.Add("TCP Ports: ignored"); } else { lst_statusUpdate.Add($"TCP Ports: {status_TCP_Port_Scan.ToString()} {counted_current_TCP_Port_Scan} / {counted_responded_TCP_Port_Scan_Devices} / {counted_total_TCP_Port_Scans}"); }
             if (status_UDP_Port_Scan == ScanStatus.ignored) { lst_ignored.Add("UDP Ports: ignored"); } else { lst_statusUpdate.Add($"UDP Ports: {status_UDP_Port_Scan.ToString()} {counted_current_UDP_Port_Scan} / {counted_responded_UDP_Port_Devices} / {counted_total_UDP_Port_Devices}"); }
@@ -715,9 +717,9 @@ namespace MyNetworkMonitor
             counted_current_NetBiosScan = 0;
             counted_responded_NetBiosInfos = 0;
 
-            counted_current_IPService_Scan = 0;
-            counted_responded_IPService_Scan = 0;
-            counted_total_IPService_Scan = 0;
+            counted_current_Service_IP_Scan = 0;
+            counted_responded_Services_IP_Scan = 0;
+            counted_total_Services_IP_Scan = 0;
 
             counted_current_Lookup_Scan = 0;
             counted_total_Lookup_Scans = 0;
@@ -775,7 +777,7 @@ namespace MyNetworkMonitor
             if ((bool)chk_Methodes_Ping.IsChecked) status_Ping_Scan = ScanStatus.waiting;
             if ((bool)chk_Methodes_ScanHostnames.IsChecked) status_DNS_HostName_Scan = ScanStatus.waiting;
             if ((bool)chk_Methodes_ScanNetBios.IsChecked) status_NetBios_Scan = ScanStatus.waiting;
-            if ((bool)chk_Methodes_ScanServices.IsChecked) status_Services_Scan = ScanStatus.waiting;
+            if ((bool)chk_Methodes_Scan_SMB_and_Services.IsChecked) status_Services_Scan = ScanStatus.waiting;
             if ((bool)chk_Methodes_SNMP.IsChecked) status_SNMP_Scan = ScanStatus.waiting;
             if ((bool)chk_Methodes_LookUp.IsChecked) status_Lookup_Scan = ScanStatus.waiting;
             if ((bool)chk_Methodes_ScanTCPPorts.IsChecked) status_TCP_Port_Scan = ScanStatus.waiting;
@@ -810,7 +812,7 @@ namespace MyNetworkMonitor
                 status_SNMP_Scan = ScanStatus.running;
                 //requestedSNMPCount = _IPsToScan.Count;
                 Status();
-                Task.Run(() => scanningMethode_SNMP.ScanAsync(_IPsToScan));
+                await Task.Run(() => scanningMethode_SNMP.ScanAsync(_IPsToScan));
             }
 
 
@@ -892,9 +894,13 @@ namespace MyNetworkMonitor
                 await Task.Run(() => scanningMethode_NetBios.ScanMultipleIPsAsync(_IPsToScan, CancellationToken.None));
             }
 
-            if ((bool)chk_Methodes_ScanServices.IsChecked)
+            if ((bool)chk_Methodes_Scan_SMB_and_Services.IsChecked)
             {
+                status_SMB_VersionCheck = ScanStatus.running;
+                scanningMethod_SMB_VersionCheck.ScanMultipleIPsAsync(_IPsToScan, CancellationToken.None);
 
+
+                //status_Services_Scan = ScanStatus.running;
             }
 
             if ((bool)chk_Methodes_LookUp.IsChecked)
@@ -1024,6 +1030,12 @@ namespace MyNetworkMonitor
                 {
                     _scannResults.ResultTable.Rows[rowIndex]["NetBiosHostname"] = ipToScan.NetBiosHostname;        
                 }
+
+                if (ipToScan.UsedScanMethod == ScanMethod.SMB)
+                {
+                    _scannResults.ResultTable.Rows[rowIndex]["detectedServices"] += ipToScan.SMBVersionsToString();
+                }
+
 
                 if (ipToScan.UsedScanMethod == ScanMethod.Services)
                 {
@@ -1171,6 +1183,11 @@ namespace MyNetworkMonitor
                 if (ipToScan.UsedScanMethod == ScanMethod.NetBios)
                 {
                     row["NetBiosHostname"] = ipToScan.NetBiosHostname;
+                }
+
+                if (ipToScan.UsedScanMethod == ScanMethod.SMB)
+                {
+                    row["detectedServices"] += ipToScan.SMBVersionsToString();
                 }
 
                 if (ipToScan.UsedScanMethod == ScanMethod.Services)
@@ -1419,14 +1436,37 @@ namespace MyNetworkMonitor
         }
 
 
-        private void ScanningMethod_SMBVersionCheck_SMBScanFinished()
+        private void ScanningMethod_SMBVersionCheck_SMB_Scan_Finished()
         {
             //throw new NotImplementedException();
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                status_SMB_VersionCheck = ScanStatus.finished;
+                Status();
+            }));
         }
 
-        private void ScanningMethod_SMBVersionCheck_SMBIPScanFinished(SMBResponse obj)
+        private void ScanningMethod_SMB_VersionCheck_ProgressUpdated(int arg1, int arg2, int arg3)
         {
-            //throw new NotImplementedException();
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                counted_current_SMB_VersionCheck = arg1;
+                counted_responded_SMB_VersionCheck = arg2;
+                counted_total_SMB_VersionCheck = arg3;
+                Status();
+            }));
+        }
+
+        private void ScanningMethod_SMB_VersionCheck_SMB_IP_Scan_Finished(IPToScan ipToScan)
+        {
+            Dispatcher.BeginInvoke(() =>
+            {
+                if (string.IsNullOrEmpty(ipToScan.IPorHostname))
+                {
+                    return;
+                }
+                InsertIPToScanResult(ipToScan);
+            });
         }
 
         private void ScanningMethod_Services_ServiceIPScanFinished1(ServiceScanResult obj)
@@ -1434,23 +1474,15 @@ namespace MyNetworkMonitor
             //throw new NotImplementedException();
         }
 
-        private void ScanningMethod_NetBios_NetbiosIPScanFinished(IPToScan e)
+        private void ScanningMethod_NetBios_NetbiosIPScanFinished(IPToScan ipToScan)
         {
-            //throw new NotImplementedException();
             Dispatcher.BeginInvoke(() =>
             {
-                ++counted_responded_NetBiosInfos;
-                Status();
-
-                if (string.IsNullOrEmpty(e.NetBiosHostname))
+                if (string.IsNullOrEmpty(ipToScan.NetBiosHostname))
                 {
                     return;
                 }
-
-                InsertIPToScanResult(e);
-
-                ++counted_responded_ARP_Requests;
-                Status();
+                InsertIPToScanResult(ipToScan);
             });
         }
         private void ScanningMethode_NetBios_ProgressUpdated(int current, int responsed, int total)
