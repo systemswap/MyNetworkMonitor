@@ -17,11 +17,11 @@ public class ScanningMethod_NetBios
     private int responded = 0;
     private int total = 0;
 
-    public async Task ScanMultipleIPsAsync(List<IPToScan> iPToScans, CancellationToken cancellationToken)
+    public async Task ScanMultipleIPsAsync(List<IPToScan> IPsToScan, CancellationToken cancellationToken)
     {
         current = 0;
         responded = 0;
-        total = iPToScans.Count;
+        total = IPsToScan.Count;
 
         var options = new ParallelOptions
         {
@@ -31,7 +31,7 @@ public class ScanningMethod_NetBios
 
         List<Task> tasks = new List<Task>();
 
-        await Task.Run(() => Parallel.ForEach(iPToScans, options, ip =>
+        await Task.Run(() => Parallel.ForEach(IPsToScan, options, ip =>
         {
             if (cancellationToken.IsCancellationRequested) return;
 

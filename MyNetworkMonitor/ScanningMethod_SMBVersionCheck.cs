@@ -5,121 +5,144 @@ using System.Net.Sockets;
 using System.Threading.Tasks;
 using System.Threading;
 using System.Linq;
+using MyNetworkMonitor;
+using System.Net;
+using System.Collections.Concurrent;
 
 public class ScanningMethod_SMBVersionCheck
 {
-    public event Action<SMBResponse> SMBIPScanFinished;
-    public event Action<int, int> SMBProgress;
+    public event Action<IPToScan> SMBIPScanFinished;
+    public event Action<int, int, int> ProgressUpdated;
     public event Action SMBScanFinished;
+       
+
+    private int current = 0;
+    private int responded = 0;
+    private int total = 0;
 
     public ScanningMethod_SMBVersionCheck()
     {
 
     }
-
-    public async Task ScanMultipleIPsAsync(List<string> ipList, int port)
+    private async Task RunWithTimeout(Func<Task> action, TimeSpan timeout)
     {
-        int total = ipList.Count;
-        int completed = 0;
-
-        var tasks = ipList.Select(async ip =>
+        var task = action();
+        if (await Task.WhenAny(task, Task.Delay(timeout)) == task)
         {
-            var response = await CheckProtocolsAsync(ip, port);
-            SMBProgress?.Invoke(++completed, total);
-            return response;
-        });
+            await task; // ✅ Die Task wurde erfolgreich beendet
+        }
+        else
+        {
+            Console.WriteLine($"❌ Timeout: SMB-Scan hat zu lange gedauert.");
+        }
+    }
 
+    public async Task ScanMultipleIPsAsync(List<IPToScan> IPsToScan, CancellationToken cancellationToken)
+    {
+        current = 0;
+        responded = 0;
+        total = IPsToScan.Count;
+        int port = 445; // SMB-Standardport
+
+        var options = new ParallelOptions
+        {
+            MaxDegreeOfParallelism = 20, // Begrenze gleichzeitige SMB-Anfragen auf 20
+            CancellationToken = cancellationToken
+        };
+
+        // Verwende `ConcurrentBag<Task>`, um parallele Tasks sicher zu speichern
+        ConcurrentBag<Task> tasks = new ConcurrentBag<Task>();
+
+        await Task.Run(() => Parallel.ForEach(IPsToScan, options, ipToScan =>
+        {
+            if (cancellationToken.IsCancellationRequested) return;
+
+            int currentValue = Interlocked.Increment(ref current);
+            ProgressUpdated?.Invoke(current, responded, total);
+
+            ipToScan.UsedScanMethod = ScanMethod.SMB;
+
+            // **SMB-Protokollversion prüfen (mit Timeout-Schutz)**
+            var task = RunWithTimeout(() => CheckProtocolsAsync(ipToScan, port), TimeSpan.FromSeconds(10));
+            tasks.Add(task);
+        }));
+
+        // **Warte auf ALLE SMB-Scans, bevor das Event ausgelöst wird**
         await Task.WhenAll(tasks);
 
+        // ✅ Garantiert: SMBScanFinished wird NUR ausgelöst, wenn alle SMB-Scans beendet sind
         SMBScanFinished?.Invoke();
     }
 
-    private async Task<SMBResponse> CheckProtocolsAsync(string ipAddress, int port)
-    {
-        SMBResponse smbResponse = new SMBResponse { IPAddress = ipAddress, Versions = new List<string>() };
 
+
+
+    private async Task CheckProtocolsAsync(IPToScan ipToScan, int port)
+    {
         foreach (SMBDialects dialect in Enum.GetValues(typeof(SMBDialects)))
         {
-
             try
             {
                 using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
                 {
                     socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
-                    socket.Connect(ipAddress, port);
 
-                    using (NetworkStream stream = new NetworkStream(socket))
+                    var connectTask = socket.ConnectAsync(IPAddress.Parse(ipToScan.IPorHostname), port);
+                    if (await Task.WhenAny(connectTask, Task.Delay(5000)) != connectTask) // Timeout nach 5 Sek
                     {
-                        byte[] smbNegotiationRequest;
-                        if (dialect == SMBDialects._1)
-                        {
-                            smbNegotiationRequest = GetSMB1NegotiationRequest();
-                        }
-                        else
-                        {
-                            smbNegotiationRequest = GetSMB2NegotiationRequest_Dialects(dialect);
-                        }
+                        Console.WriteLine($"❌ Timeout: {ipToScan.IPorHostname} reagiert nicht.");
+                        socket.Close();
+                        continue;
+                    }
 
+                    using (NetworkStream stream = new NetworkStream(socket, true))
+                    {
+                        byte[] smbNegotiationRequest = (dialect == SMBDialects._1)
+                            ? GetSMB1NegotiationRequest()
+                            : GetSMB2NegotiationRequest_Dialects(dialect);
 
-                        stream.Write(smbNegotiationRequest, 0, smbNegotiationRequest.Length);
-                        stream.Flush();
-
-                        Thread.Sleep(100); // Kurze Wartezeit für Stabilität
+                        await stream.WriteAsync(smbNegotiationRequest, 0, smbNegotiationRequest.Length);
 
                         byte[] tempResponse = new byte[1024];
-                        int bytesRead = stream.Read(tempResponse, 0, tempResponse.Length);
+                        var readTask = stream.ReadAsync(tempResponse, 0, tempResponse.Length);
+                        if (await Task.WhenAny(readTask, Task.Delay(2000)) != readTask) // Timeout für Response
+                        {
+                            Console.WriteLine($"⚠ Keine SMB-Antwort von {ipToScan.IPorHostname}");
+                            continue;
+                        }
 
-                        //byte[] response = new byte[bytesRead];
-                        //Array.Copy(tempResponse, response, bytesRead);
-
+                        int bytesRead = await readTask;
                         if (bytesRead > 0)
                         {
-                            //var tada = ParseSMBResponse(response);
-                            //tada.IPAddress = ipAddress;
-
                             byte[] response = new byte[bytesRead];
                             Array.Copy(tempResponse, response, bytesRead);
-
-                            //if (dialect == SMBDialects._1)
-                            //{ smbResponse.Versions.Add("1.0"); }
-
-                            //if (IsSMBVersionSupported(response))
-                            //{
-                            //    smbResponse.Versions.Add(dialect.ToString().Replace("_", ".")); // Format als "2.0.2", "2.1" etc.
-                            //}
 
                             switch (dialect)
                             {
                                 case SMBDialects._1:
-                                    smbResponse.Versions.Add("1.0");
+                                    ipToScan.SMBVersions.Add("1.0");
                                     break;
                                 case SMBDialects._2_0_2:
-                                    smbResponse.Versions.Add("2.0.2");
+                                    ipToScan.SMBVersions.Add("2.0.2");
                                     break;
                                 case SMBDialects._2_1:
-                                    smbResponse.Versions.Add("2.1");
+                                    ipToScan.SMBVersions.Add("2.1");
                                     break;
                                 case SMBDialects._3_0:
-                                    smbResponse.Versions.Add("3.0");
+                                    ipToScan.SMBVersions.Add("3.0");
                                     break;
                                 case SMBDialects._3_0_2:
-                                    smbResponse.Versions.Add("3.0.2");
+                                    ipToScan.SMBVersions.Add("3.0.2");
                                     break;
                                 case SMBDialects._3_1_1:
-                                    smbResponse.Versions.Add("3.1.1");
-                                    break;
-                                case SMBDialects.all:
-                                    smbResponse.Versions.Add("all");
+                                    ipToScan.SMBVersions.Add("3.1.1");
                                     break;
                                 default:
                                     break;
                             }
                         }
-                        else
-                        {
-                            //Console.WriteLine("No response received from SMB server.");
-                        }
                     }
+
                     socket.Shutdown(SocketShutdown.Both);
                     socket.Close();
                 }
@@ -133,9 +156,17 @@ public class ScanningMethod_SMBVersionCheck
                 Console.WriteLine($"Error connecting to SMB server: {ex.Message}");
             }
         }
-        SMBIPScanFinished?.Invoke(smbResponse); // Event auslösen
-        return smbResponse;
+
+        if (ipToScan.SMBVersions.Count > 0)
+        {
+            int respondedValue = Interlocked.Increment(ref responded);
+            ProgressUpdated?.Invoke(current, responded, total);
+
+            SMBIPScanFinished?.Invoke(ipToScan); // Event auslösen            
+        }
     }
+
+
 
     private enum SMBDialects
     {
@@ -373,16 +404,18 @@ public class ScanningMethod_SMBVersionCheck
     }
 }
 
-public class SMBResponse
-{
-    public string IPAddress { get; set; }
-    public List<string> Versions { get; set; }
+//public class SMBResponse
+//{
+//    public string IPAddress { get; set; }
+//    public List<string> Versions { get; set; }
 
-    public override string ToString()
-    {
-        return $"SMB Response:\n" +
-               $"Scanned IP: {IPAddress}\n" +
-               $"Supported SMB Versions: {string.Join(", ", Versions)}";
-    }
-}
+//    public override string ToString()
+//    {
+//        return $"SMB Response:\n" +
+//               $"Scanned IP: {IPAddress}\n" +
+//               $"Supported SMB Versions: {string.Join(", ", Versions)}";
+//    }
+//}
+
+
 
