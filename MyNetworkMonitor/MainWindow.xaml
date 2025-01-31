@@ -295,7 +295,7 @@
 
                 <CheckBox x:Name="chk_Methodes_ScanHostnames" Content="scan Hostname" Grid.Column="3" HorizontalAlignment="Center" Width="106" VerticalContentAlignment="Center" VerticalAlignment="Center" Height="35"/>
                 <CheckBox x:Name="chk_Methodes_ScanNetBios" Content="NetBios" Grid.Column="4" HorizontalAlignment="Center" Width="70" VerticalContentAlignment="Center" VerticalAlignment="Center" Height="35"/>
-                <CheckBox x:Name="chk_Methodes_ScanServices" Content="SMB / Services" Grid.Column="5" HorizontalAlignment="Center" Width="106" VerticalContentAlignment="Center" VerticalAlignment="Center" Height="35"/>
+                <CheckBox x:Name="chk_Methodes_Scan_SMB_and_Services" Content="SMB / Services" Grid.Column="5" HorizontalAlignment="Center" Width="106" VerticalContentAlignment="Center" VerticalAlignment="Center" Height="35"/>
                 <Grid Grid.Column="3" Margin="0,2,0,3" HorizontalAlignment="Center" Width="310" Grid.Row="1" Grid.ColumnSpan="3">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="125"/>

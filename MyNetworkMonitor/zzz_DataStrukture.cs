@@ -111,6 +111,14 @@ namespace MyNetworkMonitor
         private string _NetBiosHostname = string.Empty;
         public string NetBiosHostname { get { return _NetBiosHostname; } set { _NetBiosHostname= value; } }
 
+        
+        public List<string> SMBVersions = new List<string>();
+        // 🔹 Eigene ToString()-Methode für SMBVersions
+        public string SMBVersionsToString()
+        {
+            return SMBVersions.Any() ? "SMB Versions: " + string.Join(", ", SMBVersions) : "Keine SMB-Versionen gefunden";
+        }
+
 
         private string _destectedServices = string.Empty;
         public string detectedServices { get { return _destectedServices; } set { _destectedServices = value; } }
