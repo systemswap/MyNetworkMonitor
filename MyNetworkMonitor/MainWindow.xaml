@@ -276,9 +276,10 @@
                     <ColumnDefinition Width="90"/>
                     <ColumnDefinition Width="112"/>
                     <ColumnDefinition Width="68"/>
-                    <ColumnDefinition Width="119"/>
-                    <ColumnDefinition Width="107.333"/>
-                    <ColumnDefinition Width="113.667"/>
+                    <ColumnDefinition Width="120"/>
+                    <ColumnDefinition Width="70"/>
+                    <ColumnDefinition Width="55"/>
+                    <ColumnDefinition Width="86"/>
                     <ColumnDefinition Width="195"/>
                     <ColumnDefinition Width="81"/>
                     <ColumnDefinition Width="87"/>
@@ -293,29 +294,30 @@
                 <CheckBox x:Name="chk_ARPRequest" Content="arp Request" VerticalAlignment="Center" Grid.Column="1" Height="35" VerticalContentAlignment="Center" HorizontalAlignment="Center" Width="82"/>
                 <CheckBox x:Name="chk_Methodes_Ping" Content="Ping" Grid.Column="2" HorizontalAlignment="Center" Width="60" VerticalContentAlignment="Center" VerticalAlignment="Center" Height="35"/>
 
-                <CheckBox x:Name="chk_Methodes_ScanHostnames" Content="scan Hostname" Grid.Column="3" HorizontalAlignment="Center" Width="106" VerticalContentAlignment="Center" VerticalAlignment="Center" Height="35"/>
-                <CheckBox x:Name="chk_Methodes_ScanNetBios" Content="NetBios" Grid.Column="4" HorizontalAlignment="Center" Width="70" VerticalContentAlignment="Center" VerticalAlignment="Center" Height="35"/>
-                <CheckBox x:Name="chk_Methodes_Scan_SMB_and_Services" Content="SMB / Services" Grid.Column="5" HorizontalAlignment="Center" Width="106" VerticalContentAlignment="Center" VerticalAlignment="Center" Height="35"/>
-                <Grid Grid.Column="3" Margin="0,2,0,3" HorizontalAlignment="Center" Width="310" Grid.Row="1" Grid.ColumnSpan="3">
+                <CheckBox x:Name="chk_Methodes_ScanHostnames" Content="scan Hostname" Grid.Column="3" HorizontalAlignment="Left" Width="104" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="35" Margin="10,3,0,0"/>
+                <CheckBox x:Name="chk_Methodes_ScanNetBios" Content="NetBios" Grid.Column="4" HorizontalAlignment="Center" Width="66" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="35" Margin="0,3,0,0"/>
+                <CheckBox x:Name="chk_Methodes_Scan_SMBVersions" Content="SMB" Grid.Column="5" HorizontalAlignment="Left" Width="49" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="35" Margin="0,3,0,0"/>
+                <CheckBox x:Name="chk_Methodes_Scan_Services" Content="Services" Grid.Column="6" HorizontalAlignment="Left" Width="65" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="35" Margin="0,3,0,0"/>
+                <Grid Grid.Column="3" Margin="0,2,0,3" Grid.ColumnSpan="4" HorizontalAlignment="Left" Width="331" Grid.Row="1">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="125"/>
-                        <ColumnDefinition Width="39"/>
+                        <ColumnDefinition Width="120"/>
+                        <ColumnDefinition Width="37"/>
                         <ColumnDefinition/>
                     </Grid.ColumnDefinitions>
-                    <RadioButton x:Name="rb_ScanHostnames_onlyKnown" Content="only IPs in Table" HorizontalAlignment="Left" VerticalAlignment="Center" Height="29" Width="114" IsChecked="True" Margin="10,0,0,0"/>
-                    <RadioButton x:Name="rb_ScanHostnames_All_IPs" Grid.Column="1" Content="all" HorizontalAlignment="Left" VerticalAlignment="Center" Height="29" Width="35" Margin="4,0,0,0"/>
-                    <CheckBox x:Name="chk_Methodes_LookUp" Content="do Lookup scan" Grid.Column="2" Margin="10,0,0,0" HorizontalAlignment="Left" Width="122" VerticalAlignment="Center" Height="29"/>
+                    <RadioButton x:Name="rb_ScanHostnames_onlyKnown" Content="only IPs in Table" HorizontalAlignment="Left" VerticalAlignment="Center" Height="29" Width="110" IsChecked="True" Margin="10,0,0,0"/>
+                    <RadioButton x:Name="rb_ScanHostnames_All_IPs" Grid.Column="1" Content="all" HorizontalAlignment="Center" VerticalAlignment="Center" Height="29" Width="34"/>
+                    <CheckBox x:Name="chk_Methodes_LookUp" Content="do Lookup scan" Grid.Column="2" Margin="9,0,0,0" HorizontalAlignment="Left" Width="123" VerticalAlignment="Center" Height="29"/>
                 </Grid>
 
-                <CheckBox x:Name="chk_Methodes_ScanTCPPorts" Content="TCP Ports" Grid.Column="6" HorizontalAlignment="Left" Width="76" VerticalContentAlignment="Center" VerticalAlignment="Center" Height="35" Margin="10,0,0,0"/>
+                <CheckBox x:Name="chk_Methodes_ScanTCPPorts" Content="TCP Ports" Grid.Column="7" HorizontalAlignment="Left" Width="76" VerticalContentAlignment="Center" VerticalAlignment="Center" Height="35" Margin="10,0,0,0"/>
 
-                <CheckBox x:Name="chk_Methodes_ScanUDPPorts" Content="UDP Ports" Grid.Column="7" HorizontalAlignment="Center" Width="82" VerticalContentAlignment="Center" VerticalAlignment="Center" Height="35"/>
+                <CheckBox x:Name="chk_Methodes_ScanUDPPorts" Content="UDP Ports" Grid.Column="8" HorizontalAlignment="Center" Width="82" VerticalContentAlignment="Center" VerticalAlignment="Center" Height="35"/>
 
 
-                <TextBox x:Name="tb_IP_Address" Grid.Column="10" TextWrapping="Wrap" VerticalAlignment="Center" Height="20" Margin="10,0,9,0"/>
-                <TextBox x:Name="tb_TCPPorts" Grid.Column="11" TextWrapping="Wrap" VerticalAlignment="Center" Height="20" Margin="7,0,10,0"/>
-                <TextBox x:Name="tb_UDPPorts" Grid.Column="12" TextWrapping="Wrap" VerticalAlignment="Center" Height="20" Margin="10,0,10,0"/>
-                <Button x:Name="bt_ScanIP" Click="bt_ScanIP_Click"   Content="scan above IP or if empty selected rows" Grid.Column="10" VerticalAlignment="Center" Height="20" Margin="10,0,0,0" HorizontalAlignment="Left" Width="463" Grid.Row="1" Grid.ColumnSpan="4" Background="#BFA4B1BF" OpacityMask="Black">
+                <TextBox x:Name="tb_IP_Address" Grid.Column="11" TextWrapping="Wrap" VerticalAlignment="Center" Height="20" Margin="10,0,9,0"/>
+                <TextBox x:Name="tb_TCPPorts" Grid.Column="12" TextWrapping="Wrap" VerticalAlignment="Center" Height="20" Margin="7,0,10,0"/>
+                <TextBox x:Name="tb_UDPPorts" Grid.Column="13" TextWrapping="Wrap" VerticalAlignment="Center" Height="20" Margin="10,0,10,0"/>
+                <Button x:Name="bt_ScanIP" Click="bt_ScanIP_Click"   Content="scan above IP or if empty selected rows" Grid.Column="11" VerticalAlignment="Center" Height="20" Margin="10,0,0,0" HorizontalAlignment="Left" Width="463" Grid.Row="1" Grid.ColumnSpan="4" Background="#BFA4B1BF" OpacityMask="Black">
                     <Button.Resources>
                         <Style TargetType="{x:Type Border}">
                             <Setter Property="CornerRadius" Value="5"/>
@@ -324,9 +326,9 @@
                 </Button>
 
 
-                <CheckBox x:Name="chk_Methodes_ARP_A" Content="arp -a" Margin="10,0,0,0" HorizontalAlignment="Left" Width="54" Grid.Column="8" VerticalContentAlignment="Center" VerticalAlignment="Center" Height="34"/>
-                <CheckBox x:Name="chk_ARP_DeleteCacheBefore" Content="arp -d" VerticalAlignment="Center" Height="34" Click="chk_ARP_DeleteCacheBefore_Click" Grid.Column="8" Grid.Row="1" HorizontalAlignment="Left" Width="54" Margin="28,0,0,0"/>
-                <Grid Grid.Column="6" Grid.Row="1">
+                <CheckBox x:Name="chk_Methodes_ARP_A" Content="arp -a" Margin="10,0,0,0" HorizontalAlignment="Left" Width="54" Grid.Column="9" VerticalContentAlignment="Center" VerticalAlignment="Center" Height="34"/>
+                <CheckBox x:Name="chk_ARP_DeleteCacheBefore" Content="arp -d" VerticalAlignment="Center" Height="34" Click="chk_ARP_DeleteCacheBefore_Click" Grid.Column="9" Grid.Row="1" HorizontalAlignment="Left" Width="54" Margin="28,0,0,0"/>
+                <Grid Grid.Column="7" Grid.Row="1">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition/>
                         <ColumnDefinition Width="75"/>
@@ -334,7 +336,7 @@
                     <CheckBox x:Name="chk_TCPPortsScanOnlyIPsInTable" Grid.Column="0" Content="only IPs in Table" HorizontalAlignment="Left" VerticalAlignment="Center" Width="110" Height="34" Margin="10,0,0,0" IsChecked="True"/>
                     <CheckBox x:Name="chk_allTCPPorts" Grid.Column="1" Content="all Ports" HorizontalAlignment="Left" VerticalAlignment="Center" Width="65" Height="34" Margin="10,0,0,0"/>
                 </Grid>
-                <TextBox x:Name="tb_DNSServerIP" Grid.Column="13" HorizontalAlignment="Center" TextWrapping="Wrap" VerticalAlignment="Center" Width="107" Height="18"/>
+                <TextBox x:Name="tb_DNSServerIP" Grid.Column="14" HorizontalAlignment="Center" TextWrapping="Wrap" VerticalAlignment="Center" Width="107" Height="18"/>
                 <CheckBox x:Name="chk_Methodes_ONVIF" Content="ONVIF 📷" HorizontalAlignment="Left" Grid.Row="1" VerticalAlignment="Center" Height="34" Width="80" Margin="10,0,0,0"/>
                 <CheckBox x:Name="chk_Methodes_SNMP" Content="SNMP 🖨️"  HorizontalAlignment="Left" Grid.Column="1" Grid.Row="1" VerticalAlignment="Top" Height="15" Width="87" Margin="15,0,0,0"/>
 
@@ -557,7 +559,7 @@
                 <Label Grid.Column="6" Content="UDP-Ports" HorizontalAlignment="Left" VerticalAlignment="Center" Height="25" Width="74" Margin="10,0,0,0"/>
                 <Label Content="Methodes to find Device:" Grid.Column="0" Margin="10,0,0,1" HorizontalAlignment="Left" Width="147"/>
                 <Label Grid.Column="7" Content="Diff. DNS Server" HorizontalAlignment="Center" VerticalAlignment="Center" Width="112" Height="25"/>
-                <Label Grid.Column="2" Content="Methodes to collect Device Information:" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Center" Width="248"/>
+                <Label Grid.Column="2" Content="Methodes to collect Device Information:" HorizontalAlignment="Left" Margin="4,0,0,0" VerticalAlignment="Center" Width="248"/>
             </Grid>
         </Grid>
 
