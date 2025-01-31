@@ -89,9 +89,10 @@ namespace MyNetworkMonitor
             scanningMethods_Ping.Ping_Task_Finished += Ping_Task_Finished;
             scanningMethods_Ping.PingFinished += PingFinished_Event;
 
-            scanningMethod_FindIPCameras = new ScanningMethod_ONVIF_IPCam();
-            scanningMethod_FindIPCameras.newIPCameraFound_Task_Finished += newIPCameraFound_Task_Finished;
-            scanningMethod_FindIPCameras.IPCameraScan_Finished += IPCameraScan_Finished;
+            scanningMethod_Find_ONVIF_IP_Cameras = new ScanningMethod_ONVIF_IPCam();
+            scanningMethod_Find_ONVIF_IP_Cameras.ProgressUpdated += ScanningMethod_Find_ONVIF_IP_Cameras_ProgressUpdated;
+            scanningMethod_Find_ONVIF_IP_Cameras.new_ONVIF_IP_Camera_Found_Task_Finished += newIPCameraFound_Task_Finished;
+            scanningMethod_Find_ONVIF_IP_Cameras.ONVIF_IP_Camera_Scan_Finished += IPCameraScan_Finished;
 
             scanningMethode_ReverseLookupToHostAndAliases = new ScanningMethod_ReverseLookupToHostAndAlieases();
             scanningMethode_ReverseLookupToHostAndAliases.GetHostAliases_Task_Finished += DNS_GetHostAliases_Task_Finished;
@@ -200,8 +201,7 @@ namespace MyNetworkMonitor
             dv_InternalNames = _internalNames.InternalNames.DefaultView;
             dg_InternalNames.ItemsSource = dv_InternalNames;
         }
-
-     
+      
 
         bool TextChangedByComboBox = false;
         List<NicInfo> nicInfos = new List<NicInfo>();
@@ -241,7 +241,7 @@ namespace MyNetworkMonitor
 
         ScanningMethod_ARP scanningMethode_ARP;
         ScanningMethods_Ping scanningMethods_Ping;
-        ScanningMethod_ONVIF_IPCam scanningMethod_FindIPCameras;
+        ScanningMethod_ONVIF_IPCam scanningMethod_Find_ONVIF_IP_Cameras;
         ScanningMethod_SSDP_UPNP scanningMethode_SSDP_UPNP;
 
         ScanningMethod_NetBios scanningMethode_NetBios;
@@ -277,8 +277,8 @@ namespace MyNetworkMonitor
         int counted_responded_SSDP_device = 0;
         int counted_total_SSDPs = 0;
 
-        ScanStatus status_IP_Cam_Scan = ScanStatus.ignored;
-        int counted_responded_IP_Cams = 0;
+        ScanStatus status_ONVIF_IP_Cam_Scan = ScanStatus.ignored;
+        int counted_responded_ONVIF_IP_Cams = 0;
 
         
 
@@ -342,7 +342,7 @@ namespace MyNetworkMonitor
 
             if (status_SSDP_Scan == ScanStatus.ignored) { lst_ignored.Add("SSDP: ignored"); } else { lst_statusUpdate.Add($"SSDP: {status_SSDP_Scan.ToString()} ... / {counted_responded_SSDP_device} / ..."); }
             if (status_SNMP_Scan == ScanStatus.ignored) { lst_ignored.Add("SNMP: ignored"); } else { lst_statusUpdate.Add($"SNMP: {status_SNMP_Scan.ToString()} {counted_current_SNMP_Scan} / {counted_responded_SNMP_Devices} / {counted_total_SSDPs}"); }
-            if (status_IP_Cam_Scan == ScanStatus.ignored) { lst_ignored.Add("IP-Cam`s: ignored"); } else { lst_statusUpdate.Add($"IP-Cam`s: {status_IP_Cam_Scan.ToString()} ... / {counted_responded_IP_Cams} / ..."); }
+            if (status_ONVIF_IP_Cam_Scan == ScanStatus.ignored) { lst_ignored.Add("IP-Cam`s: ignored"); } else { lst_statusUpdate.Add($"IP-Cam`s: {status_ONVIF_IP_Cam_Scan.ToString()} ... / {counted_responded_ONVIF_IP_Cams} / ..."); }
             if (status_ARP_Request_Scan == ScanStatus.ignored) { lst_ignored.Add("ARP Request: ignored"); } else { lst_statusUpdate.Add($"ARP Request: {status_ARP_Request_Scan.ToString()} {counted_current_ARP_Requests} / {counted_responded_ARP_Requests} / {counted_total_ARP_Requests}"); }
             if (status_Ping_Scan == ScanStatus.ignored) { lst_ignored.Add("Ping: ignored"); } else { lst_statusUpdate.Add($"Ping: {status_Ping_Scan.ToString()} {counted_current_Ping_Scan} / {counted_responded_Ping_Scan} / {counted_total_Ping_Scan}"); }
             if (status_DNS_HostName_Scan == ScanStatus.ignored) { lst_ignored.Add("DNS Hostnames: ignored"); } else { lst_statusUpdate.Add($"DNS Hostnames: {status_DNS_HostName_Scan.ToString()} {counted_current_DNS_HostNames} / {counted_responded_DNS_HostNames} / {counted_total_DNS_HostNames}"); }
@@ -770,7 +770,7 @@ namespace MyNetworkMonitor
 
             /* set the states */
             if ((bool)chk_Methodes_SSDP.IsChecked) status_SSDP_Scan = ScanStatus.waiting;
-            if ((bool)chk_Methodes_ONVIF.IsChecked) status_IP_Cam_Scan = ScanStatus.waiting;
+            if ((bool)chk_Methodes_ONVIF.IsChecked) status_ONVIF_IP_Cam_Scan = ScanStatus.waiting;
             if ((bool)chk_ARPRequest.IsChecked) status_ARP_Request_Scan = ScanStatus.waiting;
             if ((bool)chk_Methodes_Ping.IsChecked) status_Ping_Scan = ScanStatus.waiting;
             if ((bool)chk_Methodes_ScanHostnames.IsChecked) status_DNS_HostName_Scan = ScanStatus.waiting;
@@ -816,9 +816,9 @@ namespace MyNetworkMonitor
 
             if ((bool)chk_Methodes_ONVIF.IsChecked)
             {
-                status_IP_Cam_Scan = ScanStatus.running;
+                status_ONVIF_IP_Cam_Scan = ScanStatus.running;
                 Status();
-                scanningMethod_FindIPCameras.Discover(_IPsToScan);
+                scanningMethod_Find_ONVIF_IP_Cameras.Discover(_IPsToScan);
 
                 //Task.Run(() => scanningMethod_FindIPCameras.GetSoapResponsesFromCamerasAsync(IPAddress.Parse("192.168.178.255"), _IPsToScan));
             }
@@ -1326,14 +1326,22 @@ namespace MyNetworkMonitor
             });
         }
 
-
+        private void ScanningMethod_Find_ONVIF_IP_Cameras_ProgressUpdated(int arg1, int arg2, int arg3)
+        {
+            
+            Dispatcher.BeginInvoke(() =>
+            {
+                counted_responded_ONVIF_IP_Cams = arg2;
+                Status();
+            });
+        }
 
         private void newIPCameraFound_Task_Finished(object? sender, ScanTask_Finished_EventArgs e)
         {
             Dispatcher.BeginInvoke(() =>
             {
                 InsertIPToScanResult(e.ipToScan);
-
+                
                 //IPCameraScanFinishet = true;
                 //Status();
             });
@@ -1343,7 +1351,7 @@ namespace MyNetworkMonitor
         {
             Dispatcher.BeginInvoke(() =>
             {
-                status_IP_Cam_Scan = ScanStatus.finished;
+                status_ONVIF_IP_Cam_Scan = ScanStatus.finished;
                 Status();
             });
         }
