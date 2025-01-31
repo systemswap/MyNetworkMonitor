@@ -27,6 +27,69 @@ namespace MyNetworkMonitor
         UDPPorts,        
     }
 
+
+
+    public class ServiceScanData
+    {
+        public class PortResult
+        {
+            public int Port { get; set; }
+            public PortStatus Status { get; set; }
+            public string PortLog { get; set; }
+        }
+
+        public class ServiceResult
+        {
+            public ServiceType Service { get; set; }
+            public List<PortResult> Ports { get; set; } = new List<PortResult>();
+        }
+
+        public class ServiceScanResult
+        {
+            public string IP { get; set; }
+            public List<ServiceResult> Services { get; set; } = new List<ServiceResult>();
+
+            public override string ToString()
+            {
+                if (Services == null || Services.Count == 0)
+                    return "Keine Services gefunden.";
+
+                StringBuilder sb = new StringBuilder();
+
+                foreach (var service in Services)
+                {
+                    sb.Append(service.Service.ToString().PadRight(15)); // Service-Name (UltraVNC, RDP, etc.)
+                    sb.Append(" Port: ");
+
+                    foreach (var port in service.Ports)
+                    {
+                        sb.Append($"{port.Port} ({port.Status}), ");
+                    }
+
+                    if (service.Ports.Count > 0)
+                        sb.Length -= 2; // Entfernt das letzte ", "
+
+                    sb.AppendLine();
+                }
+
+                return sb.ToString();
+            }
+        }
+
+        private ServiceScanResult _services = new ServiceScanResult();
+
+        public ServiceScanResult Services
+        {
+            get => _services;
+            set => _services = value ?? new ServiceScanResult(); // Falls `null`, neue Instanz erstellen
+
+
+        }
+    }
+
+
+
+
     [Serializable]
     public class IPToScan
     {
@@ -116,12 +179,40 @@ namespace MyNetworkMonitor
         // 🔹 Eigene ToString()-Methode für SMBVersions
         public string SMBVersionsToString()
         {
-            return SMBVersions.Any() ? "SMB Versions: " + string.Join(", ", SMBVersions) : "Keine SMB-Versionen gefunden";
+            return SMBVersions.Any() ? "SMB Versions: " + string.Join(", ", SMBVersions) + "\r\n\r\n"  : "Keine SMB-Versionen gefunden";
         }
 
 
         private string _destectedServices = string.Empty;
         public string detectedServices { get { return _destectedServices; } set { _destectedServices = value; } }
+
+
+
+
+
+
+
+
+
+
+
+
+        private ServiceScanData.ServiceScanResult _services = new ServiceScanData.ServiceScanResult();
+
+        public ServiceScanData.ServiceScanResult Services
+        {
+            get => _services;
+            set => _services = value ?? new ServiceScanData.ServiceScanResult();
+
+        }
+
+
+
+
+
+
+
+
 
         private bool _LookUpStatus = false;
         private string _LookUpIPs = string.Empty;

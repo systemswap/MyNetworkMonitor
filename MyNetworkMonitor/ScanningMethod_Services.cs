@@ -6,6 +6,9 @@ using System.Net;
 using System.Threading.Tasks;
 using System.Threading;
 using System.Text;
+using MyNetworkMonitor;
+using System.Runtime.ConstrainedExecution;
+using static MyNetworkMonitor.ServiceScanData;
 
 public enum ServiceType
 {
@@ -37,50 +40,59 @@ public enum PortStatus
     IsRunning
 }
 
-public class ServiceInfo
-{
-    public ServiceType Service { get; set; }
-    public List<int> Ports { get; set; } = new List<int>();
-    public byte[] DetectionPacket { get; set; }
-}
 
-public class PortResult
-{
-    public int Port { get; set; }
-    public PortStatus Status { get; set; }
-    public string PortLog { get; set; }
-}
+//public class PortResult
+//{
+//    public int Port { get; set; }
+//    public PortStatus Status { get; set; }
+//    public string PortLog { get; set; }
+//}
 
-public class ServiceResult
-{
-    public ServiceType Service { get; set; }
-    public List<PortResult> Ports { get; set; } = new List<PortResult>();
-}
+//public class ServiceResult
+//{
+//    public ServiceType Service { get; set; }
+//    public List<PortResult> Ports { get; set; } = new List<PortResult>();
+//}
 
-public class ServiceScanResult
-{
-    public string IP { get; set; }
-    public List<ServiceResult> Services { get; set; } = new List<ServiceResult>();
-}
+//public class ServiceScanResult
+//{
+//    public string IP { get; set; }
+//    public List<ServiceResult> Services { get; set; } = new List<ServiceResult>();
+//}
 
 public class ScanningMethod_Services
 {
     private const int MaxParallelIPs = 10;
     private const int Timeout = 3000; // 3 Sekunden Timeout pro Dienst
     private const int RetryCount = 3;
+    
+    public event Action<IPToScan> ServiceIPScanFinished;
+    //public event Action<ServiceScanResult> ServiceIPScanFinished;
+    public event Action<int, int, int> ProgressUpdated;
+    public event Action ServiceScanFinished;
 
-    public event Action<ServiceScanResult> ServiceIPScanFinished;
 
-    public async Task ScanIPsAsync(List<string> ips, List<ServiceType> services, Dictionary<ServiceType, List<int>> extraPorts = null)
+    private int current = 0;
+    private int responded = 0;
+    private int total = 0;
+
+    public async Task ScanIPsAsync(List<IPToScan> IPsToScan, List<ServiceType> services, Dictionary<ServiceType, List<int>> extraPorts = null)
     {
+        current = 0;
+        responded = 0;
+        total = IPsToScan.Count;
+
         var semaphore = new SemaphoreSlim(MaxParallelIPs);
-        var tasks = ips.Select(async ip =>
+        var tasks = IPsToScan.Select(async ipToScan =>
         {
             await semaphore.WaitAsync();
             try
             {
-                var result = await ScanIPAsync(ip, services, extraPorts);
-                ServiceIPScanFinished?.Invoke(result);
+                int currentValue = Interlocked.Increment(ref current);
+                ProgressUpdated?.Invoke(current, responded, total);
+
+                await Task.Run(() => ScanIPAsync(ipToScan, services, extraPorts));
+
             }
             finally
             {
@@ -89,15 +101,20 @@ public class ScanningMethod_Services
         }).ToArray();
 
         await Task.WhenAll(tasks);
+
+        // ✅ Garantiert: SMBScanFinished wird NUR ausgelöst, wenn alle SMB-Scans beendet sind
+        ServiceScanFinished?.Invoke();
     }
 
-    private async Task<ServiceScanResult> ScanIPAsync(string ip, List<ServiceType> services, Dictionary<ServiceType, List<int>> extraPorts)
+    //private async Task<ServiceScanResult> ScanIPAsync(IPToScan ipToScan, List<ServiceType> services, Dictionary<ServiceType, List<int>> extraPorts)
+    private async Task ScanIPAsync(IPToScan ipToScan, List<ServiceType> services, Dictionary<ServiceType, List<int>> extraPorts)
     {
-        var result = new ServiceScanResult { IP = ip };
+        //var result = new ServiceScanResult { IP = ipToScan.IPorHostname };
+       
 
         foreach (ServiceType service in services)
         {
-            var serviceResult = new ServiceResult { Service = service };
+            var serviceResult = new ServiceResult { Service = service };            
             var ports = GetServicePorts(service);
 
             if (extraPorts != null && extraPorts.ContainsKey(service))
@@ -109,14 +126,30 @@ public class ScanningMethod_Services
 
             foreach (var port in ports.Distinct())
             {
-                var portResult = await ScanPortAsync(ip, port, detectionPacket);
-                serviceResult.Ports.Add(portResult);
+                var portResult = await ScanPortAsync(IPAddress.Parse(ipToScan.IPorHostname).ToString(), port, detectionPacket);
+                
+                serviceResult.Ports.Add(portResult);               
             }
 
-            result.Services.Add(serviceResult);
+            //result.Services.Add(serviceResult);
+            ipToScan.Services.Services.Add(serviceResult);
         }
 
-        return result;
+        //if (result.Services.Count > 0)
+        if (ipToScan.Services.Services.Count > 0)
+        {
+            int respondedValue = Interlocked.Increment(ref responded);
+            ProgressUpdated?.Invoke(current, responded, total);
+
+            ipToScan.UsedScanMethod = ScanMethod.Services;
+
+
+            ServiceIPScanFinished?.Invoke(ipToScan); // Event auslösen            
+            //ServiceIPScanFinished?.Invoke(result); // Event auslösen            
+        }
+
+        //return result;
+        //return ipToScan;
     }
 
     private async Task<PortResult> ScanPortAsync(string ip, int port, byte[] detectionPacket)

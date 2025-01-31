@@ -78,7 +78,9 @@ namespace MyNetworkMonitor
 
             scanningMethod_Services = new ScanningMethod_Services();
             scanningMethod_Services.ServiceIPScanFinished += ScanningMethod_Services_ServiceIPScanFinished;
-            scanningMethod_Services.ServiceIPScanFinished += ScanningMethod_Services_ServiceIPScanFinished1;
+            scanningMethod_Services.ProgressUpdated += ScanningMethod_Services_ProgressUpdated;
+            scanningMethod_Services.ServiceScanFinished += ScanningMethod_Services_ServiceScanFinished;
+
 
             scanningMethode_ARP = new ScanningMethod_ARP();
             scanningMethode_ARP.ARP_A_newDevice += ARP_A_newDevive_Finished;
@@ -777,7 +779,8 @@ namespace MyNetworkMonitor
             if ((bool)chk_Methodes_Ping.IsChecked) status_Ping_Scan = ScanStatus.waiting;
             if ((bool)chk_Methodes_ScanHostnames.IsChecked) status_DNS_HostName_Scan = ScanStatus.waiting;
             if ((bool)chk_Methodes_ScanNetBios.IsChecked) status_NetBios_Scan = ScanStatus.waiting;
-            if ((bool)chk_Methodes_Scan_SMB_and_Services.IsChecked) status_Services_Scan = ScanStatus.waiting;
+            if ((bool)chk_Methodes_Scan_SMBVersions.IsChecked) status_SMB_VersionCheck = ScanStatus.waiting;
+            if ((bool)chk_Methodes_Scan_Services.IsChecked) status_Services_Scan = ScanStatus.waiting; 
             if ((bool)chk_Methodes_SNMP.IsChecked) status_SNMP_Scan = ScanStatus.waiting;
             if ((bool)chk_Methodes_LookUp.IsChecked) status_Lookup_Scan = ScanStatus.waiting;
             if ((bool)chk_Methodes_ScanTCPPorts.IsChecked) status_TCP_Port_Scan = ScanStatus.waiting;
@@ -844,13 +847,13 @@ namespace MyNetworkMonitor
             }
 
 
-            List<IPToScan> IPsForHostnameScan = new List<IPToScan>();
+            List<IPToScan> DNS_Hostname_IPsToScan = new List<IPToScan>();
             if ((bool)chk_Methodes_ScanHostnames.IsChecked)
             {
 
                 if (_scannResults.ResultTable.Rows.Count == 0 || (bool)rb_ScanHostnames_All_IPs.IsChecked || IsSelectiveScan)
                 {
-                    IPsForHostnameScan = _IPsToScan;
+                    DNS_Hostname_IPsToScan = _IPsToScan;
                 }
                 else
                 {
@@ -869,12 +872,12 @@ namespace MyNetworkMonitor
                         ipToScan.GatewayIP = row["GatewayIP"].ToString();
                         ipToScan.GatewayPort = row["GatewayPort"].ToString();
 
-                        IPsForHostnameScan.Add(ipToScan);
+                        DNS_Hostname_IPsToScan.Add(ipToScan);
                     }
                 }
 
                 status_DNS_HostName_Scan = ScanStatus.running;
-                counted_total_DNS_HostNames = IPsForHostnameScan.Count;
+                counted_total_DNS_HostNames = DNS_Hostname_IPsToScan.Count;
                 //CountedHostnames = _IPsToRefresh.Count;
                 Status();
 
@@ -884,23 +887,70 @@ namespace MyNetworkMonitor
                     Status();
                 }
 
-                await Task.Run(() => scanningMethode_ReverseLookupToHostAndAliases.GetHost_Aliases(IPsForHostnameScan));
+                await Task.Run(() => scanningMethode_ReverseLookupToHostAndAliases.GetHost_Aliases(DNS_Hostname_IPsToScan));
                 //await Task.Run(() => scanningMethode_DNS.Get_Host_and_Alias_From_IP(_IPsToRefresh));
             }
 
+            List<IPToScan> NetBios_IPsToScan = new List<IPToScan>();
             if ((bool)chk_Methodes_ScanNetBios.IsChecked)
             {
+                if (_scannResults.ResultTable.Rows.Count == 0 || (bool)rb_ScanHostnames_All_IPs.IsChecked || IsSelectiveScan)
+                {
+                    NetBios_IPsToScan = _IPsToScan;
+                }
+                else
+                {
+                    foreach (DataRow row in _scannResults.ResultTable.Rows)
+                    {
+                        IPToScan ipToScan = new IPToScan();                       
+                        ipToScan.IPorHostname = row["ip"].ToString();
+                        NetBios_IPsToScan.Add(ipToScan);
+                    }
+                }
                 status_NetBios_Scan = ScanStatus.running;
-                await Task.Run(() => scanningMethode_NetBios.ScanMultipleIPsAsync(_IPsToScan, CancellationToken.None));
+                await Task.Run(() => scanningMethode_NetBios.ScanMultipleIPsAsync(NetBios_IPsToScan, CancellationToken.None));
             }
 
-            if ((bool)chk_Methodes_Scan_SMB_and_Services.IsChecked)
+
+            List<IPToScan> SMB_IPsToScan = new List<IPToScan>();
+            if ((bool)chk_Methodes_Scan_SMBVersions.IsChecked)
             {
+                if (_scannResults.ResultTable.Rows.Count == 0 || (bool)rb_ScanHostnames_All_IPs.IsChecked || IsSelectiveScan)
+                {
+                    SMB_IPsToScan = _IPsToScan;
+                }
+                else
+                {
+                    foreach (DataRow row in _scannResults.ResultTable.Rows)
+                    {
+                        IPToScan ipToScan = new IPToScan();
+                        ipToScan.IPorHostname = row["ip"].ToString();
+                        SMB_IPsToScan.Add(ipToScan);
+                    }
+                }
                 status_SMB_VersionCheck = ScanStatus.running;
-                scanningMethod_SMB_VersionCheck.ScanMultipleIPsAsync(_IPsToScan, CancellationToken.None);
+                await scanningMethod_SMB_VersionCheck.ScanMultipleIPsAsync(SMB_IPsToScan, CancellationToken.None);
+            }
 
+            List<IPToScan> Services_IPsToScan = new List<IPToScan>();
+            if ((bool)chk_Methodes_Scan_Services.IsChecked)
+            {
+                if (_scannResults.ResultTable.Rows.Count == 0 || (bool)rb_ScanHostnames_All_IPs.IsChecked || IsSelectiveScan)
+                {
+                    Services_IPsToScan = _IPsToScan;
+                }
+                else
+                {
+                    foreach (DataRow row in _scannResults.ResultTable.Rows)
+                    {
+                        IPToScan ipToScan = new IPToScan();
+                        ipToScan.IPorHostname = row["ip"].ToString();
+                        Services_IPsToScan.Add(ipToScan);
+                    }
+                }
 
-                //status_Services_Scan = ScanStatus.running;
+                status_Services_Scan = ScanStatus.running;
+                await scanningMethod_Services.ScanIPsAsync(Services_IPsToScan, new List<ServiceType> { ServiceType.RDP, ServiceType.UltraVNC });
             }
 
             if ((bool)chk_Methodes_LookUp.IsChecked)
@@ -909,7 +959,7 @@ namespace MyNetworkMonitor
                 await Task.Run(() => Thread.Sleep(1000));
 
                 List<IPToScan> IPsForLookUp = new List<IPToScan>();
-                foreach (IPToScan _ipToScan in IPsForHostnameScan)
+                foreach (IPToScan _ipToScan in DNS_Hostname_IPsToScan)
                 {
                     List<DataRow> rows = _scannResults.ResultTable.Select("IP = '" + _ipToScan.IPorHostname + "'").ToList();
 
@@ -1039,7 +1089,8 @@ namespace MyNetworkMonitor
 
                 if (ipToScan.UsedScanMethod == ScanMethod.Services)
                 {
-                    _scannResults.ResultTable.Rows[rowIndex]["detectedServices"] += ipToScan.detectedServices;
+                    string tada = ipToScan.Services.ToString();
+                    _scannResults.ResultTable.Rows[rowIndex]["detectedServices"] += ipToScan.Services.ToString();
                 }
 
                 if (ipToScan.UsedScanMethod == ScanMethod.SNMP)
@@ -1192,7 +1243,8 @@ namespace MyNetworkMonitor
 
                 if (ipToScan.UsedScanMethod == ScanMethod.Services)
                 {
-                    row["detectedServices"] += ipToScan.detectedServices;
+                    string tada = ipToScan.Services.ToString();
+                    row["detectedServices"] += ipToScan.Services.ToString();
                 }
 
                 if (ipToScan.UsedScanMethod == ScanMethod.ARPRequest)
@@ -1469,11 +1521,6 @@ namespace MyNetworkMonitor
             });
         }
 
-        private void ScanningMethod_Services_ServiceIPScanFinished1(ServiceScanResult obj)
-        {
-            //throw new NotImplementedException();
-        }
-
         private void ScanningMethod_NetBios_NetbiosIPScanFinished(IPToScan ipToScan)
         {
             Dispatcher.BeginInvoke(() =>
@@ -1504,14 +1551,39 @@ namespace MyNetworkMonitor
             Dispatcher.Invoke(() =>
             {
                 status_NetBios_Scan = ScanStatus.finished;
-                Status(); // Falls Status() UI-Elemente aktualisiert
+                Status(); 
             });
         }
 
-        private void ScanningMethod_Services_ServiceIPScanFinished(ServiceScanResult obj)
+
+        private void ScanningMethod_Services_ProgressUpdated(int arg1, int arg2, int arg3)
         {
-            //throw new NotImplementedException();
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                counted_current_Service_IP_Scan = arg1;
+                counted_responded_Services_IP_Scan = arg2;
+                counted_total_Services_IP_Scan = arg3;
+                Status();
+            }));
         }
+
+        private void ScanningMethod_Services_ServiceIPScanFinished(IPToScan ipToScan)
+        {
+            Dispatcher.BeginInvoke(() =>
+            {
+                InsertIPToScanResult(ipToScan);
+            });
+        }
+
+        private void ScanningMethod_Services_ServiceScanFinished()
+        {
+            Dispatcher.Invoke(() =>
+            {
+                status_Services_Scan = ScanStatus.finished;
+                Status(); 
+            });
+        }
+       
 
      
 
