@@ -70,14 +70,15 @@ namespace MyNetworkMonitor
                         }
                         else
                         {
-                            sb.AppendLine(" ".ToString().PadRight(12, ' '));
-                            sb.Append($"\t{port.Port}\t({port.Status})");
+                            //sb.AppendLine(" ".ToString().PadRight(25, ' '));
+                            sb.Append(" ".ToString().PadRight(25, ' ') + $"\t{port.Port}\t({port.Status})");
                         }
+                        if(port != service.Ports.Last()) sb.AppendLine();
                     }
-                    sb.AppendLine();
+                    if (service != Services.Last()) sb.AppendLine();
                 }
                 string tmp = sb.ToString().Replace(", ", string.Empty);
-                tmp = tmp.Remove(tmp.LastIndexOf("\r\n"));
+                //tmp = tmp.Remove(tmp.LastIndexOf("\r\n"));
                 return tmp;
             }
         }
