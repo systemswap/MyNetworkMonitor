@@ -6,6 +6,8 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using System.Threading.Tasks;
+using static System.Net.Mime.MediaTypeNames;
+
 
 namespace MyNetworkMonitor
 {
@@ -24,9 +26,8 @@ namespace MyNetworkMonitor
         ReverseLookup,
         Lookup,
         TCPPorts,
-        UDPPorts,        
+        UDPPorts,
     }
-
 
 
     public class ServiceScanData
@@ -58,32 +59,27 @@ namespace MyNetworkMonitor
 
                 foreach (var service in Services)
                 {
-                    sb.Append(service.Service.ToString().PadRight(15)); // Service-Name (UltraVNC, RDP, etc.)
-                    sb.Append(" Port: ");
+                    sb.Append((service.Service.ToString() + ":").ToString().PadRight(14, ' ')); // Service-Name (UltraVNC, RDP, etc.)   
 
+                    int portcounter = 0;
                     foreach (var port in service.Ports)
                     {
-                        sb.Append($"{port.Port} ({port.Status}), ");
+                        if (portcounter++ == 0)
+                        {
+                            sb.Append($"\t{port.Port.ToString().PadRight(6)}\t({port.Status})");
+                        }
+                        else
+                        {
+                            sb.AppendLine(" ".ToString().PadRight(12, ' '));
+                            sb.Append($"\t{port.Port}\t({port.Status})");
+                        }
                     }
-
-                    if (service.Ports.Count > 0)
-                        sb.Length -= 2; // Entfernt das letzte ", "
-
                     sb.AppendLine();
                 }
-
-                return sb.ToString();
+                string tmp = sb.ToString().Replace(", ", string.Empty);
+                tmp = tmp.Remove(tmp.LastIndexOf("\r\n"));
+                return tmp;
             }
-        }
-
-        private ServiceScanResult _services = new ServiceScanResult();
-
-        public ServiceScanResult Services
-        {
-            get => _services;
-            set => _services = value ?? new ServiceScanResult(); // Falls `null`, neue Instanz erstellen
-
-
         }
     }
 
@@ -179,20 +175,12 @@ namespace MyNetworkMonitor
         // 🔹 Eigene ToString()-Methode für SMBVersions
         public string SMBVersionsToString()
         {
-            return SMBVersions.Any() ? "SMB Versions: " + string.Join(", ", SMBVersions) + "\r\n\r\n"  : "Keine SMB-Versionen gefunden";
+            return SMBVersions.Any() ? string.Join(", ", SMBVersions) : "Keine SMB-Versionen gefunden";
         }
 
 
         private string _destectedServices = string.Empty;
         public string detectedServices { get { return _destectedServices; } set { _destectedServices = value; } }
-
-
-
-
-
-
-
-
 
 
 
@@ -205,9 +193,6 @@ namespace MyNetworkMonitor
             set => _services = value ?? new ServiceScanData.ServiceScanResult();
 
         }
-
-
-
 
 
 
@@ -290,7 +275,8 @@ namespace MyNetworkMonitor
             dt_NetworkResults.Columns.Add("Hostname", typeof(string));
 
             dt_NetworkResults.Columns.Add("NetBiosHostname", typeof(string));
-            dt_NetworkResults.Columns.Add("detectedServices", typeof(string));
+            dt_NetworkResults.Columns.Add("detectedSMBVersions", typeof(string));
+            dt_NetworkResults.Columns.Add("detectedServicePorts", typeof(string));
 
             dt_NetworkResults.Columns.Add("SNMPSysName", typeof(string));
             dt_NetworkResults.Columns.Add("SNMPSysDesc", typeof(string));
