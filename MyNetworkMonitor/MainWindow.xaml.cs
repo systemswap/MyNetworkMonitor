@@ -950,7 +950,7 @@ namespace MyNetworkMonitor
                 }
 
                 status_Services_Scan = ScanStatus.running;
-                await scanningMethod_Services.ScanIPsAsync(Services_IPsToScan, new List<ServiceType> { ServiceType.RDP, ServiceType.UltraVNC });
+                await scanningMethod_Services.ScanIPsAsync(Services_IPsToScan, new List<ServiceType> { ServiceType.BigFixRemote, ServiceType.RDP, ServiceType.UltraVNC, ServiceType.Teamviewer, ServiceType.Anydesk, ServiceType.MSSQLServer,  ServiceType.OPCUA, ServiceType.OPCDA });
             }
 
             if ((bool)chk_Methodes_LookUp.IsChecked)
@@ -1083,14 +1083,14 @@ namespace MyNetworkMonitor
 
                 if (ipToScan.UsedScanMethod == ScanMethod.SMB)
                 {
-                    _scannResults.ResultTable.Rows[rowIndex]["detectedServices"] += ipToScan.SMBVersionsToString();
+                    if(!string.IsNullOrEmpty(_scannResults.ResultTable.Rows[rowIndex]["detectedSMBVersions"].ToString())) _scannResults.ResultTable.Rows[rowIndex]["detectedSMBVersions"] = ipToScan.SMBVersionsToString();                  
+                    _scannResults.ResultTable.Rows[rowIndex]["detectedSMBVersions"] = ipToScan.SMBVersionsToString();
                 }
-
 
                 if (ipToScan.UsedScanMethod == ScanMethod.Services)
                 {
-                    string tada = ipToScan.Services.ToString();
-                    _scannResults.ResultTable.Rows[rowIndex]["detectedServices"] += ipToScan.Services.ToString();
+                    if(!string.IsNullOrEmpty(_scannResults.ResultTable.Rows[rowIndex]["detectedServicePorts"].ToString())) _scannResults.ResultTable.Rows[rowIndex]["detectedServicePorts"] = ipToScan.Services.ToString();                 
+                    _scannResults.ResultTable.Rows[rowIndex]["detectedServicePorts"] = ipToScan.Services.ToString();
                 }
 
                 if (ipToScan.UsedScanMethod == ScanMethod.SNMP)
@@ -1238,13 +1238,14 @@ namespace MyNetworkMonitor
 
                 if (ipToScan.UsedScanMethod == ScanMethod.SMB)
                 {
-                    row["detectedServices"] += ipToScan.SMBVersionsToString();
+                    if(!string.IsNullOrEmpty(row["detectedSMBVersions"].ToString())) row["detectedSMBVersions"] = string.Empty;
+                    row["detectedSMBVersions"] = ipToScan.SMBVersionsToString();
                 }
 
                 if (ipToScan.UsedScanMethod == ScanMethod.Services)
                 {
-                    string tada = ipToScan.Services.ToString();
-                    row["detectedServices"] += ipToScan.Services.ToString();
+                    if (!string.IsNullOrEmpty(row["detectedServicePorts"].ToString())) row["detectedServicePorts"] = string.Empty;
+                    row["detectedServicePorts"] = ipToScan.Services.ToString();
                 }
 
                 if (ipToScan.UsedScanMethod == ScanMethod.ARPRequest)
