@@ -2148,7 +2148,8 @@ namespace MyNetworkMonitor
                     int countedDupMac = _scannResults.ResultTable.Select("Mac = '" + rowMAC + "'").Length;
                     if (countedDupMac > 1)
                     {
-                        if (!string.IsNullOrEmpty(rowMAC)) e.Row.Background = Brushes.Red;
+                        e.Row.Background = (Brush)new BrushConverter().ConvertFromString("#FFC73D3D");
+                        e.Row.Foreground = Brushes.WhiteSmoke;                        
                     }
                 }
             }
