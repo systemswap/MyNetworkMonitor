@@ -948,9 +948,15 @@ namespace MyNetworkMonitor
                         Services_IPsToScan.Add(ipToScan);
                     }
                 }
+                var additionalServicePorts = new Dictionary<ServiceType, List<int>>
+                {
+                    { ServiceType.UltraVNC, new List<int> { 5901, 5902 } },
+                    //{ ServiceType.Teamviewer, new List<int> { 5938 } },
+                    //{ ServiceType.RDP, new List<int> { 3389 } }
+                };
 
                 status_Services_Scan = ScanStatus.running;
-                await scanningMethod_Services.ScanIPsAsync(Services_IPsToScan, new List<ServiceType> { ServiceType.BigFixRemote, ServiceType.RDP, ServiceType.UltraVNC, ServiceType.Teamviewer, ServiceType.Anydesk, ServiceType.MSSQLServer,  ServiceType.OPCUA, ServiceType.OPCDA });
+                await scanningMethod_Services.ScanIPsAsync(Services_IPsToScan, new List<ServiceType> { ServiceType.BigFixRemote, ServiceType.RDP, ServiceType.UltraVNC, ServiceType.Teamviewer, ServiceType.Anydesk, ServiceType.MSSQLServer,  ServiceType.OPCUA, ServiceType.OPCDA }, additionalServicePorts);
             }
 
             if ((bool)chk_Methodes_LookUp.IsChecked)
