@@ -9,6 +9,9 @@ using System.Text;
 using MyNetworkMonitor;
 using System.Runtime.ConstrainedExecution;
 using static MyNetworkMonitor.ServiceScanData;
+using System.Data;
+using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
 
 public enum ServiceType
 {
@@ -127,7 +130,17 @@ public class ScanningMethod_Services
             foreach (var port in ports.Distinct())
             {
                 var portResult = await ScanPortAsync(IPAddress.Parse(ipToScan.IPorHostname).ToString(), port, detectionPacket);
-                
+
+                if (service == ServiceType.Teamviewer)
+                {
+                    // 🔹 Prüfe TeamViewer auf Port 443 (TLS)
+                    bool isTlsAvailable = await CheckTLSHandshakeAsync(ipToScan.IPorHostname, 443);
+                    Console.WriteLine(isTlsAvailable ? "✅ TLS (Port 443) verfügbar" : "❌ Kein TLS (Port 443)");
+
+                    // 🔹 Prüfe TeamViewer auf Port 80 (HTTP)
+                    bool isHttpAvailable = await CheckHttpGetAsync(ipToScan.IPorHostname, 80);
+                    Console.WriteLine(isHttpAvailable ? "✅ HTTP (Port 80) verfügbar" : "❌ Kein HTTP (Port 80)");
+                }
                 serviceResult.Ports.Add(portResult);               
             }
 
@@ -256,14 +269,37 @@ public class ScanningMethod_Services
     }
 
     private static List<int> GetServicePorts(ServiceType service)
-    {
+    {   DataTable dt = new DataTable();
+        dt.Columns.Add("active", typeof(bool));
+        dt.Columns.Add("ServiceType", typeof(string));
+        dt.Columns.Add("Port", typeof(int));
+
+        dt.Rows.Add(true, "RDP", 3389);
+        dt.Rows.Add(true, "UltraVNC", 5900);
+        dt.Rows.Add(true, "UltraVNC", 5901);
+        dt.Rows.Add(true, "UltraVNC", 5902);
+        dt.Rows.Add(true, "UltraVNC", 5903);
+        dt.Rows.Add(true, "BigFixRemote", 52311);
+        dt.Rows.Add(true, "Rustdesk", 21115);
+        dt.Rows.Add(true, "Teamviewer", 5938);
+        dt.Rows.Add(true, "Teamviewer", 443);
+        dt.Rows.Add(true, "Teamviewer", 80);
+        dt.Rows.Add(true, "Anydesk", 7070);
+        dt.Rows.Add(true, "MSSQLServer", 1433);
+        dt.Rows.Add(true, "PostgreSQL", 5432);
+        dt.Rows.Add(true, "MariaDB", 3306);
+        dt.Rows.Add(true, "OracleDB", 1521);
+        dt.Rows.Add(true, "OPCDA", 135);
+        dt.Rows.Add(true, "OPCUA", 4840);
+
+
         return service switch
         {
             ServiceType.RDP => new List<int> { 3389 },
-            ServiceType.UltraVNC => new List<int> { 5900 },
+            ServiceType.UltraVNC => new List<int> { 5900, 5901, 5902, 5903 },
             ServiceType.BigFixRemote => new List<int> { 52311 },
             ServiceType.Rustdesk => new List<int> { 21115 },
-            ServiceType.Teamviewer => new List<int> { 5938 },
+            ServiceType.Teamviewer => new List<int> { 5938, 443, 80 },
             ServiceType.Anydesk => new List<int> { 7070 },
             ServiceType.MSSQLServer => new List<int> { 1433 },
             ServiceType.PostgreSQL => new List<int> { 5432 },
@@ -283,7 +319,28 @@ public class ScanningMethod_Services
             ServiceType.UltraVNC => new byte[] { 0x52, 0x46, 0x42, 0x20, 0x30, 0x30, 0x33 },
             ServiceType.BigFixRemote => new byte[] { 0x42, 0x49, 0x47, 0x46, 0x49, 0x58 },
             ServiceType.Rustdesk => new byte[] { 0x52, 0x44, 0x50 },
-            ServiceType.Teamviewer => new byte[] { 0x54, 0x56, 0x00, 0x01 },
+            //ServiceType.Teamviewer => new byte[] { 0x54, 0x56, 0x00, 0x01 },
+            //ServiceType.Teamviewer => new byte[] { 0x17, 0x24, 0x10, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00 },
+
+       //     ServiceType.Teamviewer => new byte[]
+       //{
+       //     0x11, 0x30, 0x0A, 0x00, 0x28, 0x00, 0x00, 0x00, 0x01,
+       //     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1B, 0x00, 0x00,
+       //     0x00, 0x18, 0x00, 0x00, 0x00, 0x61, 0xBF, 0xE5, 0x2A
+       //},
+
+            ServiceType.Teamviewer => new byte[]
+     {
+           0x11, 0x30, 0x0A, 0x00, 0x28, 0x00, 0x00, 0x00,
+    0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x1B, 0x00, 0x00, 0x00, 0x18, 0x00, 0x00, 0x00,
+    0x61, 0xBF, 0xE5, 0x2A, 0x88, 0x13, 0x80, 0x00,
+    0x48, 0x00, 0x80, 0x00, 0x01, 0x00, 0x00, 0x00,
+    0x14, 0x80, 0x00, 0x00, 0x6D, 0xB7, 0x8C, 0x80,
+    0x6E, 0xBD, 0xD3, 0x9B, 0x8E, 0xDF, 0xA9, 0x1C,
+    0xE1, 0xBF, 0xE5, 0x2A, 0x80, 0x00, 0x00, 0x00
+     },
+
             ServiceType.Anydesk => new byte[] { 0x41, 0x4e, 0x59, 0x44, 0x45, 0x53, 0x4b },
             ServiceType.MSSQLServer => new byte[] { 0x12, 0x01, 0x00, 0x34, 0x00, 0x00, 0x01, 0x00 },
             ServiceType.PostgreSQL => new byte[] { 0x00, 0x03, 0x00, 0x00 },
@@ -296,6 +353,64 @@ public class ScanningMethod_Services
     }
 
 
+
+
+
+    public async Task<bool> CheckTLSHandshakeAsync(string ipAddress, int port)
+    {
+        try
+        {
+            using (TcpClient client = new TcpClient())
+            {
+                await client.ConnectAsync(ipAddress, port);
+                using (SslStream sslStream = new SslStream(client.GetStream(), false, new RemoteCertificateValidationCallback(ValidateServerCertificate), null))
+                {
+                    await sslStream.AuthenticateAsClientAsync(ipAddress);
+                    return sslStream.IsAuthenticated; // ✅ TLS-Handshake erfolgreich?
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ TLS-Handshake auf Port {port} fehlgeschlagen: {ex.Message}");
+            return false;
+        }
+    }
+
+    public async Task<bool> CheckHttpGetAsync(string ipAddress, int port)
+    {
+        try
+        {
+            using (TcpClient client = new TcpClient())
+            {
+                await client.ConnectAsync(ipAddress, port);
+                using (NetworkStream stream = client.GetStream())
+                {
+                    string httpRequest = "GET / HTTP/1.1\r\nHost: " + ipAddress + "\r\nConnection: Close\r\n\r\n";
+                    byte[] requestBytes = Encoding.ASCII.GetBytes(httpRequest);
+
+                    await stream.WriteAsync(requestBytes, 0, requestBytes.Length);
+                    stream.Flush();
+
+                    byte[] buffer = new byte[1024];
+                    int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
+
+                    string response = Encoding.ASCII.GetString(buffer, 0, bytesRead);
+                    return response.Contains("HTTP"); // ✅ Antwort sieht aus wie HTTP?
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ HTTP-Anfrage auf Port {port} fehlgeschlagen: {ex.Message}");
+            return false;
+        }
+    }
+
+    private static bool ValidateServerCertificate(object sender, X509Certificate? certificate, X509Chain? chain, SslPolicyErrors sslPolicyErrors)
+    {
+        return true; // Akzeptiere alle Zertifikate (nur für Scanning-Zwecke)
+    }
 
 
     public string GetFormattedOutput(ServiceScanResult services)
@@ -321,4 +436,6 @@ public class ScanningMethod_Services
         }
         return sb.ToString();
     }
+
+
 }
