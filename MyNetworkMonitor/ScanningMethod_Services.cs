@@ -127,22 +127,80 @@ public class ScanningMethod_Services
 
             var detectionPacket = GetDetectionPacket(service);
 
+            //foreach (var port in ports.Distinct())
+            //{
+            //    var portResult = await ScanPortAsync(IPAddress.Parse(ipToScan.IPorHostname).ToString(), port, detectionPacket);
+
+            //    if (service == ServiceType.Teamviewer)
+            //    {
+            //        // 🔹 Prüfe TeamViewer auf Port 443 (TLS)
+            //        bool isTlsAvailable = await CheckTLSHandshakeAsync(ipToScan.IPorHostname, 443);
+            //        Console.WriteLine(isTlsAvailable ? "✅ TLS (Port 443) verfügbar" : "❌ Kein TLS (Port 443)");
+
+            //        // 🔹 Prüfe TeamViewer auf Port 80 (HTTP)
+            //        bool isHttpAvailable = await CheckHttpGetAsync(ipToScan.IPorHostname, 80);
+            //        Console.WriteLine(isHttpAvailable ? "✅ HTTP (Port 80) verfügbar" : "❌ Kein HTTP (Port 80)");
+            //    }
+            //    serviceResult.Ports.Add(portResult);               
+            //}
+
+
+
+
+            //await Parallel.ForEachAsync(ports.Distinct(), async (port, _) =>
+            //{
+            //    var portResult = await ScanPortAsync(IPAddress.Parse(ipToScan.IPorHostname).ToString(), port, detectionPacket);
+
+            //    if (service == ServiceType.Teamviewer)
+            //    {
+            //        // 🔹 Prüfe TeamViewer auf Port 443 (TLS)
+            //        bool isTlsAvailable = await CheckTLSHandshakeAsync(ipToScan.IPorHostname, 443);
+            //        Console.WriteLine(isTlsAvailable ? "✅ TLS (Port 443) verfügbar" : "❌ Kein TLS (Port 443)");
+
+            //        // 🔹 Prüfe TeamViewer auf Port 80 (HTTP)
+            //        bool isHttpAvailable = await CheckHttpGetAsync(ipToScan.IPorHostname, 80);
+            //        Console.WriteLine(isHttpAvailable ? "✅ HTTP (Port 80) verfügbar" : "❌ Kein HTTP (Port 80)");
+            //    }
+
+
+            //    lock (serviceResult.Ports) // Sicherstellen, dass parallele Schreibzugriffe vermieden werden
+            //    {
+            //        serviceResult.Ports.Add(portResult);
+            //    }
+            //});
+
+
+
+            var semaphore = new SemaphoreSlim(50); // Maximale gleichzeitige Scans begrenzen
+            var tasks = new List<Task>();
+
             foreach (var port in ports.Distinct())
             {
-                var portResult = await ScanPortAsync(IPAddress.Parse(ipToScan.IPorHostname).ToString(), port, detectionPacket);
-
-                if (service == ServiceType.Teamviewer)
+                await semaphore.WaitAsync();
+                tasks.Add(Task.Run(async () =>
                 {
-                    // 🔹 Prüfe TeamViewer auf Port 443 (TLS)
-                    bool isTlsAvailable = await CheckTLSHandshakeAsync(ipToScan.IPorHostname, 443);
-                    Console.WriteLine(isTlsAvailable ? "✅ TLS (Port 443) verfügbar" : "❌ Kein TLS (Port 443)");
+                    try
+                    {
+                        var portResult = await ScanPortAsync(IPAddress.Parse(ipToScan.IPorHostname).ToString(), port, detectionPacket);
 
-                    // 🔹 Prüfe TeamViewer auf Port 80 (HTTP)
-                    bool isHttpAvailable = await CheckHttpGetAsync(ipToScan.IPorHostname, 80);
-                    Console.WriteLine(isHttpAvailable ? "✅ HTTP (Port 80) verfügbar" : "❌ Kein HTTP (Port 80)");
-                }
-                serviceResult.Ports.Add(portResult);               
+                        lock (serviceResult.Ports) // Schutz vor parallelen Schreibzugriffen
+                        {
+                            serviceResult.Ports.Add(portResult);
+                        }
+                    }
+                    finally
+                    {
+                        semaphore.Release();
+                    }
+                }));
             }
+
+            // **Parallel ausführen & warten**
+            await Task.WhenAll(tasks);
+
+
+
+
 
             //result.Services.Add(serviceResult);
             ipToScan.Services.Services.Add(serviceResult);
