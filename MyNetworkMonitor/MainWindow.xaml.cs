@@ -41,8 +41,9 @@ namespace MyNetworkMonitor
     {
         public MainWindow()
         {
-            InitializeComponent();
-            
+            InitializeComponent();           
+
+
             mainWindow.Title += " - version: " + Assembly.GetExecutingAssembly().GetName().Version.ToString(); 
            
 
@@ -112,6 +113,10 @@ namespace MyNetworkMonitor
             scanningMethode_PortsUDP = new ScanningMethod_PortsUDP();
             scanningMethode_PortsUDP.UDPPortScan_Task_Finished += UDPPortScan_Task_Finished;
             scanningMethode_PortsUDP.UDPPortScan_Finished += UDPPortScan_Finished;
+
+
+            scanningMethode_WiFi_Signal = new ScanningMethod_WiFi();
+            scanningMethode_WiFi_Signal.WiFiSignalStrengthUpdated += ScanningMethod_WiFiStrengh_SignalStrengthUpdated;
 
 
 
@@ -205,7 +210,6 @@ namespace MyNetworkMonitor
             dg_InternalNames.ItemsSource = dv_InternalNames;
         }
 
-        
 
         bool TextChangedByComboBox = false;
         List<NicInfo> nicInfos = new List<NicInfo>();
@@ -257,6 +261,8 @@ namespace MyNetworkMonitor
         ScanningMethod_LookUp scanningMethod_LookUp;
         ScanningMethod_PortsTCP scanningMethode_PortsTCP;
         ScanningMethod_PortsUDP scanningMethode_PortsUDP;
+
+        ScanningMethod_WiFi scanningMethode_WiFi_Signal;
 
         SupportMethods supportMethods;
 
@@ -958,7 +964,7 @@ namespace MyNetworkMonitor
 
                 status_Services_Scan = ScanStatus.running;
                 //await scanningMethod_Services.ScanIPsAsync(Services_IPsToScan, new List<ServiceType> {ServiceType.RDP, ServiceType.UltraVNC, ServiceType.Anydesk, ServiceType.OPCUA, ServiceType.OPCDA, ServiceType.Teamviewer });//ServiceType.BigFixRemote, ServiceType.RDP, ServiceType.UltraVNC, ServiceType.Teamviewer, ServiceType.Anydesk, ServiceType.MSSQLServer,  ServiceType.OPCUA, ServiceType.OPCDA }, additionalServicePorts);
-                await scanningMethod_Services.ScanIPsAsync(Services_IPsToScan, new List<ServiceType> { ServiceType.Teamviewer });
+                await scanningMethod_Services.ScanIPsAsync(Services_IPsToScan, new List<ServiceType> { ServiceType.BigFixRemote, ServiceType.Teamviewer });
             }
 
             if ((bool)chk_Methodes_LookUp.IsChecked)
@@ -2428,6 +2434,36 @@ namespace MyNetworkMonitor
             {
                 dgv_Results.SelectionUnit = DataGridSelectionUnit.FullRow;
             }
+        }
+
+
+        private void ScanningMethod_WiFiStrengh_SignalStrengthUpdated(object? sender, ScanningMethod_WiFi.WiFiSignalResult wifiResult)
+        {
+            //throw new NotImplementedException();
+            Dispatcher.BeginInvoke(() =>
+            {
+                
+            });
+        }
+
+
+        private async void Button_Click(object sender, RoutedEventArgs e)
+        {
+            
+
+            if (!scanningMethode_WiFi_Signal.IsScanning)
+            {
+               Debug.WriteLine("Starte WLAN-Signal-Tracking...");
+                await scanningMethode_WiFi_Signal.StartScanningAsync(1000); // Alle 3 Sekunden aktualisieren
+            }
+            else
+            {
+                scanningMethode_WiFi_Signal.StopScanning();
+                Debug.WriteLine("Messung gestoppt.");
+            }
+           
+
+            
         }
     }
 }
