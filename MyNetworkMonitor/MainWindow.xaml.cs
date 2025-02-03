@@ -63,9 +63,9 @@ namespace MyNetworkMonitor
             scanningMethode_SSDP_UPNP.SSDP_Scan_Finished += SSDP_Scan_Finished;
 
             scanningMethode_SNMP = new ScanningMethod_SNMP();
-            scanningMethode_SNMP.SNMP_SendRequest += SNMP_SendRequest;
-            scanningMethode_SNMP.SNMP_Task_Finished += SNMP_Task_Finished;
-            scanningMethode_SNMP.SNMPFinished += SNMPFinished;
+            scanningMethode_SNMP.ProgressUpdated += ScanningMethode_SNMP_ProgressUpdated; ;
+            scanningMethode_SNMP.SNMB_Task_Finished += ScanningMethode_SNMP_SNMB_Task_Finished; ;
+            scanningMethode_SNMP.SNMBFinished += ScanningMethode_SNMP_SNMBFinished; ;
 
             scanningMethode_NetBios = new ScanningMethod_NetBios();
             scanningMethode_NetBios.ProgressUpdated += ScanningMethode_NetBios_ProgressUpdated;
@@ -210,6 +210,7 @@ namespace MyNetworkMonitor
             dg_InternalNames.ItemsSource = dv_InternalNames;
         }
 
+        
 
         bool TextChangedByComboBox = false;
         List<NicInfo> nicInfos = new List<NicInfo>();
@@ -316,6 +317,7 @@ namespace MyNetworkMonitor
         ScanStatus status_SNMP_Scan = ScanStatus.ignored;
         int counted_current_SNMP_Scan = 0;
         int counted_responded_SNMP_Devices = 0;
+        int counted_total_SNMP_Devices = 0;
 
         ScanStatus status_Lookup_Scan = ScanStatus.ignored;
         int counted_current_Lookup_Scan = 0;
@@ -351,7 +353,7 @@ namespace MyNetworkMonitor
             lst_statusUpdate.Add(" * current / responded / total * ");
 
             if (status_SSDP_Scan == ScanStatus.ignored) { lst_ignored.Add("SSDP: ignored"); } else { lst_statusUpdate.Add($"SSDP: {status_SSDP_Scan.ToString()} ... / {counted_responded_SSDP_device} / ..."); }
-            if (status_SNMP_Scan == ScanStatus.ignored) { lst_ignored.Add("SNMP: ignored"); } else { lst_statusUpdate.Add($"SNMP: {status_SNMP_Scan.ToString()} {counted_current_SNMP_Scan} / {counted_responded_SNMP_Devices} / {counted_total_SSDPs}"); }
+            if (status_SNMP_Scan == ScanStatus.ignored) { lst_ignored.Add("SNMP: ignored"); } else { lst_statusUpdate.Add($"SNMP: {status_SNMP_Scan.ToString()} {counted_current_SNMP_Scan} / {counted_responded_SNMP_Devices} / {counted_total_SNMP_Devices}"); }
             if (status_ONVIF_IP_Cam_Scan == ScanStatus.ignored) { lst_ignored.Add("IP-Cam`s: ignored"); } else { lst_statusUpdate.Add($"IP-Cam`s: {status_ONVIF_IP_Cam_Scan.ToString()} ... / {counted_responded_ONVIF_IP_Cams} / ..."); }
             if (status_ARP_Request_Scan == ScanStatus.ignored) { lst_ignored.Add("ARP Request: ignored"); } else { lst_statusUpdate.Add($"ARP Request: {status_ARP_Request_Scan.ToString()} {counted_current_ARP_Requests} / {counted_responded_ARP_Requests} / {counted_total_ARP_Requests}"); }
             if (status_Ping_Scan == ScanStatus.ignored) { lst_ignored.Add("Ping: ignored"); } else { lst_statusUpdate.Add($"Ping: {status_Ping_Scan.ToString()} {counted_current_Ping_Scan} / {counted_responded_Ping_Scan} / {counted_total_Ping_Scan}"); }
@@ -716,6 +718,7 @@ namespace MyNetworkMonitor
 
             counted_current_SNMP_Scan = 0;
             counted_responded_SNMP_Devices = 0;
+            counted_total_SNMP_Devices = 0;
 
             counted_current_DNS_HostNames = 0;
             counted_total_DNS_HostNames = 0;
@@ -1470,37 +1473,37 @@ namespace MyNetworkMonitor
             }));
         }
 
-        private void SNMP_SendRequest(object? sender, ScanningMethod_SNMP.CounterEventArgs e)
-        {
-            //throw new NotImplementedException();
-            Dispatcher.BeginInvoke(() =>
-            {
-               counted_current_SNMP_Scan = e.Value;
-                Status();
-            });
-        }
 
-
-        private void SNMP_Task_Finished(object? sender, ScanTask_Finished_EventArgs e)
+        private void ScanningMethode_SNMP_SNMBFinished(bool obj)
         {
-            //throw new NotImplementedException();
-            Dispatcher.BeginInvoke(() =>
-            {
-                InsertIPToScanResult(e.ipToScan);
-
-                ++counted_responded_SNMP_Devices;
-                Status();
-            });
-        }
-        private void SNMPFinished(object? sender, Method_Finished_EventArgs e)
-        {
-            //throw new NotImplementedException();
             Dispatcher.BeginInvoke(new Action(() =>
             {
                 status_SNMP_Scan = ScanStatus.finished;
                 Status();
             }));
         }
+
+        private void ScanningMethode_SNMP_SNMB_Task_Finished(IPToScan obj)
+        {
+            Dispatcher.BeginInvoke(() =>
+            {
+                InsertIPToScanResult(obj);
+                Status();
+            });
+        }
+
+        private void ScanningMethode_SNMP_ProgressUpdated(int arg1, int arg2, int arg3)
+        {
+            Dispatcher.BeginInvoke(() =>
+            {
+                counted_current_SNMP_Scan = arg1;
+                counted_responded_SNMP_Devices = arg2;
+                counted_total_SNMP_Devices = arg3;
+                Status();
+            });
+        }
+
+       
 
 
         private void ScanningMethod_SMBVersionCheck_SMB_Scan_Finished()
