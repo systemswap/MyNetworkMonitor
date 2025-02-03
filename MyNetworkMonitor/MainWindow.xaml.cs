@@ -28,6 +28,7 @@ using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using static MyNetworkMonitor.SendReceiveDataUDP;
+using static MyNetworkMonitor.ServiceScanData;
 using static System.Environment;
 using static System.Net.Mime.MediaTypeNames;
 
@@ -2274,87 +2275,274 @@ namespace MyNetworkMonitor
             }
         }
 
+        //private void bt_exportResult_Click(object sender, RoutedEventArgs e)
+        //{
+        //    // Frage den Benutzer, ob alle Zeilen oder nur die ausgewählten Zeilen exportiert werden sollen
+        //    MessageBoxResult result = MessageBox.Show("Möchten Sie alle Zeilen exportieren? \r\n Für nur Selektierte Zeilen bitte \"Nein\" wählen", "Exportoptionen", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+
+        //    if (result == MessageBoxResult.Cancel)
+        //    {
+        //        return; // Abbrechen
+        //    }
+        //    int exportedLines = 0;
+        //    bool exportAllRows = (result == MessageBoxResult.Yes);
+
+        //    // Hole die DataView aus der ItemsSource des DataGrids
+        //    DataView dataView = dgv_Results.ItemsSource as DataView;
+        //    if (dataView == null) return;
+
+        //    // Erstelle einen StringBuilder für den CSV-Inhalt
+        //    StringBuilder csvContent = new StringBuilder();
+
+        //    // Füge die Header hinzu
+        //    foreach (DataColumn column in dataView.Table.Columns)
+        //    {
+        //        csvContent.Append(column.ColumnName + ";");
+        //    }
+        //    csvContent.AppendLine();
+
+        //    // Füge die Zeilen hinzu
+        //    if (exportAllRows)
+        //    {
+        //        // Exportiere alle Zeilen
+        //        foreach (DataRow row in dataView.Table.Rows)
+        //        {
+        //            ++exportedLines;
+        //            foreach (var item in row.ItemArray)
+        //            {
+        //                csvContent.Append(item?.ToString() + ";");
+        //            }
+        //            csvContent.AppendLine();                    
+        //        }
+        //    }
+        //    else
+        //    {
+        //        // Exportiere nur die ausgewählten Zeilen
+        //        // Exportiere nur die Zeilen, die markierte Zellen enthalten
+        //        HashSet<DataRowView> rowsToExport = new HashSet<DataRowView>();
+
+        //        foreach (var selectedCell in dgv_Results.SelectedCells)
+        //        {
+        //            if (selectedCell.Item is DataRowView dataRowView)
+        //            {
+        //                rowsToExport.Add(dataRowView);
+        //            }
+        //        }
+
+        //        foreach (var rowView in rowsToExport)
+        //        {
+        //            ++exportedLines;
+        //            foreach (var item in rowView.Row.ItemArray)
+        //            {
+        //                csvContent.Append(item?.ToString() + ";");
+        //            }
+        //            csvContent.AppendLine();
+        //        }
+        //    }
+
+        //    // Zeige den Speichern-Dialog an
+        //    SaveFileDialog saveFileDialog = new SaveFileDialog
+        //    {
+        //        Filter = "CSV files (*.csv)|*.csv",
+        //        DefaultExt = "csv",
+        //        FileName = "Export.csv",
+        //        InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Desktop)
+        //    };
+
+        //    if (saveFileDialog.ShowDialog() == true)
+        //    {
+        //        // Speichere die CSV-Datei
+        //        File.WriteAllText(saveFileDialog.FileName, csvContent.ToString(), Encoding.UTF8);
+        //    }
+        //    MessageBox.Show(exportedLines + " wurden exportiert");
+        //}
+
+
+
+
+
+
+
+
+
         private void bt_exportResult_Click(object sender, RoutedEventArgs e)
         {
             // Frage den Benutzer, ob alle Zeilen oder nur die ausgewählten Zeilen exportiert werden sollen
-            MessageBoxResult result = MessageBox.Show("Möchten Sie alle Zeilen exportieren? \r\n Für nur Selektierte Zeilen bitte \"Nein\" wählen", "Exportoptionen", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+            MessageBoxResult result = MessageBox.Show(
+                "Möchten Sie alle Zeilen exportieren? \r\n Für nur selektierte Zeilen bitte \"Nein\" wählen",
+                "Exportoptionen", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
 
             if (result == MessageBoxResult.Cancel)
             {
                 return; // Abbrechen
             }
-            int exportedLines = 0;
             bool exportAllRows = (result == MessageBoxResult.Yes);
 
-            // Hole die DataView aus der ItemsSource des DataGrids
+            // Neue DataTable zur unabhängigen Speicherung der Daten
+            DataTable independentTable = new DataTable();
             DataView dataView = dgv_Results.ItemsSource as DataView;
-            if (dataView == null) return;
 
-            // Erstelle einen StringBuilder für den CSV-Inhalt
-            StringBuilder csvContent = new StringBuilder();
-
-            // Füge die Header hinzu
-            foreach (DataColumn column in dataView.Table.Columns)
+            if (dataView != null && dataView.Table != null)
             {
-                csvContent.Append(column.ColumnName + ";");
-            }
-            csvContent.AppendLine();
-
-            // Füge die Zeilen hinzu
-            if (exportAllRows)
-            {
-                // Exportiere alle Zeilen
-                foreach (DataRow row in dataView.Table.Rows)
-                {
-                    ++exportedLines;
-                    foreach (var item in row.ItemArray)
-                    {
-                        csvContent.Append(item?.ToString() + ";");
-                    }
-                    csvContent.AppendLine();                    
-                }
+                independentTable = dataView.Table.Copy(); // Kopiert alle Daten vollständig
             }
             else
             {
-                // Exportiere nur die ausgewählten Zeilen
-                // Exportiere nur die Zeilen, die markierte Zellen enthalten
-                HashSet<DataRowView> rowsToExport = new HashSet<DataRowView>();
+                MessageBox.Show("Fehler: Die DataView oder DataTable ist NULL.");
+                return;
+            }
 
+            // HashSet zur Speicherung der zu exportierenden Zeilen
+            HashSet<DataRow> rowsToExport = new HashSet<DataRow>();
+
+            if (exportAllRows) // Falls "Ja" gewählt wurde, alle Zeilen exportieren
+            {
+                foreach (DataRow row in independentTable.Rows)
+                {
+                    rowsToExport.Add(row);
+                }
+            }
+            else // Falls "Nein" gewählt wurde, nur die selektierten Zeilen exportieren
+            {
                 foreach (var selectedCell in dgv_Results.SelectedCells)
                 {
                     if (selectedCell.Item is DataRowView dataRowView)
                     {
-                        rowsToExport.Add(dataRowView);
+                        DataRow row = dataRowView.Row;
+                        rowsToExport.Add(row);
                     }
                 }
+            }
 
-                foreach (var rowView in rowsToExport)
+            // Falls keine Zeilen zum Exportieren vorhanden sind, abbrechen
+            if (rowsToExport.Count == 0)
+            {
+                MessageBox.Show("Keine Zeilen zum Exportieren ausgewählt.");
+                return;
+            }
+
+            // Neue DataTable für die erweiterten Daten mit aufgeteilten Services
+            DataTable expandedDataTable = independentTable.Clone(); // Erstellt eine Kopie der Struktur
+
+            // Füge die neuen Spalten für Services, Ports, Status und die Hilfsspalte originRow hinzu
+            expandedDataTable.Columns.Add("Services", typeof(string));
+            expandedDataTable.Columns.Add("Ports", typeof(string));
+            expandedDataTable.Columns.Add("Status", typeof(string));
+            //expandedDataTable.Columns.Add("originRow", typeof(int)); // Hilfsspalte zur Nachverfolgung
+
+            foreach (DataRow originalRow in rowsToExport)
+            {
+                string lastService = ""; // Speichert den letzten bekannten Service-Namen
+
+                foreach (string line in (originalRow["detectedServicePorts"] as string)?.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries) ?? new string[0])
                 {
-                    ++exportedLines;
-                    foreach (var item in rowView.Row.ItemArray)
+                    // Splitt line into service, ports und status
+                    string[] parts = line.Split(new[] { '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                    string service = parts.Length > 0 ? parts[0].Trim(':').Replace(":", string.Empty) : "";
+                    string port = parts.Length > 1 ? parts[1].Trim() : "";
+                    string status = parts.Length > 2 ? parts[2].Trim('(', ')') : "";
+
+                    // Falls die aktuelle Zeile keinen Service-Namen enthält, aber einen Port hat, Service wiederverwenden
+                    if (string.IsNullOrWhiteSpace(service) && !string.IsNullOrWhiteSpace(port))
                     {
-                        csvContent.Append(item?.ToString() + ";");
+                        service = lastService;
                     }
-                    csvContent.AppendLine();
+                    else
+                    {
+                        lastService = service; // Speichert den aktuellen Service für die nächste Zeile
+                    }
+
+                    //int originRow = independentTable.Rows.IndexOf(originalRow); // Ursprüngliche Zeilennummer
+
+                    // Erstelle eine neue Zeile für expandedDataTable
+                    DataRow newRow = expandedDataTable.NewRow();
+
+                    // Kopiere alle Spaltenwerte außer detectedServicePorts
+                    foreach (DataColumn col in independentTable.Columns)
+                    {
+                        if (col.ColumnName.ToLower() != "detectedserviceports")
+                        {
+                            if (originalRow[col.ColumnName] != DBNull.Value && (col.ColumnName.ToLower() == "ssdpstatus" || col.ColumnName.ToLower() == "isipcam"))
+                            {
+                                newRow[col.ColumnName] = true;
+                            }
+                            else
+                            {
+                                newRow[col.ColumnName] = originalRow[col.ColumnName];
+                            }
+                        }
+                    }
+
+                    // Setze die neuen Werte für Services, Ports, Status
+                    newRow["Services"] = service;
+                    newRow["Ports"] = port;
+                    newRow["Status"] = status;
+                    //newRow["originRow"] = originRow;
+
+                    // Füge die Zeile zur neuen Tabelle hinzu
+                    expandedDataTable.Rows.Add(newRow);
                 }
             }
-
-            // Zeige den Speichern-Dialog an
-            SaveFileDialog saveFileDialog = new SaveFileDialog
-            {
-                Filter = "CSV files (*.csv)|*.csv",
-                DefaultExt = "csv",
-                FileName = "Export.csv",
-                InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Desktop)
-            };
-
-            if (saveFileDialog.ShowDialog() == true)
-            {
-                // Speichere die CSV-Datei
-                File.WriteAllText(saveFileDialog.FileName, csvContent.ToString(), Encoding.UTF8);
-            }
-            MessageBox.Show(exportedLines + " wurden exportiert");
+            expandedDataTable.Columns.Remove("ARPStatus");
+            expandedDataTable.Columns.Remove("PingStatus");
+            ExportToCSV(expandedDataTable);
         }
+
+
+        private void ExportToCSV(DataTable dataTable)
+        {
+            try
+            {
+                // Öffne einen Speicherdialog, um den Speicherort zu wählen
+                SaveFileDialog saveFileDialog = new SaveFileDialog
+                {
+                    Filter = "CSV-Dateien (*.csv)|*.csv",
+                    DefaultExt = "csv",
+                    FileName = "Export.csv",
+                    InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Desktop) // Standard: Desktop
+                };
+
+                if (saveFileDialog.ShowDialog() == true)
+                {
+                    string filePath = saveFileDialog.FileName;
+
+                    using (StreamWriter writer = new StreamWriter(filePath, false, Encoding.UTF8))
+                    {
+                        // Schreibe die Header-Zeile
+                        writer.WriteLine(string.Join(";", dataTable.Columns.Cast<DataColumn>().Select(col => col.ColumnName)));
+
+                        // Schreibe die Daten-Zeilen
+                        foreach (DataRow row in dataTable.Rows)
+                        {
+                            writer.WriteLine(string.Join(";", row.ItemArray.Select(field => field?.ToString().Replace(";", ",") ?? "")));
+                        }
+                    }
+
+                    MessageBox.Show($"CSV-Datei erfolgreich gespeichert:\n{filePath}", "Export abgeschlossen", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Fehler beim CSV-Export: {ex.Message}", "Fehler", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         private void dgv_Results_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
