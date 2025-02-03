@@ -31,7 +31,9 @@ public enum ServiceType
 
     // Industrieprotokolle
     OPCDA,
-    OPCUA
+    OPCUA,
+
+    FTP
 }
 
 public enum PortStatus
@@ -352,6 +354,7 @@ public class ScanningMethod_Services
         dt.Rows.Add(true, "OracleDB", 1521);
         dt.Rows.Add(true, "OPCDA", 135);
         dt.Rows.Add(true, "OPCUA", 4840);
+        dt.Rows.Add(true, "FTP", 21);
 
 
         return service switch
@@ -368,6 +371,7 @@ public class ScanningMethod_Services
             ServiceType.OracleDB => new List<int> { 1521 },
             ServiceType.OPCDA => new List<int> { 135 },
             ServiceType.OPCUA => new List<int> { 4840 },
+            ServiceType.FTP => new List<int> { 21 },
             _ => new List<int>()
         };
     }
@@ -380,12 +384,8 @@ public class ScanningMethod_Services
             ServiceType.UltraVNC => new byte[] { 0x52, 0x46, 0x42, 0x20, 0x30, 0x30, 0x33 },
             //ServiceType.BigFixRemote => new byte[] { 0x42, 0x49, 0x47, 0x46, 0x49, 0x58 },
             ServiceType.BigFixRemote => new byte[] { 0x14, 0x2B, 0xB4, 0x91, 0x05, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
-            
-
-
 
             ServiceType.Rustdesk => new byte[] { 0x52, 0x44, 0x50 },
-
 
             ////Teamviewer 11-15
             ServiceType.Teamviewer => new byte[]
@@ -416,6 +416,11 @@ public class ScanningMethod_Services
             ServiceType.OracleDB => new byte[] { 0x30, 0x31, 0x30, 0x30 },
             ServiceType.OPCDA => new byte[] { 0x4f, 0x50, 0x43, 0x44, 0x41 },
             ServiceType.OPCUA => new byte[] { 0x48, 0x45, 0x4c, 0x4c, 0x4f },
+            ServiceType.FTP => new byte[] 
+            { 
+                0xCD, 0xCA, 0x00, 0x15, 0x5E, 0xE8, 0x15, 0xC2, 0x00, 0x00, 0x00, 0x00, 0x80, 0x02, 0xFA, 0xF0,
+                0x90, 0x80, 0x00, 0x00, 0x02, 0x04, 0x05, 0xB4, 0x01, 0x03, 0x03, 0x08, 0x01, 0x01, 0x04, 0x02 
+            },
             _ => new byte[0]
         };
     }
