@@ -958,7 +958,7 @@ namespace MyNetworkMonitor
 
                 status_Services_Scan = ScanStatus.running;
                 //await scanningMethod_Services.ScanIPsAsync(Services_IPsToScan, new List<ServiceType> {ServiceType.RDP, ServiceType.UltraVNC, ServiceType.Anydesk, ServiceType.OPCUA, ServiceType.OPCDA, ServiceType.Teamviewer });//ServiceType.BigFixRemote, ServiceType.RDP, ServiceType.UltraVNC, ServiceType.Teamviewer, ServiceType.Anydesk, ServiceType.MSSQLServer,  ServiceType.OPCUA, ServiceType.OPCDA }, additionalServicePorts);
-                await scanningMethod_Services.ScanIPsAsync(Services_IPsToScan, new List<ServiceType> { ServiceType.RDP, ServiceType.UltraVNC, ServiceType.Anydesk, ServiceType.OPCUA, ServiceType.OPCDA, ServiceType.Teamviewer });
+                await scanningMethod_Services.ScanIPsAsync(Services_IPsToScan, new List<ServiceType> { ServiceType.Teamviewer });
             }
 
             if ((bool)chk_Methodes_LookUp.IsChecked)
