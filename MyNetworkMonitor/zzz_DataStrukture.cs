@@ -59,12 +59,18 @@ namespace MyNetworkMonitor
 
                 foreach (var service in Services)
                 {
+                    //if the service has no open ports, skip it
+                    //if (service.Ports.Count(p => p.Status != PortStatus.Closed) == 0) continue;
+
                     sb.Append((service.Service.ToString() + ":").ToString().PadRight(14, ' ')); // Service-Name (UltraVNC, RDP, etc.)   
 
                     int portcounter = 0;
                     List<PortResult> sortedPorts = service.Ports.OrderBy(x => x.Port).ToList();
                     foreach (var port in sortedPorts)
                     {
+                        //if the port is closed, skip it
+                        //if (port.Status == PortStatus.Closed) continue;
+
                         if (portcounter++ == 0)
                         {
                             sb.Append($"\t{port.Port.ToString().PadRight(6)}\t({port.Status})");
