@@ -115,11 +115,6 @@ namespace MyNetworkMonitor
             scanningMethode_PortsUDP.UDPPortScan_Finished += UDPPortScan_Finished;
 
 
-            scanningMethode_WiFi_Signal = new ScanningMethod_WiFi();
-            scanningMethode_WiFi_Signal.WiFiSignalStrengthUpdated += ScanningMethod_WiFiStrengh_SignalStrengthUpdated;
-
-
-
             dv_resultTable = new DataView(_scannResults.ResultTable);
             dgv_Results.ItemsSource = dv_resultTable;
 
@@ -967,7 +962,7 @@ namespace MyNetworkMonitor
 
                 status_Services_Scan = ScanStatus.running;
                 //await scanningMethod_Services.ScanIPsAsync(Services_IPsToScan, new List<ServiceType> {ServiceType.RDP, ServiceType.UltraVNC, ServiceType.Anydesk, ServiceType.OPCUA, ServiceType.OPCDA, ServiceType.Teamviewer });//ServiceType.BigFixRemote, ServiceType.RDP, ServiceType.UltraVNC, ServiceType.Teamviewer, ServiceType.Anydesk, ServiceType.MSSQLServer,  ServiceType.OPCUA, ServiceType.OPCDA }, additionalServicePorts);
-                await scanningMethod_Services.ScanIPsAsync(Services_IPsToScan, new List<ServiceType> { ServiceType.RDP, ServiceType.UltraVNC, ServiceType.BigFixRemote, ServiceType.Teamviewer, ServiceType.Anydesk, ServiceType.OPCUA, ServiceType.OPCDA });
+                await scanningMethod_Services.ScanIPsAsync(Services_IPsToScan, new List<ServiceType> { ServiceType.RDP, ServiceType.UltraVNC, ServiceType.BigFixRemote, ServiceType.Teamviewer, ServiceType.Anydesk, ServiceType.OPCUA, ServiceType.OPCDA, ServiceType.FTP });
             }
 
             if ((bool)chk_Methodes_LookUp.IsChecked)
@@ -2437,36 +2432,6 @@ namespace MyNetworkMonitor
             {
                 dgv_Results.SelectionUnit = DataGridSelectionUnit.FullRow;
             }
-        }
-
-
-        private void ScanningMethod_WiFiStrengh_SignalStrengthUpdated(object? sender, ScanningMethod_WiFi.WiFiSignalResult wifiResult)
-        {
-            //throw new NotImplementedException();
-            Dispatcher.BeginInvoke(() =>
-            {
-                
-            });
-        }
-
-
-        private async void Button_Click(object sender, RoutedEventArgs e)
-        {
-            
-
-            if (!scanningMethode_WiFi_Signal.IsScanning)
-            {
-               Debug.WriteLine("Starte WLAN-Signal-Tracking...");
-                await scanningMethode_WiFi_Signal.StartScanningAsync(1000); // Alle 3 Sekunden aktualisieren
-            }
-            else
-            {
-                scanningMethode_WiFi_Signal.StopScanning();
-                Debug.WriteLine("Messung gestoppt.");
-            }
-           
-
-            
-        }
+        }       
     }
 }
