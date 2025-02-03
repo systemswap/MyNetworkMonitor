@@ -259,9 +259,7 @@
                         <Label Content="InternalName" Background="LightGreen" HorizontalAlignment="Left" Margin="10,0,0,0" Grid.Row="4" VerticalAlignment="Top" MinWidth="65" Width="70" FontSize="10"/>
                         <Label Content="IP-Address" Background="Yellow" HorizontalAlignment="Left" Margin="85,0,0,0" Grid.Row="4" VerticalAlignment="Top" MinWidth="65" Width="70" FontSize="10"/>
                         <Label Content="Hostname" Background="DarkOrange" HorizontalAlignment="Left" Margin="160,0,0,0" Grid.Row="4" VerticalAlignment="Top" MinWidth="65" Width="70" FontSize="10"/>
-                        <Label Content="Mac-Address" Background="#FFC73D3D" HorizontalAlignment="Left" Margin="235,0,0,0" Grid.Row="4" VerticalAlignment="Top" MinWidth="65" Width="70" FontSize="10" Foreground="WhiteSmoke"/>
-                        <Button Content="Button" HorizontalAlignment="Left" Margin="85,117,0,0" Grid.Row="4" VerticalAlignment="Top" Click="Button_Click"/>
-
+                        <Label Content="Mac-Address" Background="#FFC73D3D" HorizontalAlignment="Left" Margin="235,0,0,0" Grid.Row="4" VerticalAlignment="Top" MinWidth="65" Width="70" FontSize="10" Foreground="WhiteSmoke"/> 
                     </Grid>
                 </TabItem>
 
