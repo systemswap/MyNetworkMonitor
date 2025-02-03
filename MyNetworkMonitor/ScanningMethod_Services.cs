@@ -358,7 +358,7 @@ public class ScanningMethod_Services
         {
             ServiceType.RDP => new List<int> { 3389 },
             ServiceType.UltraVNC => new List<int> { 5900, 5901, 5902, 5903 },
-            ServiceType.BigFixRemote => new List<int> { 52311 },
+            ServiceType.BigFixRemote => new List<int> { 888 },
             ServiceType.Rustdesk => new List<int> { 21115 },
             ServiceType.Teamviewer => new List<int> { 5938 },
             ServiceType.Anydesk => new List<int> { 7070 },
@@ -378,7 +378,10 @@ public class ScanningMethod_Services
         {
             ServiceType.RDP => new byte[] { 0x03, 0x00, 0x00, 0x13, 0x0e, 0xe0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x08, 0x00, 0x03, 0x00, 0x00, 0x00 },
             ServiceType.UltraVNC => new byte[] { 0x52, 0x46, 0x42, 0x20, 0x30, 0x30, 0x33 },
-            ServiceType.BigFixRemote => new byte[] { 0x42, 0x49, 0x47, 0x46, 0x49, 0x58 },
+            //ServiceType.BigFixRemote => new byte[] { 0x42, 0x49, 0x47, 0x46, 0x49, 0x58 },
+            ServiceType.BigFixRemote => new byte[] { 0x14, 0x2B, 0xB4, 0x91, 0x05, 0x02},
+
+
             ServiceType.Rustdesk => new byte[] { 0x52, 0x44, 0x50 },
 
 
