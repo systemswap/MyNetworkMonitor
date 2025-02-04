@@ -252,7 +252,8 @@
                             <RowDefinition Height="20"/>
                             <RowDefinition Height="29"/>
                             <RowDefinition Height="30"/>
-                            <RowDefinition/>
+                            <RowDefinition Height="11*"/>
+                            <RowDefinition Height="10*"/>
                         </Grid.RowDefinitions>
                         <Button x:Name="bt_openApplicationFolder" Content="open application folder" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Center" Click="bt_openApplicationFolder_Click" Width="133" Height="20"/>
                         <Button Grid.Row="1" x:Name="bt_opensettingsFolder" Content="open settings folder" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Center" Click="bt_openSettingsFolder_Click" Width="133" Height="20"/>
@@ -263,11 +264,10 @@
                         <Label Content="Mac-Address" Background="#FFC73D3D" HorizontalAlignment="Left" Margin="235,0,0,0" Grid.Row="4" VerticalAlignment="Center" MinWidth="65" Width="70" FontSize="10" Foreground="WhiteSmoke" Height="34" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
                         <TextBlock 
     HorizontalAlignment="Center" 
-    Margin="0,21,0,0" 
     Grid.Row="5" 
     TextWrapping="Wrap" 
     Width="293"
-    VerticalAlignment="Top"
+    VerticalAlignment="Center"
     Text="Port Status:&#10;
    open:   The port is open and&#10;
                actively accepting connections.&#10;&#10;
@@ -276,7 +276,8 @@
    filtered: A firewall or filter is blocking the request&#10;
                 explicite rejection received or nothing.&#10;&#10;
    no response: The target did not reply&#10;
-                         at all (possible network issue)."/>
+                         at all (possible network issue)." Height="192"/>
+                        <Image HorizontalAlignment="Left" Margin="48,0,0,-8" Grid.Row="6" Width="220" Source="/Images/florida.png" Height="208" VerticalAlignment="Bottom"/>
 
 
                     </Grid>
