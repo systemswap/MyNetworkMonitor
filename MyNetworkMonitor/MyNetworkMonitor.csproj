@@ -13,6 +13,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Images\florida.png" />
+    <None Remove="Images\florida2.png" />
     <None Remove="Resources\Add.png" />
     <None Remove="Resources\AddBlack.png" />
     <None Remove="Resources\AddWhite.png" />
@@ -132,6 +134,15 @@
     <Content Include="Resources\red_dot.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Images\florida.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Images\florida2.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
   </ItemGroup>
 
 </Project>
