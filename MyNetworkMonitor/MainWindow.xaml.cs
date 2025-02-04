@@ -1775,21 +1775,21 @@ namespace MyNetworkMonitor
         {
             if ((bool)chk_SaveLastScanResult.IsChecked)
             {
-                foreach (DataRow row in _scannResults.ResultTable.Rows)
-                {
-                    if (!string.IsNullOrEmpty(row["SSDPStatus"].ToString())) row["SSDPStatus"] = Properties.Resources.gray_dotTB;
-                    if (!string.IsNullOrEmpty(row["ARPStatus"].ToString())) row["ARPStatus"] = Properties.Resources.gray_dotTB;
-                    if (!string.IsNullOrEmpty(row["PingStatus"].ToString())) row["PingStatus"] = Properties.Resources.gray_dotTB;
-                    if (!string.IsNullOrEmpty(row["IsIPCam"].ToString())) row["IsIPCam"] = Properties.Resources.gray_dotTB;
+                //foreach (DataRow row in _scannResults.ResultTable.Rows)
+                //{
+                //    if (!string.IsNullOrEmpty(row["SSDPStatus"].ToString())) row["SSDPStatus"] = Properties.Resources.gray_dotTB;
+                //    if (!string.IsNullOrEmpty(row["ARPStatus"].ToString())) row["ARPStatus"] = Properties.Resources.gray_dotTB;
+                //    if (!string.IsNullOrEmpty(row["PingStatus"].ToString())) row["PingStatus"] = Properties.Resources.gray_dotTB;
+                //    if (!string.IsNullOrEmpty(row["IsIPCam"].ToString())) row["IsIPCam"] = Properties.Resources.gray_dotTB;
 
-                    //if (!string.IsNullOrEmpty(row["LookUpStatus"].ToString()))
-                    //{
-                    //    byte[] greenDot = Properties.Resources.green_dot;
-                    //    byte[] cellValue = (byte[])row["LookUpStatus"];
-                    //    bool bla = greenDot.SequenceEqual(cellValue);
-                    //    if (bla) row["LookUpStatus"] = Properties.Resources.gray_dotTB;
-                    //}
-                }
+                //    //if (!string.IsNullOrEmpty(row["LookUpStatus"].ToString()))
+                //    //{
+                //    //    byte[] greenDot = Properties.Resources.green_dot;
+                //    //    byte[] cellValue = (byte[])row["LookUpStatus"];
+                //    //    bool bla = greenDot.SequenceEqual(cellValue);
+                //    //    if (bla) row["LookUpStatus"] = Properties.Resources.gray_dotTB;
+                //    //}
+                //}
                 _scannResults.ResultTable.WriteXml(_lastScanResultXML, XmlWriteMode.WriteSchema);
             }
         }
