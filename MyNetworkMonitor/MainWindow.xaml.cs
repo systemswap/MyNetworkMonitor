@@ -355,10 +355,10 @@ namespace MyNetworkMonitor
             if (status_ARP_Request_Scan == ScanStatus.ignored) { lst_ignored.Add("ARP Request: ignored"); } else { lst_statusUpdate.Add($"ARP Request: {status_ARP_Request_Scan.ToString()} {counted_current_ARP_Requests} / {counted_responded_ARP_Requests} / {counted_total_ARP_Requests}"); }
             if (status_Ping_Scan == ScanStatus.ignored) { lst_ignored.Add("Ping: ignored"); } else { lst_statusUpdate.Add($"Ping: {status_Ping_Scan.ToString()} {counted_current_Ping_Scan} / {counted_responded_Ping_Scan} / {counted_total_Ping_Scan}"); }
             if (status_DNS_HostName_Scan == ScanStatus.ignored) { lst_ignored.Add("DNS Hostnames: ignored"); } else { lst_statusUpdate.Add($"DNS Hostnames: {status_DNS_HostName_Scan.ToString()} {counted_current_DNS_HostNames} / {counted_responded_DNS_HostNames} / {counted_total_DNS_HostNames}"); }
+            if (status_Lookup_Scan == ScanStatus.ignored) { lst_ignored.Add("Lookup: ignored"); } else { lst_statusUpdate.Add($"Lookup: {status_Lookup_Scan.ToString()} {counted_current_Lookup_Scan} / {counted_responded_Lookup_Devices} / {counted_total_Lookup_Scans}"); }
             if (status_NetBios_Scan == ScanStatus.ignored) { lst_ignored.Add("NetBios: ignored"); } else { lst_statusUpdate.Add($"NetBios: {status_NetBios_Scan.ToString()} {counted_current_NetBiosScan} / {counted_responded_NetBiosInfos} / {counted_total_NetBiosInfos}"); }
             if (status_SMB_VersionCheck == ScanStatus.ignored) { lst_ignored.Add("SMB Check: ignored"); } else { lst_statusUpdate.Add($"SMB Check: {status_SMB_VersionCheck.ToString()} {counted_current_SMB_VersionCheck} / {counted_responded_SMB_VersionCheck} / {counted_total_SMB_VersionCheck}"); }
-            if (status_Services_Scan == ScanStatus.ignored) { lst_ignored.Add("Services: ignored"); } else { lst_statusUpdate.Add($"Services: {status_Services_Scan.ToString()} {counted_current_Service_IP_Scan} / {counted_responded_Services_IP_Scan} / {counted_total_Services_IP_Scan}"); }
-            if (status_Lookup_Scan == ScanStatus.ignored) { lst_ignored.Add("Lookup: ignored"); } else { lst_statusUpdate.Add($"Lookup: {status_Lookup_Scan.ToString()} {counted_current_Lookup_Scan} / {counted_responded_Lookup_Devices} / {counted_total_Lookup_Scans}"); }
+            if (status_Services_Scan == ScanStatus.ignored) { lst_ignored.Add("Services: ignored"); } else { lst_statusUpdate.Add($"Services: {status_Services_Scan.ToString()} {counted_current_Service_IP_Scan} / {counted_responded_Services_IP_Scan} / {counted_total_Services_IP_Scan}"); }            
             if (status_TCP_Port_Scan == ScanStatus.ignored) { lst_ignored.Add("TCP Ports: ignored"); } else { lst_statusUpdate.Add($"TCP Ports: {status_TCP_Port_Scan.ToString()} {counted_current_TCP_Port_Scan} / {counted_responded_TCP_Port_Scan_Devices} / {counted_total_TCP_Port_Scans}"); }
             if (status_UDP_Port_Scan == ScanStatus.ignored) { lst_ignored.Add("UDP Ports: ignored"); } else { lst_statusUpdate.Add($"UDP Ports: {status_UDP_Port_Scan.ToString()} {counted_current_UDP_Port_Scan} / {counted_responded_UDP_Port_Devices} / {counted_total_UDP_Port_Devices}"); }
             if (status_ARP_A_Scan == ScanStatus.ignored) { lst_ignored.Add("ARP A: ignored"); } else { lst_statusUpdate.Add($"APR A: {status_ARP_A_Scan.ToString()} ... / ... / ..."); }
@@ -897,6 +897,46 @@ namespace MyNetworkMonitor
                 //await Task.Run(() => scanningMethode_DNS.Get_Host_and_Alias_From_IP(_IPsToRefresh));
             }
 
+
+            if ((bool)chk_Methodes_LookUp.IsChecked)
+            {
+                //give some time to insert the results of DNS Hostname into Datatable
+                await Task.Run(() => Thread.Sleep(1000));
+
+                List<IPToScan> IPsForLookUp = new List<IPToScan>();
+                foreach (IPToScan _ipToScan in DNS_Hostname_IPsToScan)
+                {
+                    List<DataRow> rows = _scannResults.ResultTable.Select("IP = '" + _ipToScan.IPorHostname + "'").ToList();
+
+                    if (rows.Count > 0)
+                    {
+                        int rowIndex = _scannResults.ResultTable.Rows.IndexOf(rows[0]);
+
+                        if (!string.IsNullOrEmpty(_scannResults.ResultTable.Rows[rowIndex]["Hostname"].ToString()))
+                        {
+                            IPToScan ipToScan = new IPToScan();
+                            ipToScan.IPGroupDescription = _scannResults.ResultTable.Rows[rowIndex]["IPGroupDescription"].ToString();
+                            ipToScan.DeviceDescription = _scannResults.ResultTable.Rows[rowIndex]["DeviceDescription"].ToString();
+                            ipToScan.IPorHostname = _ipToScan.IPorHostname;
+                            ipToScan.HostName = _scannResults.ResultTable.Rows[rowIndex]["Hostname"].ToString();
+                            ipToScan.Domain = _scannResults.ResultTable.Rows[rowIndex]["Domain"].ToString();
+                            ipToScan.DNSServerList = _scannResults.ResultTable.Rows[rowIndex]["DNSServers"].ToString().Split(',').ToList();
+                            ipToScan.GatewayIP = _scannResults.ResultTable.Rows[rowIndex]["GatewayIP"].ToString();
+                            ipToScan.GatewayPort = _scannResults.ResultTable.Rows[rowIndex]["GatewayPort"].ToString();
+
+                            IPsForLookUp.Add(ipToScan);
+                        }
+                    }
+                }
+
+                status_Lookup_Scan = ScanStatus.running;
+                counted_total_Lookup_Scans = IPsForLookUp.Count;
+                Status();
+
+                Task.Run(() => scanningMethod_LookUp.LookupAsync(IPsForLookUp));
+            }
+
+
             List<IPToScan> NetBios_IPsToScan = new List<IPToScan>();
             if ((bool)chk_Methodes_ScanNetBios.IsChecked)
             {
@@ -963,47 +1003,11 @@ namespace MyNetworkMonitor
                 //};
 
                 status_Services_Scan = ScanStatus.running;
-                
-                await scanningMethod_Services.ScanIPsAsync(Services_IPsToScan, new List<ServiceType> { ServiceType.WebServices, ServiceType.RDP, ServiceType.UltraVNC, ServiceType.BigFixRemote, ServiceType.Teamviewer, ServiceType.Anydesk, ServiceType.OPCUA, ServiceType.ModBus, ServiceType.FTP });
+
+                 await scanningMethod_Services.ScanIPsAsync(Services_IPsToScan, new List<ServiceType> { ServiceType.WebServices, ServiceType.RDP, ServiceType.UltraVNC, ServiceType.BigFixRemote, ServiceType.Teamviewer, ServiceType.Anydesk, ServiceType.OPCUA, ServiceType.ModBus, ServiceType.FTP });
+                //await scanningMethod_Services.ScanIPsAsync(Services_IPsToScan, new List<ServiceType> { ServiceType.Anydesk });
             }
-
-            if ((bool)chk_Methodes_LookUp.IsChecked)
-            {
-                //give some time to insert the results of DNS Hostname into Datatable
-                await Task.Run(() => Thread.Sleep(1000));
-
-                List<IPToScan> IPsForLookUp = new List<IPToScan>();
-                foreach (IPToScan _ipToScan in DNS_Hostname_IPsToScan)
-                {
-                    List<DataRow> rows = _scannResults.ResultTable.Select("IP = '" + _ipToScan.IPorHostname + "'").ToList();
-
-                    if (rows.Count > 0)
-                    {
-                        int rowIndex = _scannResults.ResultTable.Rows.IndexOf(rows[0]);
-
-                        if (!string.IsNullOrEmpty(_scannResults.ResultTable.Rows[rowIndex]["Hostname"].ToString()))
-                        {
-                            IPToScan ipToScan = new IPToScan();
-                            ipToScan.IPGroupDescription = _scannResults.ResultTable.Rows[rowIndex]["IPGroupDescription"].ToString();
-                            ipToScan.DeviceDescription = _scannResults.ResultTable.Rows[rowIndex]["DeviceDescription"].ToString();
-                            ipToScan.IPorHostname = _ipToScan.IPorHostname;
-                            ipToScan.HostName = _scannResults.ResultTable.Rows[rowIndex]["Hostname"].ToString();
-                            ipToScan.Domain = _scannResults.ResultTable.Rows[rowIndex]["Domain"].ToString();
-                            ipToScan.DNSServerList = _scannResults.ResultTable.Rows[rowIndex]["DNSServers"].ToString().Split(',').ToList();
-                            ipToScan.GatewayIP = _scannResults.ResultTable.Rows[rowIndex]["GatewayIP"].ToString();
-                            ipToScan.GatewayPort = _scannResults.ResultTable.Rows[rowIndex]["GatewayPort"].ToString();
-
-                            IPsForLookUp.Add(ipToScan);
-                        }
-                    }
-                }
-
-                status_Lookup_Scan = ScanStatus.running;
-                counted_total_Lookup_Scans = IPsForLookUp.Count;
-                Status();
-
-                Task.Run(() => scanningMethod_LookUp.LookupAsync(IPsForLookUp));
-            }
+           
 
             List<IPToScan> _IPsForTCPPortScan = new List<IPToScan>();
             if ((bool)chk_Methodes_ScanTCPPorts.IsChecked)

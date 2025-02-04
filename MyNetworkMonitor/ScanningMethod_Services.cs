@@ -12,6 +12,7 @@ using static MyNetworkMonitor.ServiceScanData;
 using System.Data;
 using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
+using System.IO;
 
 public enum ServiceType
 {
@@ -293,9 +294,20 @@ public class ScanningMethod_Services
                         await stream.WriteAsync(detectionPacket, 0, detectionPacket.Length);
                         await Task.Delay(500);
 
-                        if (stream.DataAvailable)
+                        byte[] buffer = new byte[4096]; // Größerer Buffer für TLS-Antwort
+                        int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
+
+
+                        //if (stream.DataAvailable)
+                        if (bytesRead > 0)
                         {
                             portResult.Status = PortStatus.IsRunning;
+                            string responseHex = BitConverter.ToString(buffer, 0, bytesRead).Replace("-", " ");
+
+                            string responseAscii = Encoding.ASCII.GetString(buffer, 0, bytesRead).Replace("\r", "\\r").Replace("\n", "\\n").Replace("\0", "");  // Nullbytes entfernen
+                            string filter = responseAscii.ToLower().Contains("anydesk") ? "found AnyDesk in server response." : "server replied, but AnyDesk wasn’t found in response.";
+
+                            portResult.PortLog = filter;
                         }
                         else
                         {
@@ -385,7 +397,24 @@ public class ScanningMethod_Services
             //     0xE1, 0xBF, 0xE5, 0x2A, 0x80, 0x00, 0x00, 0x00
             // },
 
-            ServiceType.Anydesk => new byte[] { 0xf2, 0xa8, 0x1b, 0x9e, 0x18, 0xcc, 0x3b, 0x65, 0x00, 0x00, 0x00, 0x00, 0x80, 0x02, 0xff, 0xff, 0x6a, 0x40, 0x00, 0x00, 0x02, 0x04, 0x05, 0xb4, 0x01, 0x03, 0x03, 0x08, 0x01, 0x01, 0x04, 0x02 },
+            //ServiceType.Anydesk => new byte[] { 0xf2, 0xa8, 0x1b, 0x9e, 0x18, 0xcc, 0x3b, 0x65, 0x00, 0x00, 0x00, 0x00, 0x80, 0x02, 0xff, 0xff, 0x6a, 0x40, 0x00, 0x00, 0x02, 0x04, 0x05, 0xb4, 0x01, 0x03, 0x03, 0x08, 0x01, 0x01, 0x04, 0x02 },
+            ServiceType.Anydesk => new byte[] 
+            {
+                 0x16, 0x03, 0x01, 0x00, 0xb7, 0x01, 0x00, 0x00, 0xb3, 0x03, 0x03, 0xf9, 0x37, 0x7f, 0xaa, 0xd3,
+            0xa2, 0x95, 0x53, 0x76, 0xeb, 0xf1, 0x63, 0x7c, 0xa9, 0x23, 0x80, 0x4e, 0x48, 0x92, 0xc8, 0x90,
+            0x8d, 0x6c, 0x03, 0x4c, 0xc5, 0xe3, 0x83, 0x79, 0xec, 0xb3, 0x8b, 0x00, 0x00, 0x38, 0xc0, 0x2c,
+            0xc0, 0x30, 0x00, 0x9f, 0xcc, 0xa9, 0xcc, 0xa8, 0xcc, 0xaa, 0xc0, 0x2b, 0xc0, 0x2f, 0x00, 0x9e,
+            0xc0, 0x24, 0xc0, 0x28, 0x00, 0x6b, 0xc0, 0x23, 0xc0, 0x27, 0x00, 0x67, 0xc0, 0x0a, 0xc0, 0x14,
+            0x00, 0x39, 0xc0, 0x09, 0xc0, 0x13, 0x00, 0x33, 0x00, 0x9d, 0x00, 0x9c, 0x00, 0x3d, 0x00, 0x3c,
+            0x00, 0x35, 0x00, 0x2f, 0x00, 0xff, 0x01, 0x00, 0x00, 0x52, 0x00, 0x0b, 0x00, 0x04, 0x03, 0x00,
+            0x01, 0x02, 0x00, 0x0a, 0x00, 0x0c, 0x00, 0x0a, 0x00, 0x1d, 0x00, 0x17, 0x00, 0x1e, 0x00, 0x19,
+            0x00, 0x18, 0x00, 0x23, 0x00, 0x00, 0x00, 0x16, 0x00, 0x00, 0x00, 0x17, 0x00, 0x00, 0x00, 0x0d,
+            0x00, 0x2a, 0x00, 0x28, 0x04, 0x03, 0x05, 0x03, 0x06, 0x03, 0x08, 0x07, 0x08, 0x08, 0x08, 0x09,
+            0x08, 0x0a, 0x08, 0x0b, 0x08, 0x04, 0x08, 0x05, 0x08, 0x06, 0x04, 0x01, 0x05, 0x01, 0x06, 0x01,
+            0x03, 0x03, 0x03, 0x01, 0x03, 0x02, 0x04, 0x02, 0x05, 0x02, 0x06, 0x02
+            },
+
+
             ServiceType.MSSQLServer => new byte[] { 0x12, 0x01, 0x00, 0x34, 0x00, 0x00, 0x01, 0x00 },
             ServiceType.PostgreSQL => new byte[] { 0x00, 0x03, 0x00, 0x00 },
             ServiceType.MariaDB => new byte[] { 0x4d, 0x59, 0x53, 0x51, 0x4c },
@@ -403,11 +432,73 @@ public class ScanningMethod_Services
     }
 
 
-    
-        
 
 
-private async Task<PortResult> CheckWebServicePortAsync(string ipAddress, int port)
+
+
+    //private async Task<PortResult> CheckWebServicePortAsync(string ipAddress, int port)
+    //    {
+    //        PortResult portResult = new PortResult { Port = port, PortLog = "" };
+
+    //        using (var tcpClient = new TcpClient())
+    //        {
+    //            try
+    //            {
+    //                var connectTask = tcpClient.ConnectAsync(ipAddress, port);
+    //                var delayTask = Task.Delay(2000); // Timeout nach 2 Sekunden
+
+    //                if (await Task.WhenAny(connectTask, delayTask) == connectTask)
+    //                {
+    //                    portResult.Status = PortStatus.Open;
+
+    //                    // 📡 Falls es sich um einen Webservice handelt, Anfrage senden
+    //                    using (NetworkStream stream = tcpClient.GetStream())
+    //                    {
+    //                        // ⚡ HTTP-GET oder Modbus/MQTT Anfrage simulieren
+    //                        byte[] requestBytes = Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: " + ipAddress + "\r\n\r\n");
+    //                        await stream.WriteAsync(requestBytes, 0, requestBytes.Length);
+
+    //                        // 📥 Antwort empfangen (bis zu 1024 Bytes)
+    //                        byte[] buffer = new byte[1024];
+    //                        int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
+
+    //                        if (bytesRead > 0)
+    //                        {
+    //                            string response = Encoding.ASCII.GetString(buffer, 0, bytesRead);
+    //                            portResult.PortLog += response;
+    //                            if (!string.IsNullOrEmpty(response)) portResult.Status = PortStatus.IsRunning;
+    //                        }
+    //                    }
+    //                }
+    //                else
+    //                {
+    //                    portResult.Status = PortStatus.NoResponse;
+    //                }
+    //            }
+    //            catch (SocketException ex)
+    //            {
+    //                switch (ex.SocketErrorCode)
+    //                {
+    //                    case SocketError.ConnectionRefused:
+    //                        portResult.Status = PortStatus.Closed;
+    //                        break;
+    //                    case SocketError.TimedOut:
+    //                        portResult.Status = PortStatus.Filtered;
+    //                        break;
+    //                    default:
+    //                        portResult.Status = PortStatus.UnknownResponse;
+    //                        break;
+    //                }
+    //            }
+    //        }
+    //        return portResult;
+    //    }
+
+
+
+
+
+    private async Task<PortResult> CheckWebServicePortAsync(string ipAddress, int port)
     {
         PortResult portResult = new PortResult { Port = port, PortLog = "" };
 
@@ -422,22 +513,36 @@ private async Task<PortResult> CheckWebServicePortAsync(string ipAddress, int po
                 {
                     portResult.Status = PortStatus.Open;
 
-                    // 📡 Falls es sich um einen Webservice handelt, Anfrage senden
                     using (NetworkStream stream = tcpClient.GetStream())
                     {
-                        // ⚡ HTTP-GET oder Modbus/MQTT Anfrage simulieren
+                        // HTTP-GET Anfrage simulieren
                         byte[] requestBytes = Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: " + ipAddress + "\r\n\r\n");
                         await stream.WriteAsync(requestBytes, 0, requestBytes.Length);
 
-                        // 📥 Antwort empfangen (bis zu 1024 Bytes)
+                        // 📥 Antwort empfangen
                         byte[] buffer = new byte[1024];
-                        int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
 
-                        if (bytesRead > 0)
+                        try
                         {
-                            string response = Encoding.ASCII.GetString(buffer, 0, bytesRead);
-                            portResult.PortLog += response;
-                            if (!string.IsNullOrEmpty(response)) portResult.Status = PortStatus.IsRunning;
+                            int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
+
+                            if (bytesRead > 0)
+                            {
+                                string response = Encoding.ASCII.GetString(buffer, 0, bytesRead);
+                                portResult.PortLog += response;
+                                if (!string.IsNullOrEmpty(response))
+                                    portResult.Status = PortStatus.IsRunning;
+                            }
+                        }
+                        catch (IOException ex)
+                        {
+                            portResult.Status = PortStatus.Closed;
+                            portResult.PortLog += "❌ Verbindung wurde vom Remotehost geschlossen: " + ex.Message;
+                        }
+                        catch (ObjectDisposedException)
+                        {
+                            portResult.Status = PortStatus.Closed;
+                            portResult.PortLog += "⚠️ Die Verbindung wurde unerwartet beendet.";
                         }
                     }
                 }
@@ -464,4 +569,10 @@ private async Task<PortResult> CheckWebServicePortAsync(string ipAddress, int po
         }
         return portResult;
     }
+
+
+
+
+
+
 }
