@@ -124,96 +124,94 @@ public class ScanningMethod_Services
 
         foreach (ServiceType service in services)
         {
-            if (service != ServiceType.WebServices)
+            var serviceResult = new ServiceResult { Service = service };
+            var ports = GetServicePorts(service);
+
+            if (extraPorts != null && extraPorts.ContainsKey(service))
             {
-                var serviceResult = new ServiceResult { Service = service };
-                var ports = GetServicePorts(service);
-
-                if (extraPorts != null && extraPorts.ContainsKey(service))
-                {
-                    ports.AddRange(extraPorts[service]);
-                }
-
-                var detectionPacket = GetDetectionPacket(service);
-
-
-
-                var semaphore = new SemaphoreSlim(50); // Maximale gleichzeitige Scans begrenzen
-                var tasks = new List<Task>();
-
-                foreach (var port in ports.Distinct())
-                {
-                    await semaphore.WaitAsync();
-                    tasks.Add(Task.Run(async () =>
-                    {
-                        try
-                        {
-                            var portResult = await ScanPortAsync(IPAddress.Parse(ipToScan.IPorHostname).ToString(), port, detectionPacket);
-
-                            lock (serviceResult.Ports) // Schutz vor parallelen Schreibzugriffen
-                            {
-                                serviceResult.Ports.Add(portResult);
-                            }
-                        }
-                        finally
-                        {
-                            semaphore.Release();
-                        }
-                    }));
-                }
-
-                // **Parallel ausführen & warten**
-                await Task.WhenAll(tasks);
-
-                ipToScan.Services.Services.Add(serviceResult);
+                ports.AddRange(extraPorts[service]);
             }
-            else
+
+            var detectionPacket = GetDetectionPacket(service);
+
+
+
+            var semaphore = new SemaphoreSlim(50); // Maximale gleichzeitige Scans begrenzen
+            var tasks = new List<Task>();
+
+            foreach (var port in ports.Distinct())
             {
-                var serviceResult = new ServiceResult { Service = service };
-                List<int> ports = new List<int>();
-                ports.Add(80);    // HTTP (Webserver)
-                ports.Add(443);   // HTTPS (Webserver)
-                //ports.Add(502);   // Modbus TCP (SCADA, IoT)
-                //ports.Add(1433);  // Microsoft SQL Server
-                //ports.Add(1883);  // MQTT (IoT Messaging)
-                //ports.Add(3306);  // MySQL Database
-                //ports.Add(5000);  // Flask API, Synology DSM HTTP
-                //ports.Add(5001);  // Synology DSM HTTPS
-                ports.Add(8080);  // Alternative HTTP (Proxy, Webservices)
-                ports.Add(8443);  // Alternative HTTPS
-                //ports.Add(8883);  // MQTT Secure (IoT mit TLS)
-                //ports.Add(8888);  // Webserver (Dev, Proxy)
-
-
-                var semaphore = new SemaphoreSlim(50); // Maximale gleichzeitige Scans begrenzen
-                var tasks = new List<Task>();
-
-                foreach (var port in ports.Distinct())
+                await semaphore.WaitAsync();
+                tasks.Add(Task.Run(async () =>
                 {
-                    await semaphore.WaitAsync();
-                    tasks.Add(Task.Run(async () =>
+                    try
                     {
-                        try
+                        var portResult = new PortResult();
+                        switch (service)
                         {
-                            var portResult = await CheckWebServicePortAsync(IPAddress.Parse(ipToScan.IPorHostname).ToString(), port);
-
-                            lock (serviceResult.Ports) // Schutz vor parallelen Schreibzugriffen
-                            {
-                                serviceResult.Ports.Add(portResult);
-                            }
+                            case ServiceType.RDP:
+                                portResult = await ScanPortAsync(IPAddress.Parse(ipToScan.IPorHostname).ToString(), port, detectionPacket);
+                                break;
+                            case ServiceType.UltraVNC:
+                                portResult = await ScanPortAsync(IPAddress.Parse(ipToScan.IPorHostname).ToString(), port, detectionPacket);
+                                break;
+                            case ServiceType.BigFixRemote:
+                                portResult = await ScanPortAsync(IPAddress.Parse(ipToScan.IPorHostname).ToString(), port, detectionPacket);
+                                break;
+                            case ServiceType.Rustdesk:
+                                portResult = await ScanPortAsync(IPAddress.Parse(ipToScan.IPorHostname).ToString(), port, detectionPacket);
+                                break;
+                            case ServiceType.Teamviewer:
+                                portResult = await ScanPortAsync(IPAddress.Parse(ipToScan.IPorHostname).ToString(), port, detectionPacket);
+                                break;
+                            case ServiceType.Anydesk:
+                                portResult = await ScanPortAsync(IPAddress.Parse(ipToScan.IPorHostname).ToString(), port, detectionPacket);
+                                break;
+                            case ServiceType.MSSQLServer:
+                                break;
+                            case ServiceType.PostgreSQL:                                
+                                break;
+                            case ServiceType.MariaDB:
+                                break;
+                            case ServiceType.OracleDB:
+                                break;
+                            case ServiceType.OPCDA:
+                                break;
+                            case ServiceType.OPCUA:
+                                portResult = await ScanPortAsync(IPAddress.Parse(ipToScan.IPorHostname).ToString(), port, detectionPacket);
+                                break;
+                            case ServiceType.ModBus:
+                                portResult = await ScanPortAsync(IPAddress.Parse(ipToScan.IPorHostname).ToString(), port, detectionPacket);
+                                break;
+                            case ServiceType.FTP:
+                                portResult = await ScanPortAsync(IPAddress.Parse(ipToScan.IPorHostname).ToString(), port, detectionPacket);
+                                break;
+                            case ServiceType.WebServices:
+                                var serviceResult = new ServiceResult { Service = service };
+                                portResult = await CheckWebServicePortAsync(IPAddress.Parse(ipToScan.IPorHostname).ToString(), port);
+                                break;
+                            default:
+                                portResult = await ScanPortAsync(IPAddress.Parse(ipToScan.IPorHostname).ToString(), port, detectionPacket);
+                                break;
                         }
-                        finally
+
+
+                        lock (serviceResult.Ports) // Schutz vor parallelen Schreibzugriffen
                         {
-                            semaphore.Release();
+                            serviceResult.Ports.Add(portResult);
                         }
-                    }));
-                }
-
-                // **Parallel ausführen & warten**
-                await Task.WhenAll(tasks);
-
-                ipToScan.Services.Services.Add(serviceResult);
+                    }
+                    finally
+                    {
+                        semaphore.Release();
+                    }
+                }));
             }
+
+            // **Parallel ausführen & warten**
+            await Task.WhenAll(tasks);
+
+            ipToScan.Services.Services.Add(serviceResult);
         }
 
         if (ipToScan.Services.Services.Count > 0)
@@ -335,6 +333,7 @@ public class ScanningMethod_Services
     {
         return service switch
         {
+            ServiceType.WebServices => new List<int> { 80, 443, 8080, 8443 },
             ServiceType.RDP => new List<int> { 3389 },
             ServiceType.UltraVNC => new List<int> { 5900, 5901, 5902, 5903 },
             ServiceType.BigFixRemote => new List<int> { 888 },
@@ -386,7 +385,7 @@ public class ScanningMethod_Services
             //     0xE1, 0xBF, 0xE5, 0x2A, 0x80, 0x00, 0x00, 0x00
             // },
 
-            ServiceType.Anydesk => new byte[] { 0x41, 0x4e, 0x59, 0x44, 0x45, 0x53, 0x4b },
+            ServiceType.Anydesk => new byte[] { 0xf2, 0xa8, 0x1b, 0x9e, 0x18, 0xcc, 0x3b, 0x65, 0x00, 0x00, 0x00, 0x00, 0x80, 0x02, 0xff, 0xff, 0x6a, 0x40, 0x00, 0x00, 0x02, 0x04, 0x05, 0xb4, 0x01, 0x03, 0x03, 0x08, 0x01, 0x01, 0x04, 0x02 },
             ServiceType.MSSQLServer => new byte[] { 0x12, 0x01, 0x00, 0x34, 0x00, 0x00, 0x01, 0x00 },
             ServiceType.PostgreSQL => new byte[] { 0x00, 0x03, 0x00, 0x00 },
             ServiceType.MariaDB => new byte[] { 0x4d, 0x59, 0x53, 0x51, 0x4c },
@@ -403,53 +402,12 @@ public class ScanningMethod_Services
         };
     }
 
-    //private async Task<PortResult> CheckWebServicePortAsync(string ipAddress, int port)
-    //{
-    //    PortResult portResult = new PortResult();
-    //    portResult.Port = port;
 
-    //    using (var tcpClient = new TcpClient())
-    //    {
-    //        try
-    //        {
-    //            var connectTask = tcpClient.ConnectAsync(ipAddress, port);
-    //            var delayTask = Task.Delay(2000); // Timeout nach 2 Sekunden
+    
+        
 
-    //            if (await Task.WhenAny(connectTask, delayTask) == connectTask)
-    //            {
-    //                portResult.Status = PortStatus.Open;
-    //            }
-    //            else
-    //            {
-    //                portResult.Status = PortStatus.NoResponse;
-    //            }
-    //        }
-    //        catch (SocketException ex)
-    //        {
-    //            switch (ex.SocketErrorCode)
-    //            {
-    //                case SocketError.ConnectionRefused:
-    //                    portResult.Status = PortStatus.Closed;
 
-    //                    break;
-    //                case SocketError.TimedOut:
-    //                    portResult.Status = PortStatus.Filtered;
-
-    //                    break;
-    //                default:
-    //                    portResult.Status = PortStatus.UnknownResponse;
-    //                    break;
-    //            }
-    //        }
-    //        finally 
-    //        { 
-
-    //        }            
-    //    }
-    //    return portResult;
-    //}
-
-    private async Task<PortResult> CheckWebServicePortAsync(string ipAddress, int port)
+private async Task<PortResult> CheckWebServicePortAsync(string ipAddress, int port)
     {
         PortResult portResult = new PortResult { Port = port, PortLog = "" };
 
