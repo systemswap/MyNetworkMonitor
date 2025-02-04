@@ -27,6 +27,7 @@ using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using static MyNetworkMonitor.SendReceiveDataUDP;
 using static MyNetworkMonitor.ServiceScanData;
 using static System.Environment;
@@ -2428,6 +2429,9 @@ namespace MyNetworkMonitor
             expandedDataTable.Columns.Add("Services", typeof(string));
             expandedDataTable.Columns.Add("Ports", typeof(string));
             expandedDataTable.Columns.Add("Status", typeof(string));
+            expandedDataTable.Columns.Add("isSSDP", typeof(string));
+            expandedDataTable.Columns.Add("isAnIPCam", typeof(string));
+            expandedDataTable.Columns.Add("LookupEqualReverse", typeof(string));
             //expandedDataTable.Columns.Add("originRow", typeof(int)); // Hilfsspalte zur Nachverfolgung
 
             foreach (DataRow originalRow in rowsToExport)
@@ -2460,16 +2464,43 @@ namespace MyNetworkMonitor
                     // Kopiere alle Spaltenwerte außer detectedServicePorts
                     foreach (DataColumn col in independentTable.Columns)
                     {
-                        if (col.ColumnName.ToLower() != "detectedserviceports")
+                        if (col.ColumnName != "detectedServicePorts" || col.ColumnName != "ARPStatus" || col.ColumnName != "PingStatus")
                         {
-                            if (originalRow[col.ColumnName] != DBNull.Value && (col.ColumnName.ToLower() == "ssdpstatus" || col.ColumnName.ToLower() == "isipcam"))
+
+                            var originalValue = originalRow[col.ColumnName];
+                            if (originalValue.ToString().Contains("\r"))
                             {
-                                newRow[col.ColumnName] = true;
+                                originalValue = "\"" + originalRow[col.ColumnName] + "\"";
                             }
-                            else
+
+                            newRow[col.ColumnName] = originalValue;
+
+                            if (originalRow[col.ColumnName] != DBNull.Value && col.ColumnName.ToLower() == "ssdpstatus")
                             {
-                                newRow[col.ColumnName] = originalRow[col.ColumnName];
+                                newRow["isSSDP"] = true;
                             }
+
+                            if (originalRow[col.ColumnName] != DBNull.Value && col.ColumnName.ToLower() == "isipcam" )
+                            {
+                                newRow["isAnIPCam"] = true;
+                            }
+
+                            if (originalRow[col.ColumnName] != DBNull.Value && col.ColumnName.ToLower() == "lookupstatus")
+                            {
+                                byte[] tada = (byte[])originalRow[col.ColumnName];
+                                var green = Properties.Resources.green_dot;
+                                var red = Properties.Resources.red_dotTB;
+
+                                if (tada.SequenceEqual(green)) 
+                                { 
+                                    newRow["LookupEqualReverse"] = true; 
+                                }
+
+                                if (tada.SequenceEqual(red)) 
+                                {
+                                    newRow["LookupEqualReverse"] = false; 
+                                }
+                            }                            
                         }
                     }
 
@@ -2485,9 +2516,12 @@ namespace MyNetworkMonitor
             }
             expandedDataTable.Columns.Remove("ARPStatus");
             expandedDataTable.Columns.Remove("PingStatus");
+            expandedDataTable.Columns.Remove("detectedServicePorts");
+            expandedDataTable.Columns.Remove("LookUpStatus");
             ExportToCSV(expandedDataTable);
         }
 
+       
 
         private void ExportToCSV(DataTable dataTable)
         {
