@@ -13,6 +13,7 @@ using System.Data;
 using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
 using System.IO;
+using System.Collections.Concurrent;
 
 public enum ServiceType
 {
@@ -169,6 +170,20 @@ public class ScanningMethod_Services
                                 portResult = await ScanPortAsync(IPAddress.Parse(ipToScan.IPorHostname).ToString(), port, detectionPacket);
                                 break;
                             case ServiceType.MSSQLServer:
+                                portResult = await ScanPortAsync(IPAddress.Parse(ipToScan.IPorHostname).ToString(), port, detectionPacket);
+
+
+                                //scan for dynamic sql ports
+                                if (portResult.Status != PortStatus.IsRunning)
+                                {
+                                    int? dynamicPort = await GetMSSQLDynamicPortAsync(IPAddress.Parse(ipToScan.IPorHostname).ToString());
+                                    if (dynamicPort != null)
+                                    {
+                                        portResult.Port = (int)dynamicPort;
+                                        portResult.Status = PortStatus.IsRunning;
+                                    }
+                                }
+
                                 break;
                             case ServiceType.PostgreSQL:                                
                                 break;
@@ -415,7 +430,18 @@ public class ScanningMethod_Services
             },
 
 
-            ServiceType.MSSQLServer => new byte[] { 0x12, 0x01, 0x00, 0x34, 0x00, 0x00, 0x01, 0x00 },
+            ServiceType.MSSQLServer => new byte[]
+            {
+                0x12, 0x01, 0x00, 0x66, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x24, 0x00, 0x06, 0x01, 0x00, 0x2a,
+                0x00, 0x01, 0x02, 0x00, 0x2b, 0x00, 0x09, 0x03, 0x00, 0x34, 0x00, 0x04, 0x04, 0x00, 0x38, 0x00,
+                0x01, 0x05, 0x00, 0x39, 0x00, 0x24, 0x06, 0x00, 0x5d, 0x00, 0x01, 0xff, 0x03, 0x0f, 0x5a, 0xfc,
+                0x01, 0x00, 0x00, 0x6e, 0x65, 0x78, 0x65, 0x6e, 0x73, 0x6f, 0x73, 0x00, 0x00, 0x00, 0x2a, 0x60,
+                0x00, 0xe9, 0xd5, 0x1f, 0xc3, 0x85, 0xa4, 0x0d, 0x46, 0x8b, 0xd1, 0x68, 0x48, 0x52, 0x80, 0x1d,
+                0x28, 0xe2, 0xed, 0xe7, 0xba, 0xed, 0x5a, 0xaf, 0x49, 0xad, 0x3e, 0xb5, 0x19, 0xba, 0x6c, 0xcc,
+                0xc6, 0x02, 0x00, 0x00, 0x00, 0x01
+            },
+            
+            
             ServiceType.PostgreSQL => new byte[] { 0x00, 0x03, 0x00, 0x00 },
             ServiceType.MariaDB => new byte[] { 0x4d, 0x59, 0x53, 0x51, 0x4c },
             ServiceType.OracleDB => new byte[] { 0x30, 0x31, 0x30, 0x30 },
@@ -431,74 +457,111 @@ public class ScanningMethod_Services
         };
     }
 
+    private async Task<int?> GetMSSQLDynamicPortAsync(string serverIP)
+    {
+        using (UdpClient udpClient = new UdpClient())
+        {
+            udpClient.Client.ReceiveTimeout = 2000; // Timeout für Antwort setzen
+
+            IPEndPoint sqlServerEndpoint = new IPEndPoint(IPAddress.Parse(serverIP), 1434);
+
+            byte[] request = Encoding.ASCII.GetBytes("\x02"); // Anfrage für SQL-Browser-Information
+            await udpClient.SendAsync(request, request.Length, sqlServerEndpoint);
+
+            try
+            {
+                UdpReceiveResult response = await udpClient.ReceiveAsync();
+                string responseText = Encoding.ASCII.GetString(response.Buffer);
+
+                Console.WriteLine($"📡 SQL Browser Antwort: {responseText}");
+
+                // 🔍 Suche nach "tcp;" im Antwortstring und extrahiere den Port
+                int index = responseText.IndexOf("tcp;");
+                if (index != -1)
+                {
+                    string portPart = responseText.Substring(index + 4).Split(';')[0];
+                    if (int.TryParse(portPart, out int port))
+                    {
+                        return port; // ✅ Erfolgreich extrahierter Port
+                    }
+                }
+            }
+            catch (SocketException)
+            {
+                Console.WriteLine("⚠️ Keine Antwort vom SQL Browser-Dienst. Ist er aktiv?");
+            }
+        }
+
+        return null; // ❌ Kein Port gefunden
+    }
 
 
 
 
 
-    //private async Task<PortResult> CheckWebServicePortAsync(string ipAddress, int port)
-    //    {
-    //        PortResult portResult = new PortResult { Port = port, PortLog = "" };
+//private async Task<PortResult> CheckWebServicePortAsync(string ipAddress, int port)
+//    {
+//        PortResult portResult = new PortResult { Port = port, PortLog = "" };
 
-    //        using (var tcpClient = new TcpClient())
-    //        {
-    //            try
-    //            {
-    //                var connectTask = tcpClient.ConnectAsync(ipAddress, port);
-    //                var delayTask = Task.Delay(2000); // Timeout nach 2 Sekunden
+//        using (var tcpClient = new TcpClient())
+//        {
+//            try
+//            {
+//                var connectTask = tcpClient.ConnectAsync(ipAddress, port);
+//                var delayTask = Task.Delay(2000); // Timeout nach 2 Sekunden
 
-    //                if (await Task.WhenAny(connectTask, delayTask) == connectTask)
-    //                {
-    //                    portResult.Status = PortStatus.Open;
+//                if (await Task.WhenAny(connectTask, delayTask) == connectTask)
+//                {
+//                    portResult.Status = PortStatus.Open;
 
-    //                    // 📡 Falls es sich um einen Webservice handelt, Anfrage senden
-    //                    using (NetworkStream stream = tcpClient.GetStream())
-    //                    {
-    //                        // ⚡ HTTP-GET oder Modbus/MQTT Anfrage simulieren
-    //                        byte[] requestBytes = Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: " + ipAddress + "\r\n\r\n");
-    //                        await stream.WriteAsync(requestBytes, 0, requestBytes.Length);
+//                    // 📡 Falls es sich um einen Webservice handelt, Anfrage senden
+//                    using (NetworkStream stream = tcpClient.GetStream())
+//                    {
+//                        // ⚡ HTTP-GET oder Modbus/MQTT Anfrage simulieren
+//                        byte[] requestBytes = Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: " + ipAddress + "\r\n\r\n");
+//                        await stream.WriteAsync(requestBytes, 0, requestBytes.Length);
 
-    //                        // 📥 Antwort empfangen (bis zu 1024 Bytes)
-    //                        byte[] buffer = new byte[1024];
-    //                        int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
+//                        // 📥 Antwort empfangen (bis zu 1024 Bytes)
+//                        byte[] buffer = new byte[1024];
+//                        int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
 
-    //                        if (bytesRead > 0)
-    //                        {
-    //                            string response = Encoding.ASCII.GetString(buffer, 0, bytesRead);
-    //                            portResult.PortLog += response;
-    //                            if (!string.IsNullOrEmpty(response)) portResult.Status = PortStatus.IsRunning;
-    //                        }
-    //                    }
-    //                }
-    //                else
-    //                {
-    //                    portResult.Status = PortStatus.NoResponse;
-    //                }
-    //            }
-    //            catch (SocketException ex)
-    //            {
-    //                switch (ex.SocketErrorCode)
-    //                {
-    //                    case SocketError.ConnectionRefused:
-    //                        portResult.Status = PortStatus.Closed;
-    //                        break;
-    //                    case SocketError.TimedOut:
-    //                        portResult.Status = PortStatus.Filtered;
-    //                        break;
-    //                    default:
-    //                        portResult.Status = PortStatus.UnknownResponse;
-    //                        break;
-    //                }
-    //            }
-    //        }
-    //        return portResult;
-    //    }
-
-
+//                        if (bytesRead > 0)
+//                        {
+//                            string response = Encoding.ASCII.GetString(buffer, 0, bytesRead);
+//                            portResult.PortLog += response;
+//                            if (!string.IsNullOrEmpty(response)) portResult.Status = PortStatus.IsRunning;
+//                        }
+//                    }
+//                }
+//                else
+//                {
+//                    portResult.Status = PortStatus.NoResponse;
+//                }
+//            }
+//            catch (SocketException ex)
+//            {
+//                switch (ex.SocketErrorCode)
+//                {
+//                    case SocketError.ConnectionRefused:
+//                        portResult.Status = PortStatus.Closed;
+//                        break;
+//                    case SocketError.TimedOut:
+//                        portResult.Status = PortStatus.Filtered;
+//                        break;
+//                    default:
+//                        portResult.Status = PortStatus.UnknownResponse;
+//                        break;
+//                }
+//            }
+//        }
+//        return portResult;
+//    }
 
 
 
-    private async Task<PortResult> CheckWebServicePortAsync(string ipAddress, int port)
+
+
+private async Task<PortResult> CheckWebServicePortAsync(string ipAddress, int port)
     {
         PortResult portResult = new PortResult { Port = port, PortLog = "" };
 
