@@ -380,6 +380,7 @@ public class ScanningMethod_Services
 
                             if (dynamicPort.Count > 0)
                             {
+                                //only the first instance
                                 portResult.Port = dynamicPort[0];
                                 portResult.Status = PortStatus.IsRunning;
                             }
