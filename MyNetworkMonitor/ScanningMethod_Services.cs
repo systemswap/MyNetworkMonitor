@@ -15,9 +15,32 @@ using System.Security.Cryptography.X509Certificates;
 using System.IO;
 using System.Collections.Concurrent;
 using System.Windows;
+using System.Printing;
+
+
+public enum PortStatus
+{
+    Open,
+    Filtered,
+    NoResponse,
+    Closed,
+    IsRunning,
+    UnknownResponse,
+    Error
+}
+
+
 
 public enum ServiceType
 {
+    // 🌍 Netzwerk-Dienste
+    WebServices,
+    DNS_TCP,
+    DNS_UDP,
+    DHCP,
+    SSH,
+    FTP,
+
     // Remote Apps
     RDP,
     UltraVNC,
@@ -31,27 +54,15 @@ public enum ServiceType
     PostgreSQL,
     MariaDB,
     OracleDB,
+    MySQL,
 
     // Industrieprotokolle
-    OPCDA,
     OPCUA,
     ModBus,
-
-    FTP,
-
-    WebServices
+    S7
 }
 
-public enum PortStatus
-{
-    Open,
-    Filtered,
-    NoResponse,
-    Closed,
-    IsRunning,
-    UnknownResponse,
-    Error
-}
+
 
 
 //public class PortResult
@@ -75,6 +86,9 @@ public enum PortStatus
 
 public class ScanningMethod_Services
 {
+    bool scanDHCP = true;
+    List<string> DHCP_Server_IPs = new List<string>();
+
     private const int MaxParallelIPs = 10;
     private const int Timeout = 3000; // 3 Sekunden Timeout pro Dienst
     private const int RetryCount = 3;
@@ -312,6 +326,9 @@ public class ScanningMethod_Services
     //  }
 
 
+    
+
+
     private async Task ScanIPAsync(IPToScan ipToScan, List<ServiceType> services, Dictionary<ServiceType, List<int>> extraPorts)
     {
         string ipAddress = IPAddress.Parse(ipToScan.IPorHostname).ToString(); // Einmal parsen
@@ -334,7 +351,8 @@ public class ScanningMethod_Services
             foreach (var port in ports.Distinct())
             {
                 await semaphore.WaitAsync();
-                tasks.Add(ScanServicePortAsync(service, ipAddress, port, detectionPacket, serviceResult, semaphore));
+                
+                tasks.Add(ScanServicePortAsync(service, ipAddress, port, detectionPacket, serviceResult, semaphore));                
             }
 
             // Parallel ausführen und warten
@@ -360,10 +378,68 @@ public class ScanningMethod_Services
     {
         try
         {
-            PortResult portResult;
+            PortResult portResult = new PortResult();            
 
             switch (service)
             {
+                case ServiceType.WebServices:
+                    portResult = await CheckWebServicePortAsync(ipAddress, port);
+                    break;
+                case ServiceType.DNS_TCP:
+
+                    string dnsTCPServerIP = ipAddress; // Google Public DNS
+                    string domain = "gotme.com";
+
+                    byte[] dnsQuery = BuildDnsRequest(domain);
+                    portResult = await SendTcpDnsQuery(dnsTCPServerIP, dnsQuery, port);
+
+                    break;
+                case ServiceType.DNS_UDP:
+
+                    string dnsUDPServerIP = ipAddress; // Google Public DNS
+                    string domain2 = "gotme.com";
+
+                    byte[] dnsQuery2 = BuildDnsRequest(domain2);
+                    portResult = await SendUdpDnsQuery(dnsUDPServerIP, dnsQuery2, port);
+
+                    break;
+                    case ServiceType.DHCP:
+                    if (scanDHCP)
+                    {
+                        scanDHCP = false;
+                        DHCP_Server_IPs = await SendDhcpDiscoverAsync(detectionPacket);                        
+                    }
+
+                    if (DHCP_Server_IPs.Contains(ipAddress))
+                    {
+                        portResult.Port = 67;
+                        portResult.Status = PortStatus.IsRunning;
+                    }                    
+                    break;
+                case ServiceType.SSH:
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
+                    break;
+                case ServiceType.FTP:
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
+                    break;
+                case ServiceType.RDP:
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
+                    break;
+                case ServiceType.UltraVNC:
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
+                    break;
+                case ServiceType.BigFixRemote:
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
+                    break;
+                case ServiceType.Rustdesk:
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
+                    break;
+                case ServiceType.Teamviewer:
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
+                    break;
+                case ServiceType.Anydesk:
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
+                    break;
                 case ServiceType.MSSQLServer:
                     portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
 
@@ -391,18 +467,27 @@ public class ScanningMethod_Services
                         }
                     }
                     break;
-
-                case ServiceType.WebServices:
-                    portResult = await CheckWebServicePortAsync(ipAddress, port);
-                    break;
-
                 case ServiceType.PostgreSQL:
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
+                    break;
                 case ServiceType.MariaDB:
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
+                    break;
                 case ServiceType.OracleDB:
-                case ServiceType.OPCDA:
-                    Console.WriteLine($"ℹ️ Service {service} noch nicht implementiert.");
-                    return;
-
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
+                    break;
+                case ServiceType.MySQL:
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
+                    break;
+                case ServiceType.OPCUA:
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
+                    break;
+                case ServiceType.ModBus:
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
+                    break;
+                case ServiceType.S7:
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
+                    break;
                 default:
                     portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
                     break;
@@ -753,6 +838,63 @@ public class ScanningMethod_Services
 
 
 
+    public async Task<List<string>> SendDhcpDiscoverAsync(byte[] dhcpDiscoverPacket)
+    {
+        List<string> dhcpServers = new List<string>();
+
+        using UdpClient udpClient = new UdpClient(new IPEndPoint(IPAddress.Any, 68)); // Lauscht auf Port 68
+        udpClient.EnableBroadcast = true;
+        IPEndPoint endPoint = new IPEndPoint(IPAddress.Broadcast, 67); // DHCP-Server-Port
+        udpClient.Client.ReceiveTimeout = 3000; // Timeout für Empfang
+
+        for (int attempt = 1; attempt <= 3; attempt++) // Bis zu 3 Wiederholungen
+        {
+            Console.WriteLine($"📡 Versuch {attempt}: Sende DHCP-Discover...");
+            await udpClient.SendAsync(dhcpDiscoverPacket, dhcpDiscoverPacket.Length, endPoint);
+
+            DateTime startTime = DateTime.Now;
+            while ((DateTime.Now - startTime).TotalSeconds < 3) // 3 Sekunden auf Antwort warten
+            {
+                try
+                {
+                    var receiveTask = udpClient.ReceiveAsync();
+                    if (await Task.WhenAny(receiveTask, Task.Delay(1000)) == receiveTask)
+                    {
+                        byte[] response = receiveTask.Result.Buffer;
+                        string serverIp = new IPAddress(response.Skip(20).Take(4).ToArray()).ToString();
+
+                        if (!dhcpServers.Contains(serverIp))
+                        {
+                            dhcpServers.Add(serverIp);
+                            Console.WriteLine($"✅ DHCP-Server gefunden: {serverIp}");
+                        }
+                    }
+                }
+                catch (SocketException ex) when (ex.SocketErrorCode == SocketError.TimedOut)
+                {
+                    Console.WriteLine("⏳ Timeout: Keine Antwort vom DHCP-Server.");
+                    break; // Keine weitere Schleife notwendig
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"❌ Fehler: {ex.Message}");
+                    break;
+                }
+            }
+
+            if (dhcpServers.Count > 0) break; // Stoppe Wiederholungen, wenn Server gefunden
+        }
+
+        return dhcpServers;
+    }
+
+
+
+
+
+
+
+
 
     private async Task<List<int>> GetMSSQLDynamicPortsAsync(string serverIP)
     {
@@ -896,41 +1038,134 @@ public class ScanningMethod_Services
 
 
 
+    static async Task<PortResult> SendTcpDnsQuery(string dnsServer, byte[] query, int Port )
+    {
+        PortResult portResult = new PortResult();
+        portResult.Status = PortStatus.NoResponse;
+        portResult.Port = Port;
+
+        for (int i = 1; i <= 3; i++) // Maximal 3 Wiederholungen
+        {
+            try
+            {
+                using TcpClient client = new TcpClient();
+                await client.ConnectAsync(dnsServer, portResult.Port);
+
+                portResult.Status = PortStatus.Open;
+
+                using NetworkStream stream = client.GetStream();
+
+                // Füge 2-Byte-Längenfeld vor die Anfrage (TCP benötigt dies)
+                byte[] tcpQuery = new byte[query.Length + 2];
+                tcpQuery[0] = (byte)(query.Length >> 8);
+                tcpQuery[1] = (byte)(query.Length & 0xFF);
+                Buffer.BlockCopy(query, 0, tcpQuery, 2, query.Length);
+
+                // Senden der DNS-Anfrage
+                await stream.WriteAsync(tcpQuery, 0, tcpQuery.Length);
+                //Console.WriteLine($"📡 DNS-Anfrage gesendet ({query.Length} Bytes)");
+
+                // Antwort empfangen (Längenfeld zuerst lesen)
+                byte[] lengthBuffer = new byte[2];
+                await stream.ReadAsync(lengthBuffer, 0, 2);
+                int responseLength = (lengthBuffer[0] << 8) | lengthBuffer[1];
+
+                // Antwortdaten lesen
+                byte[] responseBuffer = new byte[responseLength];
+                await stream.ReadAsync(responseBuffer, 0, responseLength);
+
+                portResult.Status = PortStatus.IsRunning;
+                portResult.PortLog = Encoding.ASCII.GetString(responseBuffer);
+
+                return portResult; // Gib die verarbeitete Antwort zurück
+            }
+            catch (Exception ex)
+            {
+                //Console.WriteLine($"⚠️ Versuch {i}: Fehler beim DNS-Request - {ex.Message}");
+            }
+
+            await Task.Delay(500); // Warte 1 Sekunde vor nächstem Versuch
+        }
+
+        return portResult; // Keine Antwort nach 3 Versuchen
+    }
 
 
 
 
 
+    static async Task<PortResult> SendUdpDnsQuery(string dnsServer, byte[] query, int Port)
+    {
+        PortResult portResult = new PortResult();
+        portResult.Status = PortStatus.NoResponse;
+        portResult.Port = Port;
+
+        using UdpClient udpClient = new UdpClient();
+        udpClient.Connect(dnsServer, portResult.Port);
+
+        for (int i = 1; i <= 3; i++) // Maximal 3 Wiederholungen
+        {
+            //Console.WriteLine($"🔄 Versuch {i}: Sende DNS-Anfrage an {dnsServer}...");
+            await udpClient.SendAsync(query, query.Length);
+
+            var receiveTask = udpClient.ReceiveAsync();
+            if (await Task.WhenAny(receiveTask, Task.Delay(2000)) == receiveTask)
+            {
+                portResult.Status = PortStatus.IsRunning;
+                portResult.PortLog = Encoding.ASCII.GetString(receiveTask.Result.Buffer);
+                return portResult;
+            }
+            else
+            {
+                //Console.WriteLine("❌ Keine Antwort vom DNS-Server.");
+            }
+
+            if (i < 3) await Task.Delay(500); // Warte 1 Sekunde vor dem nächsten Versuch
+        }
+
+        return portResult; // Falls nach 3 Versuchen keine Antwort kam
+    }
 
 
+    static byte[] BuildDnsRequest(string domain)
+    {
+        byte[] header = new byte[]
+        {
+            0xAA, 0xAA,  // Transaction ID
+            0x01, 0x00,  // Standard Query mit rekursiver Abfrage
+            0x00, 0x01,  // Eine Frage
+            0x00, 0x00,  // Keine Antworten vorhanden
+            0x00, 0x00,  // Keine Autoritätsantworten
+            0x00, 0x00   // Keine zusätzlichen Antworten
+        };
 
+        byte[] question = BuildDnsQuestion(domain);
+        byte[] query = new byte[header.Length + question.Length];
+        Buffer.BlockCopy(header, 0, query, 0, header.Length);
+        Buffer.BlockCopy(question, 0, query, header.Length, question.Length);
+        return query;
+    }
 
+    static byte[] BuildDnsQuestion(string domain)
+    {
+        var parts = domain.Split('.');
+        byte[] question = new byte[domain.Length + 2 + 4];
+        int position = 0;
 
+        foreach (var part in parts)
+        {
+            question[position++] = (byte)part.Length;
+            Encoding.ASCII.GetBytes(part, 0, part.Length, question, position);
+            position += part.Length;
+        }
+        question[position++] = 0x00; // Null-Terminierung
+        question[position++] = 0x00; // Type: A (IPv4-Adresse anfragen)
+        question[position++] = 0x01;
+        question[position++] = 0x00; // Class: IN (Internet)
+        question[position++] = 0x01;
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        return question;
+    }
 
 
 
@@ -941,32 +1176,95 @@ public class ScanningMethod_Services
     {
         return service switch
         {
-            ServiceType.WebServices => new List<int> { 80, 443, 8080, 8443 },
-            ServiceType.RDP => new List<int> { 3389 },
-            ServiceType.UltraVNC => new List<int> { 5900, 5901, 5902, 5903 },
-            ServiceType.BigFixRemote => new List<int> { 888 },
-            ServiceType.Rustdesk => new List<int> { 21115 },
-            ServiceType.Teamviewer => new List<int> { 5938 },
-            ServiceType.Anydesk => new List<int> { 7070 },
-            ServiceType.MSSQLServer => new List<int> { 1433 },
-            ServiceType.PostgreSQL => new List<int> { 5432 },
-            ServiceType.MariaDB => new List<int> { 3306 },
-            ServiceType.OracleDB => new List<int> { 1521 },
-            ServiceType.OPCDA => new List<int> { 135 },
-            ServiceType.OPCUA => new List<int> { 4840 },
-            ServiceType.ModBus => new List<int> { 502 },
-            ServiceType.FTP => new List<int> { 21 },
+            // 🌍 Netzwerk-Dienste
+            ServiceType.WebServices => new List<int> { 80, 443, 8080, 8443 }, // HTTP/S
+            ServiceType.DNS_TCP => new List<int> { 53 },  // Domain Name Service
+            ServiceType.DNS_UDP => new List<int> { 53 },  // Domain Name Service
+            ServiceType.DHCP => new List<int> { 67 },  // Dynamic Host Configuration Protocol
+            ServiceType.SSH => new List<int> { 22 },  // Secure Shell
+            ServiceType.FTP => new List<int> { 21 },  // File Transfer Protocol
+
+            // 🖥️ Remote-Desktop & Fernwartung
+            ServiceType.RDP => new List<int> { 3389 },  // Microsoft Remote Desktop
+            ServiceType.UltraVNC => new List<int> { 5900, 5901, 5902, 5903 }, // VNC
+            ServiceType.Teamviewer => new List<int> { 5938 },  // Teamviewer
+            ServiceType.BigFixRemote => new List<int> { 888 },  // BigFix Remote
+            ServiceType.Anydesk => new List<int> { 7070 },  // AnyDesk
+            ServiceType.Rustdesk => new List<int> { 21115 },  // Rustdesk Remote
+
+            // 🗄️ Datenbanken
+            ServiceType.MSSQLServer => new List<int> { 1433 }, // Microsoft SQL Server
+            ServiceType.PostgreSQL => new List<int> { 5432 }, // PostgreSQL
+            ServiceType.MariaDB => new List<int> { 3306 }, // MariaDB / MySQL
+            ServiceType.OracleDB => new List<int> { 1521 }, // Oracle DB
+            ServiceType.MySQL => new List<int> { 3306 }, // MySQL
+
+            // ⚙️ Industrieprotokolle (OT, Automatisierung)
+            ServiceType.OPCUA => new List<int> { 4840 }, // OPC UA
+            ServiceType.ModBus => new List<int> { 502 }, // ModBus TCP
+
+            // 🏭 SPS / Industrielle Steuerungen
+            ServiceType.S7 => new List<int> { 102, 1020 }, // Siemens S7 ISO-on-TCP
+
             _ => new List<int>()
         };
+
     }
 
     public static byte[] GetDetectionPacket(ServiceType service)
     {
         return service switch
         {
+            // 🌍 Netzwerk-Dienste
+
+            // Domain Name Service
+            //ServiceType.DNS => new byte[]
+            //{
+            //    0xAA, 0xAA, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x07, 0x65, 0x78, 0x61,
+            //    0x6D, 0x70, 0x6C, 0x65, 0x03, 0x63, 0x6F, 0x6D, 0x00, 0x00, 0x01, 0x00, 0x01
+            //},            
+            ServiceType.DHCP => new byte[]
+            {
+                0x01, 0x01, 0x06, 0x00, 0x60, 0xE7, 0xC5, 0x78, 0x00, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xDE, 0xAD, 0xC0, 0xDE,
+                0xCA, 0xFE, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x63, 0x82, 0x53, 0x63,
+                0x35, 0x01, 0x01, 0x37, 0x40, 0xFC, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A,
+                0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A,
+                0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2A,
+                0x2B, 0x2C, 0x2D, 0x2E, 0x2F, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3A,
+                0x3B, 0x3C, 0x3D, 0x43, 0x42, 0xFF
+            },
+
+            // Secure Shell
+            ServiceType.SSH => Encoding.ASCII.GetBytes("SSH-2.0-MySSHClient\r\n"),  
+
+            // File Transfer Protocol
+            ServiceType.FTP => new byte[]
+            {
+                0xCD, 0xCA, 0x00, 0x15, 0x5E, 0xE8, 0x15, 0xC2, 0x00, 0x00, 0x00, 0x00, 0x80, 0x02, 0xFA, 0xF0,
+                0x90, 0x80, 0x00, 0x00, 0x02, 0x04, 0x05, 0xB4, 0x01, 0x03, 0x03, 0x08, 0x01, 0x01, 0x04, 0x02
+            },
+
+
+
+
+
+            // 🖥️ Remote-Desktop & Fernwartung
+
             ServiceType.RDP => new byte[] { 0x03, 0x00, 0x00, 0x13, 0x0e, 0xe0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x08, 0x00, 0x03, 0x00, 0x00, 0x00 },
             ServiceType.UltraVNC => new byte[] { 0x52, 0x46, 0x42, 0x20, 0x30, 0x30, 0x33 },
-            //ServiceType.BigFixRemote => new byte[] { 0x42, 0x49, 0x47, 0x46, 0x49, 0x58 },
             ServiceType.BigFixRemote => new byte[] { 0x14, 0x2B, 0xB4, 0x91, 0x05, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
 
             ServiceType.Rustdesk => new byte[] { 0x52, 0x44, 0x50 },
@@ -993,7 +1291,6 @@ public class ScanningMethod_Services
             //     0xE1, 0xBF, 0xE5, 0x2A, 0x80, 0x00, 0x00, 0x00
             // },
 
-            //ServiceType.Anydesk => new byte[] { 0xf2, 0xa8, 0x1b, 0x9e, 0x18, 0xcc, 0x3b, 0x65, 0x00, 0x00, 0x00, 0x00, 0x80, 0x02, 0xff, 0xff, 0x6a, 0x40, 0x00, 0x00, 0x02, 0x04, 0x05, 0xb4, 0x01, 0x03, 0x03, 0x08, 0x01, 0x01, 0x04, 0x02 },
             ServiceType.Anydesk => new byte[]
             {
                  0x16, 0x03, 0x01, 0x00, 0xb7, 0x01, 0x00, 0x00, 0xb3, 0x03, 0x03, 0xf9, 0x37, 0x7f, 0xaa, 0xd3,
@@ -1011,8 +1308,12 @@ public class ScanningMethod_Services
             },
 
 
+
+
+            // 🗄️ Datenbanken
+
             ServiceType.MSSQLServer => new byte[]
-            {
+             {
                 0x12, 0x01, 0x00, 0x66, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x24, 0x00, 0x06, 0x01, 0x00, 0x2a,
                 0x00, 0x01, 0x02, 0x00, 0x2b, 0x00, 0x09, 0x03, 0x00, 0x34, 0x00, 0x04, 0x04, 0x00, 0x38, 0x00,
                 0x01, 0x05, 0x00, 0x39, 0x00, 0x24, 0x06, 0x00, 0x5d, 0x00, 0x01, 0xff, 0x03, 0x0f, 0x5a, 0xfc,
@@ -1020,20 +1321,69 @@ public class ScanningMethod_Services
                 0x00, 0xe9, 0xd5, 0x1f, 0xc3, 0x85, 0xa4, 0x0d, 0x46, 0x8b, 0xd1, 0x68, 0x48, 0x52, 0x80, 0x1d,
                 0x28, 0xe2, 0xed, 0xe7, 0xba, 0xed, 0x5a, 0xaf, 0x49, 0xad, 0x3e, 0xb5, 0x19, 0xba, 0x6c, 0xcc,
                 0xc6, 0x02, 0x00, 0x00, 0x00, 0x01
+             },
+
+            //ServiceType.PostgreSQL => new byte[]
+            //{
+            //    0x00, 0x00, 0x00, 0x16,  // Paketlänge (22 Bytes)
+            //    0x00, 0x03, 0x00, 0x00,  // Protokollversion 3.0
+            //    0x75, 0x73, 0x65, 0x72,  // "user"
+            //    0x00,                    // Null-Terminator
+            //    0x61, 0x64, 0x6D, 0x69,  // "admin"
+            //    0x6E, 0x00,              // Null-Terminator
+            //    0x00                     // Doppelte Null = Ende der Nachricht 
+            //},
+            ServiceType.PostgreSQL => new byte[]
+            {
+                0xC3, 0xA4, 0x15, 0x38, 0x68, 0x84, 0xA9, 0x3C,
+                0x00, 0x00, 0x00, 0x00, 0x80, 0x02, 0xFA, 0xF0,
+                0xE5, 0xD7, 0x00, 0x00, 0x02, 0x04, 0x05, 0xB4,
+                0x01, 0x03, 0x03, 0x08, 0x01, 0x01, 0x04, 0x02
             },
 
+            ServiceType.MariaDB => new byte[] 
+            {
+                0xC3, 0xBC, 0x0C, 0xEA, 0x1E, 0xF7, 0x13, 0x5D,
+                0x00, 0x00, 0x00, 0x00, 0x80, 0x02, 0xFA, 0xF0,
+                0xE5, 0xD7, 0x00, 0x00, 0x02, 0x04, 0x05, 0xB4,
+                0x01, 0x03, 0x03, 0x08, 0x01, 0x01, 0x04, 0x02
+            },
 
-            ServiceType.PostgreSQL => new byte[] { 0x00, 0x03, 0x00, 0x00 },
-            ServiceType.MariaDB => new byte[] { 0x4d, 0x59, 0x53, 0x51, 0x4c },
-            ServiceType.OracleDB => new byte[] { 0x30, 0x31, 0x30, 0x30 },
-            ServiceType.OPCDA => new byte[] { 0x4f, 0x50, 0x43, 0x44, 0x41 },
+            ServiceType.OracleDB => new byte[] 
+            { 
+                0xC3, 0xC3, 0x05, 0xF1, 0xF2, 0x3C, 0x83, 0x34,
+                0x00, 0x00, 0x00, 0x00, 0x80, 0x02, 0xFA, 0xF0,
+                0xE5, 0xD7, 0x00, 0x00, 0x02, 0x04, 0x05, 0xB4,
+                0x01, 0x03, 0x03, 0x08, 0x01, 0x01, 0x04, 0x02 
+            },
+
+            ServiceType.MySQL => new byte[]
+           {
+                0xC3, 0xCE, 0x0C, 0xEA, 0xE5, 0x8F, 0x81, 0x10,
+                0x00, 0x00, 0x00, 0x00, 0x80, 0x02, 0xFA, 0xF0,
+                0xE5, 0xD7, 0x00, 0x00, 0x02, 0x04, 0x05, 0xB4,
+                0x01, 0x03, 0x03, 0x08, 0x01, 0x01, 0x04, 0x02
+           },
+
+
+
+
+            // ⚙️ Industrieprotokolle (OT, Automatisierung)
             ServiceType.OPCUA => new byte[] { 0x48, 0x45, 0x4c, 0x4c, 0x4f },
             ServiceType.ModBus => new byte[] { 0x00, 0x01, 0x00, 0x00, 0x00, 0x06, 0x01, 0x03, 0x00, 0x00, 0x00, 0x01 },
-            ServiceType.FTP => new byte[]
+
+
+
+            // 🏭 SPS / Industrielle Steuerungen
+
+             // Siemens S7 ISO-on-TCP
+            ServiceType.S7 => new byte[] 
             {
-                0xCD, 0xCA, 0x00, 0x15, 0x5E, 0xE8, 0x15, 0xC2, 0x00, 0x00, 0x00, 0x00, 0x80, 0x02, 0xFA, 0xF0,
-                0x90, 0x80, 0x00, 0x00, 0x02, 0x04, 0x05, 0xB4, 0x01, 0x03, 0x03, 0x08, 0x01, 0x01, 0x04, 0x02
+                0x03, 0x00, 0x00, 0x16, 0x11, 0xE0, 0x00, 0x00, 0x00, 0x01,
+                0x00, 0xC0, 0x01, 0x0A, 0xC1, 0x02, 0x01, 0x00, 0xC2, 0x02,
+                0x01, 0x02
             },
+
             _ => new byte[0]
         };
     }
