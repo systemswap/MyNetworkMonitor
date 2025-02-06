@@ -9,7 +9,7 @@
         xmlns:dxg="http://schemas.devexpress.com/winfx/2008/xaml/grid" xmlns:dx="http://schemas.devexpress.com/winfx/2008/xaml/core" x:Name="mainWindow" x:Class="MyNetworkMonitor.MainWindow"
         
         mc:Ignorable="d"
-        Title="My Network Monitor" Height="800" Width="1855" MinWidth="1855" MinHeight="770" Closing="Window_Closing" Background="#FFF3F3F3">
+        Title="My Network Monitor" Height="800" Width="1855" MinWidth="1855" MinHeight="770" Closing="Window_Closing" Background="#FFF3F3F3" Loaded="mainWindow_Loaded">
 
 
     <Grid>
@@ -199,6 +199,38 @@
                     </Grid>
                 </TabItem>
                 <TabItem x:Name="tab_Services" Header="Services">
+                    <Grid>
+
+                        <CheckBox x:Name="chk_Services_Web" Content="Webservice" HorizontalAlignment="Left" Width="100" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,19,0,0" IsChecked="True"/>
+                        <CheckBox x:Name="chk_Services_FTP" Content="FTP" HorizontalAlignment="Left" Width="100" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,44,0,0" IsChecked="True"/>
+                        <CheckBox x:Name="chk_Services_SSH" Content="SSH" HorizontalAlignment="Left" Width="100" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,69,0,0" IsChecked="True"/>
+                        <CheckBox x:Name="chk_Services_DNS_TCP" Content="DNS TCP" HorizontalAlignment="Left" Width="100" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,94,0,0" IsChecked="True"/>
+                        <CheckBox x:Name="chk_Services_DNS_UDP" Content="DNS UDP" HorizontalAlignment="Left" Width="100" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,119,0,0" IsChecked="True"/>
+                        <CheckBox x:Name="chk_Services_DHCP" Content="DHCP" HorizontalAlignment="Left" Width="100" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,144,0,0" IsChecked="True"/>
+
+                        <CheckBox x:Name="chk_Services_RDP" Content="RDP" HorizontalAlignment="Left" Width="100" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,186,0,0" IsChecked="True"/>
+                        <CheckBox x:Name="chk_Services_UltraVNC" Content="UltraVNC" HorizontalAlignment="Left" Width="100" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,211,0,0" IsChecked="True"/>
+                        <CheckBox x:Name="chk_Services_TeamViewer" Content="TeamViewer" HorizontalAlignment="Left" Width="100" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,236,0,0" IsChecked="True"/>
+                        <CheckBox x:Name="chk_Services_BigFixRemote" Content="BigFix Remote" HorizontalAlignment="Left" Width="100" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,261,0,0"/>
+                        <CheckBox x:Name="chk_Services_AnyDesk" Content="AnyDesk" HorizontalAlignment="Left" Width="100" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,286,0,0" IsChecked="True"/>
+                        <CheckBox x:Name="chk_Services_Rustdesk" Content="Rustdesk" HorizontalAlignment="Left" Width="100" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,311,0,0"/>
+
+                        <CheckBox x:Name="chk_Services_MSSQL" Content="MSSQL" HorizontalAlignment="Left" Width="100" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,357,0,0" IsChecked="True"/>
+                        <CheckBox x:Name="chk_Services_Postgre" Content="PostgreSQL" HorizontalAlignment="Left" Width="100" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,382,0,0" IsChecked="True"/>
+                        <CheckBox x:Name="chk_Services_MariaDB" Content="MariaDB" HorizontalAlignment="Left" Width="100" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,407,0,0"/>
+                        <CheckBox x:Name="chk_Services_MYSQL" Content="MySQL" HorizontalAlignment="Left" Width="100" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,432,0,0"/>
+                        <CheckBox x:Name="chk_Services_OracleDB" Content="OracleDB" HorizontalAlignment="Left" Width="100" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,457,0,0"/>
+
+                        <CheckBox x:Name="chk_Services_OPCUA" Content="OPC UA" HorizontalAlignment="Left" Width="100" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,499,0,0" IsChecked="True"/>
+                        <CheckBox x:Name="chk_Services_ModBus" Content="Modbus" HorizontalAlignment="Left" Width="100" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,524,0,0" IsChecked="True"/>
+                        <CheckBox x:Name="chk_Services_SiemensS7" Content="SiemensS7" HorizontalAlignment="Left" Width="100" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,549,0,0"/>
+
+
+
+
+
+
+                    </Grid>
                 </TabItem>
 
                 <TabItem x:Name="tab_InternalNames" Header="Internal Names">
@@ -282,6 +314,7 @@
 
                     </Grid>
                 </TabItem>
+
 
 
             </TabControl>

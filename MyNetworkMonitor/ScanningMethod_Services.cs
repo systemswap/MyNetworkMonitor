@@ -136,6 +136,9 @@ public class ScanningMethod_Services
 
     public async Task ScanIPsAsync(List<IPToScan> IPsToScan, List<ServiceType> services, Dictionary<ServiceType, List<int>> extraPorts = null)
     {
+        bool scanDHCP = true;
+        DHCP_Server_IPs.Clear();
+
         current = 0;
         responded = 0;
         total = IPsToScan.Count;
@@ -414,7 +417,12 @@ public class ScanningMethod_Services
                     {
                         portResult.Port = 67;
                         portResult.Status = PortStatus.IsRunning;
-                    }                    
+                    }
+                    else
+                    {
+                        portResult.Port = 67;
+                        portResult.Status = PortStatus.NoResponse;
+                    }
                     break;
                 case ServiceType.SSH:
                     portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
@@ -872,12 +880,12 @@ public class ScanningMethod_Services
                 }
                 catch (SocketException ex) when (ex.SocketErrorCode == SocketError.TimedOut)
                 {
-                    Console.WriteLine("⏳ Timeout: Keine Antwort vom DHCP-Server.");
+                    //Console.WriteLine("⏳ Timeout: Keine Antwort vom DHCP-Server.");
                     break; // Keine weitere Schleife notwendig
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"❌ Fehler: {ex.Message}");
+                    //Console.WriteLine($"❌ Fehler: {ex.Message}");
                     break;
                 }
             }
