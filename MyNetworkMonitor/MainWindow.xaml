@@ -554,7 +554,7 @@
                     </Grid.ColumnDefinitions>
                     <Label Content="Filter:" HorizontalAlignment="Center" VerticalAlignment="Center" Height="28" Width="40" VerticalContentAlignment="Center"/>
                     <Label Grid.Column="1" Content="whole Table" HorizontalAlignment="Left" Margin="10,-6,0,0" VerticalAlignment="Top" Height="23" Width="129"/>
-                    <Label Grid.Column="2" Content="IP" HorizontalAlignment="Left" Margin="10,-6,0,0" VerticalAlignment="Top" Height="23" Width="20"/>
+                    <Label Grid.Column="2" Content="IP (exact or with *)" HorizontalAlignment="Center" Margin="0,-6,0,0" VerticalAlignment="Top" Height="26" Width="111" VerticalContentAlignment="Center" Grid.RowSpan="2"/>
                     <Label Grid.Column="3" Content="Hostname" HorizontalAlignment="Left" Margin="10,-6,0,0" VerticalAlignment="Top" Height="23" Width="64"/>
                     <Label Grid.Column="4" Content="Internal Name" HorizontalAlignment="Left" Margin="10,-6,0,0" VerticalAlignment="Top" Height="23" Width="85"/>
                     <Label Grid.Column="5" Content="TCP Port" HorizontalAlignment="Left" Margin="10,-6,0,0" VerticalAlignment="Top" Height="23" Width="55"/>
