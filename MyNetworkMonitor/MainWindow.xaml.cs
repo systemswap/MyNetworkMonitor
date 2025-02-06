@@ -1,22 +1,21 @@
 ﻿
-using DnsClient;
+
 using Microsoft.Win32;
 using System;
-using System.Collections;
+
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
+
 using System.ComponentModel;
 using System.Data;
 using System.Diagnostics;
-using System.Dynamic;
+
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Net.NetworkInformation;
-using System.Net.Sockets;
+
 using System.Reflection;
-using System.Security.Cryptography;
+
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -24,14 +23,11 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Data;
-using System.Windows.Documents;
+
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using static MyNetworkMonitor.SendReceiveDataUDP;
-using static MyNetworkMonitor.ServiceScanData;
-using static System.Environment;
-using static System.Net.Mime.MediaTypeNames;
+
+//using static System.Net.WebRequestMethods;
 
 namespace MyNetworkMonitor
 {
@@ -1003,9 +999,43 @@ namespace MyNetworkMonitor
                 //};
 
                 status_Services_Scan = ScanStatus.running;
+                //await scanningMethod_Services.ScanIPsAsync(Services_IPsToScan, new List<ServiceType> { ServiceType.DHCP});
 
-                 await scanningMethod_Services.ScanIPsAsync(Services_IPsToScan, new List<ServiceType> { ServiceType.WebServices, ServiceType.RDP, ServiceType.UltraVNC, ServiceType.BigFixRemote, ServiceType.Teamviewer, ServiceType.Anydesk, ServiceType.MSSQLServer, ServiceType.OPCUA, ServiceType.ModBus, ServiceType.FTP });
-                //await scanningMethod_Services.ScanIPsAsync(Services_IPsToScan, new List<ServiceType> { ServiceType.Anydesk });
+                await scanningMethod_Services.ScanIPsAsync
+                    (
+                    Services_IPsToScan,
+                    new List<ServiceType>
+                    { 
+                        // 🌍 Netzwerk-Dienste
+                        ServiceType.WebServices,
+                        ServiceType.FTP,
+                        ServiceType.SSH,
+                        ServiceType.DNS_TCP,
+                        ServiceType.DNS_UDP,
+                        //ServiceType.DHCP,
+                        
+
+                        // Remote Apps
+                        ServiceType.RDP,
+                        ServiceType.UltraVNC,
+                        ServiceType.Teamviewer,
+                        ServiceType.BigFixRemote,
+                        ServiceType.Anydesk,
+                        ServiceType.Rustdesk,
+
+                        // Datenbanken
+                        ServiceType.MSSQLServer,
+                        ServiceType.PostgreSQL,
+                        //ServiceType.MariaDB,
+                        //ServiceType.MySQL,
+                        //ServiceType.OracleDB,
+                        
+
+                        // Industrieprotokolle    
+                        ServiceType.OPCUA,
+                        ServiceType.ModBus,
+                        ServiceType.S7
+                    });
             }
            
 
