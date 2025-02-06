@@ -1938,26 +1938,92 @@ namespace MyNetworkMonitor
             }
         }
 
-        private void Filter_ScanResults_Explicite()
+
+
+
+
+
+
+
+        private async void Filter_ScanResults_Explicite()
         {
-            //MainForm_ModFolderTab_ClearModFilter_pictureBox.Visible = true;
-            string whereFilter = "1 = 1";
+            // Lese UI-Daten vorab aus (UI-Thread)
+            string ipFilter = tb_Filter_IP.Text.Trim();
+            string internalName = tb_Filter_InternalName.Text.Trim();
+            string hostName = tb_Filter_HostName.Text.Trim();
+            string tcpPort = tb_Filter_TCPPort.Text.Trim();
+            string mac = tb_Filter_Mac.Text.Trim();
+            string vendor = tb_Filter_Vendor.Text.Trim();
+            bool isIPCamChecked = chk_Filter_IsIPCam.IsChecked ?? false;
 
-            if (tb_Filter_IP.Text.Length > 0) whereFilter += " and IP Like '%" + tb_Filter_IP.Text + "%'";
-            if (tb_Filter_InternalName.Text.Length > 0) whereFilter += " and InternalName Like '%" + tb_Filter_InternalName.Text + "%'";
-            if (tb_Filter_HostName.Text.Length > 0) whereFilter += " and Hostname Like '%" + tb_Filter_HostName.Text + "%'";
-            if (tb_Filter_TCPPort.Text.Length > 0) whereFilter += " and TCP_Ports Like '%" + tb_Filter_TCPPort.Text + "%'";
-            if (tb_Filter_Mac.Text.Length > 0) whereFilter += " and Mac Like '%" + tb_Filter_Mac.Text + "%'";
-            if (tb_Filter_Vendor.Text.Length > 0) whereFilter += " and Vendor Like '%" + tb_Filter_Vendor.Text + "%'";
+            await Task.Run(() =>
+            {
+                // StringBuilder für bessere Performance
+                StringBuilder whereFilter = new StringBuilder(200);
+                whereFilter.Append("1 = 1");
 
-            if ((bool)chk_Filter_IsIPCam.IsChecked) whereFilter += " and IsIPCam is not null";
+                // IP-Filter mit Wildcard-Handling
+                if (!string.IsNullOrEmpty(ipFilter))
+                {
+                    if (ipFilter.Contains("*"))
+                        ipFilter = ipFilter.Replace("*", "%"); // '*' durch '%' ersetzen
+                    else
+                        ipFilter = ipFilter; // Exakte Suche
 
-            dv_resultTable.RowFilter = string.Format(whereFilter);
+                    whereFilter.AppendFormat(" and IP LIKE '{0}'", ipFilter);
+                }
 
-            //dv_resultTable.RowFilter = string.Format("IP Like '%*%'");
-            //MainForm_ModFolderTab_ClearModFilter_pictureBox.Visible = false;
+                if (!string.IsNullOrEmpty(internalName))
+                    whereFilter.AppendFormat(" and InternalName LIKE '%{0}%'", internalName);
 
+                if (!string.IsNullOrEmpty(hostName))
+                    whereFilter.AppendFormat(" and Hostname LIKE '%{0}%'", hostName);
+
+                if (!string.IsNullOrEmpty(tcpPort))
+                    whereFilter.AppendFormat(" and TCP_Ports LIKE '%{0}%'", tcpPort);
+
+                if (!string.IsNullOrEmpty(mac))
+                    whereFilter.AppendFormat(" and Mac LIKE '%{0}%'", mac);
+
+                if (!string.IsNullOrEmpty(vendor))
+                    whereFilter.AppendFormat(" and Vendor LIKE '%{0}%'", vendor);
+
+                if (isIPCamChecked)
+                    whereFilter.Append(" and IsIPCam is not null");
+
+                // Falls keine Filterbedingungen gesetzt sind, Filter zurücksetzen
+                string finalFilter = whereFilter.ToString();
+                if (finalFilter == "1 = 1")
+                    finalFilter = "";
+
+                // Prüfen, ob der Filter sich geändert hat (Performance-Optimierung)
+                if (dv_resultTable.RowFilter != finalFilter)
+                {
+                    Dispatcher.Invoke(() =>
+                    {
+                        dv_resultTable.RowFilter = finalFilter;
+                    });
+                }
+            });
         }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         private void Filter_ScanResults_Explicite(object sender, RoutedEventArgs e)
         {
