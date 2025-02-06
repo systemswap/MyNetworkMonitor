@@ -1173,6 +1173,8 @@ namespace MyNetworkMonitor
 
         public void InsertIPToScanResult(IPToScan ipToScan)
         {
+            Keyboard.ClearFocus();
+
             List<DataRow> rows = _scannResults.ResultTable.Select("IP = '" + ipToScan.IPorHostname + "'").ToList();
 
             List<string> ports = new List<string>();
