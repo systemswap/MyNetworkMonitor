@@ -2001,7 +2001,14 @@ namespace MyNetworkMonitor
                 {
                     Dispatcher.Invoke(() =>
                     {
-                        dv_resultTable.RowFilter = finalFilter;
+                        try
+                        {
+                            dv_resultTable.RowFilter = finalFilter;
+                        }
+                        catch (Exception ex)
+                        {
+                            //MessageBox.Show(ex.Message);
+                        }
                     });
                 }
             });
