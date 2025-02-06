@@ -334,6 +334,7 @@ public class ScanningMethod_Services
 
     private async Task ScanIPAsync(IPToScan ipToScan, List<ServiceType> services, Dictionary<ServiceType, List<int>> extraPorts)
     {
+        scanDHCP = true;
         string ipAddress = IPAddress.Parse(ipToScan.IPorHostname).ToString(); // Einmal parsen
 
         foreach (ServiceType service in services)
@@ -857,7 +858,7 @@ public class ScanningMethod_Services
 
         for (int attempt = 1; attempt <= 3; attempt++) // Bis zu 3 Wiederholungen
         {
-            Console.WriteLine($"📡 Versuch {attempt}: Sende DHCP-Discover...");
+            //Console.WriteLine($"📡 Versuch {attempt}: Sende DHCP-Discover...");
             await udpClient.SendAsync(dhcpDiscoverPacket, dhcpDiscoverPacket.Length, endPoint);
 
             DateTime startTime = DateTime.Now;
@@ -870,11 +871,17 @@ public class ScanningMethod_Services
                     {
                         byte[] response = receiveTask.Result.Buffer;
                         string serverIp = new IPAddress(response.Skip(20).Take(4).ToArray()).ToString();
+                        string relayAgentIp = new IPAddress(response.Skip(24).Take(4).ToArray()).ToString();
+
+                        //option 54
+                        int index = Array.IndexOf(response, (byte)54);
+                        string dhcpServerIp = index > 0 ? new IPAddress(response.Skip(index + 2).Take(4).ToArray()).ToString() : "Not Found";
+
 
                         if (!dhcpServers.Contains(serverIp))
                         {
-                            dhcpServers.Add(serverIp);
-                            Console.WriteLine($"✅ DHCP-Server gefunden: {serverIp}");
+                            dhcpServers.Add(dhcpServerIp);
+                            //Console.WriteLine($"✅ DHCP-Server gefunden: {serverIp}");
                         }
                     }
                 }
