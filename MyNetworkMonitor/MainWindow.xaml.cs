@@ -2018,7 +2018,8 @@ namespace MyNetworkMonitor
 
 
             // Lese UI-Daten vorab aus (UI-Thread)
-            string allFilter = tb_Filter_All.Text.Trim();
+            string allFilter = tb_Filter_All1.Text.Trim();
+            string allFilter2 = tb_Filter_All2.Text.Trim();
             string ipFilter = tb_Filter_IP.Text.Trim();
             string internalName = tb_Filter_InternalName.Text.Trim();
             string hostName = tb_Filter_HostName.Text.Trim();
@@ -2034,31 +2035,54 @@ namespace MyNetworkMonitor
                 whereFilter.Append("1 = 1");
 
 
-                if (!string.IsNullOrEmpty(allFilter))
+
+                if (!string.IsNullOrEmpty(allFilter) || !string.IsNullOrEmpty(allFilter2))
                 {
                     if (allFilter.Contains("*"))
                         allFilter = allFilter.Replace("*", "%"); // '*' durch '%' ersetzen
 
-                    List<string> columnConditions = new List<string>();
+                    if (allFilter2.Contains("*"))
+                        allFilter2 = allFilter2.Replace("*", "%"); // '*' durch '%' ersetzen
+
+                    List<string> columnConditions = new List<string>();  // Bedingungen für `allFilter`
+                    List<string> columnConditions2 = new List<string>(); // Bedingungen für `allFilter2`
+                    List<string> combinedConditions = new List<string>(); // Bedingungen für beide gleichzeitig
 
                     foreach (DataColumn column in dv_resultTable.Table.Columns)
                     {
-                        // **Nur Spalten mit string-Datentyp filtern**
-                        if (column.DataType == typeof(string))
+                        if (column.DataType == typeof(string)) // Nur `string`-Spalten durchsuchen
                         {
-                            //if (allFilter.Contains("%")) // Wildcard → LIKE-Suche
-                            //    columnConditions.Add($"{column.ColumnName} LIKE '{allFilter}'");
-                            //else // Exakte Suche
-                            //    columnConditions.Add($"{column.ColumnName} = '{allFilter}'");
-                            columnConditions.Add($"{column.ColumnName} LIKE '{allFilter}'");
+                            if (!string.IsNullOrEmpty(allFilter))
+                                columnConditions.Add($"{column.ColumnName} LIKE '%{allFilter}%'");
+
+                            if (!string.IsNullOrEmpty(allFilter2))
+                                columnConditions2.Add($"{column.ColumnName} LIKE '%{allFilter2}%'");
+
+                            // Wenn beide Suchbegriffe vorhanden sind, müssen sie in einer Spalte vorkommen
+                            if (!string.IsNullOrEmpty(allFilter) && !string.IsNullOrEmpty(allFilter2))
+                                combinedConditions.Add($"{column.ColumnName} LIKE '%{allFilter}%' AND {column.ColumnName} LIKE '%{allFilter2}%'");
                         }
                     }
 
-                    if (columnConditions.Count > 0)
+                    // **Filter zusammensetzen**
+                    if (!string.IsNullOrEmpty(allFilter) && !string.IsNullOrEmpty(allFilter2))
                     {
-                        whereFilter.Append(" AND (" + string.Join(" OR ", columnConditions) + ")");
+                        // **Wenn beide Filter vorhanden sind, dann nur Treffer mit beiden Werten in einer Spalte**
+                        whereFilter.Append($" AND ({string.Join(" OR ", combinedConditions)})");
+                    }
+                    else if (!string.IsNullOrEmpty(allFilter))
+                    {
+                        // **Nur `allFilter` vorhanden → Normaler Filter**
+                        whereFilter.Append($" AND ({string.Join(" OR ", columnConditions)})");
+                    }
+                    else if (!string.IsNullOrEmpty(allFilter2))
+                    {
+                        // **Nur `allFilter2` vorhanden → Normaler Filter**
+                        whereFilter.Append($" AND ({string.Join(" OR ", columnConditions2)})");
                     }
                 }
+
+
 
                 // **Spezifische Filter anwenden**
                 if (!string.IsNullOrEmpty(ipFilter))
