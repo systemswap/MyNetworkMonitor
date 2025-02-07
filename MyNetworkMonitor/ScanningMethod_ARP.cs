@@ -5,10 +5,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
-using System.Text;
 using System.Threading.Tasks;
-
 namespace MyNetworkMonitor
 {
     internal class ScanningMethod_ARP
@@ -53,7 +50,7 @@ namespace MyNetworkMonitor
             IPAddress ipAddress = IPAddress.Parse(ipToScan.IPorHostname);
             byte[] macAddr = new byte[6];
             uint macAddrLen = (uint)macAddr.Length;
-       
+
             int arp_response = await Task.Run(() => SendARP(BitConverter.ToInt32(ipAddress.GetAddressBytes(), 0), 0, macAddr, ref macAddrLen));
 
             if (arp_response != 0)
@@ -92,6 +89,22 @@ namespace MyNetworkMonitor
                 }
             }
         }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         private string MacAddresstoString(byte[] MacAddress)
         {
