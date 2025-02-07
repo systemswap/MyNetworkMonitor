@@ -874,9 +874,10 @@ public class ScanningMethod_Services
                         string relayAgentIp = new IPAddress(response.Skip(24).Take(4).ToArray()).ToString();
 
                         //option 54
-                        int index = Array.IndexOf(response, (byte)54);
-                        string dhcpServerIp = index > 0 ? new IPAddress(response.Skip(index + 2).Take(4).ToArray()).ToString() : "Not Found";
+                        //int index = Array.IndexOf(response, (byte)54);
+                        //string dhcpServerIp = index > 0 ? new IPAddress(response.Skip(index + 2).Take(4).ToArray()).ToString() : "Not Found";
 
+                        string dhcpServerIp = GetDhcpServerIp(response);
 
                         if (!dhcpServers.Contains(serverIp))
                         {
@@ -903,7 +904,21 @@ public class ScanningMethod_Services
         return dhcpServers;
     }
 
+    string GetDhcpServerIp(byte[] response)
+    {
+        // 1 Prüfe Option 54 (beste Methode)
+        int index = Array.IndexOf(response, (byte)54);
+        if (index > 0)
+            return new IPAddress(response.Skip(index + 2).Take(4).ToArray()).ToString();
 
+        // 2 Prüfe GIADDR (nur falls vorhanden)
+        string relayAgentIp = new IPAddress(response.Skip(24).Take(4).ToArray()).ToString();
+        if (relayAgentIp != "0.0.0.0")
+            return relayAgentIp;
+
+        // 3 Prüfe SIADDR (nur als letzte Option)
+        return new IPAddress(response.Skip(16).Take(4).ToArray()).ToString();
+    }
 
 
 
