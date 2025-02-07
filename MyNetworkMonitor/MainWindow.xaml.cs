@@ -925,7 +925,7 @@ namespace MyNetworkMonitor
                 status_Ping_Scan = ScanStatus.running;
                 counted_total_Ping_Scan = _IPsToScan.Count;
                 Status();
-                await scanningMethods_Ping.PingIPsAsync(_IPsToScan, false);
+                await Task.Run(() => scanningMethods_Ping.PingIPsAsync(_IPsToScan, false));
             }
 
 
