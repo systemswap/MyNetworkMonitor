@@ -89,8 +89,8 @@ public class ScanningMethod_Services
     bool scanDHCP = true;
     List<string> DHCP_Server_IPs = new List<string>();
 
-    private const int MaxParallelIPs = 30;
-    private const int Timeout = 1000; // 3 Sekunden Timeout pro Dienst
+    private const int MaxParallelIPs = 50;
+    private const int Timeout = 2000; // 3 Sekunden Timeout pro Dienst
     private const int RetryCount = 3;
 
     public event Action<IPToScan> ServiceIPScanFinished;
@@ -103,90 +103,90 @@ public class ScanningMethod_Services
     private int responded = 0;
     private int total = 0;
 
-    //public async Task ScanIPsAsync(List<IPToScan> IPsToScan, List<ServiceType> services, Dictionary<ServiceType, List<int>> extraPorts = null)
-    //{
-    //    current = 0;
-    //    responded = 0;
-    //    total = IPsToScan.Count;
-
-    //    var semaphore = new SemaphoreSlim(MaxParallelIPs);
-    //    var tasks = IPsToScan.Select(async ipToScan =>
-    //    {
-    //        await semaphore.WaitAsync();
-    //        try
-    //        {
-    //            int currentValue = Interlocked.Increment(ref current);
-    //            ProgressUpdated?.Invoke(current, responded, total);
-
-    //            await Task.Run(() => ScanIPAsync(ipToScan, services, extraPorts));
-
-    //        }
-    //        finally
-    //        {
-    //            semaphore.Release();
-    //        }
-    //    }).ToArray();
-
-    //    await Task.WhenAll(tasks);
-
-    //    // ✅ Garantiert: SMBScanFinished wird NUR ausgelöst, wenn alle SMB-Scans beendet sind
-    //    ServiceScanFinished?.Invoke();
-    //}
-
-
     public async Task ScanIPsAsync(List<IPToScan> IPsToScan, List<ServiceType> services, Dictionary<ServiceType, List<int>> extraPorts = null)
     {
-        bool scanDHCP = true;
-        DHCP_Server_IPs.Clear();
-
         current = 0;
         responded = 0;
         total = IPsToScan.Count;
 
         var semaphore = new SemaphoreSlim(MaxParallelIPs);
-        var tasks = new List<Task>();
-
-        foreach (var ipToScan in IPsToScan)
+        var tasks = IPsToScan.Select(async ipToScan =>
         {
-            await semaphore.WaitAsync(); // ✅ Wartet, bis ein neuer Slot frei ist
-            tasks.Add(Task.Run(async () =>
+            await semaphore.WaitAsync();
+            try
             {
-                try
-                {
-                    int currentValue = Interlocked.Increment(ref current);
+                int currentValue = Interlocked.Increment(ref current);
+                ProgressUpdated?.Invoke(current, responded, total);
 
-                    // 🔹 Sicherstellen, dass UI-Updates nicht blockieren
-                    await Application.Current.Dispatcher.InvokeAsync(() =>
-                    {
-                        ProgressUpdated?.Invoke(current, responded, total);
-                    });
+                await Task.Run(() => ScanIPAsync(ipToScan, services, extraPorts));
 
-                    await ScanIPAsync(ipToScan, services, extraPorts);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"⚠️ Fehler beim Scannen von {ipToScan.IPorHostname}: {ex.Message}");
-                }
-                finally
-                {
-                    semaphore.Release(); // ✅ Stellt sicher, dass das Semaphore freigegeben wird
-                }
-            }));
-        }
+            }
+            finally
+            {
+                semaphore.Release();
+            }
+        }).ToArray();
 
-        // ✅ Prüft regelmäßig den Fortschritt, um Hänger zu vermeiden
-        while (tasks.Any())
-        {
-            Task finishedTask = await Task.WhenAny(tasks);
-            tasks.Remove(finishedTask);
-        }
+        await Task.WhenAll(tasks);
 
-        // ✅ Stellt sicher, dass das Event ausgelöst wird, selbst wenn einige Tasks fehlschlagen
-        await Application.Current.Dispatcher.InvokeAsync(() =>
-        {
-            ServiceScanFinished?.Invoke();
-        });
+        // ✅ Garantiert: SMBScanFinished wird NUR ausgelöst, wenn alle SMB-Scans beendet sind
+        ServiceScanFinished?.Invoke();
     }
+
+
+    //public async Task ScanIPsAsync(List<IPToScan> IPsToScan, List<ServiceType> services, Dictionary<ServiceType, List<int>> extraPorts = null)
+    //{
+    //    bool scanDHCP = true;
+    //    DHCP_Server_IPs.Clear();
+
+    //    current = 0;
+    //    responded = 0;
+    //    total = IPsToScan.Count;
+
+    //    var semaphore = new SemaphoreSlim(MaxParallelIPs);
+    //    var tasks = new List<Task>();
+
+    //    foreach (var ipToScan in IPsToScan)
+    //    {
+    //        await semaphore.WaitAsync(); // ✅ Wartet, bis ein neuer Slot frei ist
+    //        tasks.Add(Task.Run(async () =>
+    //        {
+    //            try
+    //            {
+    //                int currentValue = Interlocked.Increment(ref current);
+
+    //                // 🔹 Sicherstellen, dass UI-Updates nicht blockieren
+    //                await Application.Current.Dispatcher.InvokeAsync(() =>
+    //                {
+    //                    ProgressUpdated?.Invoke(current, responded, total);
+    //                });
+
+    //                await ScanIPAsync(ipToScan, services, extraPorts);
+    //            }
+    //            catch (Exception ex)
+    //            {
+    //                Console.WriteLine($"⚠️ Fehler beim Scannen von {ipToScan.IPorHostname}: {ex.Message}");
+    //            }
+    //            finally
+    //            {
+    //                semaphore.Release(); // ✅ Stellt sicher, dass das Semaphore freigegeben wird
+    //            }
+    //        }));
+    //    }
+
+    //    // ✅ Prüft regelmäßig den Fortschritt, um Hänger zu vermeiden
+    //    while (tasks.Any())
+    //    {
+    //        Task finishedTask = await Task.WhenAny(tasks);
+    //        tasks.Remove(finishedTask);
+    //    }
+
+    //    // ✅ Stellt sicher, dass das Event ausgelöst wird, selbst wenn einige Tasks fehlschlagen
+    //    await Application.Current.Dispatcher.InvokeAsync(() =>
+    //    {
+    //        ServiceScanFinished?.Invoke();
+    //    });
+    //}
 
 
 
@@ -362,7 +362,12 @@ public class ScanningMethod_Services
             // Parallel ausführen und warten
             await Task.WhenAll(tasks);
 
-            ipToScan.Services.Services.Add(serviceResult);
+            //ipToScan.Services.Services.Add(serviceResult);
+            lock (ipToScan.Services.Services)
+            {
+                if (!ipToScan.Services.Services.Contains(serviceResult))
+                    ipToScan.Services.Services.Add(serviceResult);
+            }
         }
 
         if (ipToScan.Services.Services.Count > 0)
@@ -930,7 +935,7 @@ public class ScanningMethod_Services
     private async Task<List<int>> GetMSSQLDynamicPortsAsync(string serverIP)
     {
         const int MaxRetries = 3; // 🔄 Anzahl der Wiederholungen
-        const int TimeoutMilliseconds = 3000; // ⏳ Timeout pro Versuch (3 Sekunden)
+        const int TimeoutMilliseconds = 2000; // ⏳ Timeout pro Versuch (3 Sekunden)
         var foundPorts = new List<int>();
 
         using (UdpClient udpClient = new UdpClient())
@@ -992,6 +997,78 @@ public class ScanningMethod_Services
 
 
 
+    //private async Task<PortResult> CheckWebServicePortAsync(string ipAddress, int port)
+    //{
+    //    PortResult portResult = new PortResult { Port = port, PortLog = "" };
+
+    //    using (var tcpClient = new TcpClient())
+    //    {
+    //        try
+    //        {
+    //            var connectTask = tcpClient.ConnectAsync(ipAddress, port);
+    //            var delayTask = Task.Delay(2000); // Timeout nach 2 Sekunden
+
+    //            if (await Task.WhenAny(connectTask, delayTask) == connectTask)
+    //            {
+    //                portResult.Status = PortStatus.Open;
+
+    //                using (NetworkStream stream = tcpClient.GetStream())
+    //                {
+    //                    // HTTP-GET Anfrage simulieren
+    //                    byte[] requestBytes = Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: " + ipAddress + "\r\n\r\n");
+    //                    await stream.WriteAsync(requestBytes, 0, requestBytes.Length);
+
+    //                    // 📥 Antwort empfangen
+    //                    byte[] buffer = new byte[1024];
+
+    //                    try
+    //                    {
+    //                        int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
+
+    //                        if (bytesRead > 0)
+    //                        {
+    //                            string response = Encoding.ASCII.GetString(buffer, 0, bytesRead);
+    //                            portResult.PortLog += response;
+    //                            if (!string.IsNullOrEmpty(response))
+    //                                portResult.Status = PortStatus.IsRunning;
+    //                        }
+    //                    }
+    //                    catch (IOException ex)
+    //                    {
+    //                        portResult.Status = PortStatus.Closed;
+    //                        portResult.PortLog += "❌ Verbindung wurde vom Remotehost geschlossen: " + ex.Message;
+    //                    }
+    //                    catch (ObjectDisposedException)
+    //                    {
+    //                        portResult.Status = PortStatus.Closed;
+    //                        portResult.PortLog += "⚠️ Die Verbindung wurde unerwartet beendet.";
+    //                    }
+    //                }
+    //            }
+    //            else
+    //            {
+    //                portResult.Status = PortStatus.NoResponse;
+    //            }
+    //        }
+    //        catch (SocketException ex)
+    //        {
+    //            switch (ex.SocketErrorCode)
+    //            {
+    //                case SocketError.ConnectionRefused:
+    //                    portResult.Status = PortStatus.Closed;
+    //                    break;
+    //                case SocketError.TimedOut:
+    //                    portResult.Status = PortStatus.Filtered;
+    //                    break;
+    //                default:
+    //                    portResult.Status = PortStatus.UnknownResponse;
+    //                    break;
+    //            }
+    //        }
+    //    }
+    //    return portResult;
+    //}
+
     private async Task<PortResult> CheckWebServicePortAsync(string ipAddress, int port)
     {
         PortResult portResult = new PortResult { Port = port, PortLog = "" };
@@ -1000,49 +1077,55 @@ public class ScanningMethod_Services
         {
             try
             {
+                // 🔹 Versuche, eine Verbindung herzustellen
                 var connectTask = tcpClient.ConnectAsync(ipAddress, port);
                 var delayTask = Task.Delay(2000); // Timeout nach 2 Sekunden
 
-                if (await Task.WhenAny(connectTask, delayTask) == connectTask)
+                if (await Task.WhenAny(connectTask, delayTask) != connectTask)
                 {
-                    portResult.Status = PortStatus.Open;
+                    // ❌ Verbindung hat zu lange gedauert → Port ist gefiltert
+                    portResult.Status = PortStatus.Filtered;
+                    return portResult;
+                }
 
-                    using (NetworkStream stream = tcpClient.GetStream())
+                if (!tcpClient.Connected)
+                {
+                    // ❌ Verbindung fehlgeschlagen
+                    portResult.Status = PortStatus.NoResponse;
+                    return portResult;
+                }
+
+                // ✅ Verbindung erfolgreich → Stream verwenden
+                using (NetworkStream stream = tcpClient.GetStream())
+                {
+                    byte[] requestBytes = Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: " + ipAddress + "\r\n\r\n");
+                    await stream.WriteAsync(requestBytes, 0, requestBytes.Length);
+
+                    // 📥 Antwort empfangen
+                    byte[] buffer = new byte[1024];
+
+                    try
                     {
-                        // HTTP-GET Anfrage simulieren
-                        byte[] requestBytes = Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: " + ipAddress + "\r\n\r\n");
-                        await stream.WriteAsync(requestBytes, 0, requestBytes.Length);
-
-                        // 📥 Antwort empfangen
-                        byte[] buffer = new byte[1024];
-
-                        try
+                        int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
+                        if (bytesRead > 0)
                         {
-                            int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
+                            string response = Encoding.ASCII.GetString(buffer, 0, bytesRead);
+                            portResult.PortLog += response;
 
-                            if (bytesRead > 0)
-                            {
-                                string response = Encoding.ASCII.GetString(buffer, 0, bytesRead);
-                                portResult.PortLog += response;
-                                if (!string.IsNullOrEmpty(response))
-                                    portResult.Status = PortStatus.IsRunning;
-                            }
-                        }
-                        catch (IOException ex)
-                        {
-                            portResult.Status = PortStatus.Closed;
-                            portResult.PortLog += "❌ Verbindung wurde vom Remotehost geschlossen: " + ex.Message;
-                        }
-                        catch (ObjectDisposedException)
-                        {
-                            portResult.Status = PortStatus.Closed;
-                            portResult.PortLog += "⚠️ Die Verbindung wurde unerwartet beendet.";
+                            if (!string.IsNullOrEmpty(response))
+                                portResult.Status = PortStatus.IsRunning;
                         }
                     }
-                }
-                else
-                {
-                    portResult.Status = PortStatus.NoResponse;
+                    catch (IOException ex)
+                    {
+                        portResult.Status = PortStatus.Closed;
+                        portResult.PortLog += "❌ Verbindung wurde vom Remotehost geschlossen: " + ex.Message;
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                        portResult.Status = PortStatus.Closed;
+                        portResult.PortLog += "⚠️ Die Verbindung wurde unerwartet beendet.";
+                    }
                 }
             }
             catch (SocketException ex)
@@ -1069,53 +1152,132 @@ public class ScanningMethod_Services
 
 
 
-    static async Task<PortResult> SendTcpDnsQuery(string dnsServer, byte[] query, int Port )
-    {
-        PortResult portResult = new PortResult();
-        portResult.Status = PortStatus.NoResponse;
-        portResult.Port = Port;
 
-        for (int i = 1; i <= 3; i++) // Maximal 3 Wiederholungen
+
+
+
+
+    //static async Task<PortResult> SendTcpDnsQuery(string dnsServer, byte[] query, int Port )
+    //{
+    //    PortResult portResult = new PortResult();
+    //    portResult.Status = PortStatus.NoResponse;
+    //    portResult.Port = Port;
+
+    //    for (int i = 1; i <= 3; i++) // Maximal 3 Wiederholungen
+    //    {
+    //        try
+    //        {
+    //            using TcpClient client = new TcpClient();
+    //            await client.ConnectAsync(dnsServer, portResult.Port);
+
+    //            portResult.Status = PortStatus.Open;
+
+    //            using NetworkStream stream = client.GetStream();
+
+    //            // Füge 2-Byte-Längenfeld vor die Anfrage (TCP benötigt dies)
+    //            byte[] tcpQuery = new byte[query.Length + 2];
+    //            tcpQuery[0] = (byte)(query.Length >> 8);
+    //            tcpQuery[1] = (byte)(query.Length & 0xFF);
+    //            Buffer.BlockCopy(query, 0, tcpQuery, 2, query.Length);
+
+    //            // Senden der DNS-Anfrage
+    //            await stream.WriteAsync(tcpQuery, 0, tcpQuery.Length);
+    //            //Console.WriteLine($"📡 DNS-Anfrage gesendet ({query.Length} Bytes)");
+
+    //            // Antwort empfangen (Längenfeld zuerst lesen)
+    //            byte[] lengthBuffer = new byte[2];
+    //            await stream.ReadAsync(lengthBuffer, 0, 2);
+    //            int responseLength = (lengthBuffer[0] << 8) | lengthBuffer[1];
+
+    //            // Antwortdaten lesen
+    //            byte[] responseBuffer = new byte[responseLength];
+    //            await stream.ReadAsync(responseBuffer, 0, responseLength);
+
+    //            portResult.Status = PortStatus.IsRunning;
+    //            portResult.PortLog = Encoding.ASCII.GetString(responseBuffer);
+
+    //            return portResult; // Gib die verarbeitete Antwort zurück
+    //        }
+    //        catch (Exception ex)
+    //        {
+    //            //Console.WriteLine($"⚠️ Versuch {i}: Fehler beim DNS-Request - {ex.Message}");
+    //        }
+
+    //        await Task.Delay(500); // Warte 1 Sekunde vor nächstem Versuch
+    //    }
+
+    //    return portResult; // Keine Antwort nach 3 Versuchen
+    //}
+
+    static async Task<PortResult> SendTcpDnsQuery(string dnsServer, byte[] query, int port)
+    {
+        PortResult portResult = new PortResult { Port = port, Status = PortStatus.NoResponse };
+
+        for (int attempt = 1; attempt <= 3; attempt++) // Maximal 3 Wiederholungen
         {
             try
             {
                 using TcpClient client = new TcpClient();
-                await client.ConnectAsync(dnsServer, portResult.Port);
+                var connectTask = client.ConnectAsync(dnsServer, port);
+                var timeoutTask = Task.Delay(2000); // 2 Sekunden Timeout für Verbindung
+
+                if (await Task.WhenAny(connectTask, timeoutTask) != connectTask)
+                {
+                    portResult.Status = PortStatus.Filtered; // Verbindung zu lange → Port gefiltert
+                    return portResult;
+                }
+
+                if (!client.Connected)
+                {
+                    portResult.Status = PortStatus.NoResponse; // Verbindung nicht erfolgreich
+                    return portResult;
+                }
 
                 portResult.Status = PortStatus.Open;
-
                 using NetworkStream stream = client.GetStream();
 
-                // Füge 2-Byte-Längenfeld vor die Anfrage (TCP benötigt dies)
+                // DNS-Anfrage mit Längenpräfix
                 byte[] tcpQuery = new byte[query.Length + 2];
                 tcpQuery[0] = (byte)(query.Length >> 8);
                 tcpQuery[1] = (byte)(query.Length & 0xFF);
                 Buffer.BlockCopy(query, 0, tcpQuery, 2, query.Length);
 
-                // Senden der DNS-Anfrage
                 await stream.WriteAsync(tcpQuery, 0, tcpQuery.Length);
-                //Console.WriteLine($"📡 DNS-Anfrage gesendet ({query.Length} Bytes)");
 
-                // Antwort empfangen (Längenfeld zuerst lesen)
+                // Antwort-Längenfeld zuerst lesen (mit Timeout)
                 byte[] lengthBuffer = new byte[2];
-                await stream.ReadAsync(lengthBuffer, 0, 2);
+                var cts = new CancellationTokenSource(2000); // Antwort-Timeout (2s)
+                int lengthRead = await stream.ReadAsync(lengthBuffer, 0, 2, cts.Token);
+
+                if (lengthRead < 2)
+                {
+                    portResult.Status = PortStatus.NoResponse;
+                    continue; // Erneut versuchen
+                }
+
                 int responseLength = (lengthBuffer[0] << 8) | lengthBuffer[1];
 
-                // Antwortdaten lesen
+                // Antwortdaten lesen (mit Timeout)
                 byte[] responseBuffer = new byte[responseLength];
-                await stream.ReadAsync(responseBuffer, 0, responseLength);
+                int bytesRead = await stream.ReadAsync(responseBuffer, 0, responseLength, cts.Token);
 
-                portResult.Status = PortStatus.IsRunning;
-                portResult.PortLog = Encoding.ASCII.GetString(responseBuffer);
-
-                return portResult; // Gib die verarbeitete Antwort zurück
+                if (bytesRead > 0)
+                {
+                    portResult.Status = PortStatus.IsRunning;
+                    portResult.PortLog = Encoding.ASCII.GetString(responseBuffer);
+                    return portResult; // Erfolgreich!
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                portResult.Status = PortStatus.NoResponse;
             }
             catch (Exception ex)
             {
-                //Console.WriteLine($"⚠️ Versuch {i}: Fehler beim DNS-Request - {ex.Message}");
+                //Console.WriteLine($"⚠️ Versuch {attempt}: Fehler beim DNS-Request - {ex.Message}");
             }
 
-            await Task.Delay(500); // Warte 1 Sekunde vor nächstem Versuch
+            await Task.Delay(200); // Kürzere Pause vor nächstem Versuch
         }
 
         return portResult; // Keine Antwort nach 3 Versuchen
@@ -1125,37 +1287,93 @@ public class ScanningMethod_Services
 
 
 
-    static async Task<PortResult> SendUdpDnsQuery(string dnsServer, byte[] query, int Port)
+
+
+    //static async Task<PortResult> SendUdpDnsQuery(string dnsServer, byte[] query, int Port)
+    //{
+    //    PortResult portResult = new PortResult();
+    //    portResult.Status = PortStatus.NoResponse;
+    //    portResult.Port = Port;
+
+    //    using UdpClient udpClient = new UdpClient();
+    //    udpClient.Connect(dnsServer, portResult.Port);
+
+    //    for (int i = 1; i <= 3; i++) // Maximal 3 Wiederholungen
+    //    {
+    //        //Console.WriteLine($"🔄 Versuch {i}: Sende DNS-Anfrage an {dnsServer}...");
+    //        await udpClient.SendAsync(query, query.Length);
+
+    //        var receiveTask = udpClient.ReceiveAsync();
+    //        if (await Task.WhenAny(receiveTask, Task.Delay(2000)) == receiveTask)
+    //        {
+    //            portResult.Status = PortStatus.IsRunning;
+    //            portResult.PortLog = Encoding.ASCII.GetString(receiveTask.Result.Buffer);
+    //            return portResult;
+    //        }
+    //        else
+    //        {
+    //            //Console.WriteLine("❌ Keine Antwort vom DNS-Server.");
+    //        }
+
+    //        if (i < 3) await Task.Delay(500); // Warte 1 Sekunde vor dem nächsten Versuch
+    //    }
+
+    //    return portResult; // Falls nach 3 Versuchen keine Antwort kam
+    //}
+
+    static async Task<PortResult> SendUdpDnsQuery(string dnsServer, byte[] query, int port)
     {
-        PortResult portResult = new PortResult();
-        portResult.Status = PortStatus.NoResponse;
-        portResult.Port = Port;
+        PortResult portResult = new PortResult { Port = port, Status = PortStatus.NoResponse };
 
         using UdpClient udpClient = new UdpClient();
-        udpClient.Connect(dnsServer, portResult.Port);
+        udpClient.Connect(dnsServer, port);
 
-        for (int i = 1; i <= 3; i++) // Maximal 3 Wiederholungen
+        for (int attempt = 1; attempt <= 3; attempt++) // Maximal 3 Wiederholungen
         {
-            //Console.WriteLine($"🔄 Versuch {i}: Sende DNS-Anfrage an {dnsServer}...");
-            await udpClient.SendAsync(query, query.Length);
-
-            var receiveTask = udpClient.ReceiveAsync();
-            if (await Task.WhenAny(receiveTask, Task.Delay(2000)) == receiveTask)
+            try
             {
-                portResult.Status = PortStatus.IsRunning;
-                portResult.PortLog = Encoding.ASCII.GetString(receiveTask.Result.Buffer);
-                return portResult;
+                await udpClient.SendAsync(query, query.Length);
+
+                using var cts = new CancellationTokenSource(1000); // 1 Sekunde Timeout
+                var receiveTask = udpClient.ReceiveAsync();
+
+                if (await Task.WhenAny(receiveTask, Task.Delay(1000, cts.Token)) == receiveTask)
+                {
+                    // ✅ Antwort erhalten
+                    portResult.Status = PortStatus.IsRunning;
+                    portResult.PortLog = Encoding.ASCII.GetString(receiveTask.Result.Buffer);
+                    return portResult;
+                }
             }
-            else
+            catch (OperationCanceledException)
             {
-                //Console.WriteLine("❌ Keine Antwort vom DNS-Server.");
+                portResult.Status = PortStatus.NoResponse;
+            }
+            catch (Exception ex)
+            {
+                //Console.WriteLine($"⚠️ Versuch {attempt}: Fehler beim DNS-Request - {ex.Message}");
             }
 
-            if (i < 3) await Task.Delay(500); // Warte 1 Sekunde vor dem nächsten Versuch
+            if (attempt < 3) await Task.Delay(200); // Schnellere Wiederholungen (200ms)
         }
 
         return portResult; // Falls nach 3 Versuchen keine Antwort kam
     }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
     static byte[] BuildDnsRequest(string domain)
