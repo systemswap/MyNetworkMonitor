@@ -17,7 +17,7 @@ namespace MyNetworkMonitor
     {
         public ScanningMethod_SSDP_UPNP()
         {
-            
+
         }
         AsyncTimer timer = new AsyncTimer();
         public event EventHandler<ScanTask_Finished_EventArgs>? SSDP_foundNewDevice;
@@ -29,7 +29,7 @@ namespace MyNetworkMonitor
         int responsed = 0;
         int total = 0;
 
-      
+
 
         public class SSDPDeviceInfo
         {

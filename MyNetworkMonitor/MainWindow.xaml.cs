@@ -1149,7 +1149,7 @@ namespace MyNetworkMonitor
                 counted_total_TCP_Port_Scans = _IPsForTCPPortScan.Count;
                 Status();
 
-                await Task.Run(() => scanningMethode_PortsTCP.ScanTCPPorts(_IPsForTCPPortScan, new TimeSpan(0, 0, 0, 0, _TimeOut)));
+                await Task.Run(() => scanningMethode_PortsTCP.ScanTCPPortsAsync(_IPsForTCPPortScan, new TimeSpan(0, 0, 0, 0, _TimeOut)));
             }
 
 

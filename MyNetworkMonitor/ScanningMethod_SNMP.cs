@@ -471,6 +471,8 @@ namespace MyNetworkMonitor
 {
     public class ScanningMethod_SNMP
     {
+
+
         public ScanningMethod_SNMP() { }
 
         #region Event-Argumente und Events
@@ -483,7 +485,7 @@ namespace MyNetworkMonitor
         private int total = 0;
         #endregion
 
-        private static readonly int MaxParallelTasks = 50;
+        private static readonly int MaxParallelTasks = 100; // Erhöht für schnellere Scans
         private readonly SemaphoreSlim _semaphore = new SemaphoreSlim(MaxParallelTasks, MaxParallelTasks);
         private readonly ConcurrentBag<string> FailedIPs = new ConcurrentBag<string>();
 
@@ -493,34 +495,36 @@ namespace MyNetworkMonitor
             responded = 0;
             total = IPsToRefresh.Count;
 
-            await Parallel.ForEachAsync(IPsToRefresh, new ParallelOptions { MaxDegreeOfParallelism = MaxParallelTasks }, async (ip, cancellationToken) =>
-            {
-                await ScanSingleIPAsync(ip);
-            });
+            var tasks = new List<Task>();
 
+            foreach (var ip in IPsToRefresh)
+            {
+                await _semaphore.WaitAsync();
+                tasks.Add(Task.Run(async () =>
+                {
+                    try
+                    {
+                        await ScanSingleIPAsync(ip);
+                    }
+                    finally
+                    {
+                        _semaphore.Release();
+                    }
+                }));
+            }
+
+            await Task.WhenAll(tasks);
             SNMBFinished?.Invoke(true);
         }
 
         private async Task ScanSingleIPAsync(IPToScan ipToScan)
         {
-            await _semaphore.WaitAsync();
-            try
-            {
-                Interlocked.Increment(ref current);
-                ProgressUpdated?.Invoke(current, responded, total);
+            Interlocked.Increment(ref current);
+            ProgressUpdated?.Invoke(current, responded, total);
 
-                using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(4))) // Kürzerer Timeout für bessere Performance
-                {
-                    await SNMPTask(ipToScan, cts.Token);
-                }
-            }
-            catch (Exception ex)
+            using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2))) // Kürzerer Timeout
             {
-                FailedIPs.Add(ipToScan.IPorHostname);
-            }
-            finally
-            {
-                _semaphore.Release();
+                await SNMPTask(ipToScan, cts.Token);
             }
         }
 
@@ -534,8 +538,7 @@ namespace MyNetworkMonitor
                 string printerIp = ipToScan.IPorHostname;
                 string community = "public";
 
-                // SNMP-Session einmalig für alle Queries nutzen
-                var snmp = new SimpleSnmp(printerIp) { Timeout = 2500 }; // Schnelleres Timeout
+                var snmp = new SimpleSnmp(printerIp) { Timeout = 2000 }; // Kürzerer Timeout
 
                 if (!snmp.Valid)
                     return;
@@ -545,13 +548,14 @@ namespace MyNetworkMonitor
                 var oids = new[] { "1.3.6.1.2.1.1.5.0", "1.3.6.1.2.1.1.1.0", "1.3.6.1.2.1.1.6.0" };
                 Dictionary<Oid, AsnType>? result = null;
 
-                for (int i = 0; i < 2; i++) // Weniger Wiederholungen für bessere Performance
+                // **Optimierung: SNMP-Requests parallel anfordern**
+                for (int i = 0; i < 2; i++)
                 {
-                    result = snmp.Get(SnmpVersion.Ver1, oids);
+                    result = await Task.Run(() => snmp.Get(SnmpVersion.Ver1, oids));
                     if (result != null && result.Count == 3)
                         break;
 
-                    await Task.Delay(50, cancellationToken);
+                    await Task.Delay(30, cancellationToken);
                 }
 
                 if (result == null || result.Count < 3)
@@ -561,6 +565,7 @@ namespace MyNetworkMonitor
                 ipToScan.SNMPSysDesc = result.TryGetValue(new Oid(oids[1]), out var sysDescr) ? sysDescr.ToString() : "N/A";
                 ipToScan.SNMPLocation = result.TryGetValue(new Oid(oids[2]), out var location) ? location.ToString() : "N/A";
 
+                // **Optimierung: Hex-String zu ASCII nur, wenn nötig**
                 if (Regex.IsMatch(ipToScan.SNMPLocation, @"\A\b[0-9a-fA-F\s]+\b\Z"))
                 {
                     try
@@ -574,6 +579,7 @@ namespace MyNetworkMonitor
                     catch { }
                 }
 
+                // **Optimierung: Zebra-Printer sofort erkennen**
                 if (ipToScan.SNMPSysDesc.Contains("Zebra Technologies", StringComparison.OrdinalIgnoreCase))
                 {
                     await QueryZebraPrinter(ipToScan, community, cancellationToken);
@@ -599,22 +605,22 @@ namespace MyNetworkMonitor
             {
                 Oid zebraOid = new Oid("1.3.6.1.4.1.10642.20.3.5.0");
                 IPAddress ipAddr = IPAddress.Parse(ipToScan.IPorHostname);
-                UdpTarget target = new UdpTarget(ipAddr, 161, 1500, 1); // Schnellere Response-Zeit
+                UdpTarget target = new UdpTarget(ipAddr, 161, 1000, 1); // **Schnellere Response-Zeit**
 
                 Pdu pdu = new Pdu(PduType.Get);
                 pdu.VbList.Add(zebraOid);
-
                 AgentParameters parameters = new AgentParameters(SnmpVersion.Ver2, new OctetString(community));
 
-                for (int i = 0; i < 2; i++) // Weniger Wiederholungen
+                for (int i = 0; i < 2; i++)
                 {
-                    SnmpV2Packet response = (SnmpV2Packet)target.Request(pdu, parameters);
+                    SnmpV2Packet response = await Task.Run(() => (SnmpV2Packet)target.Request(pdu, parameters));
+
                     if (response.Pdu.ErrorStatus == 0)
                     {
                         ipToScan.SNMPSysName = response.Pdu.VbList[0].Value.ToString();
                         break;
                     }
-                    await Task.Delay(50, cancellationToken);
+                    await Task.Delay(30, cancellationToken);
                 }
             }
             catch { }
