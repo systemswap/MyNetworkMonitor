@@ -4,8 +4,12 @@ using System.Data;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Runtime.InteropServices;
+using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
+using SnmpSharpNet;
 namespace MyNetworkMonitor
 {
     internal class ScanningMethod_ARP
@@ -17,9 +21,15 @@ namespace MyNetworkMonitor
 
         SupportMethods support = new SupportMethods();
 
+        public event Action<int, int, int> ProgressUpdated;
         public event EventHandler<ScanTask_Finished_EventArgs>? ARP_A_newDevice;
         public event EventHandler<ScanTask_Finished_EventArgs> ARP_Request_Task_Finished;
         public event EventHandler<Method_Finished_EventArgs> ARP_Request_Finished;
+
+
+        private int current = 0;
+        private int responded = 0;
+        private int total = 0;
 
 
         [DllImport("iphlpapi.dll", ExactSpelling = true)]
@@ -27,6 +37,13 @@ namespace MyNetworkMonitor
 
         public async Task SendARPRequestAsync(List<IPToScan> ipsToRefresh)
         {
+
+            List<IPToScan> filtered = GetIPsInSameVLAN(ipsToRefresh);
+
+            total = filtered.Count;
+            ProgressUpdated?.Invoke(current, responded, total);
+
+
             //var tasks = new List<Task>();
 
             //Parallel.ForEach(ipsToRefresh, ip =>
@@ -40,17 +57,18 @@ namespace MyNetworkMonitor
 
             var tasks = new List<Task>();
 
-            foreach (var ip in ipsToRefresh.Where(ip => !string.IsNullOrEmpty(ip.IPorHostname)))
+            //foreach (var ip in ipsToRefresh.Where(ip => !string.IsNullOrEmpty(ip.IPorHostname)))
+            foreach (var ip in filtered.Where(ip => !string.IsNullOrEmpty(ip.IPorHostname)))
             {
                 tasks.Add(ArpRequestTask(ip));
-                
+
                 await Task.Delay(20);
             }
 
             await Task.WhenAll(tasks);
 
             // mit ? prüft man ob das event im hauptthread auch angelegt wurde mit +=
-            ARP_Request_Finished?.Invoke(this, new Method_Finished_EventArgs());          
+            ARP_Request_Finished?.Invoke(this, new Method_Finished_EventArgs());
         }
 
         private async Task ArpRequestTask(IPToScan ipToScan)
@@ -249,6 +267,155 @@ namespace MyNetworkMonitor
                     p.Close();
                 }
             }
+            return true;
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        public static List<IPToScan> GetIPsInSameVLAN(List<IPToScan> ipsToRefresh)
+        {
+            var knownIps = GetLocalArpTable();      // 1️⃣ ARP-Tabelle abrufen
+            string gateway = GetDefaultGateway();   // 2️⃣ Standard-Gateway bestimmen
+            var routingTable = GetRoutingTable();   // 3️⃣ Routing-Tabelle abrufen
+            string subnetMask = GetSubnetMaskViaSnmp(gateway); // 4️⃣ SNMP-Subnetzmaske abrufen
+
+            return ipsToRefresh.Where(ip =>
+                knownIps.Contains(ip.IPorHostname) || // Ist IP in ARP-Tabelle?
+                (gateway != null && ip.IPorHostname.StartsWith(gateway.Substring(0, gateway.LastIndexOf('.')))) || // Gehört IP zum Gateway-Netz?
+                routingTable.Any(route => ip.IPorHostname.StartsWith(route.Substring(0, route.LastIndexOf('.')))) || // Gehört IP zu bekannten Routen?
+                (subnetMask != "255.255.255.255" && IsIpInSubnet(ip.IPorHostname, gateway, subnetMask)) // Falls SNMP-Subnetzmaske sinnvoll ist
+            ).ToList();
+        }
+
+        private static List<string> GetLocalArpTable()
+        {
+            var ipList = new List<string>();
+            var process = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = "arp",
+                    Arguments = "-a",
+                    RedirectStandardOutput = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                }
+            };
+
+            process.Start();
+            string output = process.StandardOutput.ReadToEnd();
+            process.WaitForExit();
+
+            var matches = Regex.Matches(output, @"(\d+\.\d+\.\d+\.\d+)\s+");
+            foreach (Match match in matches)
+            {
+                ipList.Add(match.Groups[1].Value);
+            }
+
+            return ipList;
+        }
+
+        private static string GetDefaultGateway()
+        {
+            return NetworkInterface.GetAllNetworkInterfaces()
+                .Where(n => n.OperationalStatus == OperationalStatus.Up)
+                .SelectMany(n => n.GetIPProperties().GatewayAddresses)
+                .Select(g => g.Address.ToString())
+                .FirstOrDefault();
+        }
+
+        private static List<string> GetRoutingTable()
+        {
+            var process = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = "route",
+                    Arguments = "print",
+                    RedirectStandardOutput = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                }
+            };
+
+            process.Start();
+            string output = process.StandardOutput.ReadToEnd();
+            process.WaitForExit();
+
+            var matches = Regex.Matches(output, @"(\d+\.\d+\.\d+\.\d+)\s+255");
+            return matches.Cast<Match>().Select(m => m.Groups[1].Value).ToList();
+        }
+
+        private static string GetSubnetMaskViaSnmp(string gatewayIp, string community = "public")
+        {
+            if (string.IsNullOrEmpty(gatewayIp)) return "255.255.255.255"; // Fallback
+
+            try
+            {
+                SimpleSnmp snmp = new SimpleSnmp(gatewayIp) { Timeout = 2000 };
+
+                // SNMP OID für Subnetzmaske
+                var result = snmp.Walk(SnmpVersion.Ver2, "1.3.6.1.2.1.4.20.1.3");
+
+                if (result == null || result.Count == 0)
+                {
+                    Console.WriteLine("❌ Keine SNMP-Subnetzmaske erhalten.");
+                    return "255.255.255.255";
+                }
+
+                string localIp = GetLocalIPAddress();
+                foreach (var kvp in result)
+                {
+                    if (kvp.Key.ToString().EndsWith("." + localIp))
+                    {
+                        Console.WriteLine($"✅ SNMP-Subnetzmaske gefunden: {kvp.Value}");
+                        return kvp.Value.ToString();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Fehler bei der SNMP-Abfrage: {ex.Message}");
+            }
+
+            return "255.255.255.255"; // Falls keine brauchbare Subnetzmaske gefunden wird
+        }
+
+        private static string GetLocalIPAddress()
+        {
+            var host = Dns.GetHostEntry(Dns.GetHostName());
+            return host.AddressList.FirstOrDefault(ip => ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)?.ToString();
+        }
+
+        private static bool IsIpInSubnet(string ipAddress, string networkIp, string subnetMask)
+        {
+            var ip = IPAddress.Parse(ipAddress).GetAddressBytes();
+            var network = IPAddress.Parse(networkIp).GetAddressBytes();
+            var mask = IPAddress.Parse(subnetMask).GetAddressBytes();
+
+            for (int i = 0; i < 4; i++)
+            {
+                if ((ip[i] & mask[i]) != (network[i] & mask[i]))
+                {
+                    return false;
+                }
+            }
+
             return true;
         }
     }
