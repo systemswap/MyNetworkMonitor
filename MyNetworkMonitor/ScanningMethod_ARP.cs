@@ -27,16 +27,30 @@ namespace MyNetworkMonitor
 
         public async Task SendARPRequestAsync(List<IPToScan> ipsToRefresh)
         {
+            //var tasks = new List<Task>();
+
+            //Parallel.ForEach(ipsToRefresh, ip =>
+            //{
+            //    if (!string.IsNullOrEmpty(ip.IPorHostname))
+            //    {
+            //        var task = ArpRequestTask(ip);
+            //        if (task != null) tasks.Add(task);
+            //    }
+            //});
+
             var tasks = new List<Task>();
 
-            Parallel.ForEach(ipsToRefresh, ip =>
+            foreach (var ip in ipsToRefresh.Where(ip => !string.IsNullOrEmpty(ip.IPorHostname)))
             {
-                if (!string.IsNullOrEmpty(ip.IPorHostname))
-                {
-                    var task = ArpRequestTask(ip);
-                    if (task != null) tasks.Add(task);
-                }
-            });
+                tasks.Add(ArpRequestTask(ip));
+                
+                await Task.Delay(20);
+            }
+
+            await Task.WhenAll(tasks);
+
+            ARP_Request_Finished?.Invoke(this, new Method_Finished_EventArgs());
+
             await Task.WhenAll(tasks.Where(t => t != null));
 
             if (ARP_Request_Finished != null)
