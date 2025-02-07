@@ -89,8 +89,8 @@ public class ScanningMethod_Services
     bool scanDHCP = true;
     List<string> DHCP_Server_IPs = new List<string>();
 
-    private const int MaxParallelIPs = 10;
-    private const int Timeout = 3000; // 3 Sekunden Timeout pro Dienst
+    private const int MaxParallelIPs = 30;
+    private const int Timeout = 1000; // 3 Sekunden Timeout pro Dienst
     private const int RetryCount = 3;
 
     public event Action<IPToScan> ServiceIPScanFinished;
@@ -329,7 +329,7 @@ public class ScanningMethod_Services
     //  }
 
 
-    
+
 
 
     private async Task ScanIPAsync(IPToScan ipToScan, List<ServiceType> services, Dictionary<ServiceType, List<int>> extraPorts)
@@ -408,6 +408,9 @@ public class ScanningMethod_Services
 
                     break;
                     case ServiceType.DHCP:
+
+                    portResult.Port = 67;
+
                     if (scanDHCP)
                     {
                         scanDHCP = false;
@@ -415,13 +418,11 @@ public class ScanningMethod_Services
                     }
 
                     if (DHCP_Server_IPs.Contains(ipAddress))
-                    {
-                        portResult.Port = 67;
+                    {                        
                         portResult.Status = PortStatus.IsRunning;
                     }
                     else
                     {
-                        portResult.Port = 67;
                         portResult.Status = PortStatus.NoResponse;
                     }
                     break;
