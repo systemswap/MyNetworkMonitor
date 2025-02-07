@@ -49,14 +49,8 @@ namespace MyNetworkMonitor
 
             await Task.WhenAll(tasks);
 
-            ARP_Request_Finished?.Invoke(this, new Method_Finished_EventArgs());
-
-            await Task.WhenAll(tasks.Where(t => t != null));
-
-            if (ARP_Request_Finished != null)
-            {
-                ARP_Request_Finished(this, new Method_Finished_EventArgs());
-            }
+            // mit ? prüft man ob das event im hauptthread auch angelegt wurde mit +=
+            ARP_Request_Finished?.Invoke(this, new Method_Finished_EventArgs());          
         }
 
         private async Task ArpRequestTask(IPToScan ipToScan)
