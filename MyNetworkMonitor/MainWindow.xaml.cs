@@ -84,6 +84,7 @@ namespace MyNetworkMonitor
 
 
             scanningMethode_ARP = new ScanningMethod_ARP();
+            scanningMethode_ARP.ProgressUpdated += ScanningMethode_ARP_ProgressUpdated;
             scanningMethode_ARP.ARP_A_newDevice += ARP_A_newDevive_Finished;
             scanningMethode_ARP.ARP_Request_Task_Finished += ARP_Request_Task_Finished;
             scanningMethode_ARP.ARP_Request_Finished += ARP_Request_Finished;
@@ -206,6 +207,8 @@ namespace MyNetworkMonitor
 
             LoadLogo();
         }
+
+        
 
         private void LoadLogo()
         {
@@ -1728,11 +1731,19 @@ namespace MyNetworkMonitor
                 Status(); 
             });
         }
-       
 
-     
 
-     
+
+
+        private void ScanningMethode_ARP_ProgressUpdated(int arg1, int arg2, int arg3)
+        {
+            //throw new NotImplementedException();
+            Dispatcher.Invoke(() => 
+            {
+                counted_total_ARP_Requests = arg3;
+                Status();
+            });
+        }
 
 
         private void ARP_Request_Task_Finished(object? sender, ScanTask_Finished_EventArgs e)
