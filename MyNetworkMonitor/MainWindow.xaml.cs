@@ -41,8 +41,8 @@ namespace MyNetworkMonitor
     {
         public MainWindow()
         {
-            InitializeComponent();           
-
+            InitializeComponent();
+           
 
             mainWindow.Title += " - version: " + Assembly.GetExecutingAssembly().GetName().Version.ToString(); 
            
@@ -1944,37 +1944,81 @@ namespace MyNetworkMonitor
             sortedtable1.WriteXml(_portsToScanXML, XmlWriteMode.WriteSchema);
         }
 
-        private void tb_Filter_ALL_TextChanged(object sender, TextChangedEventArgs e)
-        {
-            if (tb_Filter_All.Text.Length > 0)
-            {
-                //MainForm_ModFolderTab_ClearModFilter_pictureBox.Visible = true;
-                string whereFilter = "1 = 1";
-                whereFilter += " and IP Like '%" + tb_Filter_All.Text + "%'";
-                whereFilter += " or InternalName Like '%" + tb_Filter_All.Text + "%'";
-                whereFilter += " or Hostname Like '%" + tb_Filter_All.Text + "%'";
-                whereFilter += " or TCP_Ports Like '%" + tb_Filter_All.Text + "%'";
-                whereFilter += " or Mac Like '%" + tb_Filter_All.Text + "%'";
-                whereFilter += " or Vendor Like '%" + tb_Filter_All.Text + "%'";
-                dv_resultTable.RowFilter = string.Format(whereFilter);
-            }
-            else
-            {
-                dv_resultTable.RowFilter = string.Format("IP Like '%*%'");
-                //MainForm_ModFolderTab_ClearModFilter_pictureBox.Visible = false;
-            }
-        }
-
-
-
-
-
-
+       
 
 
         private async void Filter_ScanResults_Explicite()
         {
+            //// Lese UI-Daten vorab aus (UI-Thread)
+            //string ipFilter = tb_Filter_IP.Text.Trim();
+            //string internalName = tb_Filter_InternalName.Text.Trim();
+            //string hostName = tb_Filter_HostName.Text.Trim();
+            //string tcpPort = tb_Filter_TCPPort.Text.Trim();
+            //string mac = tb_Filter_Mac.Text.Trim();
+            //string vendor = tb_Filter_Vendor.Text.Trim();
+            //bool isIPCamChecked = chk_Filter_IsIPCam.IsChecked ?? false;
+
+            //await Task.Run(() =>
+            //{
+            //    // StringBuilder für bessere Performance
+            //    StringBuilder whereFilter = new StringBuilder(200);
+            //    whereFilter.Append("1 = 1");
+
+            //    // IP-Filter mit Wildcard-Handling
+            //    if (!string.IsNullOrEmpty(ipFilter))
+            //    {
+            //        if (ipFilter.Contains("*"))
+            //            ipFilter = ipFilter.Replace("*", "%"); // '*' durch '%' ersetzen
+            //        else
+            //            ipFilter = ipFilter; // Exakte Suche
+
+            //        whereFilter.AppendFormat(" and IP LIKE '{0}'", ipFilter);
+            //    }
+
+            //    if (!string.IsNullOrEmpty(internalName))
+            //        whereFilter.AppendFormat(" and InternalName LIKE '%{0}%'", internalName);
+
+            //    if (!string.IsNullOrEmpty(hostName))
+            //        whereFilter.AppendFormat(" and Hostname LIKE '%{0}%'", hostName);
+
+            //    if (!string.IsNullOrEmpty(tcpPort))
+            //        whereFilter.AppendFormat(" and TCP_Ports LIKE '%{0}%'", tcpPort);
+
+            //    if (!string.IsNullOrEmpty(mac))
+            //        whereFilter.AppendFormat(" and Mac LIKE '%{0}%'", mac);
+
+            //    if (!string.IsNullOrEmpty(vendor))
+            //        whereFilter.AppendFormat(" and Vendor LIKE '%{0}%'", vendor);
+
+            //    if (isIPCamChecked)
+            //        whereFilter.Append(" and IsIPCam is not null");
+
+            //    // Falls keine Filterbedingungen gesetzt sind, Filter zurücksetzen
+            //    string finalFilter = whereFilter.ToString();
+            //    if (finalFilter == "1 = 1")
+            //        finalFilter = "";
+
+            //    // Prüfen, ob der Filter sich geändert hat (Performance-Optimierung)
+            //    if (dv_resultTable.RowFilter != finalFilter)
+            //    {
+            //        Dispatcher.Invoke(() =>
+            //        {
+            //            try
+            //            {
+            //                dv_resultTable.RowFilter = finalFilter;
+            //            }
+            //            catch (Exception ex)
+            //            {
+            //                //MessageBox.Show(ex.Message);
+            //            }
+            //        });
+            //    }
+            //});
+
+
+
             // Lese UI-Daten vorab aus (UI-Thread)
+            string allFilter = tb_Filter_All.Text.Trim();
             string ipFilter = tb_Filter_IP.Text.Trim();
             string internalName = tb_Filter_InternalName.Text.Trim();
             string hostName = tb_Filter_HostName.Text.Trim();
@@ -1989,14 +2033,38 @@ namespace MyNetworkMonitor
                 StringBuilder whereFilter = new StringBuilder(200);
                 whereFilter.Append("1 = 1");
 
-                // IP-Filter mit Wildcard-Handling
+
+                if (!string.IsNullOrEmpty(allFilter))
+                {
+                    if (allFilter.Contains("*"))
+                        allFilter = allFilter.Replace("*", "%"); // '*' durch '%' ersetzen
+
+                    List<string> columnConditions = new List<string>();
+
+                    foreach (DataColumn column in dv_resultTable.Table.Columns)
+                    {
+                        // **Nur Spalten mit string-Datentyp filtern**
+                        if (column.DataType == typeof(string))
+                        {
+                            //if (allFilter.Contains("%")) // Wildcard → LIKE-Suche
+                            //    columnConditions.Add($"{column.ColumnName} LIKE '{allFilter}'");
+                            //else // Exakte Suche
+                            //    columnConditions.Add($"{column.ColumnName} = '{allFilter}'");
+                            columnConditions.Add($"{column.ColumnName} LIKE '{allFilter}'");
+                        }
+                    }
+
+                    if (columnConditions.Count > 0)
+                    {
+                        whereFilter.Append(" AND (" + string.Join(" OR ", columnConditions) + ")");
+                    }
+                }
+
+                // **Spezifische Filter anwenden**
                 if (!string.IsNullOrEmpty(ipFilter))
                 {
                     if (ipFilter.Contains("*"))
-                        ipFilter = ipFilter.Replace("*", "%"); // '*' durch '%' ersetzen
-                    else
-                        ipFilter = ipFilter; // Exakte Suche
-
+                        ipFilter = ipFilter.Replace("*", "%");
                     whereFilter.AppendFormat(" and IP LIKE '{0}'", ipFilter);
                 }
 
@@ -2034,7 +2102,7 @@ namespace MyNetworkMonitor
                         }
                         catch (Exception ex)
                         {
-                            //MessageBox.Show(ex.Message);
+                            // MessageBox.Show(ex.Message);
                         }
                     });
                 }
@@ -2875,5 +2943,7 @@ namespace MyNetworkMonitor
         {
             LoadServiceScanSettings();
         }
+
+        
     }
 }

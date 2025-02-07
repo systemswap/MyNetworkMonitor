@@ -553,7 +553,7 @@
                     <Label Grid.Column="5" Content="TCP Port" HorizontalAlignment="Left" Margin="10,-6,0,0" VerticalAlignment="Top" Height="23" Width="55"/>
                     <Label Grid.Column="6" Content="Mac" HorizontalAlignment="Left" Margin="10,-6,0,0" VerticalAlignment="Top" Height="23" Width="32"/>
                     <Label Grid.Column="7" Content="Vendor" HorizontalAlignment="Left" Margin="10,-6,0,0" VerticalAlignment="Top" Height="23" Width="48"/>
-                    <TextBox x:Name="tb_Filter_All" Grid.Column="1" HorizontalAlignment="Left" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Center" Width="129" TextChanged="tb_Filter_ALL_TextChanged" Height="17" VerticalContentAlignment="Center" Margin="10,0,0,0"/>
+                    <TextBox x:Name="tb_Filter_All" Grid.Column="1" HorizontalAlignment="Left" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Center" Width="129" TextChanged="Filter_ScanResults_Explicite" Height="17" VerticalContentAlignment="Center" Margin="10,0,0,0"/>
                     <TextBox x:Name="tb_Filter_IP" Grid.Column="2" HorizontalAlignment="Center" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Center" Width="104" TextChanged="Filter_ScanResults_Explicite" Height="17"/>
                     <TextBox x:Name="tb_Filter_HostName" Grid.Column="3" HorizontalAlignment="Center" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Center" Width="104" TextChanged="Filter_ScanResults_Explicite" Height="17"/>
                     <TextBox x:Name="tb_Filter_InternalName" Grid.Column="4" HorizontalAlignment="Center" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Center" Width="104" TextChanged="Filter_ScanResults_Explicite" Height="17"/>
