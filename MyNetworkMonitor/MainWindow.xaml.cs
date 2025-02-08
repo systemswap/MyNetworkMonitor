@@ -2968,8 +2968,10 @@ namespace MyNetworkMonitor
             LoadServiceScanSettings();
         }
 
-        private void ScanSelectedIPs_Click(object sender, RoutedEventArgs e)
+        private void ScanSelectedIPs_Click(object sender, RoutedEventArgs e)        
         {
+            _IPsToScan.Clear();
+
             // HashSet für eindeutige IP-Adressen
             HashSet<string> selectedIps = new HashSet<string>();
 
@@ -2985,8 +2987,15 @@ namespace MyNetworkMonitor
                 }
             }
 
+            foreach (string ip in selectedIps)
+            {
+                _IPsToScan.Add(new IPToScan { IPorHostname = ip });
+            }
+
+            DoWork(true);
+
             // Speichere die Liste der IP-Adressen im Tag des ContextMenus
-            contextMenu.Tag = selectedIps.ToList();
+            //contextMenu.Tag = selectedIps.ToList();
         }
        
     }
