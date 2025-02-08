@@ -406,6 +406,7 @@
                     <DataGrid.ContextMenu>
                         <ContextMenu x:Name="contextMenu">
                             <MenuItem Header="scan selected IPs" Click="ScanSelectedIPs_Click"/>
+                            <MenuItem Header="find port of one service (65536 Ports)" Click="SelectedIPFindServicePort_Click"/>
                         </ContextMenu>
                     </DataGrid.ContextMenu>
                     
