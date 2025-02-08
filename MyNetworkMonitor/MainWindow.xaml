@@ -403,7 +403,12 @@
                 </Grid.RowDefinitions>
 
                 <DataGrid x:Name="dgv_Results" Grid.Column="0" Margin="10,10,10,10" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" EnableRowVirtualization="True" Grid.Row="0" AutoGeneratingColumn="dgv_ScanResults_OnAutoGeneratingColumn" CanUserAddRows="False" Sorting="dgv_Results_Sorting" CellEditEnding="dgv_Results_CellEditEnding" LoadingRow="dgv_Results_LoadingRow" ScrollBar.Scroll ="dgv_Results_Scroll" PreviewKeyDown="dgv_Results_PreviewKeyDown">
-
+                    <DataGrid.ContextMenu>
+                        <ContextMenu x:Name="contextMenu">
+                            <MenuItem Header="scan selected IPs" Click="ScanSelectedIPs_Click"/>
+                        </ContextMenu>
+                    </DataGrid.ContextMenu>
+                    
 
 
                     <DataGrid.Resources>
