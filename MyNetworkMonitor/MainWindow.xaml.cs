@@ -2968,6 +2968,26 @@ namespace MyNetworkMonitor
             LoadServiceScanSettings();
         }
 
-        
+        private void ScanSelectedIPs_Click(object sender, RoutedEventArgs e)
+        {
+            // HashSet für eindeutige IP-Adressen
+            HashSet<string> selectedIps = new HashSet<string>();
+
+            foreach (var selectedCell in dgv_Results.SelectedCells)
+            {
+                if (selectedCell.Item is DataRowView rowView)
+                {
+                    string ipAddress = rowView["IP"].ToString(); // Spaltenname "IP" anpassen
+                    if (!string.IsNullOrWhiteSpace(ipAddress))
+                    {
+                        selectedIps.Add(ipAddress); // Automatisch Duplikate vermeiden
+                    }
+                }
+            }
+
+            // Speichere die Liste der IP-Adressen im Tag des ContextMenus
+            contextMenu.Tag = selectedIps.ToList();
+        }
+       
     }
 }
