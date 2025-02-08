@@ -397,7 +397,7 @@ public class ScanningMethod_Services
                 case ServiceType.DNS_TCP:
 
                     string dnsTCPServerIP = ipAddress; // Google Public DNS
-                    string domain = "gotme.com";
+                    string domain = "gotme.tcp.com";
 
                     byte[] dnsQuery = BuildDnsRequest(domain);
                     portResult = await SendTcpDnsQuery(dnsTCPServerIP, dnsQuery, port);
@@ -406,7 +406,7 @@ public class ScanningMethod_Services
                 case ServiceType.DNS_UDP:
 
                     string dnsUDPServerIP = ipAddress; // Google Public DNS
-                    string domain2 = "gotme.com";
+                    string domain2 = "gotme.udp.com";
 
                     byte[] dnsQuery2 = BuildDnsRequest(domain2);
                     portResult = await SendUdpDnsQuery(dnsUDPServerIP, dnsQuery2, port);
@@ -1321,12 +1321,15 @@ public class ScanningMethod_Services
     //    return portResult; // Falls nach 3 Versuchen keine Antwort kam
     //}
 
-    static async Task<PortResult> SendUdpDnsQuery(string dnsServer, byte[] query, int port)
+
+   
+    static async Task<PortResult> SendUdpDnsQuery(string dnsServer, byte[] query, int port = 53)
     {
         PortResult portResult = new PortResult { Port = port, Status = PortStatus.NoResponse };
 
         using UdpClient udpClient = new UdpClient();
-        udpClient.Connect(dnsServer, port);
+        udpClient.Connect(dnsServer, port);       
+
 
         for (int attempt = 1; attempt <= 3; attempt++) // Maximal 3 Wiederholungen
         {
@@ -1361,6 +1364,69 @@ public class ScanningMethod_Services
     }
 
 
+
+
+    static async Task<List<string>> SendMulticastUdpDnsQuery(byte[] query, int port = 53)
+    {
+        List<string> dnsServers = new List<string>();
+
+        using UdpClient udpClient = new UdpClient();
+        udpClient.EnableBroadcast = true;  // Broadcast aktivieren
+        IPEndPoint multicastEndpoint = new IPEndPoint(IPAddress.Broadcast, port); // Multicast auf Port 53
+
+        for (int attempt = 1; attempt <= 3; attempt++) // Maximal 3 Wiederholungen
+        {
+            try
+            {
+                // DNS-Anfrage senden
+                await udpClient.SendAsync(query, query.Length, multicastEndpoint);
+
+                using var cts = new CancellationTokenSource(1000); // 1 Sekunde Timeout
+                while (!cts.Token.IsCancellationRequested)
+                {
+                    var receiveTask = udpClient.ReceiveAsync();
+                    if (await Task.WhenAny(receiveTask, Task.Delay(1000, cts.Token)) == receiveTask)
+                    {
+                        byte[] response = receiveTask.Result.Buffer;
+
+                        // DNS-Antwort analysieren und IPv4-Adressen extrahieren
+                        int offset = 12; // DNS-Antwort beginnt nach dem 12-Byte-Header
+                        while (offset < response.Length)
+                        {
+                            // Suche nach IPv4-Adressen (Typ A, 0x00 0x01)
+                            int typeOffset = offset + 1;
+                            if (response[typeOffset] == 0x00 && response[typeOffset + 1] == 0x01) // Typ A (IPv4-Adresse)
+                            {
+                                int dataLength = (response[typeOffset + 8] << 8) | response[typeOffset + 9];
+                                if (dataLength == 4) // IPv4-Adressen sind immer 4 Bytes lang
+                                {
+                                    string ipAddress = string.Join(".", response.Skip(typeOffset + 10).Take(4));
+                                    if (!dnsServers.Contains(ipAddress))
+                                    {
+                                        dnsServers.Add(ipAddress);
+                                    }
+                                }
+                                offset += 10 + dataLength;
+                            }
+                            else
+                            {
+                                offset++;
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Fehlerbehandlung: Ignoriere Fehler und versuche es erneut
+                // Console.WriteLine($"⚠️ Versuch {attempt}: Fehler beim DNS-Request - {ex.Message}");
+            }
+
+            if (attempt < 3) await Task.Delay(200); // 200 ms Pause zwischen Wiederholungen
+        }
+
+        return dnsServers; // Falls nach 3 Versuchen keine Antwort kam
+    }
 
 
 
@@ -1543,17 +1609,17 @@ public class ScanningMethod_Services
             ServiceType.Anydesk => new byte[]
             {
                  0x16, 0x03, 0x01, 0x00, 0xb7, 0x01, 0x00, 0x00, 0xb3, 0x03, 0x03, 0xf9, 0x37, 0x7f, 0xaa, 0xd3,
-            0xa2, 0x95, 0x53, 0x76, 0xeb, 0xf1, 0x63, 0x7c, 0xa9, 0x23, 0x80, 0x4e, 0x48, 0x92, 0xc8, 0x90,
-            0x8d, 0x6c, 0x03, 0x4c, 0xc5, 0xe3, 0x83, 0x79, 0xec, 0xb3, 0x8b, 0x00, 0x00, 0x38, 0xc0, 0x2c,
-            0xc0, 0x30, 0x00, 0x9f, 0xcc, 0xa9, 0xcc, 0xa8, 0xcc, 0xaa, 0xc0, 0x2b, 0xc0, 0x2f, 0x00, 0x9e,
-            0xc0, 0x24, 0xc0, 0x28, 0x00, 0x6b, 0xc0, 0x23, 0xc0, 0x27, 0x00, 0x67, 0xc0, 0x0a, 0xc0, 0x14,
-            0x00, 0x39, 0xc0, 0x09, 0xc0, 0x13, 0x00, 0x33, 0x00, 0x9d, 0x00, 0x9c, 0x00, 0x3d, 0x00, 0x3c,
-            0x00, 0x35, 0x00, 0x2f, 0x00, 0xff, 0x01, 0x00, 0x00, 0x52, 0x00, 0x0b, 0x00, 0x04, 0x03, 0x00,
-            0x01, 0x02, 0x00, 0x0a, 0x00, 0x0c, 0x00, 0x0a, 0x00, 0x1d, 0x00, 0x17, 0x00, 0x1e, 0x00, 0x19,
-            0x00, 0x18, 0x00, 0x23, 0x00, 0x00, 0x00, 0x16, 0x00, 0x00, 0x00, 0x17, 0x00, 0x00, 0x00, 0x0d,
-            0x00, 0x2a, 0x00, 0x28, 0x04, 0x03, 0x05, 0x03, 0x06, 0x03, 0x08, 0x07, 0x08, 0x08, 0x08, 0x09,
-            0x08, 0x0a, 0x08, 0x0b, 0x08, 0x04, 0x08, 0x05, 0x08, 0x06, 0x04, 0x01, 0x05, 0x01, 0x06, 0x01,
-            0x03, 0x03, 0x03, 0x01, 0x03, 0x02, 0x04, 0x02, 0x05, 0x02, 0x06, 0x02
+                0xa2, 0x95, 0x53, 0x76, 0xeb, 0xf1, 0x63, 0x7c, 0xa9, 0x23, 0x80, 0x4e, 0x48, 0x92, 0xc8, 0x90,
+                0x8d, 0x6c, 0x03, 0x4c, 0xc5, 0xe3, 0x83, 0x79, 0xec, 0xb3, 0x8b, 0x00, 0x00, 0x38, 0xc0, 0x2c,
+                0xc0, 0x30, 0x00, 0x9f, 0xcc, 0xa9, 0xcc, 0xa8, 0xcc, 0xaa, 0xc0, 0x2b, 0xc0, 0x2f, 0x00, 0x9e,
+                0xc0, 0x24, 0xc0, 0x28, 0x00, 0x6b, 0xc0, 0x23, 0xc0, 0x27, 0x00, 0x67, 0xc0, 0x0a, 0xc0, 0x14,
+                0x00, 0x39, 0xc0, 0x09, 0xc0, 0x13, 0x00, 0x33, 0x00, 0x9d, 0x00, 0x9c, 0x00, 0x3d, 0x00, 0x3c,
+                0x00, 0x35, 0x00, 0x2f, 0x00, 0xff, 0x01, 0x00, 0x00, 0x52, 0x00, 0x0b, 0x00, 0x04, 0x03, 0x00,
+                0x01, 0x02, 0x00, 0x0a, 0x00, 0x0c, 0x00, 0x0a, 0x00, 0x1d, 0x00, 0x17, 0x00, 0x1e, 0x00, 0x19,
+                0x00, 0x18, 0x00, 0x23, 0x00, 0x00, 0x00, 0x16, 0x00, 0x00, 0x00, 0x17, 0x00, 0x00, 0x00, 0x0d,
+                0x00, 0x2a, 0x00, 0x28, 0x04, 0x03, 0x05, 0x03, 0x06, 0x03, 0x08, 0x07, 0x08, 0x08, 0x08, 0x09,
+                0x08, 0x0a, 0x08, 0x0b, 0x08, 0x04, 0x08, 0x05, 0x08, 0x06, 0x04, 0x01, 0x05, 0x01, 0x06, 0x01,
+                0x03, 0x03, 0x03, 0x01, 0x03, 0x02, 0x04, 0x02, 0x05, 0x02, 0x06, 0x02
             },
 
 
@@ -1637,12 +1703,3 @@ public class ScanningMethod_Services
         };
     }
 }
-
-
-
-
-
-
-
-
-
