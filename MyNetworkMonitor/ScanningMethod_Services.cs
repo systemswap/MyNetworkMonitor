@@ -16,6 +16,8 @@ using System.IO;
 using System.Collections.Concurrent;
 using System.Windows;
 using System.Printing;
+using System.Reflection.Metadata;
+using System.Diagnostics;
 
 
 public enum PortStatus
@@ -46,7 +48,7 @@ public enum ServiceType
     UltraVNC,
     BigFixRemote,
     Rustdesk,
-    Teamviewer,
+    TeamViewer,
     Anydesk,
 
     // Datenbanken
@@ -102,6 +104,12 @@ public class ScanningMethod_Services
     private int current = 0;
     private int responded = 0;
     private int total = 0;
+
+
+
+
+    public event Action<int, int, int> FindServicePortProgressUpdated;
+    public event Action<IPToScan> FindServicePortFinished;
 
     public async Task ScanIPsAsync(List<IPToScan> IPsToScan, List<ServiceType> services, Dictionary<ServiceType, List<int>> extraPorts = null)
     {
@@ -449,7 +457,7 @@ public class ScanningMethod_Services
                 case ServiceType.Rustdesk:
                     portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
                     break;
-                case ServiceType.Teamviewer:
+                case ServiceType.TeamViewer:
                     portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
                     break;
                 case ServiceType.Anydesk:
@@ -520,6 +528,185 @@ public class ScanningMethod_Services
     }
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public async Task<IPToScan> FindServicePortAsync(IPToScan ipToScan, ServiceType service)
+    {
+        current = 0;
+        responded = 0;
+        total = 65536;
+
+        ipToScan.UsedScanMethod = ScanMethod.Services;
+
+        ServiceResult serviceResult = new ServiceResult { Service = service };
+        ipToScan.Services.Services.Add(serviceResult);
+
+        PortResult defaultPortResult = new PortResult { Port = -1, Status = PortStatus.NoResponse };
+        ipToScan.Services.Services[0].Ports.Add(defaultPortResult);
+
+        var semaphore = new SemaphoreSlim(100);
+        var cts = new CancellationTokenSource(); // Abbruch-Token
+
+        List<int> ports = Enumerable.Range(0, 65536).ToList(); // Alle Ports (0 bis 65535)
+        ports.Clear();
+        ports.Add(7070); // UltraVNC-Port
+
+        foreach (int port in ports)
+        {
+            int currentValue = Interlocked.Increment(ref current);
+            FindServicePortProgressUpdated?.Invoke(current, responded, total);
+
+            try
+            {
+                await semaphore.WaitAsync(cts.Token); // Warten auf freien Slot
+            }
+            catch (OperationCanceledException)
+            {
+                break; // Abbruch bei Token-Auslösung
+            }
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    using TcpClient client = new TcpClient();
+                    var connectTask = client.ConnectAsync(IPAddress.Parse(ipToScan.IPorHostname), port);
+                    var delayTask = Task.Delay(1000); // Timeout auf 1 Sekunde
+
+                    if (await Task.WhenAny(connectTask, delayTask) == connectTask && client.Connected)
+                    {
+                        using NetworkStream stream = client.GetStream();
+                        await stream.WriteAsync(GetDetectionPacket(service), 0, GetDetectionPacket(service).Length);
+
+                        // 🛑 Direkte Paket-Sammlung im Code:
+                        using MemoryStream memoryStream = new MemoryStream();
+                        byte[] buffer = new byte[1024];
+                        DateTime startTime = DateTime.Now;
+
+                        while ((DateTime.Now - startTime).TotalMilliseconds < 2000) // 2 Sekunden Daten sammeln
+                        {
+                            if (stream.DataAvailable)
+                            {
+                                int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
+                                if (bytesRead > 0)
+                                {
+                                    memoryStream.Write(buffer, 0, bytesRead);
+                                    startTime = DateTime.Now; // Timeout zurücksetzen
+                                }
+                                else
+                                {
+                                    break; // Keine weiteren Daten verfügbar
+                                }
+                            }
+                            else
+                            {
+                                await Task.Delay(50); // Kurze Pause zur Entlastung der CPU
+                            }
+                        }
+
+                        // die anzeige des bytes in visual studio ist in dezimal, verarbeitet wird sie aber als hex, wenn der erste Hex wert 17 ist steht im 1. byte 23   
+                        byte[] response = memoryStream.ToArray(); // Gesamte gesammelte Antwort in ein Array konvertieren
+                        //zur überprüfung
+                        //Debug.WriteLine(BitConverter.ToString(response));
+                        string hexBytes = BitConverter.ToString(response);
+
+                        // **Service-Erkennung durchführen**
+                        if (response.Length > 0)
+                        {
+                            bool serviceMatched = IdentifyService(response, service);
+
+                            int responsedValue = Interlocked.Increment(ref responded);
+                            FindServicePortProgressUpdated?.Invoke(current, responded, total);
+
+                            if (serviceMatched)
+                            {
+                                lock (ipToScan.Services.Services[0].Ports)
+                                {
+                                    ipToScan.Services.Services[0].Ports[0].Status = PortStatus.IsRunning;
+                                    ipToScan.Services.Services[0].Ports[0].Port = port;
+                                }
+
+                                FindServicePortFinished?.Invoke(ipToScan);
+                                cts.Cancel(); // Abbruch, wenn der Service erkannt wurde
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Fehler beim Scannen von Port {port}: {ex.Message}");
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
+            });
+        }
+
+        await Task.WhenAll(Enumerable.Range(0, semaphore.CurrentCount).Select(_ => semaphore.WaitAsync()).ToArray());
+        return ipToScan;
+    }
+
+
+
+
+
+    private bool IdentifyService(byte[] response, ServiceType service)
+    {
+        bool serviceMatched = false;
+        string str_serviceResponse = Encoding.ASCII.GetString(response);
+       
+        // 🔍 UltraVNC-Erkennung        
+        if (service == ServiceType.UltraVNC)
+        {
+            //UlraVNC Header RFB als hex
+            byte[] ultraVncHeader = { 0x52, 0x46, 0x42 }; 
+
+            if (response.Take(ultraVncHeader.Length).SequenceEqual(ultraVncHeader))
+            {
+                serviceMatched = true;                
+            }
+        }
+
+        // 🔍 TeamViewer-Erkennung
+        if (service == ServiceType.TeamViewer)
+        {
+            byte[] teamViewerHeader1 = { 0x17, 0x24, 0x0A, 0x20 };  // Header 1
+            byte[] teamViewerHeader2 = { 0x11, 0x30, 0x36, 0x00 };  // Header 2
+
+            bool match1 = response.Take(4).SequenceEqual(teamViewerHeader1);
+            bool match2 = response.Skip(37).Take(4).SequenceEqual(teamViewerHeader2);
+            if (match1 && match2)
+            {
+                serviceMatched = true;
+            }
+        }
+
+        // 🔍 AnyDesk
+        if (service == ServiceType.Anydesk)
+        {
+            string tada2 = Encoding.ASCII.GetString(response);
+            if(tada2.ToLower().Contains("anydesk client")) serviceMatched = true;
+        }
+        return serviceMatched;
+    }
 
 
 
@@ -1434,7 +1621,7 @@ public class ScanningMethod_Services
             // 🖥️ Remote-Desktop & Fernwartung
             ServiceType.RDP => new List<int> { 3389 },  // Microsoft Remote Desktop
             ServiceType.UltraVNC => new List<int> { 5900, 5901, 5902, 5903 }, // VNC
-            ServiceType.Teamviewer => new List<int> { 5938 },  // Teamviewer
+            ServiceType.TeamViewer => new List<int> { 5938 },  // Teamviewer
             ServiceType.BigFixRemote => new List<int> { 888 },  // BigFix Remote
             ServiceType.Anydesk => new List<int> { 7070 },  // AnyDesk
             ServiceType.Rustdesk => new List<int> { 21115 },  // Rustdesk Remote
@@ -1517,7 +1704,7 @@ public class ScanningMethod_Services
             ServiceType.Rustdesk => new byte[] { 0x52, 0x44, 0x50 },
 
             ////Teamviewer 11-15
-            ServiceType.Teamviewer => new byte[]
+            ServiceType.TeamViewer => new byte[]
             {
                 0x17, 0x24, 0x0A, 0x20, 0x00, 0xE1, 0xBF, 0xE5,
                 0x2A, 0x88, 0x13, 0x80, 0x00, 0x48, 0x00, 0x80,
