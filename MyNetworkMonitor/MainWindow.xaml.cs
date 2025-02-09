@@ -78,6 +78,8 @@ namespace MyNetworkMonitor
             scanningMethod_SMB_VersionCheck.SMBScanFinished += ScanningMethod_SMBVersionCheck_SMB_Scan_Finished;
 
             scanningMethod_Services = new ScanningMethod_Services();
+            scanningMethod_Services.FindServicePortProgressUpdated += ScanningMethod_Services_FindServicePortProgressUpdated;
+            scanningMethod_Services.FindServicePortFinished += ScanningMethod_Services_FindServicePortFinished; ;
             scanningMethod_Services.ServiceIPScanFinished += ScanningMethod_Services_ServiceIPScanFinished;
             scanningMethod_Services.ProgressUpdated += ScanningMethod_Services_ProgressUpdated;
             scanningMethod_Services.ServiceScanFinished += ScanningMethod_Services_ServiceScanFinished;
@@ -208,7 +210,7 @@ namespace MyNetworkMonitor
             LoadLogo();
         }
 
-        
+       
 
         private void LoadLogo()
         {
@@ -1113,7 +1115,7 @@ namespace MyNetworkMonitor
                 // Remote Apps
                 if ((bool)chk_Services_RDP.IsChecked) services.Add(ServiceType.RDP);
                 if ((bool)chk_Services_UltraVNC.IsChecked) services.Add(ServiceType.UltraVNC);
-                if ((bool)chk_Services_TeamViewer.IsChecked) services.Add(ServiceType.Teamviewer);
+                if ((bool)chk_Services_TeamViewer.IsChecked) services.Add(ServiceType.TeamViewer);
                 if ((bool)chk_Services_BigFixRemote.IsChecked) services.Add(ServiceType.BigFixRemote);
                 if ((bool)chk_Services_AnyDesk.IsChecked) services.Add(ServiceType.Anydesk);
                 if ((bool)chk_Services_Rustdesk.IsChecked) services.Add(ServiceType.Rustdesk);
@@ -1132,7 +1134,7 @@ namespace MyNetworkMonitor
                 if ((bool)chk_Services_SiemensS7.IsChecked) services.Add(ServiceType.S7);
 
 
-                await scanningMethod_Services.ScanIPsAsync(Services_IPsToScan,services);
+                await scanningMethod_Services.ScanIPsAsync(Services_IPsToScan, services);
             }
            
 
@@ -1732,6 +1734,23 @@ namespace MyNetworkMonitor
             });
         }
 
+        private void ScanningMethod_Services_FindServicePortProgressUpdated(int arg1, int arg2, int arg3)
+        {
+            //throw new NotImplementedException();
+            Dispatcher.Invoke(() =>
+            {
+                lbl_ScanStatus.Content = "DeepScanedPorts: " + arg1.ToString() + " / " + arg2.ToString() + " / " + arg3.ToString();                
+            });
+        }
+
+        private void ScanningMethod_Services_FindServicePortFinished(IPToScan obj)
+        {
+            //throw new NotImplementedException();
+            Dispatcher.Invoke(() =>
+            {
+                InsertIPToScanResult(obj);
+            });
+        }
 
 
 
@@ -2998,7 +3017,7 @@ namespace MyNetworkMonitor
             //contextMenu.Tag = selectedIps.ToList();
         }
 
-        private void SelectedIPFindServicePort_Click(object sender, RoutedEventArgs e)
+        private async void SelectedIPFindServicePort_Click(object sender, RoutedEventArgs e)
         {
             _IPsToScan.Clear();
 
@@ -3016,9 +3035,77 @@ namespace MyNetworkMonitor
                     }
                 }
             }
-            
+
             _IPsToScan.Add(new IPToScan { IPorHostname = selectedIps.ToList()[0] });
-            
+
+            var additionalServicePorts = new Dictionary<ServiceType, List<int>>
+            {
+                { ServiceType.WebServices, Enumerable.Range(0, 65536).ToList() },
+                { ServiceType.FTP, Enumerable.Range(0, 65536).ToList() },
+                { ServiceType.SSH, Enumerable.Range(0, 65536).ToList() },
+                { ServiceType.RDP, Enumerable.Range(0, 65536).ToList() },
+
+                { ServiceType.UltraVNC, Enumerable.Range(0, 65536).ToList() },
+                { ServiceType.TeamViewer, Enumerable.Range(0, 65536).ToList() },
+                { ServiceType.BigFixRemote, Enumerable.Range(0, 65536).ToList() },
+                { ServiceType.Anydesk, Enumerable.Range(0, 65536).ToList() },
+                { ServiceType.Rustdesk, Enumerable.Range(0, 65536).ToList() },
+
+                { ServiceType.MSSQLServer, Enumerable.Range(0, 65536).ToList() },
+                { ServiceType.PostgreSQL, Enumerable.Range(0, 65536).ToList() },
+                { ServiceType.MariaDB, Enumerable.Range(0, 65536).ToList() },
+                { ServiceType.MySQL, Enumerable.Range(0, 65536).ToList() },
+                { ServiceType.OracleDB, Enumerable.Range(0, 65536).ToList() },
+
+                { ServiceType.OPCUA, Enumerable.Range(0, 65536).ToList() },
+                { ServiceType.ModBus, Enumerable.Range(0, 65536).ToList() },
+                { ServiceType.S7, Enumerable.Range(0, 65536).ToList() },
+            };
+
+            status_Services_Scan = ScanStatus.running;
+            //await scanningMethod_Services.ScanIPsAsync(Services_IPsToScan, new List<ServiceType> { ServiceType.DHCP});
+
+
+
+
+
+            List<ServiceType> services = new List<ServiceType>();
+            // 🌍 Netzwerk-Dienste
+            if ((bool)chk_Services_Web.IsChecked) services.Add(ServiceType.WebServices);
+            if ((bool)chk_Services_FTP.IsChecked) services.Add(ServiceType.FTP);
+            if ((bool)chk_Services_SSH.IsChecked) services.Add(ServiceType.SSH);
+            //if ((bool)chk_Services_DNS_TCP.IsChecked) services.Add(ServiceType.DNS_TCP);
+            //if ((bool)chk_Services_DNS_UDP.IsChecked) services.Add(ServiceType.DNS_UDP);
+            //if ((bool)chk_Services_DHCP.IsChecked) services.Add(ServiceType.DHCP);
+
+            // Remote Apps
+            if ((bool)chk_Services_RDP.IsChecked) services.Add(ServiceType.RDP);
+            if ((bool)chk_Services_UltraVNC.IsChecked) services.Add(ServiceType.UltraVNC);
+            if ((bool)chk_Services_TeamViewer.IsChecked) services.Add(ServiceType.TeamViewer);
+            if ((bool)chk_Services_BigFixRemote.IsChecked) services.Add(ServiceType.BigFixRemote);
+            if ((bool)chk_Services_AnyDesk.IsChecked) services.Add(ServiceType.Anydesk);
+            if ((bool)chk_Services_Rustdesk.IsChecked) services.Add(ServiceType.Rustdesk);
+
+            // Datenbanken
+            if ((bool)chk_Services_MSSQL.IsChecked) services.Add(ServiceType.MSSQLServer);
+            if ((bool)chk_Services_Postgre.IsChecked) services.Add(ServiceType.PostgreSQL);
+            if ((bool)chk_Services_MariaDB.IsChecked) services.Add(ServiceType.MariaDB);
+            if ((bool)chk_Services_MYSQL.IsChecked) services.Add(ServiceType.MySQL);
+            if ((bool)chk_Services_OracleDB.IsChecked) services.Add(ServiceType.OracleDB);
+
+
+            // Industrieprotokolle  
+            if ((bool)chk_Services_OPCUA.IsChecked) services.Add(ServiceType.OPCUA);
+            if ((bool)chk_Services_ModBus.IsChecked) services.Add(ServiceType.ModBus);
+            if ((bool)chk_Services_SiemensS7.IsChecked) services.Add(ServiceType.S7);
+
+            if (services.Count == 0)
+            {
+                MessageBox.Show("please choos max. one service, because of the duration of thise kind of scan.", "Hint", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            await scanningMethod_Services.FindServicePortAsync(_IPsToScan[0], services[0]);
         }
     }
 }
