@@ -30,6 +30,7 @@
     <None Remove="Resources\gray_dot.png" />
     <None Remove="Resources\gray_dotTB.png" />
     <None Remove="Resources\green_dot.png" />
+    <None Remove="Resources\Radar.png" />
     <None Remove="Resources\red_dot.png" />
     <None Remove="Resources\red_dotTB.png" />
     <None Remove="Resources\SearchDevice.png" />
@@ -143,6 +144,12 @@
   <ItemGroup>
     <Content Include="Images\florida2.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Resources\Radar.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
 
