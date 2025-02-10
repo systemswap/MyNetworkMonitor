@@ -224,9 +224,13 @@
                         <CheckBox x:Name="chk_Services_OPCUA" Content="OPC UA           (4840)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,499,0,0" IsChecked="True"/>
                         <CheckBox x:Name="chk_Services_ModBus" Content="Modbus          (502)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,524,0,0" IsChecked="True"/>
                         <CheckBox x:Name="chk_Services_SiemensS7" Content="SiemensS7      (102, 1020)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,549,0,0"/>
+                        <Image HorizontalAlignment="Left" Height="16" Margin="15,47,0,0" VerticalAlignment="Top" Width="16" Source="/Resources/Radar.png"/>
                         <Image HorizontalAlignment="Left" Height="16" Margin="15,213,0,0" VerticalAlignment="Top" Width="16" Source="/Resources/Radar.png"/>
                         <Image HorizontalAlignment="Left" Height="16" Margin="15,238,0,0" VerticalAlignment="Top" Width="16" Source="/Resources/Radar.png"/>
                         <Image HorizontalAlignment="Left" Height="16" Margin="15,288,0,0" VerticalAlignment="Top" Width="16" Source="/Resources/Radar.png"/>
+                        <Image HorizontalAlignment="Left" Height="16" Margin="15,385,0,0" VerticalAlignment="Top" Width="16" Source="/Resources/Radar.png"/>
+                        <Image HorizontalAlignment="Left" Height="16" Margin="15,502,0,0" VerticalAlignment="Top" Width="16" Source="/Resources/Radar.png"/>
+                        <Image HorizontalAlignment="Left" Height="16" Margin="15,527,0,0" VerticalAlignment="Top" Width="16" Source="/Resources/Radar.png"/>
                         <Image HorizontalAlignment="Left" Height="16" Margin="15,585,0,0" VerticalAlignment="Top" Width="16" Source="/Resources/Radar.png"/>
                         <Label Content=" means detect service across 65535 ports" HorizontalAlignment="Left" Margin="27,579,0,0" VerticalAlignment="Top"/>
 
