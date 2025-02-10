@@ -565,8 +565,8 @@ public class ScanningMethod_Services
         var cts = new CancellationTokenSource(); // Abbruch-Token
 
         List<int> ports = Enumerable.Range(0, 65536).ToList(); // Alle Ports (0 bis 65535)
-        ports.Clear();
-        ports.Add(7070); // UltraVNC-Port
+        //ports.Clear();
+        //ports.Add(5432); // UltraVNC-Port
 
         foreach (int port in ports)
         {
@@ -672,6 +672,14 @@ public class ScanningMethod_Services
     {
         bool serviceMatched = false;
         string str_serviceResponse = Encoding.ASCII.GetString(response);
+
+        if(service == ServiceType.FTP)
+        {
+            if(str_serviceResponse.StartsWith("220 "))
+            {
+                serviceMatched = true;
+            }
+        }
        
         // 🔍 UltraVNC-Erkennung        
         if (service == ServiceType.UltraVNC)
@@ -705,7 +713,89 @@ public class ScanningMethod_Services
             string tada2 = Encoding.ASCII.GetString(response);
             if(tada2.ToLower().Contains("anydesk client")) serviceMatched = true;
         }
-        return serviceMatched;
+
+
+
+        // 🔍 PostgreSQL-Erkennung
+        if (service == ServiceType.PostgreSQL)
+        {
+            if (response.Length == 1)
+            {
+                // Überprüfung auf PostgreSQL-"Ready for Query"-Antwort ("R" + 7 weitere Bytes)
+                if (response[0] == 0x4e)
+                {
+                    serviceMatched = true;
+                }
+            }
+            if (response.Length >= 8)
+            {
+                // Überprüfung auf PostgreSQL-"Ready for Query"-Antwort ("R" + 7 weitere Bytes)
+                if (response[0] == 0x52 && response[1] == 0x00 && response[2] == 0x00)
+                {
+                    serviceMatched = true;
+                }
+            }
+        }
+
+
+
+        // 🔍 OPC UA
+        if (service == ServiceType.OPCUA)
+        {
+            if (response.Length >= 4)
+            {
+                byte[] opcUaHelloHeader = { 0x48, 0x45, 0x4C, 0x46 }; // HELF
+                byte[] opcUaAckHeader = { 0x41, 0x43, 0x4B, 0x46 };   // ACKF
+
+                if (response.Take(4).SequenceEqual(opcUaHelloHeader))
+                {
+                    //OPC UA Hello Frame erkannt
+                    serviceMatched = true;
+                }
+                else if (response.Take(4).SequenceEqual(opcUaAckHeader))
+                {
+                    //OPC UA Acknowledge Frame erkannt
+                    serviceMatched = true;
+                }
+            }
+        }
+
+        // 🔍 Modbus TCP-Erkennung
+        if (service == ServiceType.ModBus)
+        {
+            // Modbus TCP Header besteht mindestens aus 7 Bytes:
+            // [0-1] Transaction Identifier (2 Bytes)
+            // [2-3] Protocol Identifier (immer 0x00 0x00 für Modbus TCP)
+            // [4-5] Length Field (Länge der nachfolgenden Daten)
+            // [6]   Unit Identifier
+            // [7+]  Function Code + Payload
+            if (response.Length >= 7)
+            {
+                // Protokollkennung überprüfen (muss 0x00 0x00 für Modbus TCP sein)
+                bool isModbusTcp = response[2] == 0x00 && response[3] == 0x00;
+
+                // Funktioncode prüfen: Gültige Modbus-Funktionscodes liegen zwischen 0x01 und 0x10
+                // Beispiele:
+                // 0x01 - Read Coils
+                // 0x02 - Read Discrete Inputs
+                // 0x03 - Read Holding Registers
+                // 0x04 - Read Input Registers
+                // 0x05 - Write Single Coil
+                // 0x06 - Write Single Register
+                // 0x10 - Write Multiple Registers
+                byte functionCode = response[7];
+                bool validFunctionCode = functionCode >= 0x01 && functionCode <= 0x10;
+
+                // Wenn sowohl das Protokoll als auch der Funktionscode stimmen, erkennen wir Modbus TCP
+                if (isModbusTcp && validFunctionCode)
+                {
+                    serviceMatched = true;
+                }
+            }
+        }
+
+
+        return serviceMatched;        
     }
 
 
@@ -1767,13 +1857,18 @@ public class ScanningMethod_Services
             //    0x6E, 0x00,              // Null-Terminator
             //    0x00                     // Doppelte Null = Ende der Nachricht 
             //},
+            //ServiceType.PostgreSQL => new byte[]
+            //{
+            //    0xC3, 0xA4, 0x15, 0x38, 0x68, 0x84, 0xA9, 0x3C,
+            //    0x00, 0x00, 0x00, 0x00, 0x80, 0x02, 0xFA, 0xF0,
+            //    0xE5, 0xD7, 0x00, 0x00, 0x02, 0x04, 0x05, 0xB4,
+            //    0x01, 0x03, 0x03, 0x08, 0x01, 0x01, 0x04, 0x02
+            //},
             ServiceType.PostgreSQL => new byte[]
             {
-                0xC3, 0xA4, 0x15, 0x38, 0x68, 0x84, 0xA9, 0x3C,
-                0x00, 0x00, 0x00, 0x00, 0x80, 0x02, 0xFA, 0xF0,
-                0xE5, 0xD7, 0x00, 0x00, 0x02, 0x04, 0x05, 0xB4,
-                0x01, 0x03, 0x03, 0x08, 0x01, 0x01, 0x04, 0x02
+                0x00, 0x00, 0x00, 0x08, 0x04, 0xD2, 0x16, 0x2F
             },
+
 
             ServiceType.MariaDB => new byte[] 
             {
@@ -1803,7 +1898,16 @@ public class ScanningMethod_Services
 
 
             // ⚙️ Industrieprotokolle (OT, Automatisierung)
-            ServiceType.OPCUA => new byte[] { 0x48, 0x45, 0x4c, 0x4c, 0x4f },
+            //ServiceType.OPCUA => new byte[] { 0x48, 0x45, 0x4c, 0x4c, 0x4f },
+            ServiceType.OPCUA => new byte[] 
+            {
+                0x48, 0x45, 0x4C, 0x46, 0x3F, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x00,
+                0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0xA0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1F, 0x00, 0x00, 0x00,
+                0x6F, 0x70, 0x63, 0x2E, 0x74, 0x63, 0x70, 0x3A, 0x2F, 0x2F, 0x31, 0x37, 0x33, 0x2E, 0x31, 0x38,
+                0x33, 0x2E, 0x31, 0x34, 0x37, 0x2E, 0x31, 0x30, 0x33, 0x3A, 0x34, 0x38, 0x34, 0x30, 0x2F
+
+            },
+
             ServiceType.ModBus => new byte[] { 0x00, 0x01, 0x00, 0x00, 0x00, 0x06, 0x01, 0x03, 0x00, 0x00, 0x00, 0x01 },
 
 
