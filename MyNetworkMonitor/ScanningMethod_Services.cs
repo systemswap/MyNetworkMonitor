@@ -91,7 +91,7 @@ public class ScanningMethod_Services
     bool scanDHCP = true;
     List<string> DHCP_Server_IPs = new List<string>();
 
-    private const int MaxParallelIPs = 50;
+    private const int MaxParallelIPs = 30;
     private const int Timeout = 2000; // 3 Sekunden Timeout pro Dienst
     private const int RetryCount = 3;
 
@@ -1185,62 +1185,131 @@ public class ScanningMethod_Services
 
 
 
+    //public async Task<List<string>> SendDhcpDiscoverAsync(byte[] dhcpDiscoverPacket)
+    //{
+    //    List<string> dhcpServers = new List<string>();
+
+    //    using UdpClient udpClient = new UdpClient(new IPEndPoint(IPAddress.Any, 68)); // Lauscht auf Port 68
+    //    udpClient.EnableBroadcast = true;
+    //    IPEndPoint endPoint = new IPEndPoint(IPAddress.Broadcast, 67); // DHCP-Server-Port
+    //    udpClient.Client.ReceiveTimeout = 3000; // Timeout für Empfang
+
+    //    for (int attempt = 1; attempt <= 3; attempt++) // Bis zu 3 Wiederholungen
+    //    {
+    //        //Console.WriteLine($"📡 Versuch {attempt}: Sende DHCP-Discover...");
+    //        await udpClient.SendAsync(dhcpDiscoverPacket, dhcpDiscoverPacket.Length, endPoint);
+
+    //        DateTime startTime = DateTime.Now;
+    //        while ((DateTime.Now - startTime).TotalSeconds < 3) // 3 Sekunden auf Antwort warten
+    //        {
+    //            try
+    //            {
+    //                var receiveTask = udpClient.ReceiveAsync();
+    //                if (await Task.WhenAny(receiveTask, Task.Delay(1000)) == receiveTask)
+    //                {
+    //                    byte[] response = receiveTask.Result.Buffer;
+    //                    string serverIp = new IPAddress(response.Skip(20).Take(4).ToArray()).ToString();
+    //                    string relayAgentIp = new IPAddress(response.Skip(24).Take(4).ToArray()).ToString();
+
+    //                    //option 54
+    //                    //int index = Array.IndexOf(response, (byte)54);
+    //                    //string dhcpServerIp = index > 0 ? new IPAddress(response.Skip(index + 2).Take(4).ToArray()).ToString() : "Not Found";
+
+    //                    string dhcpServerIp = GetDhcpServerIp(response);
+
+    //                    if (!dhcpServers.Contains(serverIp))
+    //                    {
+    //                        dhcpServers.Add(dhcpServerIp);
+    //                        //Console.WriteLine($"✅ DHCP-Server gefunden: {serverIp}");
+    //                    }
+    //                }
+    //            }
+    //            catch (SocketException ex) when (ex.SocketErrorCode == SocketError.TimedOut)
+    //            {
+    //                //Console.WriteLine("⏳ Timeout: Keine Antwort vom DHCP-Server.");
+    //                break; // Keine weitere Schleife notwendig
+    //            }
+    //            catch (Exception ex)
+    //            {
+    //                //Console.WriteLine($"❌ Fehler: {ex.Message}");
+    //                break;
+    //            }
+    //        }
+
+    //        if (dhcpServers.Count > 0) break; // Stoppe Wiederholungen, wenn Server gefunden
+    //    }
+
+    //    return dhcpServers;
+    //}
+
+
+
+
     public async Task<List<string>> SendDhcpDiscoverAsync(byte[] dhcpDiscoverPacket)
     {
         List<string> dhcpServers = new List<string>();
+        UdpClient udpClient = null;
 
-        using UdpClient udpClient = new UdpClient(new IPEndPoint(IPAddress.Any, 68)); // Lauscht auf Port 68
-        udpClient.EnableBroadcast = true;
-        IPEndPoint endPoint = new IPEndPoint(IPAddress.Broadcast, 67); // DHCP-Server-Port
-        udpClient.Client.ReceiveTimeout = 3000; // Timeout für Empfang
-
-        for (int attempt = 1; attempt <= 3; attempt++) // Bis zu 3 Wiederholungen
+        try
         {
-            //Console.WriteLine($"📡 Versuch {attempt}: Sende DHCP-Discover...");
-            await udpClient.SendAsync(dhcpDiscoverPacket, dhcpDiscoverPacket.Length, endPoint);
+            udpClient = new UdpClient(new IPEndPoint(IPAddress.Any, 68));
+            udpClient.EnableBroadcast = true;
+            IPEndPoint endPoint = new IPEndPoint(IPAddress.Broadcast, 67); // DHCP-Server-Port
 
-            DateTime startTime = DateTime.Now;
-            while ((DateTime.Now - startTime).TotalSeconds < 3) // 3 Sekunden auf Antwort warten
+            for (int attempt = 1; attempt <= 3; attempt++) // Bis zu 3 Wiederholungen
             {
-                try
+                await udpClient.SendAsync(dhcpDiscoverPacket, dhcpDiscoverPacket.Length, endPoint);
+
+                DateTime startTime = DateTime.Now;
+                while ((DateTime.Now - startTime).TotalMilliseconds < 1500) // Maximal 3 Sekunden warten
                 {
-                    var receiveTask = udpClient.ReceiveAsync();
-                    if (await Task.WhenAny(receiveTask, Task.Delay(1000)) == receiveTask)
+                    try
                     {
-                        byte[] response = receiveTask.Result.Buffer;
-                        string serverIp = new IPAddress(response.Skip(20).Take(4).ToArray()).ToString();
-                        string relayAgentIp = new IPAddress(response.Skip(24).Take(4).ToArray()).ToString();
+                        UdpReceiveResult result = await udpClient.ReceiveAsync();
+                        byte[] response = result.Buffer;
 
-                        //option 54
-                        //int index = Array.IndexOf(response, (byte)54);
-                        //string dhcpServerIp = index > 0 ? new IPAddress(response.Skip(index + 2).Take(4).ToArray()).ToString() : "Not Found";
-
-                        string dhcpServerIp = GetDhcpServerIp(response);
-
-                        if (!dhcpServers.Contains(serverIp))
+                        if (response.Length >= 28) // Prüfen, ob die Antwort groß genug ist
                         {
-                            dhcpServers.Add(dhcpServerIp);
-                            //Console.WriteLine($"✅ DHCP-Server gefunden: {serverIp}");
+                            //string serverIp = new IPAddress(response.Skip(20).Take(4).ToArray()).ToString();
+                            //string relayAgentIp = new IPAddress(response.Skip(24).Take(4).ToArray()).ToString();
+
+                            // Option 54: DHCP Server Identifier (falls vorhanden)
+                            string dhcpServerIp = GetDhcpServerIp(response);
+
+                            if (!dhcpServers.Contains(dhcpServerIp))
+                            {
+                                dhcpServers.Add(dhcpServerIp);
+                                Console.WriteLine($"✅ DHCP-Server gefunden: {dhcpServerIp}");
+                            }
                         }
                     }
+                    catch (SocketException ex) when (ex.SocketErrorCode == SocketError.TimedOut)
+                    {
+                        break; // Timeout, beende die Schleife
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"❌ Fehler: {ex.Message}");
+                        break;
+                    }
                 }
-                catch (SocketException ex) when (ex.SocketErrorCode == SocketError.TimedOut)
-                {
-                    //Console.WriteLine("⏳ Timeout: Keine Antwort vom DHCP-Server.");
-                    break; // Keine weitere Schleife notwendig
-                }
-                catch (Exception ex)
-                {
-                    //Console.WriteLine($"❌ Fehler: {ex.Message}");
-                    break;
-                }
-            }
 
-            if (dhcpServers.Count > 0) break; // Stoppe Wiederholungen, wenn Server gefunden
+                if (dhcpServers.Count > 0) break; // Wenn mindestens ein Server gefunden wurde, beende die Wiederholungen
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Schwerwiegender Fehler: {ex.Message}");
+        }
+        finally
+        {
+            udpClient?.Close(); // Schließe den Socket
+            udpClient.Dispose();
         }
 
         return dhcpServers;
     }
+
 
     string GetDhcpServerIp(byte[] response)
     {
