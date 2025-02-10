@@ -1747,8 +1747,9 @@ namespace MyNetworkMonitor
         {
             //throw new NotImplementedException();
             Dispatcher.Invoke(() =>
-            {
+            {                
                 InsertIPToScanResult(obj);
+                lbl_ScanStatus.Content = "find service port finished.";
             });
         }
 
