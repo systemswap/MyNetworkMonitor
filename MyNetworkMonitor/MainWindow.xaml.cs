@@ -3012,6 +3012,8 @@ namespace MyNetworkMonitor
                 _IPsToScan.Add(new IPToScan { IPorHostname = ip });
             }
 
+
+
             DoWork(true);
 
             // Speichere die Liste der IP-Adressen im Tag des ContextMenus
