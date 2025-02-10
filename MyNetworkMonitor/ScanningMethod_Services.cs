@@ -1253,6 +1253,8 @@ public class ScanningMethod_Services
         try
         {
             udpClient = new UdpClient(new IPEndPoint(IPAddress.Any, 68));
+            udpClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            udpClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ExclusiveAddressUse, false);
             udpClient.EnableBroadcast = true;
             IPEndPoint endPoint = new IPEndPoint(IPAddress.Broadcast, 67); // DHCP-Server-Port
 
@@ -1261,7 +1263,7 @@ public class ScanningMethod_Services
                 await udpClient.SendAsync(dhcpDiscoverPacket, dhcpDiscoverPacket.Length, endPoint);
 
                 DateTime startTime = DateTime.Now;
-                while ((DateTime.Now - startTime).TotalMilliseconds < 1500) // Maximal 3 Sekunden warten
+                while ((DateTime.Now - startTime).TotalMilliseconds < 1000) // Maximal 3 Sekunden warten
                 {
                     try
                     {
@@ -1304,11 +1306,13 @@ public class ScanningMethod_Services
         finally
         {
             udpClient?.Close(); // Schließe den Socket
-            udpClient.Dispose();
         }
-
         return dhcpServers;
     }
+
+
+
+
 
 
     string GetDhcpServerIp(byte[] response)
