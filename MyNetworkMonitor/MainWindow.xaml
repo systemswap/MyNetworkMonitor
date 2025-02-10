@@ -203,7 +203,7 @@
 
                         <CheckBox x:Name="chk_Services_Web" Content="Webservice     (80, 443, 8080, 8443)" HorizontalAlignment="Left" Width="220" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,19,0,0" IsChecked="True"/>
                         <CheckBox x:Name="chk_Services_FTP" Content="FTP                  (21)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,44,0,0" IsChecked="True"/>
-                        <CheckBox x:Name="chk_Services_SSH" Content="SSH                 (22)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,69,0,0" IsChecked="True"/>
+                        <CheckBox x:Name="chk_Services_SSH" Content="SSH /SFTP      (22)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,69,0,0" IsChecked="True"/>
                         <CheckBox x:Name="chk_Services_DNS_TCP" Content="DNS TCP         (53)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,94,0,0" IsChecked="True"/>
                         <CheckBox x:Name="chk_Services_DNS_UDP" Content="DNS UDP        (53)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,119,0,0" IsChecked="True"/>
                         <CheckBox x:Name="chk_Services_DHCP" Content="DHCP              (67)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,144,0,0" IsChecked="True"/>
@@ -227,7 +227,9 @@
                         <Image HorizontalAlignment="Left" Height="16" Margin="15,47,0,0" VerticalAlignment="Top" Width="16" Source="/Resources/Radar.png"/>
                         <Image HorizontalAlignment="Left" Height="16" Margin="15,213,0,0" VerticalAlignment="Top" Width="16" Source="/Resources/Radar.png"/>
                         <Image HorizontalAlignment="Left" Height="16" Margin="15,238,0,0" VerticalAlignment="Top" Width="16" Source="/Resources/Radar.png"/>
+                        <Image HorizontalAlignment="Left" Height="16" Margin="15,264,0,0" VerticalAlignment="Top" Width="16" Source="/Resources/Radar.png"/>
                         <Image HorizontalAlignment="Left" Height="16" Margin="15,288,0,0" VerticalAlignment="Top" Width="16" Source="/Resources/Radar.png"/>
+                        <Image HorizontalAlignment="Left" Height="16" Margin="15,359,0,0" VerticalAlignment="Top" Width="16" Source="/Resources/Radar.png"/>
                         <Image HorizontalAlignment="Left" Height="16" Margin="15,385,0,0" VerticalAlignment="Top" Width="16" Source="/Resources/Radar.png"/>
                         <Image HorizontalAlignment="Left" Height="16" Margin="15,502,0,0" VerticalAlignment="Top" Width="16" Source="/Resources/Radar.png"/>
                         <Image HorizontalAlignment="Left" Height="16" Margin="15,527,0,0" VerticalAlignment="Top" Width="16" Source="/Resources/Radar.png"/>
