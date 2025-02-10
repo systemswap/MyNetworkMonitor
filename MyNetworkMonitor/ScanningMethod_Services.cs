@@ -630,7 +630,7 @@ public class ScanningMethod_Services
                         // **Service-Erkennung durchführen**
                         if (response.Length > 0)
                         {
-                            bool serviceMatched = IdentifyService(response, service);
+                            bool serviceMatched = IdentifyServices(response, service);
 
                             int responsedValue = Interlocked.Increment(ref responded);
                             FindServicePortProgressUpdated?.Invoke(current, responded, total);
@@ -668,7 +668,7 @@ public class ScanningMethod_Services
 
 
 
-    private bool IdentifyService(byte[] response, ServiceType service)
+    private bool IdentifyServices(byte[] response, ServiceType service)
     {
         bool serviceMatched = false;
         string str_serviceResponse = Encoding.ASCII.GetString(response);
