@@ -673,14 +673,36 @@ public class ScanningMethod_Services
         bool serviceMatched = false;
         string str_serviceResponse = Encoding.ASCII.GetString(response);
 
-        if(service == ServiceType.FTP)
+        // 🔍 FTP
+        if (service == ServiceType.FTP)
         {
             if(str_serviceResponse.StartsWith("220 "))
             {
                 serviceMatched = true;
             }
         }
-       
+
+        // 🔍 SSH / SFTP
+        if (service == ServiceType.SSH)
+        {
+            string sshResponse = Encoding.ASCII.GetString(response);
+
+            // Prüfen, ob die Antwort das typische "SSH-2.0" enthält
+            if (sshResponse.StartsWith("SSH-2.0"))
+            {
+                serviceMatched = true;
+
+                // Optional: Version und Software extrahieren
+                int versionIndex = sshResponse.IndexOf("-");
+                if (versionIndex >= 0)
+                {
+                    string sftpVersion = sshResponse.Substring(versionIndex + 1).Trim();
+                    Console.WriteLine($"SFTP Detected: {sftpVersion}");
+                }
+            }
+        }
+
+
         // 🔍 UltraVNC-Erkennung        
         if (service == ServiceType.UltraVNC)
         {
