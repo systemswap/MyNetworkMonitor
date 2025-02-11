@@ -1318,49 +1318,58 @@ public class ScanningMethod_Services
     {
         List<string> dhcpServers = new List<string>();
 
-        using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp))
+        try
         {
-            socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, true);
-            socket.Bind(new IPEndPoint(IPAddress.Any, 68));  // Lausche auf Port 68 für eingehende Broadcasts
 
-            IPEndPoint dhcpServerEndPoint = new IPEndPoint(IPAddress.Broadcast, 67);
-            Console.WriteLine($"📡 Sende DHCP DISCOVER...");
-
-            // Sende DHCP DISCOVER
-            socket.SendTo(dhcpDiscoverPacket, dhcpServerEndPoint);
-
-            DateTime startTime = DateTime.Now;
-            int timeout = 2000;  // 2 Sekunden Timeout
-
-            try
+            using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp))
             {
-                while ((DateTime.Now - startTime).TotalMilliseconds < timeout)
-                {
-                    if (socket.Poll(100000, SelectMode.SelectRead))  // 100 ms warten, ob Daten verfügbar sind
-                    {
-                        byte[] buffer = new byte[1024];
-                        EndPoint remoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
-                        int receivedBytes = socket.ReceiveFrom(buffer, ref remoteEndPoint);
+                socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, true);
+                socket.Bind(new IPEndPoint(IPAddress.Any, 68));  // Lausche auf Port 68 für eingehende Broadcasts
 
-                        if (receivedBytes >= 28)
+                IPEndPoint dhcpServerEndPoint = new IPEndPoint(IPAddress.Broadcast, 67);
+                Console.WriteLine($"📡 Sende DHCP DISCOVER...");
+
+                // Sende DHCP DISCOVER
+                socket.SendTo(dhcpDiscoverPacket, dhcpServerEndPoint);
+
+                DateTime startTime = DateTime.Now;
+                int timeout = 2000;  // 2 Sekunden Timeout
+
+                try
+                {
+                    while ((DateTime.Now - startTime).TotalMilliseconds < timeout)
+                    {
+                        if (socket.Poll(100000, SelectMode.SelectRead))  // 100 ms warten, ob Daten verfügbar sind
                         {
-                            string dhcpServerIp = GetDhcpServerIp(buffer);
-                            if (!string.IsNullOrEmpty(dhcpServerIp) && !dhcpServers.Contains(dhcpServerIp))
+                            byte[] buffer = new byte[1024];
+                            EndPoint remoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
+                            int receivedBytes = socket.ReceiveFrom(buffer, ref remoteEndPoint);
+
+                            if (receivedBytes >= 28)
                             {
-                                dhcpServers.Add(dhcpServerIp);
-                                Console.WriteLine($"✅ DHCP-Server gefunden: {dhcpServerIp}");
+                                string dhcpServerIp = GetDhcpServerIp(buffer);
+                                if (!string.IsNullOrEmpty(dhcpServerIp) && !dhcpServers.Contains(dhcpServerIp))
+                                {
+                                    dhcpServers.Add(dhcpServerIp);
+                                    Console.WriteLine($"✅ DHCP-Server gefunden: {dhcpServerIp}");
+                                }
                             }
                         }
-                    }                    
+                    }
                 }
-            }
-            catch (SocketException ex)
-            {
-                Console.WriteLine($"⚠ Fehler beim Empfang: {ex.Message}");
-            }
+                catch (SocketException ex)
+                {
+                    Console.WriteLine($"⚠ Fehler beim Empfang: {ex.Message}");
+                }
 
-            return dhcpServers;
+                return dhcpServers;
+            }
         }
+        catch
+        {
+
+        }
+        return dhcpServers;
     }
 
 

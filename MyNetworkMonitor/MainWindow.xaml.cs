@@ -2556,7 +2556,16 @@ namespace MyNetworkMonitor
         {
             if (e.EditAction == DataGridEditAction.Commit)
             {
-                dgv_Results.Dispatcher.BeginInvoke(new Action(() => dgv_Results.Items.Refresh()), System.Windows.Threading.DispatcherPriority.Background);
+                //dgv_Results.Dispatcher.BeginInvoke(new Action(() => dgv_Results.Items.Refresh()), System.Windows.Threading.DispatcherPriority.Background);
+                dgv_Results.Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    if (!dgv_Results.CommitEdit(DataGridEditingUnit.Row, true)) // CommitEdit gibt false zurück, wenn ein Bearbeitungsmodus aktiv ist
+                    {
+                        return; // Abbrechen, falls noch eine Bearbeitung läuft
+                    }
+
+                    dgv_Results.Items.Refresh();
+                }), System.Windows.Threading.DispatcherPriority.Background);
             }
          }
 

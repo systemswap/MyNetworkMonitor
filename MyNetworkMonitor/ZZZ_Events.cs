@@ -83,6 +83,8 @@ namespace MyNetworkMonitor
         }
 
         private bool _finished = false;
+        private string status = string.Empty;
         public bool Methode_Finished { get { return _finished; } }
+        public string finishMessage { get { return status; } set { status = value; } }
     }
 }

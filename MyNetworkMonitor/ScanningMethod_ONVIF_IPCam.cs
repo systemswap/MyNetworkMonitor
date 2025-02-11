@@ -488,93 +488,199 @@ namespace MyNetworkMonitor
 
 
 
+        //public async void Discover(List<IPToScan> IPs)
+        //{
+        //    List<IPCamInfos> discoveredCameras = new List<IPCamInfos>();
+        //    string soapRequest = CreateSoapRequest();
+        //    byte[] requestBytes = Encoding.UTF8.GetBytes(soapRequest); // 📌 **Hier außerhalb definiert!**
+
+        //    using (UdpClient udpClient = new UdpClient())
+        //    {
+        //        udpClient.EnableBroadcast = true;
+        //        udpClient.MulticastLoopback = false;
+        //        IPEndPoint multicastEP = new IPEndPoint(IPAddress.Parse(ONVIF_MULTICAST_IP), ONVIF_PORT);
+
+        //        // Mehrfache Multicast-Anfragen senden (3 Versuche mit Pause)
+        //        for (int i = 0; i < 3; i++)
+        //        {
+        //            await udpClient.SendAsync(requestBytes, requestBytes.Length, multicastEP);
+        //            await Task.Delay(500); // 500ms Pause zwischen den Anfragen
+        //        }
+
+        //        var endpoint = new IPEndPoint(IPAddress.Any, ONVIF_PORT);
+        //        udpClient.Client.ReceiveTimeout = 5000; // 📌 5 Sekunden Empfangszeit
+
+        //        try
+        //        {
+        //            DateTime startTime = DateTime.UtcNow;
+        //            while (DateTime.UtcNow - startTime < DISCOVERY_TIMEOUT)
+        //            {
+        //                var receiveTask = udpClient.ReceiveAsync();
+        //                var completedTask = await Task.WhenAny(receiveTask, Task.Delay(100));
+
+        //                if (completedTask == receiveTask) // Antwort erhalten
+        //                {
+        //                    UdpReceiveResult result = receiveTask.Result;
+        //                    string response = Encoding.UTF8.GetString(result.Buffer);
+        //                    var cameraInfo = await ParseONVIFResponseAsync(response, result.RemoteEndPoint.Address.ToString());
+
+        //                    if (cameraInfo != null && !discoveredCameras.Any(d => d.UUID == cameraInfo.UUID))
+        //                    {
+        //                        discoveredCameras.Add(cameraInfo);
+
+        //                        IPToScan ipToScan = new IPToScan
+        //                        {
+        //                            UsedScanMethod = ScanMethod.ONVIF_IPCam,
+        //                            IsIPCam = true,
+        //                            IPorHostname = cameraInfo.IPv4Address,
+        //                            IPCamName = cameraInfo.Name,
+        //                            IPCamXAddress = cameraInfo.XAddress.Replace("/onvif/device_service", string.Empty)
+        //                        };
+
+        //                        ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs
+        //                        {
+        //                            ipToScan = ipToScan
+        //                        };
+
+        //                        Application.Current.Dispatcher.Invoke(() =>
+        //                        {
+        //                            new_ONVIF_IP_Camera_Found_Task_Finished?.Invoke(this, scanTask_Finished);
+        //                        });
+
+        //                        int respondedValue = Interlocked.Increment(ref responded);
+        //                        ProgressUpdated?.Invoke(current, responded, total);
+        //                    }
+        //                }
+        //            }
+        //        }
+        //        catch (SocketException) { }
+        //        finally
+        //        {
+        //            Application.Current.Dispatcher.Invoke(() =>
+        //            {
+        //                ONVIF_IP_Camera_Scan_Finished?.Invoke(this, new Method_Finished_EventArgs());
+        //            });
+        //        }
+        //    }
+
+        //    // **📌 Unicast-Fallback (falls Multicast nicht alle Geräte erreicht)**
+        //    foreach (var ipToScan in IPs)
+        //    {
+        //        using (UdpClient unicastClient = new UdpClient())
+        //        {
+        //            IPEndPoint unicastEP = new IPEndPoint(IPAddress.Parse(ipToScan.IPorHostname), ONVIF_PORT);
+        //            await unicastClient.SendAsync(requestBytes, requestBytes.Length, unicastEP);
+        //        }
+        //    }
+        //}
+
+
         public async void Discover(List<IPToScan> IPs)
         {
             List<IPCamInfos> discoveredCameras = new List<IPCamInfos>();
             string soapRequest = CreateSoapRequest();
-            byte[] requestBytes = Encoding.UTF8.GetBytes(soapRequest); // 📌 **Hier außerhalb definiert!**
+            byte[] requestBytes = Encoding.UTF8.GetBytes(soapRequest);
 
-            using (UdpClient udpClient = new UdpClient())
+            try
             {
-                udpClient.EnableBroadcast = true;
-                udpClient.MulticastLoopback = false;
-                IPEndPoint multicastEP = new IPEndPoint(IPAddress.Parse(ONVIF_MULTICAST_IP), ONVIF_PORT);
+                
 
-                // Mehrfache Multicast-Anfragen senden (3 Versuche mit Pause)
-                for (int i = 0; i < 3; i++)
+                using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp))
                 {
-                    await udpClient.SendAsync(requestBytes, requestBytes.Length, multicastEP);
-                    await Task.Delay(500); // 500ms Pause zwischen den Anfragen
-                }
+                    socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+                    socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, true);
+                    socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastTimeToLive, 2);
 
-                var endpoint = new IPEndPoint(IPAddress.Any, ONVIF_PORT);
-                udpClient.Client.ReceiveTimeout = 5000; // 📌 5 Sekunden Empfangszeit
+                    IPEndPoint localEndPoint = new IPEndPoint(IPAddress.Any, ONVIF_PORT);
+                    socket.Bind(localEndPoint);
 
-                try
-                {
-                    DateTime startTime = DateTime.UtcNow;
-                    while (DateTime.UtcNow - startTime < DISCOVERY_TIMEOUT)
+                    IPEndPoint multicastEP = new IPEndPoint(IPAddress.Parse(ONVIF_MULTICAST_IP), ONVIF_PORT);
+
+                    // Mehrfache Multicast-Anfragen senden (3 Versuche mit Pause)
+                    for (int i = 0; i < 3; i++)
                     {
-                        var receiveTask = udpClient.ReceiveAsync();
-                        var completedTask = await Task.WhenAny(receiveTask, Task.Delay(100));
+                        socket.SendTo(requestBytes, multicastEP);
+                        await Task.Delay(500); // 500 ms Pause zwischen den Anfragen
+                    }
 
-                        if (completedTask == receiveTask) // Antwort erhalten
+                    Console.WriteLine("📡 Multicast-Anfragen gesendet... Warte auf Antworten...");
+
+                    DateTime startTime = DateTime.UtcNow;
+                    int discoveryTimeoutMs = 5000;
+
+                    try
+                    {
+                        while ((DateTime.UtcNow - startTime).TotalMilliseconds < discoveryTimeoutMs)
                         {
-                            UdpReceiveResult result = receiveTask.Result;
-                            string response = Encoding.UTF8.GetString(result.Buffer);
-                            var cameraInfo = await ParseONVIFResponseAsync(response, result.RemoteEndPoint.Address.ToString());
-
-                            if (cameraInfo != null && !discoveredCameras.Any(d => d.UUID == cameraInfo.UUID))
+                            if (socket.Poll(100000, SelectMode.SelectRead))  // 100 ms warten, ob Daten verfügbar sind
                             {
-                                discoveredCameras.Add(cameraInfo);
+                                byte[] buffer = new byte[2048];
+                                EndPoint remoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
+                                int receivedBytes = socket.ReceiveFrom(buffer, ref remoteEndPoint);
 
-                                IPToScan ipToScan = new IPToScan
+                                if (receivedBytes > 0)
                                 {
-                                    UsedScanMethod = ScanMethod.ONVIF_IPCam,
-                                    IsIPCam = true,
-                                    IPorHostname = cameraInfo.IPv4Address,
-                                    IPCamName = cameraInfo.Name,
-                                    IPCamXAddress = cameraInfo.XAddress.Replace("/onvif/device_service", string.Empty)
-                                };
+                                    string response = Encoding.UTF8.GetString(buffer, 0, receivedBytes);
+                                    var cameraInfo = await ParseONVIFResponseAsync(response, ((IPEndPoint)remoteEndPoint).Address.ToString());
 
-                                ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs
-                                {
-                                    ipToScan = ipToScan
-                                };
+                                    if (cameraInfo != null && !discoveredCameras.Any(d => d.UUID == cameraInfo.UUID))
+                                    {
+                                        discoveredCameras.Add(cameraInfo);
 
-                                Application.Current.Dispatcher.Invoke(() =>
-                                {
-                                    new_ONVIF_IP_Camera_Found_Task_Finished?.Invoke(this, scanTask_Finished);
-                                });
+                                        IPToScan ipToScan = new IPToScan
+                                        {
+                                            UsedScanMethod = ScanMethod.ONVIF_IPCam,
+                                            IsIPCam = true,
+                                            IPorHostname = cameraInfo.IPv4Address,
+                                            IPCamName = cameraInfo.Name,
+                                            IPCamXAddress = cameraInfo.XAddress.Replace("/onvif/device_service", string.Empty)
+                                        };
 
-                                int respondedValue = Interlocked.Increment(ref responded);
-                                ProgressUpdated?.Invoke(current, responded, total);
+                                        ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs
+                                        {
+                                            ipToScan = ipToScan
+                                        };
+
+                                        // Event im UI-Thread aufrufen
+                                        Application.Current.Dispatcher.Invoke(() =>
+                                        {
+                                            new_ONVIF_IP_Camera_Found_Task_Finished?.Invoke(this, scanTask_Finished);
+                                        });
+
+                                        int respondedValue = Interlocked.Increment(ref responded);
+                                        ProgressUpdated?.Invoke(current, responded, total);
+                                    }
+                                }
                             }
+                            await Task.Delay(100);  // CPU-Last reduzieren
                         }
                     }
-                }
-                catch (SocketException) { }
-                finally
-                {
-                    Application.Current.Dispatcher.Invoke(() =>
+                    catch (SocketException ex)
                     {
-                        ONVIF_IP_Camera_Scan_Finished?.Invoke(this, new Method_Finished_EventArgs());
-                    });
+                        Console.WriteLine($"⚠ Fehler beim Empfang: {ex.Message}");
+                    }
+                    finally
+                    {
+                        Application.Current.Dispatcher.Invoke(() =>
+                        {
+                            ONVIF_IP_Camera_Scan_Finished?.Invoke(this, new Method_Finished_EventArgs());
+                        });
+                    }
                 }
             }
+            catch { 
+            }
 
-            // **📌 Unicast-Fallback (falls Multicast nicht alle Geräte erreicht)**
+            // **Unicast-Fallback (falls Multicast nicht alle Geräte erreicht)**
             foreach (var ipToScan in IPs)
             {
-                using (UdpClient unicastClient = new UdpClient())
+                using (Socket unicastSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp))
                 {
                     IPEndPoint unicastEP = new IPEndPoint(IPAddress.Parse(ipToScan.IPorHostname), ONVIF_PORT);
-                    await unicastClient.SendAsync(requestBytes, requestBytes.Length, unicastEP);
+                    unicastSocket.SendTo(requestBytes, unicastEP);
                 }
             }
         }
-
-
 
 
 
