@@ -454,18 +454,20 @@ namespace MyNetworkMonitor
 
             lst_statusUpdate.Add(" * current / responded / total * ");
 
-            if (status_SSDP_Scan == ScanStatus.ignored) { lst_ignored.Add("SSDP: ignored"); } else { lst_statusUpdate.Add($"SSDP: {status_SSDP_Scan.ToString()} ... / {counted_responded_SSDP_device} / ..."); }
-            if (status_SNMP_Scan == ScanStatus.ignored) { lst_ignored.Add("SNMP: ignored"); } else { lst_statusUpdate.Add($"SNMP: {status_SNMP_Scan.ToString()} {counted_current_SNMP_Scan} / {counted_responded_SNMP_Devices} / {counted_total_SNMP_Devices}"); }
-            if (status_ONVIF_IP_Cam_Scan == ScanStatus.ignored) { lst_ignored.Add("IP-Cam`s: ignored"); } else { lst_statusUpdate.Add($"IP-Cam`s: {status_ONVIF_IP_Cam_Scan.ToString()} ... / {counted_responded_ONVIF_IP_Cams} / ..."); }
             if (status_ARP_Request_Scan == ScanStatus.ignored) { lst_ignored.Add("ARP Request: ignored"); } else { lst_statusUpdate.Add($"ARP Request: {status_ARP_Request_Scan.ToString()} {counted_current_ARP_Requests} / {counted_responded_ARP_Requests} / {counted_total_ARP_Requests}"); }
             if (status_Ping_Scan == ScanStatus.ignored) { lst_ignored.Add("Ping: ignored"); } else { lst_statusUpdate.Add($"Ping: {status_Ping_Scan.ToString()} {counted_current_Ping_Scan} / {counted_responded_Ping_Scan} / {counted_total_Ping_Scan}"); }
+            if (status_SSDP_Scan == ScanStatus.ignored) { lst_ignored.Add("SSDP: ignored"); } else { lst_statusUpdate.Add($"SSDP: {status_SSDP_Scan.ToString()} ... / {counted_responded_SSDP_device} / ..."); }
+            if (status_ONVIF_IP_Cam_Scan == ScanStatus.ignored) { lst_ignored.Add("IP-Cam`s: ignored"); } else { lst_statusUpdate.Add($"IP-Cam`s: {status_ONVIF_IP_Cam_Scan.ToString()} ... / {counted_responded_ONVIF_IP_Cams} / ..."); }            
             if (status_DNS_HostName_Scan == ScanStatus.ignored) { lst_ignored.Add("DNS Hostnames: ignored"); } else { lst_statusUpdate.Add($"DNS Hostnames: {status_DNS_HostName_Scan.ToString()} {counted_current_DNS_HostNames} / {counted_responded_DNS_HostNames} / {counted_total_DNS_HostNames}"); }
             if (status_Lookup_Scan == ScanStatus.ignored) { lst_ignored.Add("Lookup: ignored"); } else { lst_statusUpdate.Add($"Lookup: {status_Lookup_Scan.ToString()} {counted_current_Lookup_Scan} / {counted_responded_Lookup_Devices} / {counted_total_Lookup_Scans}"); }
-            if (status_NetBios_Scan == ScanStatus.ignored) { lst_ignored.Add("NetBios: ignored"); } else { lst_statusUpdate.Add($"NetBios: {status_NetBios_Scan.ToString()} {counted_current_NetBiosScan} / {counted_responded_NetBiosInfos} / {counted_total_NetBiosInfos}"); }
             if (status_SMB_VersionCheck == ScanStatus.ignored) { lst_ignored.Add("SMB Check: ignored"); } else { lst_statusUpdate.Add($"SMB Check: {status_SMB_VersionCheck.ToString()} {counted_current_SMB_VersionCheck} / {counted_responded_SMB_VersionCheck} / {counted_total_SMB_VersionCheck}"); }
+            if (status_NetBios_Scan == ScanStatus.ignored) { lst_ignored.Add("NetBios: ignored"); } else { lst_statusUpdate.Add($"NetBios: {status_NetBios_Scan.ToString()} {counted_current_NetBiosScan} / {counted_responded_NetBiosInfos} / {counted_total_NetBiosInfos}"); }
+            if (status_SNMP_Scan == ScanStatus.ignored) { lst_ignored.Add("SNMP: ignored"); } else { lst_statusUpdate.Add($"SNMP: {status_SNMP_Scan.ToString()} {counted_current_SNMP_Scan} / {counted_responded_SNMP_Devices} / {counted_total_SNMP_Devices}"); }
             if (status_Services_Scan == ScanStatus.ignored) { lst_ignored.Add("Services: ignored"); } else { lst_statusUpdate.Add($"Services: {status_Services_Scan.ToString()} {counted_current_Service_IP_Scan} / {counted_responded_Services_IP_Scan} / {counted_total_Services_IP_Scan}"); }            
             if (status_TCP_Port_Scan == ScanStatus.ignored) { lst_ignored.Add("TCP Ports: ignored"); } else { lst_statusUpdate.Add($"TCP Ports: {status_TCP_Port_Scan.ToString()} {counted_current_TCP_Port_Scan} / {counted_responded_TCP_Port_Scan_Devices} / {counted_total_TCP_Port_Scans}"); }
+            
             if (status_UDP_Port_Scan == ScanStatus.ignored) { lst_ignored.Add("UDP Ports: ignored"); } else { lst_statusUpdate.Add($"UDP Ports: {status_UDP_Port_Scan.ToString()} {counted_current_UDP_Port_Scan} / {counted_responded_UDP_Port_Devices} / {counted_total_UDP_Port_Devices}"); }
+            
             if (status_ARP_A_Scan == ScanStatus.ignored) { lst_ignored.Add("ARP A: ignored"); } else { lst_statusUpdate.Add($"APR A: {status_ARP_A_Scan.ToString()} ... / ... / ..."); }
 
             lbl_ScanStatus.Content = string.Join("    ", lst_statusUpdate).Replace(ScanStatus.finished.ToString(), string.Empty);// + "    ||    " + ( string.Join("    ", lst_ignored).Replace(ScanStatus.finished.ToString(), string.Empty));
@@ -911,34 +913,6 @@ namespace MyNetworkMonitor
                 await Task.Delay(2000);
             }
 
-
-            if ((bool)chk_Methodes_SSDP.IsChecked)
-            {
-                status_SSDP_Scan = ScanStatus.running;
-                counted_total_SSDPs = _IPsToScan.Count;
-                Status();
-                Task.Run(() => scanningMethode_SSDP_UPNP.Scan_for_SSDP_devices_async());
-            }
-
-
-            if((bool)chk_Methodes_SNMP.IsChecked)
-            {
-                status_SNMP_Scan = ScanStatus.running;
-                //requestedSNMPCount = _IPsToScan.Count;
-                Status();
-                await Task.Run(() => scanningMethode_SNMP.ScanAsync(_IPsToScan));
-            }
-
-
-            if ((bool)chk_Methodes_ONVIF.IsChecked)
-            {
-                status_ONVIF_IP_Cam_Scan = ScanStatus.running;
-                Status();
-                scanningMethod_Find_ONVIF_IP_Cameras.Discover(_IPsToScan);
-
-                //Task.Run(() => scanningMethod_FindIPCameras.GetSoapResponsesFromCamerasAsync(IPAddress.Parse("192.168.178.255"), _IPsToScan));
-            }
-
             if ((bool)chk_ARPRequest.IsChecked)
             {
                 counted_total_ARP_Requests = _IPsToScan.Count;
@@ -948,7 +922,6 @@ namespace MyNetworkMonitor
                 await Task.Run(() => scanningMethode_ARP.SendARPRequestAsync(_IPsToScan));
             }
 
-
             if ((bool)chk_Methodes_Ping.IsChecked)
             {
                 status_Ping_Scan = ScanStatus.running;
@@ -957,6 +930,24 @@ namespace MyNetworkMonitor
                 await Task.Run(() => scanningMethods_Ping.PingIPsAsync(_IPsToScan, false));
             }
 
+
+            if ((bool)chk_Methodes_SSDP.IsChecked)
+            {
+                status_SSDP_Scan = ScanStatus.running;
+                counted_total_SSDPs = _IPsToScan.Count;
+                Status();
+                await Task.Run(() => scanningMethode_SSDP_UPNP.Scan_for_SSDP_devices_async());
+            }
+
+
+            if ((bool)chk_Methodes_ONVIF.IsChecked)
+            {
+                status_ONVIF_IP_Cam_Scan = ScanStatus.running;
+                Status();
+                await Task.Run(() => scanningMethod_Find_ONVIF_IP_Cameras.Discover(_IPsToScan));
+
+                //Task.Run(() => scanningMethod_FindIPCameras.GetSoapResponsesFromCamerasAsync(IPAddress.Parse("192.168.178.255"), _IPsToScan));
+            }
 
             List<IPToScan> DNS_Hostname_IPsToScan = new List<IPToScan>();
             if ((bool)chk_Methodes_ScanHostnames.IsChecked)
@@ -1041,28 +1032,6 @@ namespace MyNetworkMonitor
                 Task.Run(() => scanningMethod_LookUp.LookupAsync(IPsForLookUp));
             }
 
-
-            List<IPToScan> NetBios_IPsToScan = new List<IPToScan>();
-            if ((bool)chk_Methodes_ScanNetBios.IsChecked)
-            {
-                if (_scannResults.ResultTable.Rows.Count == 0 || (bool)rb_ScanHostnames_All_IPs.IsChecked || IsSelectiveScan)
-                {
-                    NetBios_IPsToScan = _IPsToScan;
-                }
-                else
-                {
-                    foreach (DataRow row in _scannResults.ResultTable.Rows)
-                    {
-                        IPToScan ipToScan = new IPToScan();                       
-                        ipToScan.IPorHostname = row["ip"].ToString();
-                        NetBios_IPsToScan.Add(ipToScan);
-                    }
-                }
-                status_NetBios_Scan = ScanStatus.running;
-                await Task.Run(() => scanningMethode_NetBios.ScanMultipleIPsAsync(NetBios_IPsToScan, CancellationToken.None));
-            }
-
-
             List<IPToScan> SMB_IPsToScan = new List<IPToScan>();
             if ((bool)chk_Methodes_Scan_SMBVersions.IsChecked)
             {
@@ -1082,6 +1051,36 @@ namespace MyNetworkMonitor
                 status_SMB_VersionCheck = ScanStatus.running;
                 await scanningMethod_SMB_VersionCheck.ScanMultipleIPsAsync(SMB_IPsToScan, CancellationToken.None);
             }
+
+            List<IPToScan> NetBios_IPsToScan = new List<IPToScan>();
+            if ((bool)chk_Methodes_ScanNetBios.IsChecked)
+            {
+                if (_scannResults.ResultTable.Rows.Count == 0 || (bool)rb_ScanHostnames_All_IPs.IsChecked || IsSelectiveScan)
+                {
+                    NetBios_IPsToScan = _IPsToScan;
+                }
+                else
+                {
+                    foreach (DataRow row in _scannResults.ResultTable.Rows)
+                    {
+                        IPToScan ipToScan = new IPToScan();
+                        ipToScan.IPorHostname = row["ip"].ToString();
+                        NetBios_IPsToScan.Add(ipToScan);
+                    }
+                }
+                status_NetBios_Scan = ScanStatus.running;
+                await Task.Run(() => scanningMethode_NetBios.ScanMultipleIPsAsync(NetBios_IPsToScan, CancellationToken.None));
+            }
+
+
+            if ((bool)chk_Methodes_SNMP.IsChecked)
+            {
+                status_SNMP_Scan = ScanStatus.running;
+                //requestedSNMPCount = _IPsToScan.Count;
+                Status();
+                await Task.Run(() => scanningMethode_SNMP.ScanAsync(_IPsToScan));
+            }
+            
 
             List<IPToScan> Services_IPsToScan = new List<IPToScan>();
             if ((bool)chk_Methodes_Scan_Services.IsChecked)
