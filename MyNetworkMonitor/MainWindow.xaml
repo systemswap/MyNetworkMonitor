@@ -375,9 +375,13 @@
 
                 <CheckBox x:Name="chk_Methodes_ScanTCPPorts" Content="TCP Ports" Grid.Column="7" HorizontalAlignment="Left" Width="76" VerticalContentAlignment="Center" VerticalAlignment="Center" Height="35" Margin="10,0,0,0"/>
 
+                
+                <!--
                 <CheckBox x:Name="chk_Methodes_ScanUDPPorts" Content="UDP Ports" Grid.Column="8" HorizontalAlignment="Center" Width="82" VerticalContentAlignment="Center" VerticalAlignment="Center" Height="35"/>
+                /-->
 
-
+                
+                
                 <TextBox x:Name="tb_IP_Address" Grid.Column="11" TextWrapping="Wrap" VerticalAlignment="Center" Height="20" Margin="10,0,9,0"/>
                 <TextBox x:Name="tb_TCPPorts" Grid.Column="12" TextWrapping="Wrap" VerticalAlignment="Center" Height="20" Margin="7,0,10,0"/>
                 <TextBox x:Name="tb_UDPPorts" Grid.Column="13" TextWrapping="Wrap" VerticalAlignment="Center" Height="20" Margin="10,0,10,0"/>
