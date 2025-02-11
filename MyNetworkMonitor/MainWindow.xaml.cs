@@ -2054,6 +2054,8 @@ namespace MyNetworkMonitor
             string mac = tb_Filter_Mac.Text.Trim();
             string vendor = tb_Filter_Vendor.Text.Trim();
             bool isIPCamChecked = chk_Filter_IsIPCam.IsChecked ?? false;
+            bool isSSDP_UPnP_Checked = chk_Filter_IsSSDP.IsChecked ?? false;
+            bool supportSMB_Checked = chk_Filter_SupportSMB.IsChecked ?? false;
 
             await Task.Run(() =>
             {
@@ -2136,6 +2138,14 @@ namespace MyNetworkMonitor
 
                 if (isIPCamChecked)
                     whereFilter.Append(" and IsIPCam is not null");
+
+                if (isSSDP_UPnP_Checked)
+                    whereFilter.Append(" and SSDPStatus is not null");
+
+                if (supportSMB_Checked)
+                    whereFilter.Append(" and detectedSMBVersions is not null");
+
+                
 
                 // Falls keine Filterbedingungen gesetzt sind, Filter zurücksetzen
                 string finalFilter = whereFilter.ToString();
