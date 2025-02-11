@@ -39,7 +39,7 @@ namespace MyNetworkMonitor
 
 
     public partial class MainWindow : Window
-    {
+    {        
         public MainWindow()
         {
             InitializeComponent();
@@ -54,6 +54,8 @@ namespace MyNetworkMonitor
             nicInfos = new Supporter_NetworkInterfaces().GetNetworkInterfaces();
             cb_NetworkAdapters.ItemsSource = nicInfos.Select(n => n.NicName).ToList();
             cb_NetworkAdapters.SelectedIndex = 0;
+
+
 
             supportMethods = new SupportMethods();
             //supportMethods.GetNetworkInterfaces();            
@@ -2268,23 +2270,32 @@ namespace MyNetworkMonitor
             DoWork(false);
         }
 
+        private static readonly CultureInfo GermanCulture = CultureInfo.GetCultureInfo("de-DE");
+
+
         private void cb_NetworkAdapters_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            NicInfo n = new NicInfo();
-            n = nicInfos.Where(name => name.NicName == cb_NetworkAdapters.SelectedItem).FirstOrDefault();
+            if (cb_NetworkAdapters.SelectedItem == null)
+                return;
 
-            TextChangedByComboBox = true;
+            string selectedNicName = cb_NetworkAdapters.SelectedItem.ToString();
+            NicInfo n = nicInfos.FirstOrDefault(nic => nic.NicName == selectedNicName);
 
-            tb_AdapterIP.Text = n.IPv4;
-            tb_AdapterSubnetMask.Text = n.IPv4Mask;
-            tb_Adapter_FirstSubnetIP.Text = n.FirstSubnetIP;
-            tb_Adapter_LastSubnetIP.Text = n.LastSubnetIP;
-            lb_IPsToScan.Content = n.IPsCount.ToString("n0", CultureInfo.GetCultureInfo("de-DE"));
+            if (n != null)
+            {
+                TextChangedByComboBox = true;
 
-            SelectedNetworkInterfaceInfos.Name = cb_NetworkAdapters.SelectedItem.ToString();
-            SelectedNetworkInterfaceInfos.IPv4 = IPAddress.Parse(n.IPv4);
+                tb_AdapterIP.Text = n.IPv4;
+                tb_AdapterSubnetMask.Text = n.IPv4Mask;
+                tb_Adapter_FirstSubnetIP.Text = n.FirstSubnetIP;
+                tb_Adapter_LastSubnetIP.Text = n.LastSubnetIP;
+                lb_IPsToScan.Content = n.IPsCount.ToString("n0", GermanCulture);  // Wiederverwendete CultureInfo
 
-            TextChangedByComboBox = false;
+                SelectedNetworkInterfaceInfos.Name = selectedNicName;
+                SelectedNetworkInterfaceInfos.IPv4 = !string.IsNullOrEmpty(n.IPv4) ? IPAddress.Parse(n.IPv4) : null;
+
+                TextChangedByComboBox = false;
+            }
         }
 
         private void tb_Adapter_FirstSubnetIP_TextChanged(object sender, TextChangedEventArgs e)
