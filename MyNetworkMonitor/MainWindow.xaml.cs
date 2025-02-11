@@ -28,6 +28,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Text.Json;
 using System.Windows.Media.Imaging;
+using static MyNetworkMonitor.SupportMethods;
 
 //using static System.Net.WebRequestMethods;
 
@@ -368,7 +369,11 @@ namespace MyNetworkMonitor
             waiting,
             running,
             finished,
-            AnotherLocalAppUsedThePort_TryLaterAgain
+            [Description("port was used by another app, try later again")]
+            AnotherLocalAppUsedThePort,
+
+            [Description("wrong network interface selected")]
+            wrongNetworkInterfaceSelected
         }
 
 
@@ -1571,7 +1576,7 @@ namespace MyNetworkMonitor
         {
             Dispatcher.BeginInvoke(() =>
             {
-                status_ONVIF_IP_Cam_Scan = ScanStatus.finished;
+                status_ONVIF_IP_Cam_Scan = e.ScanStatus;
                 Status();
             });
         }
@@ -2275,6 +2280,9 @@ namespace MyNetworkMonitor
             tb_Adapter_FirstSubnetIP.Text = n.FirstSubnetIP;
             tb_Adapter_LastSubnetIP.Text = n.LastSubnetIP;
             lb_IPsToScan.Content = n.IPsCount.ToString("n0", CultureInfo.GetCultureInfo("de-DE"));
+
+            SelectedNetworkInterfaceInfos.Name = cb_NetworkAdapters.SelectedItem.ToString();
+            SelectedNetworkInterfaceInfos.IPv4 = IPAddress.Parse(n.IPv4);
 
             TextChangedByComboBox = false;
         }

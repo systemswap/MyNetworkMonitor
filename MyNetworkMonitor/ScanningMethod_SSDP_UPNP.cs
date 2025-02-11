@@ -168,23 +168,7 @@ namespace MyNetworkMonitor
         //    //return devices;        
         //}
 
-        IPAddress GetLocalIPAddress()
-        {
-            foreach (NetworkInterface ni in NetworkInterface.GetAllNetworkInterfaces())
-            {
-                if (ni.OperationalStatus == OperationalStatus.Up && ni.NetworkInterfaceType != NetworkInterfaceType.Loopback)
-                {
-                    foreach (UnicastIPAddressInformation ip in ni.GetIPProperties().UnicastAddresses)
-                    {
-                        if (ip.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)  // Nur IPv4
-                        {
-                            return ip.Address;
-                        }
-                    }
-                }
-            }
-            throw new Exception("Keine aktive IPv4-Adresse gefunden!");
-        }
+        
 
 
 
@@ -203,9 +187,20 @@ namespace MyNetworkMonitor
                     socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastTimeToLive, 2);
 
                 //IPEndPoint localEndPoint = new IPEndPoint(IPAddress.Any, SSDP_PORT);
-                IPEndPoint localEndPoint = new IPEndPoint(GetLocalIPAddress(), SSDP_PORT);
-                socket.Bind(localEndPoint);
-
+                IPEndPoint localEndPoint = new IPEndPoint(SupportMethods.SelectedNetworkInterfaceInfos.IPv4, SSDP_PORT);
+                try
+                {
+                    socket.Bind(localEndPoint);
+                }
+                catch
+                {
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        SSDP_Scan_Finished?.Invoke(this, new Method_Finished_EventArgs() { ScanStatus = MainWindow.ScanStatus.wrongNetworkInterfaceSelected });
+                    });
+                    socket.Close();
+                    return;
+                }
                     IPEndPoint multicastEP = new IPEndPoint(IPAddress.Parse(SSDP_IP), SSDP_PORT);
 
                     // SSDP-M-SEARCH Anfrage erstellen
@@ -228,7 +223,7 @@ namespace MyNetworkMonitor
                 {
                     Application.Current.Dispatcher.Invoke(() =>
                     {
-                        SSDP_Scan_Finished?.Invoke(this, new Method_Finished_EventArgs() { ScanStatus = MainWindow.ScanStatus.AnotherLocalAppUsedThePort_TryLaterAgain});                        
+                        SSDP_Scan_Finished?.Invoke(this, new Method_Finished_EventArgs() { ScanStatus = MainWindow.ScanStatus.AnotherLocalAppUsedThePort});                        
                     });
                     socket.Close();
                     return;

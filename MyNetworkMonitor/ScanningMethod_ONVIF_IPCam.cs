@@ -575,23 +575,7 @@ namespace MyNetworkMonitor
         //    }
         //}
 
-        IPAddress GetLocalIPAddress()
-        {
-            foreach (NetworkInterface ni in NetworkInterface.GetAllNetworkInterfaces())
-            {
-                if (ni.OperationalStatus == OperationalStatus.Up && ni.NetworkInterfaceType != NetworkInterfaceType.Loopback)
-                {
-                    foreach (UnicastIPAddressInformation ip in ni.GetIPProperties().UnicastAddresses)
-                    {
-                        if (ip.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)  // Nur IPv4
-                        {
-                            return ip.Address;
-                        }
-                    }
-                }
-            }
-            throw new Exception("Keine aktive IPv4-Adresse gefunden!");
-        }
+     
 
         public async void Discover(List<IPToScan> IPs)
         {
@@ -608,9 +592,19 @@ namespace MyNetworkMonitor
                     socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastTimeToLive, 2);
 
                 //IPEndPoint localEndPoint = new IPEndPoint(IPAddress.Any, ONVIF_PORT);
-                IPEndPoint localEndPoint = new IPEndPoint(GetLocalIPAddress(), ONVIF_PORT);
-                socket.Bind(localEndPoint);
-
+                IPEndPoint localEndPoint = new IPEndPoint(SupportMethods.SelectedNetworkInterfaceInfos.IPv4, ONVIF_PORT);
+                try
+                {
+                    socket.Bind(localEndPoint);
+                }
+                catch 
+                {
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        ONVIF_IP_Camera_Scan_Finished?.Invoke(this, new Method_Finished_EventArgs() { ScanStatus = MainWindow.ScanStatus.wrongNetworkInterfaceSelected});
+                    });
+                    return;
+                }
                     IPEndPoint multicastEP = new IPEndPoint(IPAddress.Parse(ONVIF_MULTICAST_IP), ONVIF_PORT);
 
                     // Mehrfache Multicast-Anfragen senden (3 Versuche mit Pause)
@@ -680,7 +674,7 @@ namespace MyNetworkMonitor
                     {
                         Application.Current.Dispatcher.Invoke(() =>
                         {
-                            ONVIF_IP_Camera_Scan_Finished?.Invoke(this, new Method_Finished_EventArgs());
+                            ONVIF_IP_Camera_Scan_Finished?.Invoke(this, new Method_Finished_EventArgs() { ScanStatus = MainWindow.ScanStatus.finished});
                         });
                     }
                 }
