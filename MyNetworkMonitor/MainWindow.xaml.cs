@@ -867,7 +867,7 @@ namespace MyNetworkMonitor
                     if ((bool)chk_Methodes_ONVIF.IsChecked && !string.IsNullOrEmpty(row["IsIPCam"].ToString())) row["IsIPCam"] = Properties.Resources.gray_dotTB;
 
                     if ((bool)chk_Methodes_ScanTCPPorts.IsChecked) row["TCP_Ports"] = null;
-                    if ((bool)chk_Methodes_ScanUDPPorts.IsChecked) row["OpenUDP_Ports"] = null;
+                    //if ((bool)chk_Methodes_ScanUDPPorts.IsChecked) row["OpenUDP_Ports"] = null;
 
                     if ((bool)chk_Methodes_ScanHostnames.IsChecked)
                     {
@@ -897,7 +897,7 @@ namespace MyNetworkMonitor
             if ((bool)chk_Methodes_SNMP.IsChecked) status_SNMP_Scan = ScanStatus.waiting;
             if ((bool)chk_Methodes_LookUp.IsChecked) status_Lookup_Scan = ScanStatus.waiting;
             if ((bool)chk_Methodes_ScanTCPPorts.IsChecked) status_TCP_Port_Scan = ScanStatus.waiting;
-            if ((bool)chk_Methodes_ScanUDPPorts.IsChecked) status_UDP_Port_Scan = ScanStatus.waiting;
+            //if ((bool)chk_Methodes_ScanUDPPorts.IsChecked) status_UDP_Port_Scan = ScanStatus.waiting;
             if ((bool)chk_Methodes_ARP_A.IsChecked) status_ARP_A_Scan = ScanStatus.waiting;
 
 
@@ -1181,13 +1181,13 @@ namespace MyNetworkMonitor
             }
 
 
-            if ((bool)chk_Methodes_ScanUDPPorts.IsChecked)
-            {
-                status_UDP_Port_Scan = ScanStatus.running;
-                Status();
+            //if ((bool)chk_Methodes_ScanUDPPorts.IsChecked)
+            //{
+            //    status_UDP_Port_Scan = ScanStatus.running;
+            //    Status();
 
-                Task.Run(() => scanningMethode_PortsUDP.Get_All_UPD_Listener_as_List(_IPsToScan));
-            }
+            //    Task.Run(() => scanningMethode_PortsUDP.Get_All_UPD_Listener_as_List(_IPsToScan));
+            //}
 
 
             if ((bool)chk_Methodes_ARP_A.IsChecked)
