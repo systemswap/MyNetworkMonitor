@@ -1344,7 +1344,8 @@ public class ScanningMethod_Services
                         if (socket.Poll(100000, SelectMode.SelectRead))  // 100 ms warten, ob Daten verfügbar sind
                         {
                             byte[] buffer = new byte[1024];
-                            EndPoint remoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
+                            //EndPoint remoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
+                            EndPoint remoteEndPoint = new IPEndPoint(SupportMethods.SelectedNetworkInterfaceInfos.IPv4, 0);
                             int receivedBytes = socket.ReceiveFrom(buffer, ref remoteEndPoint);
 
                             if (receivedBytes >= 28)

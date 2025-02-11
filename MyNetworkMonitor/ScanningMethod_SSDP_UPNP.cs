@@ -100,7 +100,8 @@ namespace MyNetworkMonitor
                 //Console.WriteLine("📡 SSDP-Scan gesendet... Warte auf Antworten...");
 
                 // Antworten empfangen
-                var endpoint = new IPEndPoint(IPAddress.Any, SSDP_PORT);
+                //var endpoint = new IPEndPoint(IPAddress.Any, SSDP_PORT);
+                var endpoint = new IPEndPoint(SupportMethods.SelectedNetworkInterfaceInfos.IPv4, SSDP_PORT);
                 udpClient.Client.ReceiveTimeout = scanDuration; // Timeout für Antworten (5 Sekunden)
 
                 try
