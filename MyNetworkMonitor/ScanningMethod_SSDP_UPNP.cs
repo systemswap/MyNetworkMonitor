@@ -162,7 +162,7 @@ namespace MyNetworkMonitor
                     // Sicherstellen, dass das Event auf dem UI-Thread aufgerufen wird
                     Application.Current.Dispatcher.Invoke(() =>
                     {
-                        SSDP_Scan_Finished?.Invoke(this, new Method_Finished_EventArgs());
+                        SSDP_Scan_Finished?.Invoke(this, new Method_Finished_EventArgs() { ScanStatus = MainWindow.ScanStatus.finished });
                     });
                 }
             }
