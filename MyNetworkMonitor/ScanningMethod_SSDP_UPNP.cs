@@ -69,233 +69,110 @@ namespace MyNetworkMonitor
         /// Führt einen SSDP-Scan durch, empfängt Antworten und extrahiert Geräteinformationen.
         /// </summary>
         /// <param name="scanDuration">in milliseconds</param>
-        //public async void Scan_for_SSDP_devices_async(int scanDuration = 5000)
-        //{
-
-        //    current = 0;
-        //    responsed = 0;
-        //    total = 0;
-
-        //    List<SSDPDeviceInfo> devices = new List<SSDPDeviceInfo>();
-
-        //    using (UdpClient udpClient = new UdpClient())
-        //    {
-        //        udpClient.EnableBroadcast = true;
-        //        udpClient.MulticastLoopback = true;
-
-        //        IPEndPoint multicastEP = new IPEndPoint(IPAddress.Parse(SSDP_IP), SSDP_PORT);
-
-        //        // SSDP-M-SEARCH Anfrage erstellen
-        //        string ssdpRequest =
-        //            "M-SEARCH * HTTP/1.1\r\n" +
-        //            $"HOST: {SSDP_IP}:{SSDP_PORT}\r\n" +
-        //            "MAN: \"ssdp:discover\"\r\n" +
-        //            "MX: 3\r\n" +  // Maximale Wartezeit für Antworten
-        //            "ST: ssdp:all\r\n" +  // Suche nach allen UPnP-Geräten
-        //            "\r\n";
-
-        //        byte[] requestBytes = Encoding.UTF8.GetBytes(ssdpRequest);
-        //        await udpClient.SendAsync(requestBytes, requestBytes.Length, multicastEP);
-
-        //        //Console.WriteLine("📡 SSDP-Scan gesendet... Warte auf Antworten...");
-
-        //        // Antworten empfangen
-        //        var endpoint = new IPEndPoint(IPAddress.Any, SSDP_PORT);
-        //        udpClient.Client.ReceiveTimeout = scanDuration; // Timeout für Antworten (5 Sekunden)
-
-        //        try
-        //        {
-        //            // Starte den Timer und warte nicht auf seine Beendigung
-        //            var timerTask = timer.StartAsync(scanDuration, 1000, async () => { });
-
-        //            while (timer.IsRunning)
-        //            {
-        //                var receiveTask = udpClient.ReceiveAsync();
-        //                var completedTask = await Task.WhenAny(receiveTask, Task.Delay(100));
-
-        //                if (completedTask == receiveTask) // Antwort erhalten
-        //                {
-        //                    UdpReceiveResult result = receiveTask.Result;
-        //                    string response = Encoding.UTF8.GetString(result.Buffer);
-
-        //                    var device = await ParseSSDPResponseAsync(response, result.RemoteEndPoint.Address.ToString());
-
-        //                    if (device != null && !devices.Any(d => d.IP == device.IP))
-        //                    {
-        //                        devices.Add(device);
-
-        //                        IPToScan ipToScan = new IPToScan
-        //                        {
-        //                            SSDPStatus = true,
-        //                            IPorHostname = device.IP,
-        //                            IPGroupDescription = "not specified",
-        //                            DeviceDescription = "not specified",
-        //                            UsedScanMethod = ScanMethod.SSDP
-        //                        };
-
-        //                        ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs
-        //                        {
-        //                            ipToScan = ipToScan
-        //                        };
-
-        //                        // Event im UI-Thread aufrufen
-        //                        Application.Current.Dispatcher.Invoke(() =>
-        //                        {
-        //                            SSDP_foundNewDevice?.Invoke(this, scanTask_Finished);
-        //                        });
-
-        //                        int responsedValue = Interlocked.Increment(ref responsed);
-        //                        ProgressUpdated?.Invoke(current, responsedValue, total);
-        //                    }
-        //                }
-        //            }
-        //        }
-        //        catch (SocketException)
-        //        {
-        //            //Console.WriteLine("⚠ Keine Antwort erhalten. Beende Scan.");
-        //        }
-        //        finally
-        //        {
-        //            //Console.WriteLine("✅ SSDP-Scan abgeschlossen.");
-
-        //            // Sicherstellen, dass das Event auf dem UI-Thread aufgerufen wird
-        //            Application.Current.Dispatcher.Invoke(() =>
-        //            {
-        //                SSDP_Scan_Finished?.Invoke(this, new Method_Finished_EventArgs());
-        //            });
-        //        }
-        //    }
-        //    //return devices;        
-        //}
-
-        
-
-
-
         public async void Scan_for_SSDP_devices_async(int scanDuration = 5000)
         {
+
             current = 0;
             responsed = 0;
             total = 0;
 
             List<SSDPDeviceInfo> devices = new List<SSDPDeviceInfo>();
-           
-                using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp))
-                {
-                    socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-                    socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, true);
-                    socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastTimeToLive, 2);
 
-                //IPEndPoint localEndPoint = new IPEndPoint(IPAddress.Any, SSDP_PORT);
-                IPEndPoint localEndPoint = new IPEndPoint(SupportMethods.SelectedNetworkInterfaceInfos.IPv4, SSDP_PORT);
-                try
-                {
-                    socket.Bind(localEndPoint);
-                }
-                catch
-                {
-                    Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        SSDP_Scan_Finished?.Invoke(this, new Method_Finished_EventArgs() { ScanStatus = MainWindow.ScanStatus.wrongNetworkInterfaceSelected });
-                    });
-                    socket.Close();
-                    return;
-                }
-                    IPEndPoint multicastEP = new IPEndPoint(IPAddress.Parse(SSDP_IP), SSDP_PORT);
+            using (UdpClient udpClient = new UdpClient())
+            {
+                udpClient.EnableBroadcast = true;
+                udpClient.MulticastLoopback = true;
 
-                    // SSDP-M-SEARCH Anfrage erstellen
-                    string ssdpRequest =
-                        "M-SEARCH * HTTP/1.1\r\n" +
-                        $"HOST: {SSDP_IP}:{SSDP_PORT}\r\n" +
-                        "MAN: \"ssdp:discover\"\r\n" +
-                        "MX: 3\r\n" +
-                        "ST: ssdp:all\r\n" +
-                        "\r\n";
+                IPEndPoint multicastEP = new IPEndPoint(IPAddress.Parse(SSDP_IP), SSDP_PORT);
 
-                    byte[] requestBytes = Encoding.UTF8.GetBytes(ssdpRequest);
+                // SSDP-M-SEARCH Anfrage erstellen
+                string ssdpRequest =
+                    "M-SEARCH * HTTP/1.1\r\n" +
+                    $"HOST: {SSDP_IP}:{SSDP_PORT}\r\n" +
+                    "MAN: \"ssdp:discover\"\r\n" +
+                    "MX: 3\r\n" +  // Maximale Wartezeit für Antworten
+                    "ST: ssdp:all\r\n" +  // Suche nach allen UPnP-Geräten
+                    "\r\n";
+
+                byte[] requestBytes = Encoding.UTF8.GetBytes(ssdpRequest);
+                await udpClient.SendAsync(requestBytes, requestBytes.Length, multicastEP);
+
+                //Console.WriteLine("📡 SSDP-Scan gesendet... Warte auf Antworten...");
+
+                // Antworten empfangen
+                var endpoint = new IPEndPoint(IPAddress.Any, SSDP_PORT);
+                udpClient.Client.ReceiveTimeout = scanDuration; // Timeout für Antworten (5 Sekunden)
 
                 try
                 {
-                    socket.SendTo(requestBytes, multicastEP);
-                    Console.WriteLine("📡 SSDP-Scan gesendet... Warte auf Antworten...");
-                }
-                catch (Exception ex)
-                {
-                    Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        SSDP_Scan_Finished?.Invoke(this, new Method_Finished_EventArgs() { ScanStatus = MainWindow.ScanStatus.AnotherLocalAppUsedThePort});                        
-                    });
-                    socket.Close();
-                    return;
-                }
-               
-                    
+                    // Starte den Timer und warte nicht auf seine Beendigung
+                    var timerTask = timer.StartAsync(scanDuration, 1000, async () => { });
 
-                    DateTime startTime = DateTime.Now;
-
-                    try
+                    while (timer.IsRunning)
                     {
-                        while ((DateTime.Now - startTime).TotalMilliseconds < scanDuration)
+                        var receiveTask = udpClient.ReceiveAsync();
+                        var completedTask = await Task.WhenAny(receiveTask, Task.Delay(100));
+
+                        if (completedTask == receiveTask) // Antwort erhalten
                         {
-                            if (socket.Poll(100000, SelectMode.SelectRead))  // 100 ms warten, ob Daten verfügbar sind
+                            UdpReceiveResult result = receiveTask.Result;
+                            string response = Encoding.UTF8.GetString(result.Buffer);
+
+                            var device = await ParseSSDPResponseAsync(response, result.RemoteEndPoint.Address.ToString());
+
+                            if (device != null && !devices.Any(d => d.IP == device.IP))
                             {
-                                byte[] buffer = new byte[2048];
-                                EndPoint remoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
-                                int receivedBytes = socket.ReceiveFrom(buffer, ref remoteEndPoint);
+                                devices.Add(device);
 
-                                if (receivedBytes > 0)
+                                IPToScan ipToScan = new IPToScan
                                 {
-                                    string response = Encoding.UTF8.GetString(buffer, 0, receivedBytes);
-                                    var device = await ParseSSDPResponseAsync(response, ((IPEndPoint)remoteEndPoint).Address.ToString());
+                                    SSDPStatus = true,
+                                    IPorHostname = device.IP,
+                                    IPGroupDescription = "not specified",
+                                    DeviceDescription = "not specified",
+                                    UsedScanMethod = ScanMethod.SSDP
+                                };
 
-                                    if (device != null && !devices.Any(d => d.IP == device.IP))
-                                    {
-                                        devices.Add(device);
+                                ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs
+                                {
+                                    ipToScan = ipToScan
+                                };
 
-                                        IPToScan ipToScan = new IPToScan
-                                        {
-                                            SSDPStatus = true,
-                                            IPorHostname = device.IP,
-                                            IPGroupDescription = "not specified",
-                                            DeviceDescription = "not specified",
-                                            UsedScanMethod = ScanMethod.SSDP
-                                        };
+                                // Event im UI-Thread aufrufen
+                                Application.Current.Dispatcher.Invoke(() =>
+                                {
+                                    SSDP_foundNewDevice?.Invoke(this, scanTask_Finished);
+                                });
 
-                                        ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs
-                                        {
-                                            ipToScan = ipToScan
-                                        };
-
-                                        // Event im UI-Thread aufrufen
-                                        Application.Current.Dispatcher.Invoke(() =>
-                                        {
-                                            SSDP_foundNewDevice?.Invoke(this, scanTask_Finished);
-                                        });
-
-                                        int responsedValue = Interlocked.Increment(ref responsed);
-                                        ProgressUpdated?.Invoke(current, responsedValue, total);
-                                    }
-                                }
+                                int responsedValue = Interlocked.Increment(ref responsed);
+                                ProgressUpdated?.Invoke(current, responsedValue, total);
                             }
-                            await Task.Delay(100);  // CPU-Last reduzieren
                         }
                     }
-                    catch (SocketException ex)
-                    {
-                        Console.WriteLine($"⚠ Fehler beim Empfang: {ex.Message}");
-                    socket.Close();
-                    return;
                 }
-                    finally
+                catch (SocketException)
+                {
+                    //Console.WriteLine("⚠ Keine Antwort erhalten. Beende Scan.");
+                }
+                finally
+                {
+                    //Console.WriteLine("✅ SSDP-Scan abgeschlossen.");
+
+                    // Sicherstellen, dass das Event auf dem UI-Thread aufgerufen wird
+                    Application.Current.Dispatcher.Invoke(() =>
                     {
-                        Console.WriteLine("✅ SSDP-Scan abgeschlossen.");
-                        Application.Current.Dispatcher.Invoke(() =>
-                        {
-                            SSDP_Scan_Finished?.Invoke(this, new Method_Finished_EventArgs() { ScanStatus = MainWindow.ScanStatus.finished});
-                        });
-                    }
-                }            
+                        SSDP_Scan_Finished?.Invoke(this, new Method_Finished_EventArgs());
+                    });
+                }
+            }
+            //return devices;        
         }
+
+
+
+
+
+
 
 
 
