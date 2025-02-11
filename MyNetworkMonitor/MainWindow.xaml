@@ -9,7 +9,7 @@
         xmlns:dxg="http://schemas.devexpress.com/winfx/2008/xaml/grid" xmlns:dx="http://schemas.devexpress.com/winfx/2008/xaml/core" x:Name="mainWindow" x:Class="MyNetworkMonitor.MainWindow"
         
         mc:Ignorable="d"
-        Title="My Network Monitor" Height="830" Width="1855" MinWidth="1855" MinHeight="770" Closing="Window_Closing" Background="#FFF3F3F3" Loaded="mainWindow_Loaded">
+        Title="My Network Monitor" Height="830" Width="1865" MinWidth="1865" MinHeight="830" Closing="Window_Closing" Background="#FFF3F3F3" Loaded="mainWindow_Loaded">
 
 
     <Grid>
@@ -558,9 +558,9 @@
                         <ColumnDefinition Width="125"/>
                         <ColumnDefinition Width="125"/>
                         <ColumnDefinition Width="125"/>
-                        <ColumnDefinition Width="82"/>
-                        <ColumnDefinition Width="Auto" MinWidth="29"/>
-                        <ColumnDefinition Width="120"/>
+                        <ColumnDefinition Width="76"/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition Width="83"/>
                         <ColumnDefinition Width="110"/>
                         <ColumnDefinition Width="156"/>
                     </Grid.ColumnDefinitions>
@@ -595,9 +595,11 @@
                             </Style>
                         </Button.Resources>
                     </Button>
-                    <CheckBox x:Name="chk_Filter_IsIPCam" Grid.Column="10" Content="Is IP Cam" HorizontalAlignment="Center" Grid.Row="1" VerticalAlignment="Center" Checked="Filter_ScanResults_Explicite" Unchecked="Filter_ScanResults_Explicite" Width="78" Height="15"/>
+                    <CheckBox x:Name="chk_Filter_IsSSDP" Grid.Column="11" Content="SSDP UPnP" HorizontalAlignment="Left" VerticalAlignment="Center" Checked="Filter_ScanResults_Explicite" Unchecked="Filter_ScanResults_Explicite" Width="80" Height="15" Grid.Row="1" VerticalContentAlignment="Center"/>
+                    <CheckBox x:Name="chk_Filter_IsIPCam" Grid.Column="10" Content="Is IP Cam" HorizontalAlignment="Center" VerticalAlignment="Center" Checked="Filter_ScanResults_Explicite" Unchecked="Filter_ScanResults_Explicite" Width="74" Height="15" Grid.Row="1" VerticalContentAlignment="Center"/>
+                    <CheckBox x:Name="chk_Filter_SupportSMB" Grid.Column="10" Content="SMB" HorizontalAlignment="Center" VerticalAlignment="Center" Checked="Filter_ScanResults_Explicite" Unchecked="Filter_ScanResults_Explicite" Width="74" Height="14"/>
                     <CheckBox x:Name="chk_ScanResults_groupDevices" Grid.Column="13" Content="group devices" HorizontalAlignment="Left" VerticalAlignment="Center" Height="15" Width="96" Margin="5,0,0,0" IsChecked="True" Click="chk_ScanResults_groupDevices_Click"/>
-                    <CheckBox x:Name="chk_allowDeleteRow" Grid.Column="12" Content="allow delete row" HorizontalAlignment="Center" VerticalAlignment="Center" Width="120" Click="chk_allowDeleteRow_Click" Height="15"/>
+                    <CheckBox x:Name="chk_allowDeleteRow" Grid.Column="12" Content="select row" HorizontalAlignment="Left" VerticalAlignment="Center" Width="99" Click="chk_allowDeleteRow_Click" Height="14" Grid.ColumnSpan="2"/>
                     <Label Grid.Column="2" Content="&amp;" HorizontalAlignment="Center" Grid.Row="1" VerticalAlignment="Center" Height="23" Width="18"/>
 
                 </Grid>
