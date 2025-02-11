@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Reflection.PortableExecutable;
 using System.Security.Claims;
 using System.Security.Principal;
@@ -53,7 +55,7 @@ namespace MyNetworkMonitor
                 LoadMacVendors();
             }
 
-            string[]? data = fields.FirstOrDefault(f => macAdress.Replace("-",":").ToLower().StartsWith(f[0].ToLower()))?.ToArray();
+            string[]? data = fields.FirstOrDefault(f => macAdress.Replace("-", ":").ToLower().StartsWith(f[0].ToLower()))?.ToArray();
 
             if (fields.Length == 0 || header.Length == 0)
             {
@@ -84,7 +86,7 @@ namespace MyNetworkMonitor
             return header!.Skip(1).ToArray();
         }
 
-       
+
 
         public bool Is_Valid_IP(string ip)
         {
@@ -97,11 +99,11 @@ namespace MyNetworkMonitor
 
             Regex regex = new Regex(pattern);
 
-            return regex.IsMatch(ip);            
+            return regex.IsMatch(ip);
         }
 
-        public class ValidAndCleanedIP 
-        { 
+        public class ValidAndCleanedIP
+        {
             public bool IsValid { get; set; }
             public string IP { get; set; }
         }
@@ -134,66 +136,99 @@ namespace MyNetworkMonitor
 
             return validAndCleanedIP;
         }
+
+        //public static class LanguageUtils
+        //{
+        //    /// <summary>
+        //    /// Runs an operation and ignores any Exceptions that occur.
+        //    /// Returns true or falls depending on whether catch was
+        //    /// triggered
+        //    /// </summary>
+        //    /// <param name="operation">lambda that performs an operation that might throw</param>
+        //    /// <returns></returns>
+        //    public static bool IgnoreErrors(Action operation)
+        //    {
+        //        if (operation == null)
+        //            return false;
+        //        try
+        //        {
+        //            operation.Invoke();
+        //        }
+        //        catch
+        //        {
+        //            return false;
+        //        }
+
+        //        return true;
+        //    }
+
+        //    /// <summary>
+        //    /// Runs an function that returns a value and ignores any Exceptions that occur.
+        //    /// Returns true or falls depending on whether catch was
+        //    /// triggered
+        //    /// </summary>
+        //    /// <param name="operation">parameterless lamda that returns a value of T</param>
+        //    /// <param name="defaultValue">Default value returned if operation fails</param>
+        //    public static T IgnoreErrors<T>(Func<T> operation, T defaultValue = default(T))
+        //    {
+        //        if (operation == null)
+        //            return defaultValue;
+
+        //        T result;
+        //        try
+        //        {
+        //            result = operation.Invoke();
+        //        }
+        //        catch
+        //        {
+        //            result = defaultValue;
+        //        }
+
+        //        return result;
+        //    }
+        //}
+
+        ////helps to sort IPs
+        //public class IPComparer : IComparer<string>
+        //{
+        //    public int Compare(string a, string b)
+        //    {
+        //        return Enumerable.Zip(a.Split('.'), b.Split('.'), (x, y) => int.Parse(x).CompareTo(int.Parse(y))).FirstOrDefault(i => i != 0);
+        //    }
+        //}
+
+
+        public static string GetIPAddressByInterfaceName(string interfaceName)
+        {
+            foreach (NetworkInterface ni in NetworkInterface.GetAllNetworkInterfaces())
+            {
+                if (ni.Name.Equals(interfaceName, StringComparison.OrdinalIgnoreCase) && ni.OperationalStatus == OperationalStatus.Up)
+                {
+                    foreach (UnicastIPAddressInformation ip in ni.GetIPProperties().UnicastAddresses)
+                    {
+                        if (ip.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)  // Nur IPv4-Adressen
+                        {
+                            return ip.Address.ToString();
+                        }
+                    }
+                }
+            }
+            throw new Exception($"Keine IPv4-Adresse für das Interface '{interfaceName}' gefunden oder Interface ist nicht aktiv.");
+        }
+
+        public static class SelectedNetworkInterfaceInfos
+        {
+            public static string Name { get; set; }
+            public static IPAddress IPv4 { get; set; }
+            public static string IPv4_string { get { return IPv4.ToString(); } }
+        }
+
+        public static string GetEnumDescription(Enum value)
+        {
+            FieldInfo fi = value.GetType().GetField(value.ToString());
+            DescriptionAttribute[] attributes = (DescriptionAttribute[])fi.GetCustomAttributes(typeof(DescriptionAttribute), false);
+
+            return attributes.Length > 0 ? attributes[0].Description : value.ToString();
+        }
     }
-
-    //public static class LanguageUtils
-    //{
-    //    /// <summary>
-    //    /// Runs an operation and ignores any Exceptions that occur.
-    //    /// Returns true or falls depending on whether catch was
-    //    /// triggered
-    //    /// </summary>
-    //    /// <param name="operation">lambda that performs an operation that might throw</param>
-    //    /// <returns></returns>
-    //    public static bool IgnoreErrors(Action operation)
-    //    {
-    //        if (operation == null)
-    //            return false;
-    //        try
-    //        {
-    //            operation.Invoke();
-    //        }
-    //        catch
-    //        {
-    //            return false;
-    //        }
-
-    //        return true;
-    //    }
-
-    //    /// <summary>
-    //    /// Runs an function that returns a value and ignores any Exceptions that occur.
-    //    /// Returns true or falls depending on whether catch was
-    //    /// triggered
-    //    /// </summary>
-    //    /// <param name="operation">parameterless lamda that returns a value of T</param>
-    //    /// <param name="defaultValue">Default value returned if operation fails</param>
-    //    public static T IgnoreErrors<T>(Func<T> operation, T defaultValue = default(T))
-    //    {
-    //        if (operation == null)
-    //            return defaultValue;
-
-    //        T result;
-    //        try
-    //        {
-    //            result = operation.Invoke();
-    //        }
-    //        catch
-    //        {
-    //            result = defaultValue;
-    //        }
-
-    //        return result;
-    //    }
-    //}
-
-    ////helps to sort IPs
-    //public class IPComparer : IComparer<string>
-    //{
-    //    public int Compare(string a, string b)
-    //    {
-    //        return Enumerable.Zip(a.Split('.'), b.Split('.'), (x, y) => int.Parse(x).CompareTo(int.Parse(y))).FirstOrDefault(i => i != 0);
-    //    }
-    //}
 }
-
