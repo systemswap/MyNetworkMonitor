@@ -508,7 +508,8 @@ namespace MyNetworkMonitor
                     await Task.Delay(500); // 500ms Pause zwischen den Anfragen
                 }
 
-                var endpoint = new IPEndPoint(IPAddress.Any, ONVIF_PORT);
+                //var endpoint = new IPEndPoint(IPAddress.Any, ONVIF_PORT);
+                var endpoint = new IPEndPoint(SupportMethods.SelectedNetworkInterfaceInfos.IPv4, ONVIF_PORT);
                 udpClient.Client.ReceiveTimeout = 5000; // 📌 5 Sekunden Empfangszeit
 
                 try
