@@ -68,7 +68,7 @@ namespace MyNetworkMonitor
             await Task.WhenAll(tasks);
 
             // mit ? prüft man ob das event im hauptthread auch angelegt wurde mit +=
-            ARP_Request_Finished?.Invoke(this, new Method_Finished_EventArgs());
+            ARP_Request_Finished?.Invoke(this, new Method_Finished_EventArgs() { ScanStatus = MainWindow.ScanStatus.finished});
         }
 
         private async Task ArpRequestTask(IPToScan ipToScan)
@@ -378,7 +378,7 @@ namespace MyNetworkMonitor
                     return "255.255.255.255";
                 }
 
-                string localIp = GetLocalIPAddress();
+                string localIp = SupportMethods.SelectedNetworkInterfaceInfos.IPv4_string;
                 foreach (var kvp in result)
                 {
                     if (kvp.Key.ToString().EndsWith("." + localIp))
@@ -396,11 +396,7 @@ namespace MyNetworkMonitor
             return "255.255.255.255"; // Falls keine brauchbare Subnetzmaske gefunden wird
         }
 
-        private static string GetLocalIPAddress()
-        {
-            var host = Dns.GetHostEntry(Dns.GetHostName());
-            return host.AddressList.FirstOrDefault(ip => ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)?.ToString();
-        }
+      
 
         private static bool IsIpInSubnet(string ipAddress, string networkIp, string subnetMask)
         {
