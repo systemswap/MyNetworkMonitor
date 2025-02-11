@@ -367,7 +367,8 @@ namespace MyNetworkMonitor
             ignored,
             waiting,
             running,
-            finished
+            finished,
+            AnotherLocalAppUsedThePort_TryLaterAgain
         }
 
 
@@ -1600,7 +1601,7 @@ namespace MyNetworkMonitor
         {
             Dispatcher.BeginInvoke(new Action(() =>
             {
-                status_SSDP_Scan = ScanStatus.finished;
+                status_SSDP_Scan = e.ScanStatus;
                 Status();
             }));
         }

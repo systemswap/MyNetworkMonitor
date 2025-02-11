@@ -392,6 +392,7 @@ using System.Xml.XPath;
 using System.Threading;
 using System.Windows;
 using System.Net.Http;
+using System.Net.NetworkInformation;
 
 namespace MyNetworkMonitor
 {
@@ -574,6 +575,23 @@ namespace MyNetworkMonitor
         //    }
         //}
 
+        IPAddress GetLocalIPAddress()
+        {
+            foreach (NetworkInterface ni in NetworkInterface.GetAllNetworkInterfaces())
+            {
+                if (ni.OperationalStatus == OperationalStatus.Up && ni.NetworkInterfaceType != NetworkInterfaceType.Loopback)
+                {
+                    foreach (UnicastIPAddressInformation ip in ni.GetIPProperties().UnicastAddresses)
+                    {
+                        if (ip.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)  // Nur IPv4
+                        {
+                            return ip.Address;
+                        }
+                    }
+                }
+            }
+            throw new Exception("Keine aktive IPv4-Adresse gefunden!");
+        }
 
         public async void Discover(List<IPToScan> IPs)
         {
@@ -581,9 +599,7 @@ namespace MyNetworkMonitor
             string soapRequest = CreateSoapRequest();
             byte[] requestBytes = Encoding.UTF8.GetBytes(soapRequest);
 
-            try
-            {
-                
+           
 
                 using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp))
                 {
@@ -591,8 +607,9 @@ namespace MyNetworkMonitor
                     socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, true);
                     socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastTimeToLive, 2);
 
-                    IPEndPoint localEndPoint = new IPEndPoint(IPAddress.Any, ONVIF_PORT);
-                    socket.Bind(localEndPoint);
+                //IPEndPoint localEndPoint = new IPEndPoint(IPAddress.Any, ONVIF_PORT);
+                IPEndPoint localEndPoint = new IPEndPoint(GetLocalIPAddress(), ONVIF_PORT);
+                socket.Bind(localEndPoint);
 
                     IPEndPoint multicastEP = new IPEndPoint(IPAddress.Parse(ONVIF_MULTICAST_IP), ONVIF_PORT);
 
@@ -667,9 +684,7 @@ namespace MyNetworkMonitor
                         });
                     }
                 }
-            }
-            catch { 
-            }
+           
 
             // **Unicast-Fallback (falls Multicast nicht alle Geräte erreicht)**
             foreach (var ipToScan in IPs)

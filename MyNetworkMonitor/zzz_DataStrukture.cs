@@ -137,8 +137,7 @@ namespace MyNetworkMonitor
         public bool IsIPCam { get { return _IsIPCam; } set { _IsIPCam = value; } }
         public string IPCamName { get { return _IPCamName; } set { _IPCamName = value; } }
         public string IPCamXAddress { get { return _IPCamXAddress; } set { _IPCamXAddress = value; } }
-
-
+       
 
         private string _SNMPSysName = string.Empty;
         private string _SNMPSysDesc = string.Empty;
