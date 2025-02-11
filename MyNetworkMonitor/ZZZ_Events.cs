@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using System.Threading.Tasks;
+using static MyNetworkMonitor.MainWindow;
 
 namespace MyNetworkMonitor
 {
@@ -83,8 +84,7 @@ namespace MyNetworkMonitor
         }
 
         private bool _finished = false;
-        private string status = string.Empty;
         public bool Methode_Finished { get { return _finished; } }
-        public string finishMessage { get { return status; } set { status = value; } }
+        public ScanStatus ScanStatus { get; set; }
     }
 }
