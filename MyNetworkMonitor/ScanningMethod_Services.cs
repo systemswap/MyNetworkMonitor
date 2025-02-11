@@ -1312,23 +1312,7 @@ public class ScanningMethod_Services
     //}
 
 
-    IPAddress GetLocalIPAddress()
-    {
-        foreach (NetworkInterface ni in NetworkInterface.GetAllNetworkInterfaces())
-        {
-            if (ni.OperationalStatus == OperationalStatus.Up && ni.NetworkInterfaceType != NetworkInterfaceType.Loopback)
-            {
-                foreach (UnicastIPAddressInformation ip in ni.GetIPProperties().UnicastAddresses)
-                {
-                    if (ip.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)  // Nur IPv4
-                    {
-                        return ip.Address;
-                    }
-                }
-            }
-        }
-        throw new Exception("Keine aktive IPv4-Adresse gefunden!");
-    }
+    
 
 
     public async Task<List<string>> SendDhcpDiscoverAsync(byte[] dhcpDiscoverPacket)
@@ -1342,7 +1326,7 @@ public class ScanningMethod_Services
             {
                 socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, true);
                 //socket.Bind(new IPEndPoint(IPAddress.Any, 68));  // Lausche auf Port 68 für eingehende Broadcasts
-                socket.Bind(new IPEndPoint(GetLocalIPAddress(), 68));  // Lausche auf Port 68 für eingehende Broadcasts
+                socket.Bind(new IPEndPoint(SupportMethods.SelectedNetworkInterfaceInfos.IPv4, 68));  // Lausche auf Port 68 für eingehende Broadcasts
 
                 IPEndPoint dhcpServerEndPoint = new IPEndPoint(IPAddress.Broadcast, 67);
                 Console.WriteLine($"📡 Sende DHCP DISCOVER...");
