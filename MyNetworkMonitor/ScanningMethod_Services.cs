@@ -54,11 +54,12 @@ public enum ServiceType
 
     // Datenbanken
     MSSQLServer,
-    PostgreSQL,
-    MongoDB,
+    PostgreSQL,    
     MariaDB,
     MySQL,
     OracleDB,
+    // no SQL Datenbanken
+    MongoDB,
     InfluxDB2,
     InfluxDB3,
 
@@ -573,7 +574,7 @@ public class ScanningMethod_Services
 
         List<int> ports = Enumerable.Range(0, 65536).ToList(); // Alle Ports (0 bis 65535)
         ports.Clear();
-        ports.Add(5432);
+        ports.Add(8086);
 
         foreach (int port in ports)
         {
@@ -819,7 +820,7 @@ public class ScanningMethod_Services
         // 🔍 InfluxDB 2
         if (service == ServiceType.InfluxDB2)
         {
-            if (response.Length == 6 && response.All(b => b == 0x00))
+            if (str_serviceResponse.ToLower().Contains("influxdb"))
             {
                 serviceMatched = true;
             }
