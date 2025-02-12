@@ -2059,6 +2059,8 @@ namespace MyNetworkMonitor
             bool isIPCamChecked = chk_Filter_IsIPCam.IsChecked ?? false;
             bool isSSDP_UPnP_Checked = chk_Filter_IsSSDP.IsChecked ?? false;
             bool supportSMB_Checked = chk_Filter_SupportSMB.IsChecked ?? false;
+            bool supportSNMP_Checked = chk_Filter_SupportSNMP.IsChecked ?? false;
+            bool supportNETBIOS_Checked = chk_Filter_SupportNetBios.IsChecked ?? false;
 
             await Task.Run(() =>
             {
@@ -2148,7 +2150,11 @@ namespace MyNetworkMonitor
                 if (supportSMB_Checked)
                     whereFilter.Append(" and detectedSMBVersions is not null");
 
-                
+                if (supportSNMP_Checked)
+                    whereFilter.Append(" and SNMPSysName is not null");
+
+                if (supportNETBIOS_Checked)
+                    whereFilter.Append(" and NetBiosHostname is not null");
 
                 // Falls keine Filterbedingungen gesetzt sind, Filter zurücksetzen
                 string finalFilter = whereFilter.ToString();
