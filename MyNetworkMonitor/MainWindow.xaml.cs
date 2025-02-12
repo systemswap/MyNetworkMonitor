@@ -261,6 +261,7 @@ namespace MyNetworkMonitor
                     {chk_Services_MariaDB.Name, chk_Services_MariaDB.IsChecked ?? false },
                     {chk_Services_MYSQL.Name, chk_Services_MYSQL.IsChecked ?? false },
                     {chk_Services_OracleDB.Name, chk_Services_OracleDB.IsChecked ?? false },
+                    {chk_Services_InfluxDB2.Name, chk_Services_InfluxDB2.IsChecked ?? false },
 
                     {chk_Services_OPCUA.Name, chk_Services_OPCUA.IsChecked ?? false },
                     {chk_Services_ModBus.Name, chk_Services_ModBus.IsChecked ?? false },
@@ -301,6 +302,7 @@ namespace MyNetworkMonitor
                 chk_Services_MariaDB.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_MariaDB.Name) ? settings.CheckBoxStates[chk_Services_MariaDB.Name] : false;
                 chk_Services_MYSQL.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_MYSQL.Name) ? settings.CheckBoxStates[chk_Services_MYSQL.Name] : false;
                 chk_Services_OracleDB.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_OracleDB.Name) ? settings.CheckBoxStates[chk_Services_OracleDB.Name] : false;
+                chk_Services_InfluxDB2.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_InfluxDB2.Name) ? settings.CheckBoxStates[chk_Services_InfluxDB2.Name] : false;
 
                 chk_Services_OPCUA.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_OPCUA.Name) ? settings.CheckBoxStates[chk_Services_OPCUA.Name] : false;
                 chk_Services_ModBus.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_ModBus.Name) ? settings.CheckBoxStates[chk_Services_ModBus.Name] : false;
@@ -1136,7 +1138,7 @@ namespace MyNetworkMonitor
                 if ((bool)chk_Services_MariaDB.IsChecked) services.Add(ServiceType.MariaDB);
                 if ((bool)chk_Services_MYSQL.IsChecked) services.Add(ServiceType.MySQL);
                 if ((bool)chk_Services_OracleDB.IsChecked) services.Add(ServiceType.OracleDB);
-
+                if ((bool)chk_Services_InfluxDB2.IsChecked) services.Add(ServiceType.InfluxDB2);
 
                 // Industrieprotokolle  
                 if ((bool)chk_Services_OPCUA.IsChecked) services.Add(ServiceType.OPCUA);
@@ -3143,6 +3145,8 @@ namespace MyNetworkMonitor
             if ((bool)chk_Services_MariaDB.IsChecked) services.Add(ServiceType.MariaDB);
             if ((bool)chk_Services_MYSQL.IsChecked) services.Add(ServiceType.MySQL);
             if ((bool)chk_Services_OracleDB.IsChecked) services.Add(ServiceType.OracleDB);
+            if ((bool)chk_Services_InfluxDB2.IsChecked) services.Add(ServiceType.InfluxDB2);
+            
 
 
             // Industrieprotokolle  

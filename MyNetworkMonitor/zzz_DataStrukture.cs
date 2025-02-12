@@ -108,10 +108,7 @@ namespace MyNetworkMonitor
                             break;
                         case ServiceType.PostgreSQL:
                             serviceWithIcon = "🗄️ " + service.Service.ToString();
-                            break;
-                        case ServiceType.MongoDB:
-                            serviceWithIcon = "🛢️ " + service.Service.ToString();
-                            break;
+                            break;                        
                         case ServiceType.MariaDB:
                             serviceWithIcon = "🗄️ " + service.Service.ToString();
                             break;
@@ -120,6 +117,12 @@ namespace MyNetworkMonitor
                             break;
                         case ServiceType.OracleDB:
                             serviceWithIcon = "🗄️ " + service.Service.ToString();
+                            break;
+                        case ServiceType.MongoDB:
+                            serviceWithIcon = "🛢️ " + service.Service.ToString();
+                            break;
+                        case ServiceType.InfluxDB2:
+                            serviceWithIcon = "🛢️ " + service.Service.ToString();
                             break;
                         case ServiceType.OPCUA:
                             serviceWithIcon = "⚙️ " + service.Service.ToString();
