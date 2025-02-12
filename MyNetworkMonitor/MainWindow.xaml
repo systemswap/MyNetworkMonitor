@@ -218,13 +218,14 @@
 
                         <CheckBox x:Name="chk_Services_MSSQL" Content="MSSQL            (1433)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,357,0,0" IsChecked="True"/>
                         <CheckBox x:Name="chk_Services_Postgre" Content="PostgreSQL     (5432)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,382,0,0" IsChecked="True"/>
-                        <CheckBox x:Name="chk_Services_MariaDB" Content="MariaDB          (3306)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,407,0,0"/>
-                        <CheckBox x:Name="chk_Services_MYSQL" Content="MySQL            (3306)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,432,0,0"/>
-                        <CheckBox x:Name="chk_Services_OracleDB" Content="OracleDB         (1521)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,457,0,0"/>
+                        <CheckBox x:Name="chk_Services_MongoDB" Content="MongoDB       (27017)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,405,0,0" IsChecked="True"/>
+                        <CheckBox x:Name="chk_Services_MariaDB" Content="MariaDB          (3306)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,427,0,0"/>
+                        <CheckBox x:Name="chk_Services_MYSQL" Content="MySQL            (3306)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,452,0,0"/>
+                        <CheckBox x:Name="chk_Services_OracleDB" Content="OracleDB         (1521)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,477,0,0"/>
 
-                        <CheckBox x:Name="chk_Services_OPCUA" Content="OPC UA           (4840)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,499,0,0" IsChecked="True"/>
-                        <CheckBox x:Name="chk_Services_ModBus" Content="Modbus          (502)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,524,0,0" IsChecked="True"/>
-                        <CheckBox x:Name="chk_Services_SiemensS7" Content="SiemensS7      (102, 1020)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,549,0,0"/>
+                        <CheckBox x:Name="chk_Services_OPCUA" Content="OPC UA           (4840)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,519,0,0" IsChecked="True"/>
+                        <CheckBox x:Name="chk_Services_ModBus" Content="Modbus          (502)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,544,0,0" IsChecked="True"/>
+                        <CheckBox x:Name="chk_Services_SiemensS7" Content="SiemensS7      (102, 1020)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,569,0,0"/>
                         <Image HorizontalAlignment="Left" Height="16" Margin="15,47,0,0" VerticalAlignment="Top" Width="16" Source="/Resources/Radar.png"/>
                         <Image HorizontalAlignment="Left" Height="16" Margin="15,213,0,0" VerticalAlignment="Top" Width="16" Source="/Resources/Radar.png"/>
                         <Image HorizontalAlignment="Left" Height="16" Margin="15,238,0,0" VerticalAlignment="Top" Width="16" Source="/Resources/Radar.png"/>
@@ -232,10 +233,11 @@
                         <Image HorizontalAlignment="Left" Height="16" Margin="15,288,0,0" VerticalAlignment="Top" Width="16" Source="/Resources/Radar.png"/>
                         <Image HorizontalAlignment="Left" Height="16" Margin="15,359,0,0" VerticalAlignment="Top" Width="16" Source="/Resources/Radar.png"/>
                         <Image HorizontalAlignment="Left" Height="16" Margin="15,385,0,0" VerticalAlignment="Top" Width="16" Source="/Resources/Radar.png"/>
+                        <Image HorizontalAlignment="Left" Height="16" Margin="15,408,0,0" VerticalAlignment="Top" Width="16" Source="/Resources/Radar.png"/> 
                         <Image HorizontalAlignment="Left" Height="16" Margin="15,502,0,0" VerticalAlignment="Top" Width="16" Source="/Resources/Radar.png"/>
                         <Image HorizontalAlignment="Left" Height="16" Margin="15,527,0,0" VerticalAlignment="Top" Width="16" Source="/Resources/Radar.png"/>
                         <Image HorizontalAlignment="Left" Height="16" Margin="15,585,0,0" VerticalAlignment="Top" Width="16" Source="/Resources/Radar.png"/>
-                        <Label Content=" means detect service across 65535 ports" HorizontalAlignment="Left" Margin="27,579,0,0" VerticalAlignment="Top"/>
+                        <Label Content=" means detect service across 65535 ports" HorizontalAlignment="Left" Margin="27,599,0,0" VerticalAlignment="Top"/>
 
 
 
@@ -375,13 +377,13 @@
 
                 <CheckBox x:Name="chk_Methodes_ScanTCPPorts" Content="TCP Ports" Grid.Column="7" HorizontalAlignment="Left" Width="76" VerticalContentAlignment="Center" VerticalAlignment="Center" Height="35" Margin="10,0,0,0"/>
 
-                
+
                 <!--
                 <CheckBox x:Name="chk_Methodes_ScanUDPPorts" Content="UDP Ports" Grid.Column="8" HorizontalAlignment="Center" Width="82" VerticalContentAlignment="Center" VerticalAlignment="Center" Height="35"/>
                 /-->
 
-                
-                
+
+
                 <TextBox x:Name="tb_IP_Address" Grid.Column="11" TextWrapping="Wrap" VerticalAlignment="Center" Height="20" Margin="10,0,9,0"/>
                 <TextBox x:Name="tb_TCPPorts" Grid.Column="12" TextWrapping="Wrap" VerticalAlignment="Center" Height="20" Margin="7,0,10,0"/>
                 <TextBox x:Name="tb_UDPPorts" Grid.Column="13" TextWrapping="Wrap" VerticalAlignment="Center" Height="20" Margin="10,0,10,0"/>
