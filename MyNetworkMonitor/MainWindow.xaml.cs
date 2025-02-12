@@ -3088,29 +3088,29 @@ namespace MyNetworkMonitor
 
             _IPsToScan.Add(new IPToScan { IPorHostname = selectedIps.ToList()[0] });
 
-            var additionalServicePorts = new Dictionary<ServiceType, List<int>>
-            {
-                { ServiceType.WebServices, Enumerable.Range(0, 65536).ToList() },
-                { ServiceType.FTP, Enumerable.Range(0, 65536).ToList() },
-                { ServiceType.SSH, Enumerable.Range(0, 65536).ToList() },
-                { ServiceType.RDP, Enumerable.Range(0, 65536).ToList() },
+            //var additionalServicePorts = new Dictionary<ServiceType, List<int>>
+            //{
+            //    { ServiceType.WebServices, Enumerable.Range(0, 65536).ToList() },
+            //    { ServiceType.FTP, Enumerable.Range(0, 65536).ToList() },
+            //    { ServiceType.SSH, Enumerable.Range(0, 65536).ToList() },
+            //    { ServiceType.RDP, Enumerable.Range(0, 65536).ToList() },
 
-                { ServiceType.UltraVNC, Enumerable.Range(0, 65536).ToList() },
-                { ServiceType.TeamViewer, Enumerable.Range(0, 65536).ToList() },
-                { ServiceType.BigFixRemote, Enumerable.Range(0, 65536).ToList() },
-                { ServiceType.Anydesk, Enumerable.Range(0, 65536).ToList() },
-                { ServiceType.Rustdesk, Enumerable.Range(0, 65536).ToList() },
+            //    { ServiceType.UltraVNC, Enumerable.Range(0, 65536).ToList() },
+            //    { ServiceType.TeamViewer, Enumerable.Range(0, 65536).ToList() },
+            //    { ServiceType.BigFixRemote, Enumerable.Range(0, 65536).ToList() },
+            //    { ServiceType.Anydesk, Enumerable.Range(0, 65536).ToList() },
+            //    { ServiceType.Rustdesk, Enumerable.Range(0, 65536).ToList() },
 
-                { ServiceType.MSSQLServer, Enumerable.Range(0, 65536).ToList() },
-                { ServiceType.PostgreSQL, Enumerable.Range(0, 65536).ToList() },
-                { ServiceType.MariaDB, Enumerable.Range(0, 65536).ToList() },
-                { ServiceType.MySQL, Enumerable.Range(0, 65536).ToList() },
-                { ServiceType.OracleDB, Enumerable.Range(0, 65536).ToList() },
+            //    { ServiceType.MSSQLServer, Enumerable.Range(0, 65536).ToList() },
+            //    { ServiceType.PostgreSQL, Enumerable.Range(0, 65536).ToList() },
+            //    { ServiceType.MariaDB, Enumerable.Range(0, 65536).ToList() },
+            //    { ServiceType.MySQL, Enumerable.Range(0, 65536).ToList() },
+            //    { ServiceType.OracleDB, Enumerable.Range(0, 65536).ToList() },
 
-                { ServiceType.OPCUA, Enumerable.Range(0, 65536).ToList() },
-                { ServiceType.ModBus, Enumerable.Range(0, 65536).ToList() },
-                { ServiceType.S7, Enumerable.Range(0, 65536).ToList() },
-            };
+            //    { ServiceType.OPCUA, Enumerable.Range(0, 65536).ToList() },
+            //    { ServiceType.ModBus, Enumerable.Range(0, 65536).ToList() },
+            //    { ServiceType.S7, Enumerable.Range(0, 65536).ToList() },
+            //};
 
             status_Services_Scan = ScanStatus.running;
             //await scanningMethod_Services.ScanIPsAsync(Services_IPsToScan, new List<ServiceType> { ServiceType.DHCP});
@@ -3156,6 +3156,11 @@ namespace MyNetworkMonitor
                 return;
             }
 
+            if (services.Count > 1)
+            {
+                MessageBox.Show("select only one service for this scan.", "to many services selected", MessageBoxButton.OK);
+                return;
+            }
             await scanningMethod_Services.FindServicePortAsync(_IPsToScan[0], services[0]);
         }
     }
