@@ -605,7 +605,7 @@
                     <CheckBox x:Name="chk_Filter_IsIPCam" Grid.Column="10" Content="Is IP Cam" HorizontalAlignment="Center" VerticalAlignment="Center" Checked="Filter_ScanResults_Explicite" Unchecked="Filter_ScanResults_Explicite" Width="74" Height="15" Grid.Row="1" VerticalContentAlignment="Center"/>
                     <CheckBox x:Name="chk_Filter_SupportSMB" Grid.Column="10" Content="SMB" HorizontalAlignment="Center" VerticalAlignment="Center" Checked="Filter_ScanResults_Explicite" Unchecked="Filter_ScanResults_Explicite" Width="74" Height="14"/>
                     <CheckBox x:Name="chk_ScanResults_groupDevices" Grid.Column="13" Content="group devices" HorizontalAlignment="Left" VerticalAlignment="Center" Height="15" Width="96" Margin="5,0,0,0" IsChecked="True" Click="chk_ScanResults_groupDevices_Click"/>
-                    <CheckBox x:Name="chk_allowDeleteRow" Grid.Column="12" Content="select row" HorizontalAlignment="Left" VerticalAlignment="Center" Width="99" Click="chk_allowDeleteRow_Click" Height="14" Grid.ColumnSpan="2"/>
+                    <CheckBox x:Name="chk_allowDeleteRow" Grid.Column="12" Content="select row" HorizontalAlignment="Left" VerticalAlignment="Center" Width="75" Click="chk_allowDeleteRow_Click" Height="14"/>
                     <Label Grid.Column="2" Content="&amp;" HorizontalAlignment="Center" Grid.Row="1" VerticalAlignment="Center" Height="23" Width="18"/>
 
                 </Grid>
