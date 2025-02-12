@@ -498,7 +498,7 @@ public class ScanningMethod_Services
                 case ServiceType.PostgreSQL:
                     portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
                     break;
-                case ServiceType.MongoDB:
+                case ServiceType.MySQL:
                     portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
                     break;
                 case ServiceType.MariaDB:
@@ -507,9 +507,12 @@ public class ScanningMethod_Services
                 case ServiceType.OracleDB:
                     portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
                     break;
-                case ServiceType.MySQL:
+                case ServiceType.MongoDB:
                     portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
                     break;
+                case ServiceType.InfluxDB2:
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
+                    break;               
                 case ServiceType.OPCUA:
                     portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
                     break;
@@ -800,8 +803,17 @@ public class ScanningMethod_Services
             }
         }
 
+        // 🔍 PostgreSQL-Erkennung
+        if (service == ServiceType.MariaDB)
+        {
+            if (str_serviceResponse.ToLower().Contains("mariadb"))
+            {
+                serviceMatched = true;
+            }
+        }
 
-        if (service == ServiceType.MongoDB)
+
+            if (service == ServiceType.MongoDB)
         {
             // Typischer MongoDB-Header in der Antwort
             byte[] bjsonHeader = { 0x49, 0x01, 0x00, 0x00 };  // BJSON format beginnt so
