@@ -257,6 +257,7 @@ namespace MyNetworkMonitor
 
                     {chk_Services_MSSQL.Name, chk_Services_MSSQL.IsChecked ?? false },
                     {chk_Services_Postgre.Name, chk_Services_Postgre.IsChecked ?? false },
+                    {chk_Services_MongoDB.Name, chk_Services_MongoDB.IsChecked ?? false },
                     {chk_Services_MariaDB.Name, chk_Services_MariaDB.IsChecked ?? false },
                     {chk_Services_MYSQL.Name, chk_Services_MYSQL.IsChecked ?? false },
                     {chk_Services_OracleDB.Name, chk_Services_OracleDB.IsChecked ?? false },
@@ -296,6 +297,7 @@ namespace MyNetworkMonitor
 
                 chk_Services_MSSQL.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_MSSQL.Name) ? settings.CheckBoxStates[chk_Services_MSSQL.Name] : false;
                 chk_Services_Postgre.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_Postgre.Name) ? settings.CheckBoxStates[chk_Services_Postgre.Name] : false;
+                chk_Services_MongoDB.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_MongoDB.Name) ? settings.CheckBoxStates[chk_Services_MongoDB.Name] : false;
                 chk_Services_MariaDB.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_MariaDB.Name) ? settings.CheckBoxStates[chk_Services_MariaDB.Name] : false;
                 chk_Services_MYSQL.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_MYSQL.Name) ? settings.CheckBoxStates[chk_Services_MYSQL.Name] : false;
                 chk_Services_OracleDB.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_OracleDB.Name) ? settings.CheckBoxStates[chk_Services_OracleDB.Name] : false;
@@ -1130,6 +1132,7 @@ namespace MyNetworkMonitor
                 // Datenbanken
                 if ((bool)chk_Services_MSSQL.IsChecked) services.Add(ServiceType.MSSQLServer);
                 if ((bool)chk_Services_Postgre.IsChecked) services.Add(ServiceType.PostgreSQL);
+                if ((bool)chk_Services_MongoDB.IsChecked) services.Add(ServiceType.MongoDB);
                 if ((bool)chk_Services_MariaDB.IsChecked) services.Add(ServiceType.MariaDB);
                 if ((bool)chk_Services_MYSQL.IsChecked) services.Add(ServiceType.MySQL);
                 if ((bool)chk_Services_OracleDB.IsChecked) services.Add(ServiceType.OracleDB);
@@ -3130,6 +3133,7 @@ namespace MyNetworkMonitor
             // Datenbanken
             if ((bool)chk_Services_MSSQL.IsChecked) services.Add(ServiceType.MSSQLServer);
             if ((bool)chk_Services_Postgre.IsChecked) services.Add(ServiceType.PostgreSQL);
+            if ((bool)chk_Services_MongoDB.IsChecked) services.Add(ServiceType.MongoDB);
             if ((bool)chk_Services_MariaDB.IsChecked) services.Add(ServiceType.MariaDB);
             if ((bool)chk_Services_MYSQL.IsChecked) services.Add(ServiceType.MySQL);
             if ((bool)chk_Services_OracleDB.IsChecked) services.Add(ServiceType.OracleDB);
