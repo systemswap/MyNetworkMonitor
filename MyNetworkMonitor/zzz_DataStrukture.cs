@@ -62,7 +62,81 @@ namespace MyNetworkMonitor
                     //if the service has no open ports, skip it
                     //if (service.Ports.Count(p => p.Status != PortStatus.Closed) == 0) continue;
 
-                    sb.Append((service.Service.ToString() + ":").ToString().PadRight(14, ' ')); // Service-Name (UltraVNC, RDP, etc.)   
+
+                    string serviceWithIcon = string.Empty;
+
+                    switch (service.Service)
+                    {
+                        case ServiceType.WebServices:
+                            serviceWithIcon = "🌐 " + service.Service.ToString();
+                            break;
+                        case ServiceType.DNS_TCP:
+                            serviceWithIcon = "🌐 " + service.Service.ToString();
+                            break;
+                        case ServiceType.DNS_UDP:
+                            serviceWithIcon = "🌐 " + service.Service.ToString();
+                            break;
+                        case ServiceType.DHCP:
+                            serviceWithIcon = "🌐 " + service.Service.ToString();
+                            break;
+                        case ServiceType.SSH:
+                            serviceWithIcon = "🔐 " + service.Service.ToString();
+                            break;
+                        case ServiceType.FTP:
+                            serviceWithIcon = "📡 " + service.Service.ToString();
+                            break;
+                        case ServiceType.RDP:
+                            serviceWithIcon = "🖥️ " + service.Service.ToString();
+                            break;
+                        case ServiceType.UltraVNC:
+                            serviceWithIcon = "🖥️ " + service.Service.ToString();
+                            break;
+                        case ServiceType.BigFixRemote:
+                            serviceWithIcon = "🖥️ " + service.Service.ToString();
+                            break;
+                        case ServiceType.Rustdesk:
+                            serviceWithIcon = "🖥️ " + service.Service.ToString();
+                            break;
+                        case ServiceType.TeamViewer:
+                            serviceWithIcon = "🖥️ " + service.Service.ToString();
+                            break;
+                        case ServiceType.Anydesk:
+                            serviceWithIcon = "🖥️ " + service.Service.ToString();
+                            break;
+                        case ServiceType.MSSQLServer:
+                            serviceWithIcon = "🗄️ " + service.Service.ToString();
+                            break;
+                        case ServiceType.PostgreSQL:
+                            serviceWithIcon = "🗄️ " + service.Service.ToString();
+                            break;
+                        case ServiceType.MongoDB:
+                            serviceWithIcon = "🛢️ " + service.Service.ToString();
+                            break;
+                        case ServiceType.MariaDB:
+                            serviceWithIcon = "🗄️ " + service.Service.ToString();
+                            break;
+                        case ServiceType.MySQL:
+                            serviceWithIcon = "🗄️ " + service.Service.ToString();
+                            break;
+                        case ServiceType.OracleDB:
+                            serviceWithIcon = "🗄️ " + service.Service.ToString();
+                            break;
+                        case ServiceType.OPCUA:
+                            serviceWithIcon = "⚙️ " + service.Service.ToString();
+                            break;
+                        case ServiceType.ModBus:
+                            serviceWithIcon = "🔌 " + service.Service.ToString();
+                            break;
+                        case ServiceType.S7:
+                            serviceWithIcon = "📟 " + service.Service.ToString();
+                            break;
+                        default:
+                            break;
+                    }
+
+
+                    //sb.Append((service.Service.ToString() + ":").ToString().PadRight(14, ' ')); // Service-Name (UltraVNC, RDP, etc.)   
+                    sb.Append((serviceWithIcon + ":").ToString().PadRight(14, ' ')); // Service-Name (UltraVNC, RDP, etc.)   
 
                     int portcounter = 0;
                     List<PortResult> sortedPorts = service.Ports.OrderBy(x => x.Port).ToList();
