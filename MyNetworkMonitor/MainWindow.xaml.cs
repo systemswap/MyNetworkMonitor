@@ -211,6 +211,7 @@ namespace MyNetworkMonitor
             dg_InternalNames.ItemsSource = dv_InternalNames;
 
             LoadLogo();
+            
         }
 
        
