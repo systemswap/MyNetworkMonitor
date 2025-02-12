@@ -55,9 +55,10 @@ public enum ServiceType
     // Datenbanken
     MSSQLServer,
     PostgreSQL,
+    MongoDB,
     MariaDB,
-    OracleDB,
     MySQL,
+    OracleDB,    
 
     // Industrieprotokolle
     OPCUA,
@@ -494,6 +495,9 @@ public class ScanningMethod_Services
                 case ServiceType.PostgreSQL:
                     portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
                     break;
+                case ServiceType.MongoDB:
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
+                    break;
                 case ServiceType.MariaDB:
                     portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
                     break;
@@ -793,6 +797,19 @@ public class ScanningMethod_Services
             }
         }
 
+
+        if (service == ServiceType.MongoDB)
+        {
+            // Typischer MongoDB-Header in der Antwort
+            byte[] mongoResponseHeader = { 0x78, 0x00, 0x00, 0x00 };  // Antwort beginnt mit 0x78 (Response-Length)
+
+            if (response.Length >= mongoResponseHeader.Length &&
+                response.Take(4).SequenceEqual(mongoResponseHeader) &&
+                str_serviceResponse.Contains("MongoDB-version", StringComparison.OrdinalIgnoreCase))
+            {
+                serviceMatched = true;
+            }
+        }
 
 
         // 🔍 OPC UA
@@ -1911,9 +1928,11 @@ public class ScanningMethod_Services
             // 🗄️ Datenbanken
             ServiceType.MSSQLServer => new List<int> { 1433 }, // Microsoft SQL Server
             ServiceType.PostgreSQL => new List<int> { 5432 }, // PostgreSQL
-            ServiceType.MariaDB => new List<int> { 3306 }, // MariaDB / MySQL
-            ServiceType.OracleDB => new List<int> { 1521 }, // Oracle DB
+            ServiceType.MongoDB => new List<int> { 27017 }, // MongoDB
+            ServiceType.MariaDB => new List<int> { 3306 }, // MariaDB
             ServiceType.MySQL => new List<int> { 3306 }, // MySQL
+            ServiceType.OracleDB => new List<int> { 1521 }, // Oracle DB
+            
 
             // ⚙️ Industrieprotokolle (OT, Automatisierung)
             ServiceType.OPCUA => new List<int> { 4840 }, // OPC UA
@@ -2070,6 +2089,16 @@ public class ScanningMethod_Services
             {
                 0x00, 0x00, 0x00, 0x08, 0x04, 0xD2, 0x16, 0x2F
             },
+
+            ServiceType.MongoDB => new byte[]
+           {
+                0x4c, 0x00, 0x00, 0x00, 0x3d, 0x00, 0x00, 0x00,
+                0xd4, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x10, 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x00, 0x01,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+           },
 
 
             ServiceType.MariaDB => new byte[] 
