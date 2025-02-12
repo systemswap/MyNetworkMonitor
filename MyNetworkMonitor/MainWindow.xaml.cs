@@ -596,6 +596,18 @@ namespace MyNetworkMonitor
                     Header = e.Column.Header
                 };
             }
+
+            if (e.PropertyType == typeof(string))
+            {
+                Style elementStyle = new Style(typeof(TextBlock));
+                elementStyle.Setters.Add(new Setter(TextBlock.VerticalAlignmentProperty, VerticalAlignment.Center));
+                //elementStyle.Setters.Add(new Setter(TextBlock.TextWrappingProperty, TextWrapping.Wrap)); // Optional für Zeilenumbruch
+
+                if (e.Column is DataGridTextColumn textColumn)
+                {
+                    textColumn.ElementStyle = elementStyle;
+                }
+            }
         }
 
 
