@@ -573,8 +573,8 @@ public class ScanningMethod_Services
         var cts = new CancellationTokenSource(); // Abbruch-Token
 
         List<int> ports = Enumerable.Range(0, 65536).ToList(); // Alle Ports (0 bis 65535)
-        ports.Clear();
-        ports.Add(8086);
+        //ports.Clear();
+        //ports.Add(8086);
 
         foreach (int port in ports)
         {
