@@ -574,7 +574,7 @@ namespace MyNetworkMonitor
                             .Split(' ', StringSplitOptions.RemoveEmptyEntries)
                             .Select(hex => Convert.ToByte(hex, 16))
                             .ToArray();
-                        ipToScan.SNMPLocation = Encoding.ASCII.GetString(bytes);
+                        ipToScan.SNMPLocation = Encoding.UTF8.GetString(bytes);
                     }
                     catch { }
                 }
