@@ -545,7 +545,16 @@ namespace MyNetworkMonitor
 
                 ipToScan.UsedScanMethod = ScanMethod.SNMP;
 
-                var oids = new[] { "1.3.6.1.2.1.1.5.0", "1.3.6.1.2.1.1.1.0", "1.3.6.1.2.1.1.6.0" };
+                var oids = new[] 
+                {
+                    "1.3.6.1.2.1.1.5.0",    // System Name
+
+                    "1.3.6.1.2.1.43.5.1.1.17.1", //prtGeneralSerialNumber
+                    "1.3.6.1.2.1.1.1.0",    // System Description
+                    
+                    "1.3.6.1.2.1.1.6.0",    // System Location
+                    "1.3.6.1.2.1.1.4.0",      // System Contact
+                };
                 Dictionary<Oid, AsnType>? result = null;
 
                 // **Optimierung: SNMP-Requests parallel anfordern**
@@ -561,23 +570,66 @@ namespace MyNetworkMonitor
                 if (result == null || result.Count < 3)
                     return;
 
-                ipToScan.SNMPSysName = result.TryGetValue(new Oid(oids[0]), out var sysName) ? sysName.ToString() : "N/A";
-                ipToScan.SNMPSysDesc = result.TryGetValue(new Oid(oids[1]), out var sysDescr) ? sysDescr.ToString() : "N/A";
-                ipToScan.SNMPLocation = result.TryGetValue(new Oid(oids[2]), out var location) ? location.ToString() : "N/A";
 
+
+                string str_serialNumber = result.TryGetValue(new Oid(oids[1]), out var serialNumber) ? serialNumber.ToString() : "N/A";
+                string str_sysDescribtion = result.TryGetValue(new Oid(oids[2]), out var sysDescr) ? sysDescr.ToString() : "N/A";
+
+                string str_location = result.TryGetValue(new Oid(oids[3]), out var location) ? location.ToString() : "N/A";
+
+
+                string str_contact = result.TryGetValue(new Oid(oids[4]), out var contact) ? contact.ToString() : "N/A";
+
+
+                //ipToScan.isStaticIP = bool.Parse(tada);
                 // **Optimierung: Hex-String zu ASCII nur, wenn nötig**
-                if (Regex.IsMatch(ipToScan.SNMPLocation, @"\A\b[0-9a-fA-F\s]+\b\Z"))
+                if (Regex.IsMatch(str_contact, @"\A\b[0-9a-fA-F\s]+\b\Z"))
                 {
                     try
                     {
-                        byte[] bytes = ipToScan.SNMPLocation
+                        byte[] bytes = str_contact
                             .Split(' ', StringSplitOptions.RemoveEmptyEntries)
                             .Select(hex => Convert.ToByte(hex, 16))
                             .ToArray();
-                        ipToScan.SNMPLocation = Encoding.UTF8.GetString(bytes);
+                        str_contact = Encoding.UTF8.GetString(bytes);
                     }
                     catch { }
                 }
+
+
+
+
+
+                //ipToScan.isStaticIP = bool.Parse(tada);
+                // **Optimierung: Hex-String zu ASCII nur, wenn nötig**
+                if (Regex.IsMatch(str_location, @"\A\b[0-9a-fA-F\s]+\b\Z"))
+                {
+                    try
+                    {
+                        byte[] bytes = str_location
+                            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                            .Select(hex => Convert.ToByte(hex, 16))
+                            .ToArray();
+                        str_location = Encoding.UTF8.GetString(bytes);                        
+                    }
+                    catch { }
+                }
+
+
+
+
+                ipToScan.SNMPLocation = str_location;
+
+
+                ipToScan.SNMPSysName = result.TryGetValue(new Oid(oids[0]), out var sysName) ? sysName.ToString() : "N/A";              
+
+                ipToScan.SNMPSysDesc = "Serial: " + str_serialNumber.PadRight(12) + "\t" + "Descr: " + str_sysDescribtion;
+                ipToScan.SNMPLocation = str_location.PadRight(35) + "\t" + "Contact: " + str_contact;
+                                        
+
+               
+
+                
 
                 // **Optimierung: Zebra-Printer sofort erkennen**
                 if (ipToScan.SNMPSysDesc.Contains("Zebra Technologies", StringComparison.OrdinalIgnoreCase))
@@ -598,6 +650,10 @@ namespace MyNetworkMonitor
                 FailedIPs.Add(ipToScan.IPorHostname);
             }
         }
+
+
+
+
 
         private async Task QueryZebraPrinter(IPToScan ipToScan, string community, CancellationToken cancellationToken)
         {
