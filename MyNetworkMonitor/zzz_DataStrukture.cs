@@ -196,6 +196,8 @@ namespace MyNetworkMonitor
         private string _IPGroupDescription = string.Empty;
         private string _DeviceDescription = string.Empty;
         private string _IP = string.Empty;
+        
+        public bool isStaticIP = false;
         public string IPGroupDescription { get { return _IPGroupDescription; } set { _IPGroupDescription = value; } }
         public string DeviceDescription { get { return _DeviceDescription; } set { _DeviceDescription = value; } }
         public string IPorHostname { get { return _IP; } set { _IP = value; } }
