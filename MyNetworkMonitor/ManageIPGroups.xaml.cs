@@ -104,10 +104,20 @@ namespace MyNetworkMonitor
 
         private void bt_deleteEntry_Click(object sender, RoutedEventArgs e)
         {
-            var row = dg_IPGroups.SelectedItems[0];
-            indexOfCurrentRow = dg_IPGroups.Items.IndexOf(row);
+            if (dg_IPGroups.SelectedItems.Count > 0)
+            {
+                DataRowView selectedRowView = (DataRowView)dg_IPGroups.SelectedItems[0];
+                DataRow selectedRow = selectedRowView.Row;
 
-            _dt.Rows[indexOfCurrentRow].Delete();
+                string rowContent = string.Join(" // ", selectedRow.ItemArray);  // Alle Spalten in einen String zusammenfügen
+
+                MessageBoxResult result = MessageBox.Show($"Delete the entry: {rowContent}", "Delete row", MessageBoxButton.YesNo);
+
+                if (result == MessageBoxResult.Yes)
+                {
+                    selectedRow.Delete();  // Direkt die DataRow löschen
+                }
+            }
         }
 
         private void Window_Closing(object sender, CancelEventArgs e)
