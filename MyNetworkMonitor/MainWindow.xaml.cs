@@ -131,12 +131,13 @@ namespace MyNetworkMonitor
             }
 
             cvTasks_scanResults = CollectionViewSource.GetDefaultView(dgv_Results.ItemsSource);
-            if (cvTasks_scanResults != null && cvTasks_scanResults.CanGroup == true)
-            {
-                //cvTasks_scanResults.GroupDescriptions.Clear();
-                //cvTasks_scanResults.GroupDescriptions.Add(new PropertyGroupDescription("IPGroupDescription"));
-                //cvTasks_scanResults.GroupDescriptions.Add(new PropertyGroupDescription("DeviceDescription"));
-            }
+            //if (cvTasks_scanResults != null && cvTasks_scanResults.CanGroup == true)
+            //{
+            //    //cvTasks_scanResults.GroupDescriptions.Clear();
+            //    //cvTasks_scanResults.GroupDescriptions.Add(new PropertyGroupDescription("IPGroupDescription"));
+            //    //cvTasks_scanResults.GroupDescriptions.Add(new PropertyGroupDescription("DeviceDescription"));
+            //}
+            groupScanResult();
 
 
             if (File.Exists(_ipGroupsXML))
@@ -2306,9 +2307,21 @@ namespace MyNetworkMonitor
 
         private void chk_ScanResults_groupDevices_Click(object sender, RoutedEventArgs e)
         {
+            groupScanResult();
+        }
+
+
+        public void groupScanResult()
+        {
             if ((bool)chk_ScanResults_groupDevices.IsChecked)
             {
-                cvTasks_scanResults.GroupDescriptions.Add(new PropertyGroupDescription("DeviceDescription"));
+                string groupProperty = "IPGroupDescription";
+                if (!cvTasks_scanResults.GroupDescriptions.OfType<PropertyGroupDescription>().Any(g => g.PropertyName == groupProperty))
+                {
+                    cvTasks_scanResults.GroupDescriptions.Add(new PropertyGroupDescription(groupProperty));
+                }
+
+                cvTasks_scanResults.GroupDescriptions.Add(new PropertyGroupDescription("DeviceDescription"));                
             }
             else
             {
@@ -2316,6 +2329,7 @@ namespace MyNetworkMonitor
                 cvTasks_scanResults.GroupDescriptions.Remove(itemToRemove);
             }
         }
+
 
         private void bt_StartScanFromNIC_Click(object sender, RoutedEventArgs e)
         {
