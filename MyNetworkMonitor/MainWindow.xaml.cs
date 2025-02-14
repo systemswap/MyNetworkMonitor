@@ -29,6 +29,7 @@ using System.Windows.Media;
 using System.Text.Json;
 using System.Windows.Media.Imaging;
 using static MyNetworkMonitor.SupportMethods;
+using SnmpSharpNet;
 
 //using static System.Net.WebRequestMethods;
 
@@ -612,6 +613,32 @@ namespace MyNetworkMonitor
 
 
 
+
+
+
+
+        public DataRow GetIPDescription(string IP)
+        {
+            return ipGroupData.IPGroupsDT.AsEnumerable().FirstOrDefault(row =>
+            {
+                string[] firstIPParts = row["FirstIP"].ToString().Split('.');
+                string baseIP = string.Join(".", firstIPParts.Take(3));  // Grundstruktur der IP (z.B. "192.163.165")
+                string firstIP = row["FirstIP"].ToString();
+                string lastIP = $"{baseIP}.{row["LastIP"]}";
+
+                return IsIPInRange(IP, firstIP, lastIP);
+            });
+
+            bool IsIPInRange(string ipToCheck, string startIP, string endIP) =>
+                CompareIPs(ipToCheck, startIP) >= 0 && CompareIPs(ipToCheck, endIP) <= 0;
+
+            int CompareIPs(string ip1, string ip2) =>
+                BitConverter.ToInt32(IPAddress.Parse(ip1).GetAddressBytes().Reverse().ToArray(), 0)
+                    .CompareTo(BitConverter.ToInt32(IPAddress.Parse(ip2).GetAddressBytes().Reverse().ToArray(), 0));
+        }
+
+
+
         private void bt_ScanIP_Click(object sender, RoutedEventArgs e)
         {
             _IPsToScan.Clear();
@@ -639,9 +666,12 @@ namespace MyNetworkMonitor
                 string IP_or_Hostname = tb_IP_Address.Text;
                 if (supportMethods.Is_Valid_IP(IP_or_Hostname))
                 {
+                    DataRow groupedRow = GetIPDescription(IP_or_Hostname);
+
                     IPToScan ipToScan = new IPToScan();
-                    ipToScan.IPGroupDescription = "Custom";
-                    ipToScan.DeviceDescription = "Custom";
+                    ipToScan.IPGroupDescription = groupedRow["IPGroupDescription"].ToString();
+                    ipToScan.DeviceDescription = groupedRow["DeviceDescription"].ToString();
+
                     ipToScan.IPorHostname = IP_or_Hostname;
                     ipToScan.HostName = string.Empty;
                     ipToScan.TCPPortsToScan = TCPPorts;
@@ -660,9 +690,11 @@ namespace MyNetworkMonitor
                     {
                         foreach (IPAddress address in _entry.AddressList)
                         {
+                            DataRow groupedRow = GetIPDescription(IP_or_Hostname);
+
                             IPToScan ipToScan = new IPToScan();
-                            ipToScan.IPGroupDescription = "Custom";
-                            ipToScan.DeviceDescription = "Custom";
+                            ipToScan.IPGroupDescription = groupedRow["IPGroupDescription"].ToString();
+                            ipToScan.DeviceDescription = groupedRow["DeviceDescription"].ToString();
                             ipToScan.IPorHostname = address.ToString();
                             if (_entry.HostName.Split('.').ToList().Count > 2)
                             {
@@ -3075,7 +3107,13 @@ namespace MyNetworkMonitor
 
             foreach (string ip in selectedIps)
             {
-                _IPsToScan.Add(new IPToScan { IPorHostname = ip });
+                DataRow groupedRow = GetIPDescription(ip);
+
+                
+                string ipGroupDescription = groupedRow["IPGroupDescription"].ToString();
+                string str_DeviceDescription = groupedRow["DeviceDescription"].ToString();
+
+                _IPsToScan.Add(new IPToScan { IPGroupDescription = ipGroupDescription, DeviceDescription = str_DeviceDescription, IPorHostname = ip });
             }
 
 
