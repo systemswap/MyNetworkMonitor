@@ -545,91 +545,94 @@ namespace MyNetworkMonitor
 
                 ipToScan.UsedScanMethod = ScanMethod.SNMP;
 
-                var oids = new[] 
+                var oids = new[]
                 {
-                    "1.3.6.1.2.1.1.5.0",    // System Name
-
-                    "1.3.6.1.2.1.43.5.1.1.17.1", //prtGeneralSerialNumber
-                    "1.3.6.1.2.1.1.1.0",    // System Description
-                    
+                    "1.3.6.1.2.1.1.5.0",    // System Name                    
+                    "1.3.6.1.2.1.1.1.0",    // System Description                   
                     "1.3.6.1.2.1.1.6.0",    // System Location
                     "1.3.6.1.2.1.1.4.0",      // System Contact
                 };
                 Dictionary<Oid, AsnType>? result = null;
 
-                // **Optimierung: SNMP-Requests parallel anfordern**
-                for (int i = 0; i < 2; i++)
-                {
-                    result = await Task.Run(() => snmp.Get(SnmpVersion.Ver1, oids));
-                    if (result != null && result.Count == 3)
-                        break;
+                result = snmp.Get(SnmpVersion.Ver1, oids);
 
-                    await Task.Delay(30, cancellationToken);
-                }
-
-                if (result == null || result.Count < 3)
+                if (result == null)
                     return;
 
 
-
-                string str_serialNumber = result.TryGetValue(new Oid(oids[1]), out var serialNumber) ? serialNumber.ToString() : "N/A";
-                string str_sysDescribtion = result.TryGetValue(new Oid(oids[2]), out var sysDescr) ? sysDescr.ToString() : "N/A";
-
-                string str_location = result.TryGetValue(new Oid(oids[3]), out var location) ? location.ToString() : "N/A";
-
-
-                string str_contact = result.TryGetValue(new Oid(oids[4]), out var contact) ? contact.ToString() : "N/A";
-
-
-                //ipToScan.isStaticIP = bool.Parse(tada);
-                // **Optimierung: Hex-String zu ASCII nur, wenn nötig**
-                if (Regex.IsMatch(str_contact, @"\A\b[0-9a-fA-F\s]+\b\Z"))
+                string str_serialNumber = string.Empty;
+                Dictionary<Oid, AsnType>? result_Serial = null;
+                try
                 {
-                    try
-                    {
-                        byte[] bytes = str_contact
-                            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                            .Select(hex => Convert.ToByte(hex, 16))
-                            .ToArray();
-                        str_contact = Encoding.UTF8.GetString(bytes);
-                    }
-                    catch { }
+                    result_Serial = (snmp.Get(SnmpVersion.Ver1, new[] { "1.3.6.1.2.1.43.5.1.1.17.1" }));
+                    str_serialNumber = result_Serial.TryGetValue(new Oid(oids[0]), out var serialNumber) ? serialNumber.ToString() : string.Empty;
+                }
+                catch
+                {
+
+                }
+
+                string str_SysName = result.TryGetValue(new Oid(oids[0]), out var sysName) ? sysName.ToString() : string.Empty; ;
+
+                string str_sysDescribtion = result.TryGetValue(new Oid(oids[1]), out var sysDescr) ? sysDescr.ToString() : string.Empty; 
+
+                string str_location = result.TryGetValue(new Oid(oids[2]), out var location) ? location.ToString() : string.Empty;
+
+                string str_contact = result.TryGetValue(new Oid(oids[3]), out var contact) ? contact.ToString() : string.Empty;
+
+
+                str_SysName = ConvertHexToAscii(str_SysName).Replace("\t", " ");
+                str_sysDescribtion = ConvertHexToAscii(str_sysDescribtion).Replace("\t", " ");
+                str_contact = ConvertHexToAscii(str_contact).Replace("\t", " ");
+                str_location = ConvertHexToAscii(str_location).Replace("\t", " ");
+                str_serialNumber = ConvertHexToAscii(str_serialNumber).Replace("\t", " ");
+
+
+
+                List<string> lst_SNMPSysDesc = new List<string>();
+                List<string> lst_SNMPLocation = new List<string>();
+
+                if (!string.IsNullOrEmpty(str_serialNumber)) 
+                { 
+                    str_serialNumber = "Serial: " + str_serialNumber;
+                    lst_SNMPSysDesc.Add(str_serialNumber);
+                }
+
+
+                if (!string.IsNullOrEmpty(str_sysDescribtion))
+                {
+                    str_sysDescribtion = "Descr: " + str_sysDescribtion;
+                    lst_SNMPSysDesc.Add(str_sysDescribtion);
+
+                    lst_SNMPSysDesc[0] = lst_SNMPSysDesc[0].PadRight(20);
+                }
+
+
+                if (!string.IsNullOrEmpty(str_location))
+                {
+                    str_location = "Location: " + str_location;
+                    lst_SNMPLocation.Add(str_location);
+                }
+
+
+                if (!string.IsNullOrEmpty(str_contact))
+                {
+                    str_contact = "Contact: " + str_contact;
+                    lst_SNMPLocation.Add(str_contact);
+
+                    lst_SNMPLocation[0] = lst_SNMPLocation[0].PadRight(50);
                 }
 
 
 
 
-
-                //ipToScan.isStaticIP = bool.Parse(tada);
-                // **Optimierung: Hex-String zu ASCII nur, wenn nötig**
-                if (Regex.IsMatch(str_location, @"\A\b[0-9a-fA-F\s]+\b\Z"))
-                {
-                    try
-                    {
-                        byte[] bytes = str_location
-                            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                            .Select(hex => Convert.ToByte(hex, 16))
-                            .ToArray();
-                        str_location = Encoding.UTF8.GetString(bytes);                        
-                    }
-                    catch { }
-                }
-
-
-
-
-                ipToScan.SNMPLocation = str_location;
-
-
-                ipToScan.SNMPSysName = result.TryGetValue(new Oid(oids[0]), out var sysName) ? sysName.ToString() : "N/A";              
-
-                ipToScan.SNMPSysDesc = "Serial: " + str_serialNumber.PadRight(12) + "\t" + "Descr: " + str_sysDescribtion;
-                ipToScan.SNMPLocation = str_location.PadRight(35) + "\t" + "Contact: " + str_contact;
-                                        
+                ipToScan.SNMPSysName = str_SysName;
+                ipToScan.SNMPSysDesc = string.Join("\t", lst_SNMPSysDesc);
+                ipToScan.SNMPLocation = string.Join("\t", lst_SNMPLocation);
 
                
 
-                
+
 
                 // **Optimierung: Zebra-Printer sofort erkennen**
                 if (ipToScan.SNMPSysDesc.Contains("Zebra Technologies", StringComparison.OrdinalIgnoreCase))
@@ -652,7 +655,25 @@ namespace MyNetworkMonitor
         }
 
 
+        // **Optimierung: Hex-String zu UTF8 nur, wenn nötig**
+        string ConvertHexToAscii(string hexString)
+        {
+            if (!Regex.IsMatch(hexString, @"\A\b[0-9a-fA-F\s]+\b\Z"))
+                return hexString;
 
+            try
+            {
+                byte[] bytes = hexString
+                    .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(hex => Convert.ToByte(hex, 16))
+                    .ToArray();
+                return Encoding.UTF8.GetString(bytes);
+            }
+            catch
+            {
+                return hexString;
+            }
+        }
 
 
         private async Task QueryZebraPrinter(IPToScan ipToScan, string community, CancellationToken cancellationToken)
@@ -683,3 +704,26 @@ namespace MyNetworkMonitor
         }
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
