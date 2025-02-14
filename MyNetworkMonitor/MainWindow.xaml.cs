@@ -133,9 +133,9 @@ namespace MyNetworkMonitor
             cvTasks_scanResults = CollectionViewSource.GetDefaultView(dgv_Results.ItemsSource);
             if (cvTasks_scanResults != null && cvTasks_scanResults.CanGroup == true)
             {
-                cvTasks_scanResults.GroupDescriptions.Clear();
-                cvTasks_scanResults.GroupDescriptions.Add(new PropertyGroupDescription("IPGroupDescription"));
-                cvTasks_scanResults.GroupDescriptions.Add(new PropertyGroupDescription("DeviceDescription"));
+                //cvTasks_scanResults.GroupDescriptions.Clear();
+                //cvTasks_scanResults.GroupDescriptions.Add(new PropertyGroupDescription("IPGroupDescription"));
+                //cvTasks_scanResults.GroupDescriptions.Add(new PropertyGroupDescription("DeviceDescription"));
             }
 
 
@@ -668,9 +668,19 @@ namespace MyNetworkMonitor
                 {
                     DataRow groupedRow = GetIPDescription(IP_or_Hostname);
 
+                    string ipGroupDescription = string.Empty;
+                    string str_DeviceDescription = string.Empty;
+                    if (groupedRow != null)
+                    {
+                        ipGroupDescription = groupedRow["IPGroupDescription"].ToString();
+                        str_DeviceDescription = groupedRow["DeviceDescription"].ToString();
+                    }
+
+
                     IPToScan ipToScan = new IPToScan();
-                    ipToScan.IPGroupDescription = groupedRow["IPGroupDescription"].ToString();
-                    ipToScan.DeviceDescription = groupedRow["DeviceDescription"].ToString();
+
+                    ipToScan.IPGroupDescription = ipGroupDescription;
+                    ipToScan.DeviceDescription = str_DeviceDescription;
 
                     ipToScan.IPorHostname = IP_or_Hostname;
                     ipToScan.HostName = string.Empty;
@@ -692,9 +702,20 @@ namespace MyNetworkMonitor
                         {
                             DataRow groupedRow = GetIPDescription(IP_or_Hostname);
 
+                            string ipGroupDescription = string.Empty;
+                            string str_DeviceDescription = string.Empty;
+                            if (groupedRow != null)
+                            {
+                                ipGroupDescription = groupedRow["IPGroupDescription"].ToString();
+                                str_DeviceDescription = groupedRow["DeviceDescription"].ToString();
+                            }
+
+
                             IPToScan ipToScan = new IPToScan();
-                            ipToScan.IPGroupDescription = groupedRow["IPGroupDescription"].ToString();
-                            ipToScan.DeviceDescription = groupedRow["DeviceDescription"].ToString();
+
+                            ipToScan.IPGroupDescription = ipGroupDescription;
+                            ipToScan.DeviceDescription = str_DeviceDescription;
+
                             ipToScan.IPorHostname = address.ToString();
                             if (_entry.HostName.Split('.').ToList().Count > 2)
                             {
@@ -3109,9 +3130,13 @@ namespace MyNetworkMonitor
             {
                 DataRow groupedRow = GetIPDescription(ip);
 
-                
-                string ipGroupDescription = groupedRow["IPGroupDescription"].ToString();
-                string str_DeviceDescription = groupedRow["DeviceDescription"].ToString();
+                string ipGroupDescription = string.Empty;
+                string str_DeviceDescription = string.Empty;
+                if (groupedRow != null)
+                {
+                    ipGroupDescription = groupedRow["IPGroupDescription"].ToString();
+                    str_DeviceDescription = groupedRow["DeviceDescription"].ToString();
+                }
 
                 _IPsToScan.Add(new IPToScan { IPGroupDescription = ipGroupDescription, DeviceDescription = str_DeviceDescription, IPorHostname = ip });
             }
