@@ -3026,7 +3026,11 @@ namespace MyNetworkMonitor
                         }
 
                         // Aktualisiere das DataGrid
-                        dgv_Results.Items.Refresh();
+                        try
+                        {
+                            dgv_Results.Items.Refresh();
+                        }
+                        catch { }
                     }
                 }
                 e.Handled = true;
