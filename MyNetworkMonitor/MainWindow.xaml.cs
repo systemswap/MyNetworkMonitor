@@ -81,7 +81,7 @@ namespace MyNetworkMonitor
             scanningMethod_SMB_VersionCheck.SMBIPScanFinished += ScanningMethod_SMB_VersionCheck_SMB_IP_Scan_Finished;
             scanningMethod_SMB_VersionCheck.SMBScanFinished += ScanningMethod_SMBVersionCheck_SMB_Scan_Finished;
 
-            scanningMethod_Services = new ScanningMethod_Services();
+            scanningMethod_Services = new ScanningMethod_Services(_ServicesXML);
             scanningMethod_Services.FindServicePortProgressUpdated += ScanningMethod_Services_FindServicePortProgressUpdated;
             scanningMethod_Services.FindServicePortFinished += ScanningMethod_Services_FindServicePortFinished; ;
             scanningMethod_Services.ServiceIPScanFinished += ScanningMethod_Services_ServiceIPScanFinished;
@@ -212,6 +212,18 @@ namespace MyNetworkMonitor
             dv_InternalNames = _internalNames.InternalNames.DefaultView;
             dg_InternalNames.ItemsSource = dv_InternalNames;
 
+
+
+
+            //Datagrid Services Konfigurieren            
+            //dg_Services.ItemsSource = scanningMethod_Services.Services.DefaultView;
+
+            CollectionView view = (CollectionView)CollectionViewSource.GetDefaultView(scanningMethod_Services.Services.DefaultView);
+            view.GroupDescriptions.Add(new PropertyGroupDescription("ServiceGroup"));
+            dg_Services.ItemsSource = view;
+
+
+
             LoadLogo();
             
         }
@@ -238,80 +250,80 @@ namespace MyNetworkMonitor
         }
 
         // Speichern der Einstellungen in eine JSON-Datei
-        private void SaveServiceScanSettings()
-        {
-            var settings = new CheckBoxSettings
-            {
-                CheckBoxStates = new Dictionary<string, bool>
-                {
-                    { chk_Services_Web.Name, chk_Services_Web.IsChecked ?? false },
-                    { chk_Services_FTP.Name, chk_Services_FTP.IsChecked ?? false },
-                    {chk_Services_SSH.Name, chk_Services_SSH.IsChecked ?? false },
-                    { chk_Services_DNS_TCP.Name, chk_Services_DNS_TCP.IsChecked ?? false },
-                    {chk_Services_DNS_UDP.Name, chk_Services_DNS_UDP.IsChecked ?? false },
-                    {chk_Services_DHCP.Name, chk_Services_DHCP.IsChecked ?? false },
+        //private void SaveServiceScanSettings()
+        //{
+        //    var settings = new CheckBoxSettings
+        //    {
+        //        CheckBoxStates = new Dictionary<string, bool>
+        //        {
+        //            { chk_Services_Web.Name, chk_Services_Web.IsChecked ?? false },
+        //            { chk_Services_FTP.Name, chk_Services_FTP.IsChecked ?? false },
+        //            {chk_Services_SSH.Name, chk_Services_SSH.IsChecked ?? false },
+        //            { chk_Services_DNS_TCP.Name, chk_Services_DNS_TCP.IsChecked ?? false },
+        //            {chk_Services_DNS_UDP.Name, chk_Services_DNS_UDP.IsChecked ?? false },
+        //            {chk_Services_DHCP.Name, chk_Services_DHCP.IsChecked ?? false },
                    
-                    {chk_Services_RDP.Name, chk_Services_RDP.IsChecked ?? false },
-                    {chk_Services_UltraVNC.Name, chk_Services_UltraVNC.IsChecked ?? false },
-                    {chk_Services_TeamViewer.Name, chk_Services_TeamViewer.IsChecked ?? false },
-                    {chk_Services_BigFixRemote.Name, chk_Services_BigFixRemote.IsChecked ?? false },
-                    {chk_Services_AnyDesk.Name, chk_Services_AnyDesk.IsChecked ?? false },
-                    {chk_Services_Rustdesk.Name, chk_Services_Rustdesk.IsChecked ?? false },
+        //            {chk_Services_RDP.Name, chk_Services_RDP.IsChecked ?? false },
+        //            {chk_Services_UltraVNC.Name, chk_Services_UltraVNC.IsChecked ?? false },
+        //            {chk_Services_TeamViewer.Name, chk_Services_TeamViewer.IsChecked ?? false },
+        //            {chk_Services_BigFixRemote.Name, chk_Services_BigFixRemote.IsChecked ?? false },
+        //            {chk_Services_AnyDesk.Name, chk_Services_AnyDesk.IsChecked ?? false },
+        //            {chk_Services_Rustdesk.Name, chk_Services_Rustdesk.IsChecked ?? false },
 
-                    {chk_Services_MSSQL.Name, chk_Services_MSSQL.IsChecked ?? false },
-                    {chk_Services_Postgre.Name, chk_Services_Postgre.IsChecked ?? false },
-                    {chk_Services_MongoDB.Name, chk_Services_MongoDB.IsChecked ?? false },
-                    {chk_Services_MariaDB.Name, chk_Services_MariaDB.IsChecked ?? false },
-                    {chk_Services_MYSQL.Name, chk_Services_MYSQL.IsChecked ?? false },
-                    {chk_Services_OracleDB.Name, chk_Services_OracleDB.IsChecked ?? false },
-                    {chk_Services_InfluxDB2.Name, chk_Services_InfluxDB2.IsChecked ?? false },
+        //            {chk_Services_MSSQL.Name, chk_Services_MSSQL.IsChecked ?? false },
+        //            {chk_Services_Postgre.Name, chk_Services_Postgre.IsChecked ?? false },
+        //            {chk_Services_MongoDB.Name, chk_Services_MongoDB.IsChecked ?? false },
+        //            {chk_Services_MariaDB.Name, chk_Services_MariaDB.IsChecked ?? false },
+        //            {chk_Services_MYSQL.Name, chk_Services_MYSQL.IsChecked ?? false },
+        //            {chk_Services_OracleDB.Name, chk_Services_OracleDB.IsChecked ?? false },
+        //            {chk_Services_InfluxDB2.Name, chk_Services_InfluxDB2.IsChecked ?? false },
 
-                    {chk_Services_OPCUA.Name, chk_Services_OPCUA.IsChecked ?? false },
-                    {chk_Services_ModBus.Name, chk_Services_ModBus.IsChecked ?? false },
-                    {chk_Services_SiemensS7.Name, chk_Services_SiemensS7.IsChecked ?? false },
+        //            {chk_Services_OPCUA.Name, chk_Services_OPCUA.IsChecked ?? false },
+        //            {chk_Services_ModBus.Name, chk_Services_ModBus.IsChecked ?? false },
+        //            {chk_Services_SiemensS7.Name, chk_Services_SiemensS7.IsChecked ?? false },
 
-                }
-            };
+        //        }
+        //    };
 
-            var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(_ServicesJson, json);
-        }
+        //    var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
+        //    File.WriteAllText(_ServicesJson, json);
+        //}
 
         // Laden der Einstellungen aus JSON
-        private void LoadServiceScanSettings()
-        {
-            if (File.Exists(_ServicesJson))
-            {
-                var json = File.ReadAllText(_ServicesJson);
-                var settings = JsonSerializer.Deserialize<CheckBoxSettings>(json);
+        //private void LoadServiceScanSettings()
+        //{
+        //    if (File.Exists(_ServicesJson))
+        //    {
+        //        var json = File.ReadAllText(_ServicesJson);
+        //        var settings = JsonSerializer.Deserialize<CheckBoxSettings>(json);
 
-                chk_Services_Web.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_Web.Name) ? settings.CheckBoxStates[chk_Services_Web.Name] : false;
-                chk_Services_FTP.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_FTP.Name) ? settings.CheckBoxStates[chk_Services_FTP.Name] : false;
-                chk_Services_SSH.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_SSH.Name) ? settings.CheckBoxStates[chk_Services_SSH.Name] : false;
-                chk_Services_DNS_TCP.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_DNS_TCP.Name) ? settings.CheckBoxStates[chk_Services_DNS_TCP.Name] : false;
-                chk_Services_DNS_UDP.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_DNS_UDP.Name) ? settings.CheckBoxStates[chk_Services_DNS_UDP.Name] : false;
-                chk_Services_DHCP.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_DHCP.Name) ? settings.CheckBoxStates[chk_Services_DHCP.Name] : false;
+        //        chk_Services_Web.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_Web.Name) ? settings.CheckBoxStates[chk_Services_Web.Name] : false;
+        //        chk_Services_FTP.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_FTP.Name) ? settings.CheckBoxStates[chk_Services_FTP.Name] : false;
+        //        chk_Services_SSH.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_SSH.Name) ? settings.CheckBoxStates[chk_Services_SSH.Name] : false;
+        //        chk_Services_DNS_TCP.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_DNS_TCP.Name) ? settings.CheckBoxStates[chk_Services_DNS_TCP.Name] : false;
+        //        chk_Services_DNS_UDP.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_DNS_UDP.Name) ? settings.CheckBoxStates[chk_Services_DNS_UDP.Name] : false;
+        //        chk_Services_DHCP.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_DHCP.Name) ? settings.CheckBoxStates[chk_Services_DHCP.Name] : false;
 
-                chk_Services_RDP.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_RDP.Name) ? settings.CheckBoxStates[chk_Services_RDP.Name] : false;
-                chk_Services_UltraVNC.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_UltraVNC.Name) ? settings.CheckBoxStates[chk_Services_UltraVNC.Name] : false;
-                chk_Services_TeamViewer.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_TeamViewer.Name) ? settings.CheckBoxStates[chk_Services_TeamViewer.Name] : false;
-                chk_Services_BigFixRemote.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_BigFixRemote.Name) ? settings.CheckBoxStates[chk_Services_BigFixRemote.Name] : false;
-                chk_Services_AnyDesk.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_AnyDesk.Name) ? settings.CheckBoxStates[chk_Services_AnyDesk.Name] : false;
-                chk_Services_Rustdesk.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_Rustdesk.Name) ? settings.CheckBoxStates[chk_Services_Rustdesk.Name] : false;
+        //        chk_Services_RDP.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_RDP.Name) ? settings.CheckBoxStates[chk_Services_RDP.Name] : false;
+        //        chk_Services_UltraVNC.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_UltraVNC.Name) ? settings.CheckBoxStates[chk_Services_UltraVNC.Name] : false;
+        //        chk_Services_TeamViewer.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_TeamViewer.Name) ? settings.CheckBoxStates[chk_Services_TeamViewer.Name] : false;
+        //        chk_Services_BigFixRemote.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_BigFixRemote.Name) ? settings.CheckBoxStates[chk_Services_BigFixRemote.Name] : false;
+        //        chk_Services_AnyDesk.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_AnyDesk.Name) ? settings.CheckBoxStates[chk_Services_AnyDesk.Name] : false;
+        //        chk_Services_Rustdesk.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_Rustdesk.Name) ? settings.CheckBoxStates[chk_Services_Rustdesk.Name] : false;
 
-                chk_Services_MSSQL.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_MSSQL.Name) ? settings.CheckBoxStates[chk_Services_MSSQL.Name] : false;
-                chk_Services_Postgre.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_Postgre.Name) ? settings.CheckBoxStates[chk_Services_Postgre.Name] : false;
-                chk_Services_MongoDB.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_MongoDB.Name) ? settings.CheckBoxStates[chk_Services_MongoDB.Name] : false;
-                chk_Services_MariaDB.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_MariaDB.Name) ? settings.CheckBoxStates[chk_Services_MariaDB.Name] : false;
-                chk_Services_MYSQL.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_MYSQL.Name) ? settings.CheckBoxStates[chk_Services_MYSQL.Name] : false;
-                chk_Services_OracleDB.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_OracleDB.Name) ? settings.CheckBoxStates[chk_Services_OracleDB.Name] : false;
-                chk_Services_InfluxDB2.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_InfluxDB2.Name) ? settings.CheckBoxStates[chk_Services_InfluxDB2.Name] : false;
+        //        chk_Services_MSSQL.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_MSSQL.Name) ? settings.CheckBoxStates[chk_Services_MSSQL.Name] : false;
+        //        chk_Services_Postgre.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_Postgre.Name) ? settings.CheckBoxStates[chk_Services_Postgre.Name] : false;
+        //        chk_Services_MongoDB.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_MongoDB.Name) ? settings.CheckBoxStates[chk_Services_MongoDB.Name] : false;
+        //        chk_Services_MariaDB.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_MariaDB.Name) ? settings.CheckBoxStates[chk_Services_MariaDB.Name] : false;
+        //        chk_Services_MYSQL.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_MYSQL.Name) ? settings.CheckBoxStates[chk_Services_MYSQL.Name] : false;
+        //        chk_Services_OracleDB.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_OracleDB.Name) ? settings.CheckBoxStates[chk_Services_OracleDB.Name] : false;
+        //        chk_Services_InfluxDB2.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_InfluxDB2.Name) ? settings.CheckBoxStates[chk_Services_InfluxDB2.Name] : false;
 
-                chk_Services_OPCUA.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_OPCUA.Name) ? settings.CheckBoxStates[chk_Services_OPCUA.Name] : false;
-                chk_Services_ModBus.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_ModBus.Name) ? settings.CheckBoxStates[chk_Services_ModBus.Name] : false;
-                chk_Services_SiemensS7.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_SiemensS7.Name) ? settings.CheckBoxStates[chk_Services_SiemensS7.Name] : false;
-            }
-        }
+        //        chk_Services_OPCUA.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_OPCUA.Name) ? settings.CheckBoxStates[chk_Services_OPCUA.Name] : false;
+        //        chk_Services_ModBus.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_ModBus.Name) ? settings.CheckBoxStates[chk_Services_ModBus.Name] : false;
+        //        chk_Services_SiemensS7.IsChecked = settings.CheckBoxStates.ContainsKey(chk_Services_SiemensS7.Name) ? settings.CheckBoxStates[chk_Services_SiemensS7.Name] : false;
+        //    }
+        //}
 
 
 
@@ -334,7 +346,7 @@ namespace MyNetworkMonitor
         string _ipGroupsXML = Path.Combine(Path.Combine(Environment.ExpandEnvironmentVariables("%userprofile%"), "Documents"), @"MyNetworkMonitor\Settings\ipGroups.xml");
         string _lastScanResultXML = Path.Combine(Path.Combine(Environment.ExpandEnvironmentVariables("%userprofile%"), "Documents"), @"MyNetworkMonitor\Settings\lastScanResult.xml");
         string _InternalNamesXML = Path.Combine(Path.Combine(Environment.ExpandEnvironmentVariables("%userprofile%"), "Documents"), @"MyNetworkMonitor\Settings\internalNames.xml");
-        string _ServicesJson = Path.Combine(Path.Combine(Environment.ExpandEnvironmentVariables("%userprofile%"), "Documents"), @"MyNetworkMonitor\Settings\services.json");
+        string _ServicesXML = Path.Combine(Path.Combine(Environment.ExpandEnvironmentVariables("%userprofile%"), "Documents"), @"MyNetworkMonitor\Settings\services.xml");
 
 
 
@@ -505,6 +517,17 @@ namespace MyNetworkMonitor
             //{
             //    e.Column.Visibility = Visibility.Hidden;                
             //}
+
+            if (e.PropertyName == "IsActive" || e.PropertyName == "AutomaticScan")
+            {
+                if (e.Column is DataGridCheckBoxColumn checkBoxColumn)
+                {
+                    checkBoxColumn.ElementStyle = new Style(typeof(CheckBox))
+                    {
+                        Setters = { new Setter(CheckBox.FocusableProperty, false) }
+                    };
+                }
+            }
         }
 
         private void dgv_ScanResults_OnAutoGeneratingColumn(object sender, DataGridAutoGeneratingColumnEventArgs e)
@@ -1182,38 +1205,60 @@ namespace MyNetworkMonitor
 
 
                 List<ServiceType> services = new List<ServiceType>();
-                // 🌍 Netzwerk-Dienste
-                if ((bool)chk_Services_Web.IsChecked) services.Add(ServiceType.WebServices);
-                if ((bool)chk_Services_FTP.IsChecked) services.Add(ServiceType.FTP);
-                if ((bool)chk_Services_SSH.IsChecked) services.Add(ServiceType.SSH);
-                if ((bool)chk_Services_DNS_TCP.IsChecked) services.Add(ServiceType.DNS_TCP);
-                if ((bool)chk_Services_DNS_UDP.IsChecked) services.Add(ServiceType.DNS_UDP);
-                if ((bool)chk_Services_DHCP.IsChecked) services.Add(ServiceType.DHCP);
+                //// 🌍 Netzwerk-Dienste
+                //if ((bool)chk_Services_Web.IsChecked) services.Add(ServiceType.WebServices);
+                //if ((bool)chk_Services_FTP.IsChecked) services.Add(ServiceType.FTP);
+                //if ((bool)chk_Services_SSH.IsChecked) services.Add(ServiceType.SSH);
+                //if ((bool)chk_Services_DNS_TCP.IsChecked) services.Add(ServiceType.DNS_TCP);
+                //if ((bool)chk_Services_DNS_UDP.IsChecked) services.Add(ServiceType.DNS_UDP);
+                //if ((bool)chk_Services_DHCP.IsChecked) services.Add(ServiceType.DHCP);
 
-                // Remote Apps
-                if ((bool)chk_Services_RDP.IsChecked) services.Add(ServiceType.RDP);
-                if ((bool)chk_Services_UltraVNC.IsChecked) services.Add(ServiceType.UltraVNC);
-                if ((bool)chk_Services_TeamViewer.IsChecked) services.Add(ServiceType.TeamViewer);
-                if ((bool)chk_Services_BigFixRemote.IsChecked) services.Add(ServiceType.BigFixRemote);
-                if ((bool)chk_Services_AnyDesk.IsChecked) services.Add(ServiceType.Anydesk);
-                if ((bool)chk_Services_Rustdesk.IsChecked) services.Add(ServiceType.Rustdesk);
+                //// Remote Apps
+                //if ((bool)chk_Services_RDP.IsChecked) services.Add(ServiceType.RDP);
+                //if ((bool)chk_Services_UltraVNC.IsChecked) services.Add(ServiceType.UltraVNC);
+                //if ((bool)chk_Services_TeamViewer.IsChecked) services.Add(ServiceType.TeamViewer);
+                //if ((bool)chk_Services_BigFixRemote.IsChecked) services.Add(ServiceType.BigFixRemote);
+                //if ((bool)chk_Services_AnyDesk.IsChecked) services.Add(ServiceType.Anydesk);
+                //if ((bool)chk_Services_Rustdesk.IsChecked) services.Add(ServiceType.Rustdesk);
 
-                // Datenbanken
-                if ((bool)chk_Services_MSSQL.IsChecked) services.Add(ServiceType.MSSQLServer);
-                if ((bool)chk_Services_Postgre.IsChecked) services.Add(ServiceType.PostgreSQL);
-                if ((bool)chk_Services_MongoDB.IsChecked) services.Add(ServiceType.MongoDB);
-                if ((bool)chk_Services_MariaDB.IsChecked) services.Add(ServiceType.MariaDB);
-                if ((bool)chk_Services_MYSQL.IsChecked) services.Add(ServiceType.MySQL);
-                if ((bool)chk_Services_OracleDB.IsChecked) services.Add(ServiceType.OracleDB);
-                if ((bool)chk_Services_InfluxDB2.IsChecked) services.Add(ServiceType.InfluxDB2);
+                //// Datenbanken
+                //if ((bool)chk_Services_MSSQL.IsChecked) services.Add(ServiceType.MSSQLServer);
+                //if ((bool)chk_Services_Postgre.IsChecked) services.Add(ServiceType.PostgreSQL);
+                //if ((bool)chk_Services_MongoDB.IsChecked) services.Add(ServiceType.MongoDB);
+                //if ((bool)chk_Services_MariaDB.IsChecked) services.Add(ServiceType.MariaDB);
+                //if ((bool)chk_Services_MYSQL.IsChecked) services.Add(ServiceType.MySQL);
+                //if ((bool)chk_Services_OracleDB.IsChecked) services.Add(ServiceType.OracleDB);
+                //if ((bool)chk_Services_InfluxDB2.IsChecked) services.Add(ServiceType.InfluxDB2);
 
-                // Industrieprotokolle  
-                if ((bool)chk_Services_OPCUA.IsChecked) services.Add(ServiceType.OPCUA);
-                if ((bool)chk_Services_ModBus.IsChecked) services.Add(ServiceType.ModBus);
-                if ((bool)chk_Services_SiemensS7.IsChecked) services.Add(ServiceType.S7);
+                //// Industrieprotokolle  
+                //if ((bool)chk_Services_OPCUA.IsChecked) services.Add(ServiceType.OPCUA);
+                //if ((bool)chk_Services_ModBus.IsChecked) services.Add(ServiceType.ModBus);
+                //if ((bool)chk_Services_SiemensS7.IsChecked) services.Add(ServiceType.S7);
 
 
-                await scanningMethod_Services.ScanIPsAsync(Services_IPsToScan, services);
+                Dictionary<ServiceType, List<int>> additionalServicePorts = new Dictionary<ServiceType, List<int>>();
+
+                foreach (DataRow row in scanningMethod_Services.Services.Rows)
+                {
+                    var tada = row["toScan"];
+                    if ((bool)row["toScan"] == true)
+                    {
+                        ServiceType type = (ServiceType)Enum.Parse(typeof(ServiceType), row["Service"].ToString());
+                        services.Add(type);
+
+                        // Ports-Spalte (String) in List<int> umwandeln
+                        string portString = row["Ports"].ToString();  // Beispiel: "80, 443, 8080"
+                        List<int> ports = portString.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                                                    .Select(p => int.Parse(p.Trim()))
+                                                    .ToList();
+
+                        // Typ und Ports in das Dictionary hinzufügen
+                        additionalServicePorts.Add(type, ports);
+                    }
+                }
+
+
+                await scanningMethod_Services.ScanIPsAsync(Services_IPsToScan, services, additionalServicePorts);
             }
            
 
@@ -2013,7 +2058,10 @@ namespace MyNetworkMonitor
 
         private void Window_Closing(object sender, CancelEventArgs e)
         {
-            SaveServiceScanSettings();
+            //SaveServiceScanSettings();
+
+            scanningMethod_Services.SaveServiceSettingsToXML();
+
             if ((bool)chk_SaveLastScanResult.IsChecked)
             {
                 foreach (DataRow row in _scannResults.ResultTable.Rows)
@@ -3118,7 +3166,7 @@ namespace MyNetworkMonitor
 
         private void mainWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            LoadServiceScanSettings();
+            //LoadServiceScanSettings();
         }
 
         private void ScanSelectedIPs_Click(object sender, RoutedEventArgs e)        
@@ -3216,37 +3264,46 @@ namespace MyNetworkMonitor
 
 
             List<ServiceType> services = new List<ServiceType>();
-            // 🌍 Netzwerk-Dienste
-            if ((bool)chk_Services_Web.IsChecked) services.Add(ServiceType.WebServices);
-            if ((bool)chk_Services_FTP.IsChecked) services.Add(ServiceType.FTP);
-            if ((bool)chk_Services_SSH.IsChecked) services.Add(ServiceType.SSH);
-            //if ((bool)chk_Services_DNS_TCP.IsChecked) services.Add(ServiceType.DNS_TCP);
-            //if ((bool)chk_Services_DNS_UDP.IsChecked) services.Add(ServiceType.DNS_UDP);
-            //if ((bool)chk_Services_DHCP.IsChecked) services.Add(ServiceType.DHCP);
+            //// 🌍 Netzwerk-Dienste
+            //if ((bool)chk_Services_Web.IsChecked) services.Add(ServiceType.WebServices);
+            //if ((bool)chk_Services_FTP.IsChecked) services.Add(ServiceType.FTP);
+            //if ((bool)chk_Services_SSH.IsChecked) services.Add(ServiceType.SSH);
+            ////if ((bool)chk_Services_DNS_TCP.IsChecked) services.Add(ServiceType.DNS_TCP);
+            ////if ((bool)chk_Services_DNS_UDP.IsChecked) services.Add(ServiceType.DNS_UDP);
+            ////if ((bool)chk_Services_DHCP.IsChecked) services.Add(ServiceType.DHCP);
 
-            // Remote Apps
-            if ((bool)chk_Services_RDP.IsChecked) services.Add(ServiceType.RDP);
-            if ((bool)chk_Services_UltraVNC.IsChecked) services.Add(ServiceType.UltraVNC);
-            if ((bool)chk_Services_TeamViewer.IsChecked) services.Add(ServiceType.TeamViewer);
-            if ((bool)chk_Services_BigFixRemote.IsChecked) services.Add(ServiceType.BigFixRemote);
-            if ((bool)chk_Services_AnyDesk.IsChecked) services.Add(ServiceType.Anydesk);
-            if ((bool)chk_Services_Rustdesk.IsChecked) services.Add(ServiceType.Rustdesk);
+            //// Remote Apps
+            //if ((bool)chk_Services_RDP.IsChecked) services.Add(ServiceType.RDP);
+            //if ((bool)chk_Services_UltraVNC.IsChecked) services.Add(ServiceType.UltraVNC);
+            //if ((bool)chk_Services_TeamViewer.IsChecked) services.Add(ServiceType.TeamViewer);
+            //if ((bool)chk_Services_BigFixRemote.IsChecked) services.Add(ServiceType.BigFixRemote);
+            //if ((bool)chk_Services_AnyDesk.IsChecked) services.Add(ServiceType.Anydesk);
+            //if ((bool)chk_Services_Rustdesk.IsChecked) services.Add(ServiceType.Rustdesk);
 
-            // Datenbanken
-            if ((bool)chk_Services_MSSQL.IsChecked) services.Add(ServiceType.MSSQLServer);
-            if ((bool)chk_Services_Postgre.IsChecked) services.Add(ServiceType.PostgreSQL);
-            if ((bool)chk_Services_MongoDB.IsChecked) services.Add(ServiceType.MongoDB);
-            if ((bool)chk_Services_MariaDB.IsChecked) services.Add(ServiceType.MariaDB);
-            if ((bool)chk_Services_MYSQL.IsChecked) services.Add(ServiceType.MySQL);
-            if ((bool)chk_Services_OracleDB.IsChecked) services.Add(ServiceType.OracleDB);
-            if ((bool)chk_Services_InfluxDB2.IsChecked) services.Add(ServiceType.InfluxDB2);
-            
+            //// Datenbanken
+            //if ((bool)chk_Services_MSSQL.IsChecked) services.Add(ServiceType.MSSQLServer);
+            //if ((bool)chk_Services_Postgre.IsChecked) services.Add(ServiceType.PostgreSQL);
+            //if ((bool)chk_Services_MongoDB.IsChecked) services.Add(ServiceType.MongoDB);
+            //if ((bool)chk_Services_MariaDB.IsChecked) services.Add(ServiceType.MariaDB);
+            //if ((bool)chk_Services_MYSQL.IsChecked) services.Add(ServiceType.MySQL);
+            //if ((bool)chk_Services_OracleDB.IsChecked) services.Add(ServiceType.OracleDB);
+            //if ((bool)chk_Services_InfluxDB2.IsChecked) services.Add(ServiceType.InfluxDB2);
 
 
-            // Industrieprotokolle  
-            if ((bool)chk_Services_OPCUA.IsChecked) services.Add(ServiceType.OPCUA);
-            if ((bool)chk_Services_ModBus.IsChecked) services.Add(ServiceType.ModBus);
-            if ((bool)chk_Services_SiemensS7.IsChecked) services.Add(ServiceType.S7);
+
+            //// Industrieprotokolle  
+            //if ((bool)chk_Services_OPCUA.IsChecked) services.Add(ServiceType.OPCUA);
+            //if ((bool)chk_Services_ModBus.IsChecked) services.Add(ServiceType.ModBus);
+            //if ((bool)chk_Services_SiemensS7.IsChecked) services.Add(ServiceType.S7);
+
+            foreach (DataRow row in scanningMethod_Services.Services.Rows)
+            {
+                var tada = row["toScan"];
+                if ((bool)row["toScan"] == true)
+                {
+                    services.Add((ServiceType)Enum.Parse(typeof(ServiceType), row["Service"].ToString()));
+                }
+            }
 
             if (services.Count == 0)
             {
