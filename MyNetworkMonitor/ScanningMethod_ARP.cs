@@ -37,8 +37,19 @@ namespace MyNetworkMonitor
 
         public async Task SendARPRequestAsync(List<IPToScan> ipsToRefresh)
         {
+            List<IPToScan> originalIPsToRefresh = ipsToRefresh;
 
-            List<IPToScan> filtered = GetIPsInSameVLAN(ipsToRefresh);
+            List<IPToScan> filtered = new List<IPToScan>();
+           
+
+            filtered = GetIPsInSameVLAN(ipsToRefresh);
+
+            if (filtered.Count <= 1)
+            {
+                filtered = originalIPsToRefresh;
+            }
+            
+               
 
             total = filtered.Count;
             ProgressUpdated?.Invoke(current, responded, total);
