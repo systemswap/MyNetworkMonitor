@@ -1442,26 +1442,32 @@ public class ScanningMethod_Services
 
 
 
-
     private async Task<PortResult> CheckWebServicePortAsync(string ipAddress, int port)
     {
-        PortResult portResult = new PortResult { Port = port, PortLog = "" };
+        PortResult portResult = new PortResult { Port = port, Status = PortStatus.NoResponse };
 
-        // 🔹 Zuerst HTTP prüfen
-        if (await CheckHttpAsync(ipAddress, port, portResult))
+        bool httpSuccess = await CheckHttpAsync(ipAddress, port, portResult);
+        bool httpsSuccess = await CheckHttpsAsync(ipAddress, port, portResult);
+
+        if (httpSuccess || httpsSuccess)
         {
-            portResult.Status = PortStatus.IsRunning;
-            return portResult;
+            portResult.Status = PortStatus.IsRunning; // Webseite läuft aktiv.
         }
-
-        // 🔹 Falls HTTP nicht erfolgreich → HTTPS prüfen
-        if (await CheckHttpsAsync(ipAddress, port, portResult))
+        else if (portResult.Status == PortStatus.Open)
         {
-            portResult.Status = PortStatus.IsRunning;
+            // Wenn HTTP/HTTPS geprüft wurde, aber keine Webseite erkannt wurde, bleibt der Status `Open`.
+        }
+        else if (portResult.Status == PortStatus.NoResponse)
+        {
+            portResult.Status = PortStatus.NoResponse; // Timeout oder keine Antwort.
+        }
+        else if (portResult.Status == PortStatus.Filtered)
+        {
+            // Falls der Port explizit gefiltert ist, bleibt er gefiltert.
         }
         else
         {
-            portResult.Status = PortStatus.Closed; // Falls beide Prüfungen fehlschlagen
+            portResult.Status = PortStatus.Error; // Unbekannter Fehlerfall.
         }
 
         return portResult;
@@ -1470,84 +1476,149 @@ public class ScanningMethod_Services
     private async Task<bool> CheckHttpAsync(string ipAddress, int port, PortResult portResult)
     {
         using (var tcpClient = new TcpClient())
+        using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(1))) // Timeout von 1 Sekunde
         {
             try
             {
-                var connectTask = tcpClient.ConnectAsync(ipAddress, port);
-                var delayTask = Task.Delay(500); // Timeout 1 Sekunde
-
-                if (await Task.WhenAny(connectTask, delayTask) != connectTask || !tcpClient.Connected)
+                Task connectTask = tcpClient.ConnectAsync(ipAddress, port);
+                if (await Task.WhenAny(connectTask, Task.Delay(1000, cts.Token)) != connectTask)
                 {
+                    portResult.Status = PortStatus.NoResponse; // Keine Antwort vom Port (Timeout).
+                    return false;
+                }
+
+                if (!tcpClient.Connected)
+                {
+                    portResult.Status = PortStatus.Filtered; // Verbindung verweigert (z. B. durch Firewall).
                     return false;
                 }
 
                 using (NetworkStream stream = tcpClient.GetStream())
                 {
                     byte[] requestBytes = Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: " + ipAddress + "\r\nConnection: close\r\n\r\n");
-                    await stream.WriteAsync(requestBytes, 0, requestBytes.Length);
+                    await stream.WriteAsync(requestBytes, 0, requestBytes.Length, cts.Token);
 
                     byte[] buffer = new byte[4096];
-                    int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
+                    var readTask = stream.ReadAsync(buffer, 0, buffer.Length, cts.Token);
+                    if (await Task.WhenAny(readTask, Task.Delay(1000, cts.Token)) != readTask)
+                    {
+                        portResult.Status = PortStatus.NoResponse; // Antwort kam nicht rechtzeitig.
+                        return false;
+                    }
 
+                    int bytesRead = await readTask;
                     if (bytesRead > 0)
                     {
                         string response = Encoding.ASCII.GetString(buffer, 0, bytesRead);
-                        portResult.PortLog += response;
 
-                        return response.Contains("HTTP/1.1") && (response.Contains("200 OK") || response.Contains("<html"));
+                        if (response.Contains("HTTP/1.1") && (response.Contains("200 OK") || response.Contains("<html")))
+                        {
+                            portResult.Status = PortStatus.IsRunning; // Webseite erkannt.
+                            return true;
+                        }
+
+                        portResult.Status = PortStatus.Open; // Verbindung offen, aber keine Webseite.
+                        return false;
                     }
                 }
             }
-            catch
+            catch (SocketException ex)
             {
-                // Fehler ignorieren, einfach `false` zurückgeben
+                if (ex.SocketErrorCode == SocketError.ConnectionRefused)
+                {
+                    portResult.Status = PortStatus.Filtered; // Verbindung aktiv verweigert → Firewall?
+                }
+                else
+                {
+                    portResult.Status = PortStatus.Error; // Sonstiger Netzwerkfehler.
+                }
             }
         }
         return false;
     }
-
-
 
     private async Task<bool> CheckHttpsAsync(string ipAddress, int port, PortResult portResult)
     {
         using (var tcpClient = new TcpClient())
+        using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(1))) // Timeout von 1 Sekunde für Verbindung
         {
             try
             {
-                var connectTask = tcpClient.ConnectAsync(ipAddress, port);
-                var delayTask = Task.Delay(500); // Timeout 1 Sekunde
-
-                if (await Task.WhenAny(connectTask, delayTask) != connectTask || !tcpClient.Connected)
+                Task connectTask = tcpClient.ConnectAsync(ipAddress, port);
+                if (await Task.WhenAny(connectTask, Task.Delay(1000, cts.Token)) != connectTask)
                 {
+                    portResult.Status = PortStatus.NoResponse; // Keine Antwort vom Port.
+                    return false;
+                }
+
+                if (!tcpClient.Connected)
+                {
+                    portResult.Status = PortStatus.Filtered; // Verbindung verweigert → Firewall.
                     return false;
                 }
 
                 using (SslStream sslStream = new SslStream(tcpClient.GetStream(), false, (sender, cert, chain, sslPolicyErrors) => true))
+                using (var sslCts = new CancellationTokenSource(TimeSpan.FromSeconds(2))) // Timeout für SSL-Handshake
                 {
-                    await sslStream.AuthenticateAsClientAsync(ipAddress);
+                    var sslTask = sslStream.AuthenticateAsClientAsync(ipAddress);
+                    if (await Task.WhenAny(sslTask, Task.Delay(2000, sslCts.Token)) != sslTask)
+                    {
+                        portResult.Status = PortStatus.NoResponse; // SSL-Timeout → Server antwortet nicht.
+                        return false;
+                    }
 
+                    // **WICHTIG**: Prüfen, ob der SSL-Handshake wirklich erfolgreich war
+                    if (!sslStream.IsAuthenticated)
+                    {
+                        portResult.Status = PortStatus.Error; // SSL-Fehler
+                        return false;
+                    }
+
+                    // **Nur jetzt darf die Anfrage gesendet werden**
                     byte[] requestBytes = Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: " + ipAddress + "\r\nConnection: close\r\n\r\n");
-                    await sslStream.WriteAsync(requestBytes, 0, requestBytes.Length);
+                    await sslStream.WriteAsync(requestBytes, 0, requestBytes.Length, sslCts.Token);
 
                     byte[] buffer = new byte[4096];
-                    int bytesRead = await sslStream.ReadAsync(buffer, 0, buffer.Length);
+                    var readTask = sslStream.ReadAsync(buffer, 0, buffer.Length, sslCts.Token);
+                    if (await Task.WhenAny(readTask, Task.Delay(2000, sslCts.Token)) != readTask)
+                    {
+                        portResult.Status = PortStatus.NoResponse; // Antwort nicht erhalten.
+                        return false;
+                    }
 
+                    int bytesRead = await readTask;
                     if (bytesRead > 0)
                     {
                         string response = Encoding.ASCII.GetString(buffer, 0, bytesRead);
-                        portResult.PortLog += response;
 
-                        return response.Contains("HTTP/1.1") && (response.Contains("200 OK") || response.Contains("<html"));
+                        if (response.Contains("HTTP/1.1") && (response.Contains("200 OK") || response.Contains("<html")))
+                        {
+                            portResult.Status = PortStatus.IsRunning; // Webseite erkannt.
+                            return true;
+                        }
+
+                        portResult.Status = PortStatus.Open; // Port ist offen, aber keine Webseite.
+                        return false;
                     }
                 }
             }
-            catch
+            catch (InvalidOperationException ex)
             {
-                // Fehler ignorieren, einfach `false` zurückgeben
+                portResult.Status = PortStatus.Error; // SSL-Verbindung konnte nicht hergestellt werden.
+            }
+            catch (SocketException ex) when (ex.SocketErrorCode == SocketError.ConnectionRefused)
+            {
+                portResult.Status = PortStatus.Filtered; // Verbindung verweigert.
+            }
+            catch (Exception ex)
+            {
+                portResult.Status = PortStatus.Error; // Sonstiger Fehler.
             }
         }
         return false;
     }
+
+
 
 
 
