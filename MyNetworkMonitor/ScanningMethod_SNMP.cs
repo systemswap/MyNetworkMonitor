@@ -565,7 +565,7 @@ namespace MyNetworkMonitor
                 try
                 {
                     result_Serial = (snmp.Get(SnmpVersion.Ver1, new[] { "1.3.6.1.2.1.43.5.1.1.17.1" }));
-                    str_serialNumber = result_Serial.TryGetValue(new Oid(oids[0]), out var serialNumber) ? serialNumber.ToString() : string.Empty;
+                    if(result_Serial != null) str_serialNumber = result_Serial.Values.ToList()[0].ToString();
                 }
                 catch
                 {
