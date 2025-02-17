@@ -23,7 +23,7 @@ using System.Reflection;
 //[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
 [assembly: System.Reflection.AssemblyProductAttribute("MyNetworkMonitor")]
 [assembly: System.Reflection.AssemblyTitleAttribute("MyNetworkMonitor")]
-[assembly: System.Reflection.AssemblyVersionAttribute("4.3.3.1")]
+[assembly: System.Reflection.AssemblyVersionAttribute("4.3.3.2")]
 //[assembly: System.Runtime.Versioning.TargetPlatformAttribute("Windows7.0")]
 //[assembly: System.Runtime.Versioning.SupportedOSPlatformAttribute("Windows7.0")]
 
