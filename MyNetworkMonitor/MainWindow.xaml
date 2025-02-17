@@ -12,6 +12,8 @@
         Title="My Network Monitor" Height="845" Width="1865" MinWidth="1865" MinHeight="845" Closing="Window_Closing" Background="#FFF3F3F3" Loaded="mainWindow_Loaded">
 
 
+
+
     <Grid>
         <Grid>
             <Grid.ColumnDefinitions>
@@ -88,8 +90,7 @@
                         </Button>
                         <DataGrid x:Name="dgv_IP_Ranges" Margin="10,10,10,10" Grid.Row="1" AutoGeneratingColumn="dgv_IPRanges_OnAutoGeneratingColumn" CanUserAddRows="False" CanUserDeleteRows="False">
 
-
-
+                            
 
                             <DataGrid.GroupStyle>
                                 <!-- Style for groups at top level. -->
@@ -200,53 +201,40 @@
                     </Grid>
                 </TabItem>
                 <TabItem x:Name="tab_Services" Header="Services">
+                    
                     <Grid>
+                        <DataGrid x:Name="dg_Services" AutoGenerateColumns="False" CanUserAddRows="False" Margin="10,68,10,62">
 
-                        <CheckBox x:Name="chk_Services_Web" Content="Webservice      (80, 443, 8080, 8443)" HorizontalAlignment="Left" Width="220" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,19,0,0" IsChecked="True"/>
-                        <CheckBox x:Name="chk_Services_FTP" Content="FTP                   (21)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,41,0,0" IsChecked="True"/>
-                        <CheckBox x:Name="chk_Services_SSH" Content="SSH /SFTP        (22)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,63,0,0" IsChecked="True"/>
-                        <CheckBox x:Name="chk_Services_DNS_TCP" Content="DNS TCP          (53)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,85,0,0" IsChecked="True"/>
-                        <CheckBox x:Name="chk_Services_DNS_UDP" Content="DNS UDP         (53)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,107,0,0" IsChecked="True"/>
-                        <CheckBox x:Name="chk_Services_DHCP" Content="DHCP               (67)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,128,0,0" IsChecked="True"/>
+                            <DataGrid.GroupStyle>
+                                <GroupStyle>
+                                    <GroupStyle.HeaderTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="14"/>
+                                        </DataTemplate>
+                                    </GroupStyle.HeaderTemplate>
+                                </GroupStyle>
+                            </DataGrid.GroupStyle>
 
-                        <CheckBox x:Name="chk_Services_RDP" Content="RDP                 (3359)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,186,0,0" IsChecked="True"/>
-                        <CheckBox x:Name="chk_Services_UltraVNC" Content="UltraVNC         (5900)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,208,0,0" IsChecked="True"/>
-                        <CheckBox x:Name="chk_Services_TeamViewer" Content="TeamViewer     (5938)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,230,0,0" IsChecked="True"/>
-                        <CheckBox x:Name="chk_Services_BigFixRemote" Content="BigFix Remote (888)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,251,0,0"/>
-                        <CheckBox x:Name="chk_Services_AnyDesk" Content="AnyDesk          (7070)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,273,0,0" IsChecked="True"/>
-                        <CheckBox x:Name="chk_Services_Rustdesk" Content="Rustdesk          (21115)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,294,0,0"/>
-
-                        <CheckBox x:Name="chk_Services_MSSQL" Content="MSSQL             (1433)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,353,0,0" IsChecked="True"/>
-                        <CheckBox x:Name="chk_Services_Postgre" Content="PostgreSQL      (5432)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,375,0,0" IsChecked="True"/>
-                        <CheckBox x:Name="chk_Services_MariaDB" Content="MariaDB           (3306)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,397,0,0"/>
-                        <CheckBox x:Name="chk_Services_MYSQL" Content="MySQL             (3306)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,419,0,0"/>
-                        <CheckBox x:Name="chk_Services_OracleDB" Content="OracleDB         (1521)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,441,0,0"/>
-                        <CheckBox x:Name="chk_Services_MongoDB" Content="MongoDB        (27017)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,463,0,0" IsChecked="True"/>
-                        <CheckBox x:Name="chk_Services_InfluxDB2" Content="InfluxeDB 2      (8086)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,484,0,0"/>
-
-                        <CheckBox x:Name="chk_Services_OPCUA" Content="OPC UA           (4840)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,525,0,0" IsChecked="True"/>
-                        <CheckBox x:Name="chk_Services_ModBus" Content="Modbus           (502)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,547,0,0" IsChecked="True"/>
-                        <CheckBox x:Name="chk_Services_SiemensS7" Content="SiemensS7       (102, 1020)" HorizontalAlignment="Left" Width="200" VerticalContentAlignment="Center" VerticalAlignment="Top" Height="20" Margin="36,568,0,0"/>
-                        <Image HorizontalAlignment="Left" Height="16" Margin="15,43,0,0" VerticalAlignment="Top" Width="16" Source="/Resources/Radar.png"/>
-                        <Image HorizontalAlignment="Left" Height="16" Margin="15,210,0,0" VerticalAlignment="Top" Width="16" Source="/Resources/Radar.png"/>
-                        <Image HorizontalAlignment="Left" Height="16" Margin="15,232,0,0" VerticalAlignment="Top" Width="16" Source="/Resources/Radar.png"/>
-                        <Image HorizontalAlignment="Left" Height="16" Margin="15,253,0,0" VerticalAlignment="Top" Width="16" Source="/Resources/Radar.png"/>
-                        <Image HorizontalAlignment="Left" Height="16" Margin="15,275,0,0" VerticalAlignment="Top" Width="16" Source="/Resources/Radar.png"/>
-                        <Image HorizontalAlignment="Left" Height="16" Margin="15,355,0,0" VerticalAlignment="Top" Width="16" Source="/Resources/Radar.png"/>
-                        <Image HorizontalAlignment="Left" Height="16" Margin="15,377,0,0" VerticalAlignment="Top" Width="16" Source="/Resources/Radar.png"/>
-                        <Image HorizontalAlignment="Left" Height="16" Margin="15,399,0,0" VerticalAlignment="Top" Width="16" Source="/Resources/Radar.png"/>
-                        <Image HorizontalAlignment="Left" Height="16" Margin="15,465,0,0" VerticalAlignment="Top" Width="16" Source="/Resources/Radar.png"/>
-                        <Image HorizontalAlignment="Left" Height="16" Margin="15,527,0,0" VerticalAlignment="Top" Width="16" Source="/Resources/Radar.png"/>
-                        <Image HorizontalAlignment="Left" Height="16" Margin="15,549,0,0" VerticalAlignment="Top" Width="16" Source="/Resources/Radar.png"/>
-                        <Image HorizontalAlignment="Left" Height="16" Margin="15,603,0,0" VerticalAlignment="Top" Width="16" Source="/Resources/Radar.png"/>
-
-                        <Image HorizontalAlignment="Left" Height="16" Margin="15,486,0,0" VerticalAlignment="Top" Width="16" Source="/Resources/Radar.png"/>
-                        <Label Content=" means detect service across 65535 ports" HorizontalAlignment="Left" Margin="27,597,0,0" VerticalAlignment="Top"/>
-
-
-
-
+                            <DataGrid.Columns>
+                                <DataGridCheckBoxColumn Header="toScan" Binding="{Binding toScan, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="False">
+                                    <DataGridCheckBoxColumn.ElementStyle>
+                                        <Style TargetType="CheckBox">
+                                            <Setter Property="Focusable" Value="False"/>
+                                            <!-- Direkt anklickbar -->
+                                        </Style>
+                                    </DataGridCheckBoxColumn.ElementStyle>
+                                </DataGridCheckBoxColumn>
+                                <DataGridTextColumn Header="Service" Binding="{Binding Service}" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Ports" Binding="{Binding Ports}" IsReadOnly="false"/>
+                                <DataGridTextColumn Header="HelloBytePackage" Binding="{Binding HelloBytePackage}" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="ResponsedBytePackagePart" Binding="{Binding ResponsedBytePackagePart}" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="ResponsedContainsString" Binding="{Binding ResponsedContainsString}" IsReadOnly="True"/>
+                               
+                            </DataGrid.Columns>
+                        </DataGrid>
                     </Grid>
+
+
                 </TabItem>
 
                 <TabItem x:Name="tab_InternalNames" Header="Internal Names">
