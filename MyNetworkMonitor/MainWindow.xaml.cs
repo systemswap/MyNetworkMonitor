@@ -522,12 +522,22 @@ namespace MyNetworkMonitor
             {
                 if (e.Column is DataGridCheckBoxColumn checkBoxColumn)
                 {
-                    checkBoxColumn.ElementStyle = new Style(typeof(CheckBox))
+                    // Setze das Binding richtig
+                    checkBoxColumn.Binding = new Binding(e.PropertyName)
                     {
-                        Setters = { new Setter(CheckBox.FocusableProperty, false) }
+                        Mode = BindingMode.TwoWay,
+                        UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged
                     };
+
+                    // Setze den Style für die CheckBox (damit sie nicht fokussierbar ist)
+                    Style checkBoxStyle = new Style(typeof(CheckBox));
+                    checkBoxStyle.Setters.Add(new Setter(CheckBox.FocusableProperty, false));
+
+                    checkBoxColumn.ElementStyle = checkBoxStyle;
                 }
             }
+
+
         }
 
         private void dgv_ScanResults_OnAutoGeneratingColumn(object sender, DataGridAutoGeneratingColumnEventArgs e)
