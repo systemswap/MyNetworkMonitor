@@ -26,7 +26,6 @@ using System.Windows.Data;
 
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Text.Json;
 using System.Windows.Media.Imaging;
 using static MyNetworkMonitor.SupportMethods;
 using SnmpSharpNet;
