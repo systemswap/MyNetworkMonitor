@@ -31,6 +31,7 @@ using static MyNetworkMonitor.SupportMethods;
 using SnmpSharpNet;
 using System.Collections.ObjectModel;
 
+
 //using static System.Net.WebRequestMethods;
 
 namespace MyNetworkMonitor
@@ -120,6 +121,9 @@ namespace MyNetworkMonitor
             scanningMethode_PortsUDP = new ScanningMethod_PortsUDP();
             scanningMethode_PortsUDP.UDPPortScan_Task_Finished += UDPPortScan_Task_Finished;
             scanningMethode_PortsUDP.UDPPortScan_Finished += UDPPortScan_Finished;
+            
+            
+            
 
 
             dv_resultTable = new DataView(_scannResults.ResultTable);
@@ -1424,7 +1428,7 @@ namespace MyNetworkMonitor
 
                 if (ipToScan.UsedScanMethod == ScanMethod.Ping)
                 {
-                    _scannResults.ResultTable.Rows[rowIndex]["PingStatus"] = ipToScan.PingStatus ? Properties.Resources.green_dot_s : Properties.Resources.red_dot_s;
+                    _scannResults.ResultTable.Rows[rowIndex]["PingStatus"] = ipToScan.PingStatus ? Properties.Resources.green_dot_s : Properties.Resources.red_dot_s;                   
                     _scannResults.ResultTable.Rows[rowIndex]["ResponseTime"] = ipToScan.ResponseTime;
                 }
 
