@@ -1448,31 +1448,38 @@ public class ScanningMethod_Services
     {
         PortResult portResult = new PortResult { Port = port, Status = PortStatus.NoResponse };
 
+        // Prüfe HTTP und HTTPS
         bool httpSuccess = await CheckHttpAsync(ipAddress, port, portResult);
         bool httpsSuccess = await CheckHttpsAsync(ipAddress, port, portResult);
 
+        // **1️⃣ Falls HTTP oder HTTPS erfolgreich war → "IsRunning" setzen (höchste Priorität)**
         if (httpSuccess || httpsSuccess)
         {
-            portResult.Status = PortStatus.IsRunning; // Webseite läuft aktiv.
+            portResult.Status = PortStatus.IsRunning;
         }
+        // **2️⃣ Falls "Error" erkannt wurde, aber die Seite nicht läuft → "Error" setzen**
+        else if (portResult.Status == PortStatus.Error)
+        {
+            // Kein Überschreiben nötig, bleibt Error
+        }
+        // **3️⃣ Falls Port als "Open" erkannt wurde, bleibt er "Open"**
         else if (portResult.Status == PortStatus.Open)
         {
-            // Wenn HTTP/HTTPS geprüft wurde, aber keine Webseite erkannt wurde, bleibt der Status `Open`.
+            // Kein Überschreiben nötig, bleibt Open
         }
-        else if (portResult.Status == PortStatus.NoResponse)
-        {
-            portResult.Status = PortStatus.NoResponse; // Timeout oder keine Antwort.
-        }
+        // **4️⃣ Falls explizit gefiltert, bleibt er gefiltert**
         else if (portResult.Status == PortStatus.Filtered)
         {
-            // Falls der Port explizit gefiltert ist, bleibt er gefiltert.
+            // Kein Überschreiben nötig, bleibt Filtered
         }
+        // **5️⃣ Falls keine Antwort kam, bleibt "NoResponse"**
         else
         {
-            portResult.Status = PortStatus.Error; // Unbekannter Fehlerfall.
+            portResult.Status = PortStatus.NoResponse;
         }
 
         return portResult;
+
     }
 
     //private async Task<bool> CheckHttpAsync(string ipAddress, int port, PortResult portResult)
