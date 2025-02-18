@@ -205,7 +205,13 @@
                     
                     <Grid>
                         <DataGrid x:Name="dg_Services" AutoGenerateColumns="False" CanUserAddRows="False" Margin="10,68,10,62">
-
+                            
+                            <DataGrid.ContextMenu>
+                                <ContextMenu x:Name="contextMenu_dg_Services">
+                                    <MenuItem Header="get default ports)" Click="dg_ServicesGetDefaultPorts_Click"/>                                    
+                                </ContextMenu>
+                            </DataGrid.ContextMenu>
+                            
                             <DataGrid.GroupStyle>
                                 <GroupStyle>
                                     <GroupStyle.HeaderTemplate>
