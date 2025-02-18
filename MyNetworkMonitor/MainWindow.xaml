@@ -190,7 +190,7 @@
                             <RowDefinition/>
                             <RowDefinition Height="40"/>
                         </Grid.RowDefinitions>
-                        <DataGrid x:Name="dg_PortsToScan" Margin="10,10,10,10" Grid.Row="1"/>
+                        <DataGrid x:Name="dg_PortsToScan" Margin="10,10,10,10" Grid.Row="1" AlternationCount="2" AlternatingRowBackground="LightGray"/>
                         <Button x:Name="bt_SavePortsToScan" Content="Save Port Collection" HorizontalAlignment="Center" Grid.Row="2" VerticalAlignment="Center" Width="293" Height="20" Click="bt_SavePortsToScan_Click" Background="#BFA4B1BF" OpacityMask="Black">
                             <Button.Resources>
                                 <Style TargetType="{x:Type Border}">
