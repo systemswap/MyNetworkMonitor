@@ -142,11 +142,20 @@
   <data name="gray_dotTB" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\gray_dotTB.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
+  <data name="gray_dot_s" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\gray_dot_s.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
   <data name="green_dot" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\green_dot.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
+  <data name="green_dot_s" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\green_dot_s.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
   <data name="red_dotTB" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\red_dotTB.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="red_dot_s" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\red_dot_s.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="SearchDevices" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\SearchDevices.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
