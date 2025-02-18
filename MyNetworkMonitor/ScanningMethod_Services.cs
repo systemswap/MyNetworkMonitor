@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Sockets;
@@ -38,7 +38,7 @@ public enum PortStatus
 
 public enum ServiceType
 {
-    // 🌍 Netzwerk-Dienste
+    // ?? Netzwerk-Dienste
     WebServices,
     DNS_TCP,
     DNS_UDP,
@@ -154,7 +154,7 @@ public class ScanningMethod_Services
 
         await Task.WhenAll(tasks);
 
-        // ✅ Garantiert: SMBScanFinished wird NUR ausgelöst, wenn alle SMB-Scans beendet sind
+        // ? Garantiert: SMBScanFinished wird NUR ausgel�st, wenn alle SMB-Scans beendet sind
         ServiceScanFinished?.Invoke();
     }
 
@@ -173,14 +173,14 @@ public class ScanningMethod_Services
 
     //    foreach (var ipToScan in IPsToScan)
     //    {
-    //        await semaphore.WaitAsync(); // ✅ Wartet, bis ein neuer Slot frei ist
+    //        await semaphore.WaitAsync(); // ? Wartet, bis ein neuer Slot frei ist
     //        tasks.Add(Task.Run(async () =>
     //        {
     //            try
     //            {
     //                int currentValue = Interlocked.Increment(ref current);
 
-    //                // 🔹 Sicherstellen, dass UI-Updates nicht blockieren
+    //                // ?? Sicherstellen, dass UI-Updates nicht blockieren
     //                await Application.Current.Dispatcher.InvokeAsync(() =>
     //                {
     //                    ProgressUpdated?.Invoke(current, responded, total);
@@ -190,23 +190,23 @@ public class ScanningMethod_Services
     //            }
     //            catch (Exception ex)
     //            {
-    //                Console.WriteLine($"⚠️ Fehler beim Scannen von {ipToScan.IPorHostname}: {ex.Message}");
+    //                Console.WriteLine($"?? Fehler beim Scannen von {ipToScan.IPorHostname}: {ex.Message}");
     //            }
     //            finally
     //            {
-    //                semaphore.Release(); // ✅ Stellt sicher, dass das Semaphore freigegeben wird
+    //                semaphore.Release(); // ? Stellt sicher, dass das Semaphore freigegeben wird
     //            }
     //        }));
     //    }
 
-    //    // ✅ Prüft regelmäßig den Fortschritt, um Hänger zu vermeiden
+    //    // ? Pr�ft regelm��ig den Fortschritt, um H�nger zu vermeiden
     //    while (tasks.Any())
     //    {
     //        Task finishedTask = await Task.WhenAny(tasks);
     //        tasks.Remove(finishedTask);
     //    }
 
-    //    // ✅ Stellt sicher, dass das Event ausgelöst wird, selbst wenn einige Tasks fehlschlagen
+    //    // ? Stellt sicher, dass das Event ausgel�st wird, selbst wenn einige Tasks fehlschlagen
     //    await Application.Current.Dispatcher.InvokeAsync(() =>
     //    {
     //        ServiceScanFinished?.Invoke();
@@ -336,7 +336,7 @@ public class ScanningMethod_Services
     //              }));
     //          }
 
-    //          // **Parallel ausführen & warten**
+    //          // **Parallel ausf�hren & warten**
     //          await Task.WhenAll(tasks);
 
     //          ipToScan.Services.Services.Add(serviceResult);
@@ -349,7 +349,7 @@ public class ScanningMethod_Services
 
     //          ipToScan.UsedScanMethod = ScanMethod.Services;
 
-    //          ServiceIPScanFinished?.Invoke(ipToScan); // Event auslösen
+    //          ServiceIPScanFinished?.Invoke(ipToScan); // Event ausl�sen
     //      }
     //  }
 
@@ -386,7 +386,7 @@ public class ScanningMethod_Services
                 tasks.Add(ScanServicePortAsync(service, ipAddress, port, detectionPacket, serviceResult, semaphore));                
             }
 
-            // Parallel ausführen und warten
+            // Parallel ausf�hren und warten
             await Task.WhenAll(tasks);
 
             //ipToScan.Services.Services.Add(serviceResult);
@@ -403,12 +403,12 @@ public class ScanningMethod_Services
             ProgressUpdated?.Invoke(current, responded, total);
 
             ipToScan.UsedScanMethod = ScanMethod.Services;
-            ServiceIPScanFinished?.Invoke(ipToScan); // Event auslösen
+            ServiceIPScanFinished?.Invoke(ipToScan); // Event ausl�sen
         }
     }
 
     /// <summary>
-    /// Scannt einen Port für einen bestimmten Service.
+    /// Scannt einen Port f�r einen bestimmten Service.
     /// </summary>
     private async Task ScanServicePortAsync(ServiceType service, string ipAddress, int port, byte[] detectionPacket, ServiceResult serviceResult, SemaphoreSlim semaphore)
     {
@@ -491,7 +491,7 @@ public class ScanningMethod_Services
                         {
                             List<int> dynamicPort;
 
-                            using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3))) // ⏳ Timeout setzen
+                            using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3))) // ? Timeout setzen
                             {
                                 dynamicPort = await GetMSSQLDynamicPortsAsync(ipAddress).WaitAsync(cts.Token);
                             }
@@ -505,7 +505,7 @@ public class ScanningMethod_Services
                         }
                         catch (Exception ex)
                         {
-                            Console.WriteLine($"⚠️ Fehler beim Abrufen des dynamischen SQL-Ports für {ipAddress}: {ex.Message}");
+                            Console.WriteLine($"?? Fehler beim Abrufen des dynamischen SQL-Ports f�r {ipAddress}: {ex.Message}");
                         }
                     }
                     break;
@@ -601,7 +601,7 @@ public class ScanningMethod_Services
     //        }
     //        catch (OperationCanceledException)
     //        {
-    //            break; // Abbruch bei Token-Auslösung
+    //            break; // Abbruch bei Token-Ausl�sung
     //        }
 
 
@@ -610,7 +610,7 @@ public class ScanningMethod_Services
 
     //        if (service == ServiceType.WebServices)
     //        {
-    //            // Füge jede Aufgabe zur Liste hinzu
+    //            // F�ge jede Aufgabe zur Liste hinzu
     //            portCheckTasks.Add(Task.Run(async () =>
     //            {
     //                PortResult portResult = await CheckWebServicePortAsync(ipToScan.IPorHostname, port);
@@ -622,7 +622,7 @@ public class ScanningMethod_Services
 
     //                    lock (serviceResult.Ports)
     //                    {
-    //                        serviceResult.Ports.Add(portResult);  // Thread-sicher hinzufügen
+    //                        serviceResult.Ports.Add(portResult);  // Thread-sicher hinzuf�gen
     //                    }
     //                }
     //            }));
@@ -643,7 +643,7 @@ public class ScanningMethod_Services
     //                        using NetworkStream stream = client.GetStream();
     //                        await stream.WriteAsync(GetDetectionPacket(service), 0, GetDetectionPacket(service).Length);
 
-    //                        // 🛑 Direkte Paket-Sammlung im Code:
+    //                        // ?? Direkte Paket-Sammlung im Code:
     //                        using MemoryStream memoryStream = new MemoryStream();
     //                        byte[] buffer = new byte[1024];
     //                        DateTime startTime = DateTime.Now;
@@ -656,11 +656,11 @@ public class ScanningMethod_Services
     //                                if (bytesRead > 0)
     //                                {
     //                                    memoryStream.Write(buffer, 0, bytesRead);
-    //                                    startTime = DateTime.Now; // Timeout zurücksetzen
+    //                                    startTime = DateTime.Now; // Timeout zur�cksetzen
     //                                }
     //                                else
     //                                {
-    //                                    break; // Keine weiteren Daten verfügbar
+    //                                    break; // Keine weiteren Daten verf�gbar
     //                                }
     //                            }
     //                            else
@@ -671,11 +671,11 @@ public class ScanningMethod_Services
 
     //                        // die anzeige des bytes in visual studio ist in dezimal, verarbeitet wird sie aber als hex, wenn der erste Hex wert 17 ist steht im 1. byte 23   
     //                        byte[] response = memoryStream.ToArray(); // Gesamte gesammelte Antwort in ein Array konvertieren
-    //                                                                  //zur überprüfung
+    //                                                                  //zur �berpr�fung
     //                                                                  //Debug.WriteLine(BitConverter.ToString(response));
     //                        string hexBytes = BitConverter.ToString(response);
 
-    //                        // **Service-Erkennung durchführen**
+    //                        // **Service-Erkennung durchf�hren**
     //                        if (response.Length > 0)
     //                        {
     //                            bool serviceMatched = IdentifyServices(response, service);
@@ -732,7 +732,7 @@ public class ScanningMethod_Services
         List<int> ports = Enumerable.Range(0, 65536).ToList(); // Alle Ports von 0 bis 65535
         //List<int> ports = Enumerable.Range(1880, 8087).ToList(); // Alle Ports von 0 bis 65535
 
-        // Liste für alle Tasks
+        // Liste f�r alle Tasks
         List<Task> tasks = new List<Task>();
 
 
@@ -750,7 +750,7 @@ public class ScanningMethod_Services
             }
             catch (OperationCanceledException)
             {
-                break; // Abbruch bei Token-Auslösung
+                break; // Abbruch bei Token-Ausl�sung
             }
 
             tasks.Add(Task.Run(async () =>
@@ -774,7 +774,7 @@ public class ScanningMethod_Services
                     }
                     else
                     {
-                        // TCP-Verbindung prüfen
+                        // TCP-Verbindung pr�fen
                         using TcpClient client = new TcpClient();
                         var connectTask = client.ConnectAsync(IPAddress.Parse(ipToScan.IPorHostname), port);
                         var delayTask = Task.Delay(1000); // Timeout auf 1 Sekunde
@@ -837,7 +837,7 @@ public class ScanningMethod_Services
         {
             //await Task.WhenAll(tasks.Where(t => !t.IsCanceled));
 
-            // Zusätzliche Sicherheit: Warte, bis alle Semaphore-Slots zurückgesetzt wurden
+            // Zus�tzliche Sicherheit: Warte, bis alle Semaphore-Slots zur�ckgesetzt wurden
             await Task.WhenAll(Enumerable.Range(0, semaphore.CurrentCount).Select(_ => semaphore.WaitAsync()).ToArray());
         }
         catch (OperationCanceledException)
@@ -846,7 +846,7 @@ public class ScanningMethod_Services
         }
         finally
         {
-            FindServicePortFinished?.Invoke(ipToScan);  // Stelle sicher, dass das Event ausgelöst wird
+            FindServicePortFinished?.Invoke(ipToScan);  // Stelle sicher, dass das Event ausgel�st wird
         }
         return ipToScan;
     }
@@ -871,7 +871,7 @@ public class ScanningMethod_Services
         bool serviceMatched = false;
         string str_serviceResponse = Encoding.ASCII.GetString(response);
 
-        // 🔍 FTP
+        // ?? FTP
         if (service == ServiceType.FTP)
         {
             if (str_serviceResponse.StartsWith("220 "))
@@ -880,12 +880,12 @@ public class ScanningMethod_Services
             }
         }
 
-        // 🔍 SSH / SFTP
+        // ?? SSH / SFTP
         if (service == ServiceType.SSH)
         {
             string sshResponse = Encoding.ASCII.GetString(response);
 
-            // Prüfen, ob die Antwort das typische "SSH-2.0" enthält
+            // Pr�fen, ob die Antwort das typische "SSH-2.0" enth�lt
             if (sshResponse.StartsWith("SSH-2.0"))
             {
                 serviceMatched = true;
@@ -901,7 +901,7 @@ public class ScanningMethod_Services
         }
 
 
-        // 🔍 UltraVNC-Erkennung        
+        // ?? UltraVNC-Erkennung        
         if (service == ServiceType.UltraVNC)
         {
             //UlraVNC Header RFB als hex
@@ -913,7 +913,7 @@ public class ScanningMethod_Services
             }
         }
 
-        // 🔍 TeamViewer-Erkennung
+        // ?? TeamViewer-Erkennung
         if (service == ServiceType.TeamViewer)
         {
             byte[] teamViewerHeader1 = { 0x17, 0x24, 0x0A, 0x20 };  // Header 1
@@ -946,21 +946,21 @@ public class ScanningMethod_Services
         }
 
 
-        // 🔍 AnyDesk
+        // ?? AnyDesk
         if (service == ServiceType.Anydesk)
         {
             string tada2 = Encoding.ASCII.GetString(response);
             if (tada2.ToLower().Contains("anydesk client")) serviceMatched = true;
         }
 
-        // 🔍 Microsoft SQL Server
+        // ?? Microsoft SQL Server
         if (service == ServiceType.MSSQLServer)
         {
             // MSSQL-TDS-Erkennung (Pre-Login-Paket)
             if (response.Length > 8 && response[0] == 0x04 && response[1] == 0x01)
             {
-                // Mindestlänge und typische Struktur prüfen
-                int packetLength = response[2] << 8 | response[3]; // Paketlänge aus Byte 2 und 3
+                // Mindestl�nge und typische Struktur pr�fen
+                int packetLength = response[2] << 8 | response[3]; // Paketl�nge aus Byte 2 und 3
                 if (packetLength > 8 && packetLength < 512)
                 {
                     serviceMatched = true;
@@ -969,12 +969,12 @@ public class ScanningMethod_Services
         }
 
 
-        // 🔍 PostgreSQL-Erkennung
+        // ?? PostgreSQL-Erkennung
         if (service == ServiceType.PostgreSQL)
         {
             if (response.Length == 1)
             {
-                // Überprüfung auf PostgreSQL-"Ready for Query"-Antwort ("R" + 7 weitere Bytes)
+                // �berpr�fung auf PostgreSQL-"Ready for Query"-Antwort ("R" + 7 weitere Bytes)
                 if (response[0] == 0x4e)
                 {
                     serviceMatched = true;
@@ -982,7 +982,7 @@ public class ScanningMethod_Services
             }
             if (response.Length >= 8)
             {
-                // Überprüfung auf PostgreSQL-"Ready for Query"-Antwort ("R" + 7 weitere Bytes)
+                // �berpr�fung auf PostgreSQL-"Ready for Query"-Antwort ("R" + 7 weitere Bytes)
                 if (response[0] == 0x52 && response[1] == 0x00 && response[2] == 0x00)
                 {
                     serviceMatched = true;
@@ -990,7 +990,7 @@ public class ScanningMethod_Services
             }
         }
 
-        // 🔍 MariaDB
+        // ?? MariaDB
         if (service == ServiceType.MariaDB)
         {
             if (str_serviceResponse.ToLower().Contains("mariadb"))
@@ -1016,7 +1016,7 @@ public class ScanningMethod_Services
         }
 
 
-        // 🔍 InfluxDB 2
+        // ?? InfluxDB 2
         if (service == ServiceType.InfluxDB2)
         {
             if (str_serviceResponse.ToLower().Contains("influxdb"))
@@ -1026,7 +1026,7 @@ public class ScanningMethod_Services
         }
 
 
-        // 🔍 OPC UA
+        // ?? OPC UA
         if (service == ServiceType.OPCUA)
         {
             if (response.Length >= 4)
@@ -1047,21 +1047,21 @@ public class ScanningMethod_Services
             }
         }
 
-        // 🔍 Modbus TCP-Erkennung
+        // ?? Modbus TCP-Erkennung
         if (service == ServiceType.ModBus)
         {
             // Modbus TCP Header besteht mindestens aus 7 Bytes:
             // [0-1] Transaction Identifier (2 Bytes)
-            // [2-3] Protocol Identifier (immer 0x00 0x00 für Modbus TCP)
-            // [4-5] Length Field (Länge der nachfolgenden Daten)
+            // [2-3] Protocol Identifier (immer 0x00 0x00 f�r Modbus TCP)
+            // [4-5] Length Field (L�nge der nachfolgenden Daten)
             // [6]   Unit Identifier
             // [7+]  Function Code + Payload
             if (response.Length >= 7)
             {
-                // Protokollkennung überprüfen (muss 0x00 0x00 für Modbus TCP sein)
+                // Protokollkennung �berpr�fen (muss 0x00 0x00 f�r Modbus TCP sein)
                 bool isModbusTcp = response[2] == 0x00 && response[3] == 0x00;
 
-                // Funktioncode prüfen: Gültige Modbus-Funktionscodes liegen zwischen 0x01 und 0x10
+                // Funktioncode pr�fen: G�ltige Modbus-Funktionscodes liegen zwischen 0x01 und 0x10
                 // Beispiele:
                 // 0x01 - Read Coils
                 // 0x02 - Read Discrete Inputs
@@ -1109,7 +1109,7 @@ public class ScanningMethod_Services
                     if (!success)
                     {
                         portResult.Status = PortStatus.Filtered;
-                        logBuilder.AppendLine("Timeout: Port möglicherweise durch Firewall blockiert.");
+                        logBuilder.AppendLine("Timeout: Port m�glicherweise durch Firewall blockiert.");
                         portResult.PortLog = logBuilder.ToString();
                         return portResult;
                     }
@@ -1167,26 +1167,26 @@ public class ScanningMethod_Services
 
                             if (responseAscii.IndexOf("anydesk", StringComparison.OrdinalIgnoreCase) >= 0)
                             {
-                                logBuilder.AppendLine("✔ AnyDesk in Serverantwort gefunden.");
+                                logBuilder.AppendLine("? AnyDesk in Serverantwort gefunden.");
                             }
                             else
                             {
-                                logBuilder.AppendLine("❓ Server hat geantwortet, aber AnyDesk nicht gefunden.");
+                                logBuilder.AppendLine("? Server hat geantwortet, aber AnyDesk nicht gefunden.");
                             }
                         }
                         else
                         {
                             portResult.Status = PortStatus.NoResponse;
-                            logBuilder.AppendLine("🔎 Port ist offen, aber keine Antwort von einer Anwendung.");
+                            logBuilder.AppendLine("?? Port ist offen, aber keine Antwort von einer Anwendung.");
                         }
                     }
                     catch (OperationCanceledException)
                     {
-                        logBuilder.AppendLine("⏳ Antwort vom Server dauerte zu lange.");
+                        logBuilder.AppendLine("? Antwort vom Server dauerte zu lange.");
                     }
                     catch (Exception ex)
                     {
-                        logBuilder.AppendLine($"❌ Fehler beim Lesen der Antwort: {ex.Message}");
+                        logBuilder.AppendLine($"? Fehler beim Lesen der Antwort: {ex.Message}");
                     }
                 }
 
@@ -1198,7 +1198,7 @@ public class ScanningMethod_Services
                 if (attempt == RetryCount)
                 {
                     portResult.Status = PortStatus.Closed;
-                    logBuilder.AppendLine($"⚠️ Fehler nach {RetryCount} Versuchen: {ex.Message}");
+                    logBuilder.AppendLine($"?? Fehler nach {RetryCount} Versuchen: {ex.Message}");
                 }
             }
         }
@@ -1220,11 +1220,11 @@ public class ScanningMethod_Services
             using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp))
             {
                 socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, true);
-                //socket.Bind(new IPEndPoint(IPAddress.Any, 68));  // Lausche auf Port 68 für eingehende Broadcasts
-                socket.Bind(new IPEndPoint(SupportMethods.SelectedNetworkInterfaceInfos.IPv4, 68));  // Lausche auf Port 68 für eingehende Broadcasts
+                //socket.Bind(new IPEndPoint(IPAddress.Any, 68));  // Lausche auf Port 68 f�r eingehende Broadcasts
+                socket.Bind(new IPEndPoint(SupportMethods.SelectedNetworkInterfaceInfos.IPv4, 68));  // Lausche auf Port 68 f�r eingehende Broadcasts
 
                 IPEndPoint dhcpServerEndPoint = new IPEndPoint(IPAddress.Broadcast, 67);
-                Console.WriteLine($"📡 Sende DHCP DISCOVER...");
+                Console.WriteLine($"?? Sende DHCP DISCOVER...");
 
                 // Sende DHCP DISCOVER
                 socket.SendTo(dhcpDiscoverPacket, dhcpServerEndPoint);
@@ -1236,7 +1236,7 @@ public class ScanningMethod_Services
                 {
                     while ((DateTime.Now - startTime).TotalMilliseconds < timeout)
                     {
-                        if (socket.Poll(100000, SelectMode.SelectRead))  // 100 ms warten, ob Daten verfügbar sind
+                        if (socket.Poll(100000, SelectMode.SelectRead))  // 100 ms warten, ob Daten verf�gbar sind
                         {
                             byte[] buffer = new byte[1024];
                             //EndPoint remoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
@@ -1249,7 +1249,7 @@ public class ScanningMethod_Services
                                 if (!string.IsNullOrEmpty(dhcpServerIp) && !dhcpServers.Contains(dhcpServerIp))
                                 {
                                     dhcpServers.Add(dhcpServerIp);
-                                    Console.WriteLine($"✅ DHCP-Server gefunden: {dhcpServerIp}");
+                                    Console.WriteLine($"? DHCP-Server gefunden: {dhcpServerIp}");
                                 }
                             }
                         }
@@ -1257,7 +1257,7 @@ public class ScanningMethod_Services
                 }
                 catch (SocketException ex)
                 {
-                    Console.WriteLine($"⚠ Fehler beim Empfang: {ex.Message}");
+                    Console.WriteLine($"? Fehler beim Empfang: {ex.Message}");
                 }
 
                 return dhcpServers;
@@ -1276,17 +1276,17 @@ public class ScanningMethod_Services
 
     string GetDhcpServerIp(byte[] response)
     {
-        // 1 Prüfe Option 54 (beste Methode)
+        // 1 Pr�fe Option 54 (beste Methode)
         int index = Array.IndexOf(response, (byte)54);
         if (index > 0)
             return new IPAddress(response.Skip(index + 2).Take(4).ToArray()).ToString();
 
-        // 2 Prüfe GIADDR (nur falls vorhanden)
+        // 2 Pr�fe GIADDR (nur falls vorhanden)
         string relayAgentIp = new IPAddress(response.Skip(24).Take(4).ToArray()).ToString();
         if (relayAgentIp != "0.0.0.0")
             return relayAgentIp;
 
-        // 3 Prüfe SIADDR (nur als letzte Option)
+        // 3 Pr�fe SIADDR (nur als letzte Option)
         return new IPAddress(response.Skip(16).Take(4).ToArray()).ToString();
     }
 
@@ -1298,15 +1298,15 @@ public class ScanningMethod_Services
 
     private async Task<List<int>> GetMSSQLDynamicPortsAsync(string serverIP)
     {
-        const int MaxRetries = 3; // 🔄 Anzahl der Wiederholungen
-        const int TimeoutMilliseconds = 2000; // ⏳ Timeout pro Versuch (3 Sekunden)
+        const int MaxRetries = 3; // ?? Anzahl der Wiederholungen
+        const int TimeoutMilliseconds = 2000; // ? Timeout pro Versuch (3 Sekunden)
         var foundPorts = new List<int>();
 
         using (UdpClient udpClient = new UdpClient())
         {
             udpClient.Client.ReceiveTimeout = TimeoutMilliseconds;
             IPEndPoint sqlServerEndpoint = new IPEndPoint(IPAddress.Parse(serverIP), 1434);
-            byte[] request = Encoding.ASCII.GetBytes("\x02"); // Anfrage für SQL-Browser-Information
+            byte[] request = Encoding.ASCII.GetBytes("\x02"); // Anfrage f�r SQL-Browser-Information
 
             for (int attempt = 1; attempt <= MaxRetries; attempt++)
             {
@@ -1322,9 +1322,9 @@ public class ScanningMethod_Services
                         UdpReceiveResult response = await receiveTask;
                         string responseText = Encoding.ASCII.GetString(response.Buffer);
 
-                        Console.WriteLine($"📡 SQL Browser Antwort (Versuch {attempt}): {responseText}");
+                        Console.WriteLine($"?? SQL Browser Antwort (Versuch {attempt}): {responseText}");
 
-                        // 🔍 Alle "tcp;" Ports suchen (nicht nur den ersten!)
+                        // ?? Alle "tcp;" Ports suchen (nicht nur den ersten!)
                         var matches = System.Text.RegularExpressions.Regex.Matches(responseText, @"tcp;(\d+)");
                         foreach (System.Text.RegularExpressions.Match match in matches)
                         {
@@ -1336,23 +1336,23 @@ public class ScanningMethod_Services
 
                         if (foundPorts.Count > 0)
                         {
-                            return foundPorts; // ✅ Erfolgreich gefundene Ports zurückgeben
+                            return foundPorts; // ? Erfolgreich gefundene Ports zur�ckgeben
                         }
                     }
                     else
                     {
-                        Console.WriteLine($"⚠️ Versuch {attempt}: Timeout - Keine Antwort vom SQL Browser-Dienst.");
+                        Console.WriteLine($"?? Versuch {attempt}: Timeout - Keine Antwort vom SQL Browser-Dienst.");
                     }
                 }
                 catch (SocketException ex)
                 {
-                    Console.WriteLine($"⚠️ Versuch {attempt}: Fehler beim Abrufen des SQL-Ports: {ex.Message}");
+                    Console.WriteLine($"?? Versuch {attempt}: Fehler beim Abrufen des SQL-Ports: {ex.Message}");
                 }
             }
         }
 
-        Console.WriteLine($"❌ Keine MSSQL-Dynamikports gefunden nach {MaxRetries} Versuchen.");
-        return foundPorts; // ❌ Leere Liste, falls nichts gefunden wurde
+        Console.WriteLine($"? Keine MSSQL-Dynamikports gefunden nach {MaxRetries} Versuchen.");
+        return foundPorts; // ? Leere Liste, falls nichts gefunden wurde
     }
 
     //private async Task<PortResult> CheckWebServicePortAsync(string ipAddress, int port)
@@ -1363,31 +1363,31 @@ public class ScanningMethod_Services
     //    {
     //        try
     //        {
-    //            // 🔹 Versuche, eine Verbindung herzustellen
+    //            // ?? Versuche, eine Verbindung herzustellen
     //            var connectTask = tcpClient.ConnectAsync(ipAddress, port);
     //            var delayTask = Task.Delay(500); // Timeout nach 2 Sekunden
 
     //            if (await Task.WhenAny(connectTask, delayTask) != connectTask)
     //            {
-    //                // ❌ Verbindung hat zu lange gedauert → Port ist gefiltert
+    //                // ? Verbindung hat zu lange gedauert ? Port ist gefiltert
     //                portResult.Status = PortStatus.Filtered;
     //                return portResult;
     //            }
 
     //            if (!tcpClient.Connected)
     //            {
-    //                // ❌ Verbindung fehlgeschlagen
+    //                // ? Verbindung fehlgeschlagen
     //                portResult.Status = PortStatus.NoResponse;
     //                return portResult;
     //            }
 
-    //            // ✅ Verbindung erfolgreich → Stream verwenden
+    //            // ? Verbindung erfolgreich ? Stream verwenden
     //            using (NetworkStream stream = tcpClient.GetStream())
     //            {
     //                byte[] requestBytes = Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: " + ipAddress + "\r\n\r\n");
     //                await stream.WriteAsync(requestBytes, 0, requestBytes.Length);
 
-    //                // 📥 Antwort empfangen
+    //                // ?? Antwort empfangen
     //                byte[] buffer = new byte[1024];
 
     //                try
@@ -1414,12 +1414,12 @@ public class ScanningMethod_Services
     //                catch (IOException ex)
     //                {
     //                    portResult.Status = PortStatus.Closed;
-    //                    portResult.PortLog += "❌ Verbindung wurde vom Remotehost geschlossen: " + ex.Message;
+    //                    portResult.PortLog += "? Verbindung wurde vom Remotehost geschlossen: " + ex.Message;
     //                }
     //                catch (ObjectDisposedException)
     //                {
     //                    portResult.Status = PortStatus.Closed;
-    //                    portResult.PortLog += "⚠️ Die Verbindung wurde unerwartet beendet.";
+    //                    portResult.PortLog += "?? Die Verbindung wurde unerwartet beendet.";
     //                }
     //            }
     //        }
@@ -1448,22 +1448,22 @@ public class ScanningMethod_Services
     {
         PortResult portResult = new PortResult { Port = port, Status = PortStatus.NoResponse };
 
-        // **1️⃣ Temporäre Status-Werte für HTTP & HTTPS**
+        // **1?? Tempor�re Status-Werte f�r HTTP & HTTPS**
         PortStatus httpStatus = PortStatus.NoResponse;
         PortStatus httpsStatus = PortStatus.NoResponse;
 
-        // **2️⃣ Prüfe HTTP**
+        // **2?? Pr�fe HTTP**
         bool httpSuccess = await CheckHttpAsync(ipAddress, port, portResult);
         httpStatus = portResult.Status; // Speichere HTTP-Ergebnis
 
-        // **3️⃣ Prüfe HTTPS**
+        // **3?? Pr�fe HTTPS**
         bool httpsSuccess = await CheckHttpsAsync(ipAddress, port, portResult);
         httpsStatus = portResult.Status; // Speichere HTTPS-Ergebnis
 
-        // **4️⃣ Priorisierung der Status-Werte**
+        // **4?? Priorisierung der Status-Werte**
         if (httpSuccess || httpsSuccess)
         {
-            portResult.Status = PortStatus.IsRunning;  // Höchste Priorität
+            portResult.Status = PortStatus.IsRunning;  // H�chste Priorit�t
         }
         else if (httpStatus == PortStatus.Error || httpsStatus == PortStatus.Error)
         {
@@ -1538,7 +1538,7 @@ public class ScanningMethod_Services
     //        {
     //            if (ex.SocketErrorCode == SocketError.ConnectionRefused)
     //            {
-    //                portResult.Status = PortStatus.Filtered; // Verbindung aktiv verweigert → Firewall?
+    //                portResult.Status = PortStatus.Filtered; // Verbindung aktiv verweigert ? Firewall?
     //            }
     //            else
     //            {
@@ -1594,7 +1594,7 @@ public class ScanningMethod_Services
 
     //                string response = await readTask;
 
-    //                // **Überprüfe, ob Server antwortet**
+    //                // **�berpr�fe, ob Server antwortet**
     //                if (response.Contains("HTTP/1.1") && (response.Contains("200 OK") || response.Contains("<html")))
     //                {
     //                    portResult.Status = PortStatus.IsRunning; // Webseite erkannt
@@ -1663,7 +1663,7 @@ public class ScanningMethod_Services
                     await writer.WriteLineAsync("User-Agent: Mozilla/5.0 (compatible; MyScanner/1.0)");
                     await writer.WriteLineAsync("Accept: */*"); // Erlaubt alle Antworten
                     await writer.WriteLineAsync("Accept-Encoding: identity"); // Verhindert GZIP-Probleme
-                    await writer.WriteLineAsync(""); // Leere Zeile für HTTP-Protokollkonformität
+                    await writer.WriteLineAsync(""); // Leere Zeile f�r HTTP-Protokollkonformit�t
 
                     // **Lese Antwort mit Timeout**
                     Task<string> readTask = reader.ReadToEndAsync();
@@ -1675,7 +1675,7 @@ public class ScanningMethod_Services
 
                     string response = await readTask;
 
-                    // **Überprüfe, ob Server antwortet**
+                    // **�berpr�fe, ob Server antwortet**
                     if (response.Contains("HTTP/1.1") && (response.Contains("200 OK") || response.Contains("<html")))
                     {
                         portResult.Status = PortStatus.IsRunning; // Webseite erkannt
@@ -1716,7 +1716,7 @@ public class ScanningMethod_Services
     private async Task<bool> CheckHttpsAsync(string ipAddress, int port, PortResult portResult)
     {
         using (var tcpClient = new TcpClient())
-        using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(1))) // Timeout von 1 Sekunde für Verbindung
+        using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(1))) // Timeout von 1 Sekunde f�r Verbindung
         {
             try
             {
@@ -1729,21 +1729,21 @@ public class ScanningMethod_Services
 
                 if (!tcpClient.Connected)
                 {
-                    portResult.Status = PortStatus.Filtered; // Verbindung verweigert → Firewall.
+                    portResult.Status = PortStatus.Filtered; // Verbindung verweigert ? Firewall.
                     return false;
                 }
 
                 using (SslStream sslStream = new SslStream(tcpClient.GetStream(), false, (sender, cert, chain, sslPolicyErrors) => true))
-                using (var sslCts = new CancellationTokenSource(TimeSpan.FromSeconds(2))) // Timeout für SSL-Handshake
+                using (var sslCts = new CancellationTokenSource(TimeSpan.FromSeconds(2))) // Timeout f�r SSL-Handshake
                 {
                     var sslTask = sslStream.AuthenticateAsClientAsync(ipAddress);
                     if (await Task.WhenAny(sslTask, Task.Delay(2000, sslCts.Token)) != sslTask)
                     {
-                        portResult.Status = PortStatus.NoResponse; // SSL-Timeout → Server antwortet nicht.
+                        portResult.Status = PortStatus.NoResponse; // SSL-Timeout ? Server antwortet nicht.
                         return false;
                     }
 
-                    // **WICHTIG**: Prüfen, ob der SSL-Handshake wirklich erfolgreich war
+                    // **WICHTIG**: Pr�fen, ob der SSL-Handshake wirklich erfolgreich war
                     if (!sslStream.IsAuthenticated)
                     {
                         portResult.Status = PortStatus.Error; // SSL-Fehler
@@ -1840,11 +1840,11 @@ public class ScanningMethod_Services
             {
                 using TcpClient client = new TcpClient();
                 var connectTask = client.ConnectAsync(dnsServer, port);
-                var timeoutTask = Task.Delay(2000); // 2 Sekunden Timeout für Verbindung
+                var timeoutTask = Task.Delay(2000); // 2 Sekunden Timeout f�r Verbindung
 
                 if (await Task.WhenAny(connectTask, timeoutTask) != connectTask)
                 {
-                    portResult.Status = PortStatus.Filtered; // Verbindung zu lange → Port gefiltert
+                    portResult.Status = PortStatus.Filtered; // Verbindung zu lange ? Port gefiltert
                     return portResult;
                 }
 
@@ -1857,7 +1857,7 @@ public class ScanningMethod_Services
                 portResult.Status = PortStatus.Open;
                 using NetworkStream stream = client.GetStream();
 
-                // DNS-Anfrage mit Längenpräfix
+                // DNS-Anfrage mit L�ngenpr�fix
                 byte[] tcpQuery = new byte[query.Length + 2];
                 tcpQuery[0] = (byte)(query.Length >> 8);
                 tcpQuery[1] = (byte)(query.Length & 0xFF);
@@ -1865,7 +1865,7 @@ public class ScanningMethod_Services
 
                 await stream.WriteAsync(tcpQuery, 0, tcpQuery.Length);
 
-                // Antwort-Längenfeld zuerst lesen (mit Timeout)
+                // Antwort-L�ngenfeld zuerst lesen (mit Timeout)
                 byte[] lengthBuffer = new byte[2];
                 var cts = new CancellationTokenSource(2000); // Antwort-Timeout (2s)
                 int lengthRead = await stream.ReadAsync(lengthBuffer, 0, 2, cts.Token);
@@ -1895,10 +1895,10 @@ public class ScanningMethod_Services
             }
             catch (Exception ex)
             {
-                //Console.WriteLine($"⚠️ Versuch {attempt}: Fehler beim DNS-Request - {ex.Message}");
+                //Console.WriteLine($"?? Versuch {attempt}: Fehler beim DNS-Request - {ex.Message}");
             }
 
-            await Task.Delay(200); // Kürzere Pause vor nächstem Versuch
+            await Task.Delay(200); // K�rzere Pause vor n�chstem Versuch
         }
 
         return portResult; // Keine Antwort nach 3 Versuchen
@@ -1925,7 +1925,7 @@ public class ScanningMethod_Services
 
                 if (await Task.WhenAny(receiveTask, Task.Delay(1000, cts.Token)) == receiveTask)
                 {
-                    // ✅ Antwort erhalten
+                    // ? Antwort erhalten
                     portResult.Status = PortStatus.IsRunning;
                     portResult.PortLog = Encoding.ASCII.GetString(receiveTask.Result.Buffer);
                     return portResult;
@@ -1937,7 +1937,7 @@ public class ScanningMethod_Services
             }
             catch (Exception ex)
             {
-                //Console.WriteLine($"⚠️ Versuch {attempt}: Fehler beim DNS-Request - {ex.Message}");
+                //Console.WriteLine($"?? Versuch {attempt}: Fehler beim DNS-Request - {ex.Message}");
             }
 
             if (attempt < 3) await Task.Delay(200); // Schnellere Wiederholungen (200ms)
@@ -1956,8 +1956,8 @@ public class ScanningMethod_Services
             0x01, 0x00,  // Standard Query mit rekursiver Abfrage
             0x00, 0x01,  // Eine Frage
             0x00, 0x00,  // Keine Antworten vorhanden
-            0x00, 0x00,  // Keine Autoritätsantworten
-            0x00, 0x00   // Keine zusätzlichen Antworten
+            0x00, 0x00,  // Keine Autorit�tsantworten
+            0x00, 0x00   // Keine zus�tzlichen Antworten
         };
 
         byte[] question = BuildDnsQuestion(domain);
@@ -2014,7 +2014,7 @@ public class ScanningMethod_Services
             row["toScan"] = false;
             row["Service"] = serviceType.ToString();
             row["Ports"] = string.Join(", ", GetDefaultServicePorts(serviceType));
-            row["HelloBytePackage"] = GetDetectionPackageString(serviceType);  // Optional: Hier kannst du Hex-Strings einfügen
+            row["HelloBytePackage"] = GetDetectionPackageString(serviceType);  // Optional: Hier kannst du Hex-Strings einf�gen
             row["ResponsedBytePackagePart"] = "";
             row["ResponsedContainsString"] = "";
             row["ServiceGroup"] = GetServiceGroup(serviceType);
@@ -2042,7 +2042,7 @@ public class ScanningMethod_Services
                         if (existingRow["Ports"].ToString() != tempRow["Ports"].ToString())
                         {
                             existingRow["Ports"] = tempRow["Ports"];
-                            Console.WriteLine($"Ports für {existingRow["Service"]} aktualisiert: {existingRow["Ports"]}");
+                            Console.WriteLine($"Ports f�r {existingRow["Service"]} aktualisiert: {existingRow["Ports"]}");
                         }
 
                         // HelloBytePackage vergleichen
@@ -2078,7 +2078,7 @@ public class ScanningMethod_Services
         {
             foreach (DataRow row in _dt_Servives.Rows)
             {
-                // Ports formatieren: "53,46" → "53, 46"
+                // Ports formatieren: "53,46" ? "53, 46"
                 if (row["Ports"] != DBNull.Value)
                 {
                     row["Ports"] = string.Join(", ", row["Ports"].ToString().Split(',').Select(p => p.Trim()));
@@ -2098,11 +2098,11 @@ public class ScanningMethod_Services
             }
 
             _dt_Servives.WriteXml(_serviceXMLPath, XmlWriteMode.WriteSchema);
-            Console.WriteLine("✅ XML-Datei erfolgreich gespeichert (mit formatierter Ports-, Hello- und Response-Spalte).");
+            Console.WriteLine("? XML-Datei erfolgreich gespeichert (mit formatierter Ports-, Hello- und Response-Spalte).");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"❌ Fehler beim Speichern der XML-Datei: {ex.Message}");
+            Console.WriteLine($"? Fehler beim Speichern der XML-Datei: {ex.Message}");
         }
     }
 
@@ -2116,7 +2116,7 @@ public class ScanningMethod_Services
     {
         return service switch
         {
-            // 🌍 Netzwerk-Dienste
+            // ?? Netzwerk-Dienste
             ServiceType.WebServices => new List<int> { 80, 443, 1880, 3000, 5000, 5001, 8080, 8086, 8443 }, // HTTP/S
             ServiceType.DNS_TCP => new List<int> { 53 },  // Domain Name Service
             ServiceType.DNS_UDP => new List<int> { 53 },  // Domain Name Service
@@ -2124,7 +2124,7 @@ public class ScanningMethod_Services
             ServiceType.SSH => new List<int> { 22 },  // Secure Shell
             ServiceType.FTP => new List<int> { 21 },  // File Transfer Protocol
 
-            // 🖥️ Remote-Desktop & Fernwartung
+            // ??? Remote-Desktop & Fernwartung
             ServiceType.RDP => new List<int> { 3389 },  // Microsoft Remote Desktop
             ServiceType.UltraVNC => new List<int> { 5900, 5901, 5902, 5903 }, // VNC
             ServiceType.TeamViewer => new List<int> { 5938 },  // Teamviewer
@@ -2132,7 +2132,7 @@ public class ScanningMethod_Services
             ServiceType.Anydesk => new List<int> { 7070 },  // AnyDesk
             ServiceType.Rustdesk => new List<int> { 21115 },  // Rustdesk Remote
 
-            // 🗄️ Datenbanken
+            // ??? Datenbanken
             ServiceType.MSSQLServer => new List<int> { 1433 }, // Microsoft SQL Server
             ServiceType.PostgreSQL => new List<int> { 5432 }, // PostgreSQL
             ServiceType.MongoDB => new List<int> { 27017 }, // MongoDB
@@ -2142,11 +2142,11 @@ public class ScanningMethod_Services
             ServiceType.InfluxDB2 => new List<int> { 8086},
             
 
-            // ⚙️ Industrieprotokolle (OT, Automatisierung)
+            // ?? Industrieprotokolle (OT, Automatisierung)
             ServiceType.OPCUA => new List<int> { 4840 }, // OPC UA
             ServiceType.ModBus => new List<int> { 502 }, // ModBus TCP
 
-            // 🏭 SPS / Industrielle Steuerungen
+            // ?? SPS / Industrielle Steuerungen
             ServiceType.S7 => new List<int> { 102, 1020 }, // Siemens S7 ISO-on-TCP
 
             _ => new List<int>()
@@ -2161,24 +2161,24 @@ public class ScanningMethod_Services
         {
             // Netzwerk-Dienste
             ServiceType.WebServices or ServiceType.DNS_TCP or ServiceType.DNS_UDP or ServiceType.DHCP or ServiceType.SSH or ServiceType.FTP
-                => "🌍 Netzwerk-Dienste",
+                => "?? Netzwerk-Dienste",
 
             // Remote-Desktop & Fernwartung
             ServiceType.RDP or ServiceType.UltraVNC or ServiceType.BigFixRemote or ServiceType.TeamViewer or ServiceType.Anydesk or ServiceType.Rustdesk
-                => "🖥️ Remote-Desktop & Fernwartung",
+                => "??? Remote-Desktop & Fernwartung",
 
             // Datenbanken
             ServiceType.MSSQLServer or ServiceType.PostgreSQL or ServiceType.MariaDB or ServiceType.MySQL or ServiceType.OracleDB
-                => "🗄️ SQL-Datenbanken",
+                => "??? SQL-Datenbanken",
 
             ServiceType.MongoDB or ServiceType.InfluxDB2
-                => "📦 NoSQL-Datenbanken",
+                => "?? NoSQL-Datenbanken",
 
             // Industrieprotokolle
             ServiceType.OPCUA or ServiceType.ModBus or ServiceType.S7
-                => "🏭 Industrieprotokolle",
+                => "?? Industrieprotokolle",
 
-            _ => "❓ Sonstige"
+            _ => "? Sonstige"
         };
     }
 
@@ -2201,7 +2201,7 @@ public class ScanningMethod_Services
     {
         return service switch
         {
-            // 🌍 Netzwerk-Dienste
+            // ?? Netzwerk-Dienste
 
             // Domain Name Service
             //ServiceType.DNS => new byte[]
@@ -2247,7 +2247,7 @@ public class ScanningMethod_Services
 
 
 
-            // 🖥️ Remote-Desktop & Fernwartung
+            // ??? Remote-Desktop & Fernwartung
 
             ServiceType.RDP => new byte[] { 0x03, 0x00, 0x00, 0x13, 0x0e, 0xe0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x08, 0x00, 0x03, 0x00, 0x00, 0x00 },
             ServiceType.UltraVNC => new byte[] { 0x52, 0x46, 0x42, 0x20, 0x30, 0x30, 0x33 },
@@ -2296,7 +2296,7 @@ public class ScanningMethod_Services
 
 
 
-            // 🗄️ Datenbanken
+            // ??? Datenbanken
 
             //ServiceType.MSSQLServer => new byte[]
             // {
@@ -2321,7 +2321,7 @@ public class ScanningMethod_Services
 
             //ServiceType.PostgreSQL => new byte[]
             //{
-            //    0x00, 0x00, 0x00, 0x16,  // Paketlänge (22 Bytes)
+            //    0x00, 0x00, 0x00, 0x16,  // Paketl�nge (22 Bytes)
             //    0x00, 0x03, 0x00, 0x00,  // Protokollversion 3.0
             //    0x75, 0x73, 0x65, 0x72,  // "user"
             //    0x00,                    // Null-Terminator
@@ -2412,7 +2412,7 @@ public class ScanningMethod_Services
 
 
 
-            // ⚙️ Industrieprotokolle (OT, Automatisierung)
+            // ?? Industrieprotokolle (OT, Automatisierung)
             //ServiceType.OPCUA => new byte[] { 0x48, 0x45, 0x4c, 0x4c, 0x4f },
             ServiceType.OPCUA => new byte[] 
             {
@@ -2427,7 +2427,7 @@ public class ScanningMethod_Services
 
 
 
-            // 🏭 SPS / Industrielle Steuerungen
+            // ?? SPS / Industrielle Steuerungen
 
              // Siemens S7 ISO-on-TCP
             ServiceType.S7 => new byte[] 
