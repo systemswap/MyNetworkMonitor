@@ -145,9 +145,6 @@
   <data name="green_dot" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\green_dot.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
-  <data name="red_dot" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\red_dot.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
-  </data>
   <data name="red_dotTB" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\red_dotTB.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
