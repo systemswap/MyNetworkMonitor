@@ -410,9 +410,26 @@
                     <RowDefinition Height="50"/>
                 </Grid.RowDefinitions>
 
-                <DataGrid x:Name="dgv_Results" Grid.Column="0" Margin="10,10,10,10" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" EnableRowVirtualization="True" Grid.Row="0" AutoGeneratingColumn="dgv_ScanResults_OnAutoGeneratingColumn" CanUserAddRows="False" Sorting="dgv_Results_Sorting" CellEditEnding="dgv_Results_CellEditEnding" LoadingRow="dgv_Results_LoadingRow" ScrollBar.Scroll ="dgv_Results_Scroll" PreviewKeyDown="dgv_Results_PreviewKeyDown">
+                <DataGrid x:Name="dgv_Results"
+                          Grid.Column="0"
+                          Grid.Row="0"
+                          Margin="10"                          
+                          AutoGeneratingColumn="dgv_ScanResults_OnAutoGeneratingColumn"
+                          CanUserAddRows="False"
+                          Sorting="dgv_Results_Sorting"
+                          CellEditEnding="dgv_Results_CellEditEnding"
+                          LoadingRow="dgv_Results_LoadingRow"
+                          ScrollViewer.CanContentScroll="False"
+                          ScrollBar.Scroll="dgv_Results_Scroll"
+                          PreviewKeyDown="dgv_Results_PreviewKeyDown"
+                          AlternatingRowBackground="Gainsboro"
+                          AlternationCount="2"                          
+                          VirtualizingPanel.ScrollUnit="Pixel"
+                          CacheMode="BitmapCache"
+                          >
 
-
+                    
+                    
                     <DataGrid.ContextMenu>
                         <ContextMenu x:Name="contextMenu">
                             <MenuItem Header="scan selected IPs (select method / services first)" Click="ScanSelectedIPs_Click"/>
@@ -425,30 +442,33 @@
                     <DataGrid.Resources>
 
                         <DataTemplate x:Key="ARPStatus">
-                            <Image Source="{Binding ARPStatus}" Width="16" Height="16"/>
+                            <Image Source="{Binding ARPStatus}" Width="16" Height="16" CacheMode="BitmapCache"/>
                         </DataTemplate>
 
                         <DataTemplate x:Key="PingStatus">
-                            <Image Source="{Binding PingStatus}" Width="16" Height="16"/>
+                            <Image Source="{Binding PingStatus}" Width="16" Height="16" CacheMode="BitmapCache"/>
                         </DataTemplate>
 
                         <DataTemplate x:Key="IsIPCam">
-                            <Image Source="{Binding IsIPCam}" Width="16" Height="16"/>
+                            <Image Source="{Binding IsIPCam}" Width="16" Height="16" CacheMode="BitmapCache"/>
                         </DataTemplate>
 
                         <DataTemplate x:Key="SSDPStatus">
-                            <Image Source="{Binding SSDPStatus}" Width="16" Height="16"/>
+                            <Image Source="{Binding SSDPStatus}" Width="16" Height="16" CacheMode="BitmapCache"/>
                         </DataTemplate>
 
                         <DataTemplate x:Key="LookUpStatus">
-                            <Image Source="{Binding LookUpStatus}" Width="16" Height="16"/>
+                            <Image Source="{Binding LookUpStatus}" Width="16" Height="16" CacheMode="BitmapCache"/>
                         </DataTemplate>
 
                         <DataTemplate x:Key="MatchedWithInternal">
-                            <Image Source="{Binding MatchedWithInternal}" Width="16" Height="16"/>
+                            <Image Source="{Binding MatchedWithInternal}" Width="16" Height="16" CacheMode="BitmapCache"/>
                         </DataTemplate>
 
                     </DataGrid.Resources>
+                    <DataGrid.Background>
+                        <SolidColorBrush Color="#FFF0F0F0"/>
+                    </DataGrid.Background>
 
 
                     <DataGrid.GroupStyle>
