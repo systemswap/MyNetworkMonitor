@@ -29,6 +29,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using static MyNetworkMonitor.SupportMethods;
 using SnmpSharpNet;
+using System.Collections.ObjectModel;
 
 //using static System.Net.WebRequestMethods;
 
@@ -124,18 +125,30 @@ namespace MyNetworkMonitor
             dv_resultTable = new DataView(_scannResults.ResultTable);
             dgv_Results.ItemsSource = dv_resultTable;
 
+
+            // Setze das DataGrid-ItemSource auf eine CollectionView
+
+            if (dgv_Results.ItemsSource is DataView dataView)
+            {
+                CollectionView resultView = CollectionViewSource.GetDefaultView(dataView) as CollectionView;
+                if (resultView != null)
+                {
+                    using (resultView.DeferRefresh()) 
+                    { 
+
+                    }
+                }
+            }
+        
+
             if (!(bool)chk_allowDeleteRow.IsChecked)
             {
                 dgv_Results.SelectionUnit = DataGridSelectionUnit.Cell;
             }
 
             cvTasks_scanResults = CollectionViewSource.GetDefaultView(dgv_Results.ItemsSource);
-            //if (cvTasks_scanResults != null && cvTasks_scanResults.CanGroup == true)
-            //{
-            //    //cvTasks_scanResults.GroupDescriptions.Clear();
-            //    //cvTasks_scanResults.GroupDescriptions.Add(new PropertyGroupDescription("IPGroupDescription"));
-            //    //cvTasks_scanResults.GroupDescriptions.Add(new PropertyGroupDescription("DeviceDescription"));
-            //}
+            
+
             groupScanResult();
 
 
@@ -2100,79 +2113,152 @@ namespace MyNetworkMonitor
             sortedtable1.WriteXml(_portsToScanXML, XmlWriteMode.WriteSchema);
         }
 
-       
+
+
+
+        //private async void Filter_ScanResults_Explicite()
+        //{
+
+        //    // Lese UI-Daten vorab aus (UI-Thread)
+        //    string allFilter = tb_Filter_All1.Text.Trim();
+        //    string allFilter2 = tb_Filter_All2.Text.Trim();
+        //    string ipFilter = tb_Filter_IP.Text.Trim();
+        //    string internalName = tb_Filter_InternalName.Text.Trim();
+        //    string hostName = tb_Filter_HostName.Text.Trim();
+        //    string tcpPort = tb_Filter_TCPPort.Text.Trim();
+        //    string mac = tb_Filter_Mac.Text.Trim();
+        //    string vendor = tb_Filter_Vendor.Text.Trim();
+        //    bool isIPCamChecked = chk_Filter_IsIPCam.IsChecked ?? false;
+        //    bool isSSDP_UPnP_Checked = chk_Filter_IsSSDP.IsChecked ?? false;
+        //    bool supportSMB_Checked = chk_Filter_SupportSMB.IsChecked ?? false;
+        //    bool supportSNMP_Checked = chk_Filter_SupportSNMP.IsChecked ?? false;
+        //    bool supportNETBIOS_Checked = chk_Filter_SupportNetBios.IsChecked ?? false;
+
+        //    await Task.Run(() =>
+        //    {
+        //        // StringBuilder für bessere Performance
+        //        StringBuilder whereFilter = new StringBuilder(200);
+        //        whereFilter.Append("1 = 1");
+
+
+
+        //        if (!string.IsNullOrEmpty(allFilter) || !string.IsNullOrEmpty(allFilter2))
+        //        {
+        //            if (allFilter.Contains("*"))
+        //                allFilter = allFilter.Replace("*", "%"); // '*' durch '%' ersetzen
+
+        //            if (allFilter2.Contains("*"))
+        //                allFilter2 = allFilter2.Replace("*", "%"); // '*' durch '%' ersetzen
+
+        //            List<string> columnConditions = new List<string>();  // Bedingungen für `allFilter`
+        //            List<string> columnConditions2 = new List<string>(); // Bedingungen für `allFilter2`
+        //            List<string> combinedConditions = new List<string>(); // Bedingungen für beide gleichzeitig
+
+        //            foreach (DataColumn column in dv_resultTable.Table.Columns)
+        //            {
+        //                if (column.DataType == typeof(string)) // Nur `string`-Spalten durchsuchen
+        //                {
+        //                    if (!string.IsNullOrEmpty(allFilter))
+        //                        columnConditions.Add($"{column.ColumnName} LIKE '%{allFilter}%'");
+
+        //                    if (!string.IsNullOrEmpty(allFilter2))
+        //                        columnConditions2.Add($"{column.ColumnName} LIKE '%{allFilter2}%'");
+
+        //                    // Wenn beide Suchbegriffe vorhanden sind, müssen sie in einer Spalte vorkommen
+        //                    if (!string.IsNullOrEmpty(allFilter) && !string.IsNullOrEmpty(allFilter2))
+        //                        combinedConditions.Add($"{column.ColumnName} LIKE '%{allFilter}%' AND {column.ColumnName} LIKE '%{allFilter2}%'");
+        //                }
+        //            }
+
+        //            // **Filter zusammensetzen**
+        //            if (!string.IsNullOrEmpty(allFilter) && !string.IsNullOrEmpty(allFilter2))
+        //            {
+        //                // **Wenn beide Filter vorhanden sind, dann nur Treffer mit beiden Werten in einer Spalte**
+        //                whereFilter.Append($" AND ({string.Join(" OR ", combinedConditions)})");
+        //            }
+        //            else if (!string.IsNullOrEmpty(allFilter))
+        //            {
+        //                // **Nur `allFilter` vorhanden → Normaler Filter**
+        //                whereFilter.Append($" AND ({string.Join(" OR ", columnConditions)})");
+        //            }
+        //            else if (!string.IsNullOrEmpty(allFilter2))
+        //            {
+        //                // **Nur `allFilter2` vorhanden → Normaler Filter**
+        //                whereFilter.Append($" AND ({string.Join(" OR ", columnConditions2)})");
+        //            }
+        //        }
+
+
+
+        //        // **Spezifische Filter anwenden**
+        //        if (!string.IsNullOrEmpty(ipFilter))
+        //        {
+        //            if (ipFilter.Contains("*"))
+        //                ipFilter = ipFilter.Replace("*", "%");
+        //            whereFilter.AppendFormat(" and IP LIKE '{0}'", ipFilter);
+        //        }
+
+        //        if (!string.IsNullOrEmpty(internalName))
+        //            whereFilter.AppendFormat(" and InternalName LIKE '%{0}%'", internalName);
+
+        //        if (!string.IsNullOrEmpty(hostName))
+        //            whereFilter.AppendFormat(" and Hostname LIKE '%{0}%'", hostName);
+
+        //        if (!string.IsNullOrEmpty(tcpPort))
+        //            whereFilter.AppendFormat(" and TCP_Ports LIKE '%{0}%'", tcpPort);
+
+        //        if (!string.IsNullOrEmpty(mac))
+        //            whereFilter.AppendFormat(" and Mac LIKE '%{0}%'", mac);
+
+        //        if (!string.IsNullOrEmpty(vendor))
+        //            whereFilter.AppendFormat(" and Vendor LIKE '%{0}%'", vendor);
+
+        //        if (isIPCamChecked)
+        //            whereFilter.Append(" and IsIPCam is not null");
+
+        //        if (isSSDP_UPnP_Checked)
+        //            whereFilter.Append(" and SSDPStatus is not null");
+
+        //        if (supportSMB_Checked)
+        //            whereFilter.Append(" and detectedSMBVersions is not null");
+
+        //        if (supportSNMP_Checked)
+        //            whereFilter.Append(" and SNMPSysName is not null");
+
+        //        if (supportNETBIOS_Checked)
+        //            whereFilter.Append(" and NetBiosHostname is not null");
+
+        //        // Falls keine Filterbedingungen gesetzt sind, Filter zurücksetzen
+        //        string finalFilter = whereFilter.ToString();
+        //        if (finalFilter == "1 = 1")
+        //            finalFilter = "";
+
+        //        // Prüfen, ob der Filter sich geändert hat (Performance-Optimierung)
+        //        if (dv_resultTable.RowFilter != finalFilter)
+        //        {
+        //            Dispatcher.BeginInvoke(new Action(() =>
+        //            {
+        //                try
+        //                {
+        //                    dv_resultTable.RowFilter = finalFilter;
+        //                }
+        //                catch (Exception ex)
+        //                {
+        //                    // MessageBox.Show(ex.Message);
+        //                }
+        //            }), System.Windows.Threading.DispatcherPriority.Background);
+        //        }
+        //    });
+        //}
+
+
+
+
+
 
 
         private async void Filter_ScanResults_Explicite()
         {
-            //// Lese UI-Daten vorab aus (UI-Thread)
-            //string ipFilter = tb_Filter_IP.Text.Trim();
-            //string internalName = tb_Filter_InternalName.Text.Trim();
-            //string hostName = tb_Filter_HostName.Text.Trim();
-            //string tcpPort = tb_Filter_TCPPort.Text.Trim();
-            //string mac = tb_Filter_Mac.Text.Trim();
-            //string vendor = tb_Filter_Vendor.Text.Trim();
-            //bool isIPCamChecked = chk_Filter_IsIPCam.IsChecked ?? false;
-
-            //await Task.Run(() =>
-            //{
-            //    // StringBuilder für bessere Performance
-            //    StringBuilder whereFilter = new StringBuilder(200);
-            //    whereFilter.Append("1 = 1");
-
-            //    // IP-Filter mit Wildcard-Handling
-            //    if (!string.IsNullOrEmpty(ipFilter))
-            //    {
-            //        if (ipFilter.Contains("*"))
-            //            ipFilter = ipFilter.Replace("*", "%"); // '*' durch '%' ersetzen
-            //        else
-            //            ipFilter = ipFilter; // Exakte Suche
-
-            //        whereFilter.AppendFormat(" and IP LIKE '{0}'", ipFilter);
-            //    }
-
-            //    if (!string.IsNullOrEmpty(internalName))
-            //        whereFilter.AppendFormat(" and InternalName LIKE '%{0}%'", internalName);
-
-            //    if (!string.IsNullOrEmpty(hostName))
-            //        whereFilter.AppendFormat(" and Hostname LIKE '%{0}%'", hostName);
-
-            //    if (!string.IsNullOrEmpty(tcpPort))
-            //        whereFilter.AppendFormat(" and TCP_Ports LIKE '%{0}%'", tcpPort);
-
-            //    if (!string.IsNullOrEmpty(mac))
-            //        whereFilter.AppendFormat(" and Mac LIKE '%{0}%'", mac);
-
-            //    if (!string.IsNullOrEmpty(vendor))
-            //        whereFilter.AppendFormat(" and Vendor LIKE '%{0}%'", vendor);
-
-            //    if (isIPCamChecked)
-            //        whereFilter.Append(" and IsIPCam is not null");
-
-            //    // Falls keine Filterbedingungen gesetzt sind, Filter zurücksetzen
-            //    string finalFilter = whereFilter.ToString();
-            //    if (finalFilter == "1 = 1")
-            //        finalFilter = "";
-
-            //    // Prüfen, ob der Filter sich geändert hat (Performance-Optimierung)
-            //    if (dv_resultTable.RowFilter != finalFilter)
-            //    {
-            //        Dispatcher.Invoke(() =>
-            //        {
-            //            try
-            //            {
-            //                dv_resultTable.RowFilter = finalFilter;
-            //            }
-            //            catch (Exception ex)
-            //            {
-            //                //MessageBox.Show(ex.Message);
-            //            }
-            //        });
-            //    }
-            //});
-
-
-
             // Lese UI-Daten vorab aus (UI-Thread)
             string allFilter = tb_Filter_All1.Text.Trim();
             string allFilter2 = tb_Filter_All2.Text.Trim();
@@ -2194,55 +2280,21 @@ namespace MyNetworkMonitor
                 StringBuilder whereFilter = new StringBuilder(200);
                 whereFilter.Append("1 = 1");
 
-
-
-                if (!string.IsNullOrEmpty(allFilter) || !string.IsNullOrEmpty(allFilter2))
+                // Optimierte ALL-Filter-Suche nur in wichtigen Spalten
+                List<string> columnConditions = new List<string>();
+                foreach (string columnName in new[] { "IP", "Hostname", "Vendor", "Mac", "TCP_Ports", "InternalName" })
                 {
-                    if (allFilter.Contains("*"))
-                        allFilter = allFilter.Replace("*", "%"); // '*' durch '%' ersetzen
+                    if (!string.IsNullOrEmpty(allFilter))
+                        columnConditions.Add($"{columnName} LIKE '%{allFilter}%'");
 
-                    if (allFilter2.Contains("*"))
-                        allFilter2 = allFilter2.Replace("*", "%"); // '*' durch '%' ersetzen
-
-                    List<string> columnConditions = new List<string>();  // Bedingungen für `allFilter`
-                    List<string> columnConditions2 = new List<string>(); // Bedingungen für `allFilter2`
-                    List<string> combinedConditions = new List<string>(); // Bedingungen für beide gleichzeitig
-
-                    foreach (DataColumn column in dv_resultTable.Table.Columns)
-                    {
-                        if (column.DataType == typeof(string)) // Nur `string`-Spalten durchsuchen
-                        {
-                            if (!string.IsNullOrEmpty(allFilter))
-                                columnConditions.Add($"{column.ColumnName} LIKE '%{allFilter}%'");
-
-                            if (!string.IsNullOrEmpty(allFilter2))
-                                columnConditions2.Add($"{column.ColumnName} LIKE '%{allFilter2}%'");
-
-                            // Wenn beide Suchbegriffe vorhanden sind, müssen sie in einer Spalte vorkommen
-                            if (!string.IsNullOrEmpty(allFilter) && !string.IsNullOrEmpty(allFilter2))
-                                combinedConditions.Add($"{column.ColumnName} LIKE '%{allFilter}%' AND {column.ColumnName} LIKE '%{allFilter2}%'");
-                        }
-                    }
-
-                    // **Filter zusammensetzen**
-                    if (!string.IsNullOrEmpty(allFilter) && !string.IsNullOrEmpty(allFilter2))
-                    {
-                        // **Wenn beide Filter vorhanden sind, dann nur Treffer mit beiden Werten in einer Spalte**
-                        whereFilter.Append($" AND ({string.Join(" OR ", combinedConditions)})");
-                    }
-                    else if (!string.IsNullOrEmpty(allFilter))
-                    {
-                        // **Nur `allFilter` vorhanden → Normaler Filter**
-                        whereFilter.Append($" AND ({string.Join(" OR ", columnConditions)})");
-                    }
-                    else if (!string.IsNullOrEmpty(allFilter2))
-                    {
-                        // **Nur `allFilter2` vorhanden → Normaler Filter**
-                        whereFilter.Append($" AND ({string.Join(" OR ", columnConditions2)})");
-                    }
+                    if (!string.IsNullOrEmpty(allFilter2))
+                        columnConditions.Add($"{columnName} LIKE '%{allFilter2}%'");
                 }
 
-
+                if (columnConditions.Count > 0)
+                {
+                    whereFilter.Append($" AND ({string.Join(" OR ", columnConditions)})");
+                }
 
                 // **Spezifische Filter anwenden**
                 if (!string.IsNullOrEmpty(ipFilter))
@@ -2290,20 +2342,25 @@ namespace MyNetworkMonitor
                 // Prüfen, ob der Filter sich geändert hat (Performance-Optimierung)
                 if (dv_resultTable.RowFilter != finalFilter)
                 {
-                    Dispatcher.Invoke(() =>
+                    Dispatcher.BeginInvoke(new Action(() =>
                     {
                         try
                         {
-                            dv_resultTable.RowFilter = finalFilter;
+                            using (cvTasks_scanResults.DeferRefresh()) // UI-Refresh verzögern
+                            {
+                                dv_resultTable.RowFilter = null; // Setzt den Filter zurück
+                                dv_resultTable.RowFilter = finalFilter; // Setzt neuen Filter
+                            }
                         }
                         catch (Exception ex)
                         {
                             // MessageBox.Show(ex.Message);
                         }
-                    });
+                    }), System.Windows.Threading.DispatcherPriority.Background);
                 }
             });
         }
+
 
 
 
