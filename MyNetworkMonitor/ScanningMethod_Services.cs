@@ -1473,69 +1473,233 @@ public class ScanningMethod_Services
         return portResult;
     }
 
+    //private async Task<bool> CheckHttpAsync(string ipAddress, int port, PortResult portResult)
+    //{
+    //    using (var tcpClient = new TcpClient())
+    //    using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(1))) // Timeout von 1 Sekunde
+    //    {
+    //        try
+    //        {
+    //            Task connectTask = tcpClient.ConnectAsync(ipAddress, port);
+    //            if (await Task.WhenAny(connectTask, Task.Delay(1000, cts.Token)) != connectTask)
+    //            {
+    //                portResult.Status = PortStatus.NoResponse; // Keine Antwort vom Port (Timeout).
+    //                return false;
+    //            }
+
+    //            if (!tcpClient.Connected)
+    //            {
+    //                portResult.Status = PortStatus.Filtered; // Verbindung verweigert (z. B. durch Firewall).
+    //                return false;
+    //            }
+
+    //            using (NetworkStream stream = tcpClient.GetStream())
+    //            {
+    //                byte[] requestBytes = Encoding.UTF8.GetBytes("GET / HTTP/1.1\r\nHost: " + ipAddress + "\r\nConnection: close\r\n\r\n");
+    //                await stream.WriteAsync(requestBytes, 0, requestBytes.Length, cts.Token);
+
+    //                byte[] buffer = new byte[4096];
+    //                var readTask = stream.ReadAsync(buffer, 0, buffer.Length, cts.Token);
+    //                if (await Task.WhenAny(readTask, Task.Delay(1000, cts.Token)) != readTask)
+    //                {
+    //                    portResult.Status = PortStatus.NoResponse; // Antwort kam nicht rechtzeitig.
+    //                    return false;
+    //                }
+
+    //                int bytesRead = await readTask;
+    //                if (bytesRead > 0)
+    //                {
+    //                    string response = Encoding.ASCII.GetString(buffer, 0, bytesRead);
+
+    //                    if (response.Contains("HTTP/1.1") && (response.Contains("200 OK") || response.Contains("<html")))
+    //                    {
+    //                        portResult.Status = PortStatus.IsRunning; // Webseite erkannt.
+    //                        return true;
+    //                    }
+
+    //                    portResult.Status = PortStatus.Open; // Verbindung offen, aber keine Webseite.
+    //                    return false;
+    //                }
+    //            }
+    //        }
+    //        catch (SocketException ex)
+    //        {
+    //            if (ex.SocketErrorCode == SocketError.ConnectionRefused)
+    //            {
+    //                portResult.Status = PortStatus.Filtered; // Verbindung aktiv verweigert → Firewall?
+    //            }
+    //            else
+    //            {
+    //                portResult.Status = PortStatus.Error; // Sonstiger Netzwerkfehler.
+    //            }
+    //        }
+    //    }
+    //    return false;
+    //}
+
+    //private async Task<bool> CheckHttpAsync(string ipAddress, int port, PortResult portResult)
+    //{
+    //    using (var tcpClient = new TcpClient())
+    //    using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2))) // 2 Sekunden Timeout
+    //    {
+    //        try
+    //        {
+    //            // Starte Verbindungsversuch
+    //            Task connectTask = tcpClient.ConnectAsync(ipAddress, port);
+    //            if (await Task.WhenAny(connectTask, Task.Delay(2000, cts.Token)) != connectTask)
+    //            {
+    //                portResult.Status = PortStatus.NoResponse; // Timeout erreicht
+    //                return false;
+    //            }
+
+    //            if (!tcpClient.Connected)
+    //            {
+    //                portResult.Status = PortStatus.Filtered; // Verbindung verweigert (z. B. durch Firewall)
+    //                return false;
+    //            }
+
+    //            using (NetworkStream stream = tcpClient.GetStream())
+    //            using (var writer = new StreamWriter(stream, Encoding.ASCII, leaveOpen: true))
+    //            using (var reader = new StreamReader(stream, Encoding.UTF8, leaveOpen: true))
+    //            {
+    //                writer.NewLine = "\r\n"; // HTTP erfordert CRLF
+    //                writer.AutoFlush = true;
+
+    //                // **HTTP-Header mit User-Agent senden (verhindert Blockierung)**
+    //                await writer.WriteLineAsync($"GET / HTTP/1.1");
+    //                await writer.WriteLineAsync($"Host: {ipAddress}");
+    //                await writer.WriteLineAsync("Connection: close");
+    //                await writer.WriteLineAsync("User-Agent: Mozilla/5.0 (compatible; MyScanner/1.0)");
+    //                await writer.WriteLineAsync(""); // Leere Zeile, um Header zu beenden
+
+    //                // **Lese Antwort mit Timeout**
+    //                Task<string> readTask = reader.ReadToEndAsync();
+    //                if (await Task.WhenAny(readTask, Task.Delay(2000, cts.Token)) != readTask)
+    //                {
+    //                    portResult.Status = PortStatus.NoResponse; // Antwort zu lange gebraucht
+    //                    return false;
+    //                }
+
+    //                string response = await readTask;
+
+    //                // **Überprüfe, ob Server antwortet**
+    //                if (response.Contains("HTTP/1.1") && (response.Contains("200 OK") || response.Contains("<html")))
+    //                {
+    //                    portResult.Status = PortStatus.IsRunning; // Webseite erkannt
+    //                    return true;
+    //                }
+
+    //                portResult.Status = PortStatus.Open; // Verbindung offen, aber kein Webserver erkannt
+    //                return false;
+    //            }
+    //        }
+    //        catch (SocketException ex)
+    //        {
+    //            if (ex.SocketErrorCode == SocketError.ConnectionRefused)
+    //            {
+    //                portResult.Status = PortStatus.Filtered; // Firewall oder kein Service aktiv
+    //            }
+    //            else
+    //            {
+    //                portResult.Status = PortStatus.Error; // Allgemeiner Netzwerkfehler
+    //            }
+    //        }
+    //        catch (IOException ex)
+    //        {
+    //            portResult.Status = PortStatus.Error; // Verbindung wurde unerwartet geschlossen
+    //        }
+    //        catch (OperationCanceledException)
+    //        {
+    //            portResult.Status = PortStatus.NoResponse; // Timeout erreicht
+    //        }
+    //    }
+    //    return false;
+    //}
+
     private async Task<bool> CheckHttpAsync(string ipAddress, int port, PortResult portResult)
     {
         using (var tcpClient = new TcpClient())
-        using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(1))) // Timeout von 1 Sekunde
+        using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2))) // 2s Timeout
         {
             try
             {
+                // Starte Verbindungsversuch
                 Task connectTask = tcpClient.ConnectAsync(ipAddress, port);
-                if (await Task.WhenAny(connectTask, Task.Delay(1000, cts.Token)) != connectTask)
+                if (await Task.WhenAny(connectTask, Task.Delay(2000, cts.Token)) != connectTask)
                 {
-                    portResult.Status = PortStatus.NoResponse; // Keine Antwort vom Port (Timeout).
+                    portResult.Status = PortStatus.NoResponse; // Timeout erreicht
                     return false;
                 }
 
                 if (!tcpClient.Connected)
                 {
-                    portResult.Status = PortStatus.Filtered; // Verbindung verweigert (z. B. durch Firewall).
+                    portResult.Status = PortStatus.Filtered; // Verbindung verweigert
                     return false;
                 }
 
                 using (NetworkStream stream = tcpClient.GetStream())
+                using (var writer = new StreamWriter(stream, Encoding.ASCII, leaveOpen: true))
+                using (var reader = new StreamReader(stream, Encoding.UTF8, leaveOpen: true))
                 {
-                    byte[] requestBytes = Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: " + ipAddress + "\r\nConnection: close\r\n\r\n");
-                    await stream.WriteAsync(requestBytes, 0, requestBytes.Length, cts.Token);
+                    writer.NewLine = "\r\n"; // HTTP erfordert CRLF
+                    writer.AutoFlush = true;
 
-                    byte[] buffer = new byte[4096];
-                    var readTask = stream.ReadAsync(buffer, 0, buffer.Length, cts.Token);
-                    if (await Task.WhenAny(readTask, Task.Delay(1000, cts.Token)) != readTask)
+                    // **HTTP-Header korrekt setzen**
+                    await writer.WriteLineAsync($"GET / HTTP/1.1");
+                    await writer.WriteLineAsync($"Host: {ipAddress}");
+                    await writer.WriteLineAsync("Connection: close");
+                    await writer.WriteLineAsync("User-Agent: Mozilla/5.0 (compatible; MyScanner/1.0)");
+                    await writer.WriteLineAsync("Accept: */*"); // Erlaubt alle Antworten
+                    await writer.WriteLineAsync("Accept-Encoding: identity"); // Verhindert GZIP-Probleme
+                    await writer.WriteLineAsync(""); // Leere Zeile für HTTP-Protokollkonformität
+
+                    // **Lese Antwort mit Timeout**
+                    Task<string> readTask = reader.ReadToEndAsync();
+                    if (await Task.WhenAny(readTask, Task.Delay(2000, cts.Token)) != readTask)
                     {
-                        portResult.Status = PortStatus.NoResponse; // Antwort kam nicht rechtzeitig.
+                        portResult.Status = PortStatus.NoResponse; // Antwort zu lange gebraucht
                         return false;
                     }
 
-                    int bytesRead = await readTask;
-                    if (bytesRead > 0)
+                    string response = await readTask;
+
+                    // **Überprüfe, ob Server antwortet**
+                    if (response.Contains("HTTP/1.1") && (response.Contains("200 OK") || response.Contains("<html")))
                     {
-                        string response = Encoding.ASCII.GetString(buffer, 0, bytesRead);
-
-                        if (response.Contains("HTTP/1.1") && (response.Contains("200 OK") || response.Contains("<html")))
-                        {
-                            portResult.Status = PortStatus.IsRunning; // Webseite erkannt.
-                            return true;
-                        }
-
-                        portResult.Status = PortStatus.Open; // Verbindung offen, aber keine Webseite.
-                        return false;
+                        portResult.Status = PortStatus.IsRunning; // Webseite erkannt
+                        return true;
                     }
+
+                    portResult.Status = PortStatus.Open; // Verbindung offen, aber kein Webserver erkannt
+                    return false;
                 }
             }
             catch (SocketException ex)
             {
                 if (ex.SocketErrorCode == SocketError.ConnectionRefused)
                 {
-                    portResult.Status = PortStatus.Filtered; // Verbindung aktiv verweigert → Firewall?
+                    portResult.Status = PortStatus.Filtered; // Firewall oder kein Service aktiv
                 }
                 else
                 {
-                    portResult.Status = PortStatus.Error; // Sonstiger Netzwerkfehler.
+                    portResult.Status = PortStatus.Error; // Netzwerkfehler
                 }
+            }
+            catch (IOException ex)
+            {
+                portResult.Status = PortStatus.Error; // Verbindung wurde unerwartet geschlossen
+            }
+            catch (OperationCanceledException)
+            {
+                portResult.Status = PortStatus.NoResponse; // Timeout erreicht
             }
         }
         return false;
     }
+
+
+
+
 
     private async Task<bool> CheckHttpsAsync(string ipAddress, int port, PortResult portResult)
     {
