@@ -29,10 +29,13 @@
     <None Remove="Resources\EditWhite.png" />
     <None Remove="Resources\gray_dot.png" />
     <None Remove="Resources\gray_dotTB.png" />
+    <None Remove="Resources\gray_dot_s.png" />
     <None Remove="Resources\green_dot.png" />
+    <None Remove="Resources\green_dot_s.png" />
     <None Remove="Resources\Radar.png" />
     <None Remove="Resources\red_dot.png" />
     <None Remove="Resources\red_dotTB.png" />
+    <None Remove="Resources\red_dot_s.png" />
     <None Remove="Resources\SearchDevice.png" />
     <None Remove="Resources\SearchDevices.png" />
     <None Remove="Resources\SearchDeviceSmall.png" />
@@ -41,6 +44,12 @@
   <ItemGroup>
     <Content Include="Images\logo.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\gray_dot_s.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\green_dot_s.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\NetworkScanner.ico" />
     <Content Include="Resources\AddBlack.png">
@@ -56,6 +65,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\red_dotTB.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\red_dot_s.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\SearchDevice.png">
