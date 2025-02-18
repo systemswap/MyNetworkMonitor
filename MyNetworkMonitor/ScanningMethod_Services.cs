@@ -1448,38 +1448,41 @@ public class ScanningMethod_Services
     {
         PortResult portResult = new PortResult { Port = port, Status = PortStatus.NoResponse };
 
-        // Prüfe HTTP und HTTPS
-        bool httpSuccess = await CheckHttpAsync(ipAddress, port, portResult);
-        bool httpsSuccess = await CheckHttpsAsync(ipAddress, port, portResult);
+        // **1️⃣ Temporäre Status-Werte für HTTP & HTTPS**
+        PortStatus httpStatus = PortStatus.NoResponse;
+        PortStatus httpsStatus = PortStatus.NoResponse;
 
-        // **1️⃣ Falls HTTP oder HTTPS erfolgreich war → "IsRunning" setzen (höchste Priorität)**
+        // **2️⃣ Prüfe HTTP**
+        bool httpSuccess = await CheckHttpAsync(ipAddress, port, portResult);
+        httpStatus = portResult.Status; // Speichere HTTP-Ergebnis
+
+        // **3️⃣ Prüfe HTTPS**
+        bool httpsSuccess = await CheckHttpsAsync(ipAddress, port, portResult);
+        httpsStatus = portResult.Status; // Speichere HTTPS-Ergebnis
+
+        // **4️⃣ Priorisierung der Status-Werte**
         if (httpSuccess || httpsSuccess)
         {
-            portResult.Status = PortStatus.IsRunning;
+            portResult.Status = PortStatus.IsRunning;  // Höchste Priorität
         }
-        // **2️⃣ Falls "Error" erkannt wurde, aber die Seite nicht läuft → "Error" setzen**
-        else if (portResult.Status == PortStatus.Error)
+        else if (httpStatus == PortStatus.Error || httpsStatus == PortStatus.Error)
         {
-            // Kein Überschreiben nötig, bleibt Error
+            portResult.Status = PortStatus.Error;  // Fehler geht nicht verloren
         }
-        // **3️⃣ Falls Port als "Open" erkannt wurde, bleibt er "Open"**
-        else if (portResult.Status == PortStatus.Open)
+        else if (httpStatus == PortStatus.Open || httpsStatus == PortStatus.Open)
         {
-            // Kein Überschreiben nötig, bleibt Open
+            portResult.Status = PortStatus.Open;
         }
-        // **4️⃣ Falls explizit gefiltert, bleibt er gefiltert**
-        else if (portResult.Status == PortStatus.Filtered)
+        else if (httpStatus == PortStatus.Filtered || httpsStatus == PortStatus.Filtered)
         {
-            // Kein Überschreiben nötig, bleibt Filtered
+            portResult.Status = PortStatus.Filtered;
         }
-        // **5️⃣ Falls keine Antwort kam, bleibt "NoResponse"**
         else
         {
             portResult.Status = PortStatus.NoResponse;
         }
 
         return portResult;
-
     }
 
     //private async Task<bool> CheckHttpAsync(string ipAddress, int port, PortResult portResult)
