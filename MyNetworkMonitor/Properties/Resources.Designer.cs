@@ -153,16 +153,6 @@ namespace MyNetworkMonitor.Properties {
         /// <summary>
         ///   Sucht eine lokalisierte Ressource vom Typ System.Byte[].
         /// </summary>
-        internal static byte[] red_dot {
-            get {
-                object obj = ResourceManager.GetObject("red_dot", resourceCulture);
-                return ((byte[])(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   Sucht eine lokalisierte Ressource vom Typ System.Byte[].
-        /// </summary>
         internal static byte[] red_dotTB {
             get {
                 object obj = ResourceManager.GetObject("red_dotTB", resourceCulture);
