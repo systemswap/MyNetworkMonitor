@@ -972,15 +972,15 @@ namespace MyNetworkMonitor
             {
                 if (_IPsToScan.Where(i => i.IPorHostname == row["IP"].ToString()).Count() > 0)
                 {
-                    if ((bool)chk_Methodes_ARP_A.IsChecked && !string.IsNullOrEmpty(row["ARPStatus"].ToString())) row["ARPStatus"] = Properties.Resources.gray_dotTB;
+                    if ((bool)chk_Methodes_ARP_A.IsChecked && !string.IsNullOrEmpty(row["ARPStatus"].ToString())) row["ARPStatus"] = Properties.Resources.gray_dot_s;
 
 
-                    if ((bool)chk_Methodes_Ping.IsChecked && !string.IsNullOrEmpty(row["PingStatus"].ToString())) row["PingStatus"] = Properties.Resources.gray_dotTB;
+                    if ((bool)chk_Methodes_Ping.IsChecked && !string.IsNullOrEmpty(row["PingStatus"].ToString())) row["PingStatus"] = Properties.Resources.gray_dot_s;
                     if ((bool)chk_Methodes_Ping.IsChecked) row["ResponseTime"] = string.Empty;
 
-                    if ((bool)chk_Methodes_SSDP.IsChecked && !string.IsNullOrEmpty(row["SSDPStatus"].ToString())) row["SSDPStatus"] = Properties.Resources.gray_dotTB;
+                    if ((bool)chk_Methodes_SSDP.IsChecked && !string.IsNullOrEmpty(row["SSDPStatus"].ToString())) row["SSDPStatus"] = Properties.Resources.gray_dot_s;
 
-                    if ((bool)chk_Methodes_ONVIF.IsChecked && !string.IsNullOrEmpty(row["IsIPCam"].ToString())) row["IsIPCam"] = Properties.Resources.gray_dotTB;
+                    if ((bool)chk_Methodes_ONVIF.IsChecked && !string.IsNullOrEmpty(row["IsIPCam"].ToString())) row["IsIPCam"] = Properties.Resources.gray_dot_s;
 
                     if ((bool)chk_Methodes_ScanTCPPorts.IsChecked) row["TCP_Ports"] = null;
                     //if ((bool)chk_Methodes_ScanUDPPorts.IsChecked) row["OpenUDP_Ports"] = null;
@@ -994,7 +994,7 @@ namespace MyNetworkMonitor
 
                     if ((bool)chk_Methodes_LookUp.IsChecked && !string.IsNullOrEmpty(row["LookUpStatus"].ToString()))
                     {
-                        row["LookUpStatus"] = Properties.Resources.gray_dotTB;
+                        row["LookUpStatus"] = Properties.Resources.gray_dot_s;
                         row["LookUpIPs"] = string.Empty;
                     }
                 }
@@ -1367,7 +1367,7 @@ namespace MyNetworkMonitor
 
                 if (ipToScan.UsedScanMethod == ScanMethod.SSDP)
                 {
-                    _scannResults.ResultTable.Rows[rowIndex]["SSDPStatus"] = ipToScan.SSDPStatus ? Properties.Resources.green_dot : Properties.Resources.red_dotTB;
+                    _scannResults.ResultTable.Rows[rowIndex]["SSDPStatus"] = ipToScan.SSDPStatus ? Properties.Resources.green_dot_s : Properties.Resources.red_dot_s;
                 }
 
 
@@ -1398,7 +1398,7 @@ namespace MyNetworkMonitor
 
                 if (ipToScan.UsedScanMethod == ScanMethod.ARPRequest)
                 {
-                    _scannResults.ResultTable.Rows[rowIndex]["ARPStatus"] = ipToScan.ARPStatus ? Properties.Resources.green_dot : Properties.Resources.red_dotTB;
+                    _scannResults.ResultTable.Rows[rowIndex]["ARPStatus"] = ipToScan.ARPStatus ? Properties.Resources.green_dot_s : Properties.Resources.red_dot_s;
                     _scannResults.ResultTable.Rows[rowIndex]["MAC"] = ipToScan.MAC;
                     _scannResults.ResultTable.Rows[rowIndex]["Vendor"] = ipToScan.Vendor;
                 }
@@ -1407,14 +1407,14 @@ namespace MyNetworkMonitor
                 {
                     if (!string.IsNullOrEmpty(_scannResults.ResultTable.Rows[rowIndex]["ARPStatus"].ToString()))
                     {
-                        byte[] greenDot = Properties.Resources.green_dot;
+                        byte[] greenDot = Properties.Resources.green_dot_s;
                         byte[] cellValue = (byte[])_scannResults.ResultTable.Rows[rowIndex]["ARPStatus"];
                         bool bla = greenDot.SequenceEqual(cellValue);
-                        if (!bla) _scannResults.ResultTable.Rows[rowIndex]["ARPStatus"] = Properties.Resources.gray_dotTB;
+                        if (!bla) _scannResults.ResultTable.Rows[rowIndex]["ARPStatus"] = Properties.Resources.gray_dot_s;
                     }
                     else
                     {
-                        _scannResults.ResultTable.Rows[rowIndex]["ARPStatus"] = Properties.Resources.gray_dotTB;
+                        _scannResults.ResultTable.Rows[rowIndex]["ARPStatus"] = Properties.Resources.gray_dot_s;
                     }
                     //_scannResults.ResultTable.Rows[rowIndex]["ARPStatus"] = ipToScan.ARPStatus ? Properties.Resources.green_dot : Properties.Resources.red_dotTB;
                     _scannResults.ResultTable.Rows[rowIndex]["MAC"] = ipToScan.MAC;
@@ -1424,13 +1424,13 @@ namespace MyNetworkMonitor
 
                 if (ipToScan.UsedScanMethod == ScanMethod.Ping)
                 {
-                    _scannResults.ResultTable.Rows[rowIndex]["PingStatus"] = ipToScan.PingStatus ? Properties.Resources.green_dot : Properties.Resources.red_dotTB;
+                    _scannResults.ResultTable.Rows[rowIndex]["PingStatus"] = ipToScan.PingStatus ? Properties.Resources.green_dot_s : Properties.Resources.red_dot_s;
                     _scannResults.ResultTable.Rows[rowIndex]["ResponseTime"] = ipToScan.ResponseTime;
                 }
 
                 if (ipToScan.UsedScanMethod == ScanMethod.ONVIF_IPCam)
                 {
-                    _scannResults.ResultTable.Rows[rowIndex]["IsIPCam"] = ipToScan.IsIPCam ? Properties.Resources.green_dot : null;
+                    _scannResults.ResultTable.Rows[rowIndex]["IsIPCam"] = ipToScan.IsIPCam ? Properties.Resources.green_dot_s : null;
                     _scannResults.ResultTable.Rows[rowIndex]["IPCamName"] = ipToScan.IPCamName;
                     _scannResults.ResultTable.Rows[rowIndex]["IPCamXAddress"] = ipToScan.IPCamXAddress;
                 }
@@ -1464,11 +1464,11 @@ namespace MyNetworkMonitor
 
                         if (dnsMatched && !string.IsNullOrEmpty(resultHostname))
                         {
-                            _scannResults.ResultTable.Rows[rowIndex]["MatchedWithInternal"] = Properties.Resources.green_dot;
+                            _scannResults.ResultTable.Rows[rowIndex]["MatchedWithInternal"] = Properties.Resources.green_dot_s;
                         }
                         if (!dnsMatched && !string.IsNullOrEmpty(resultHostname))
                         {
-                            _scannResults.ResultTable.Rows[rowIndex]["MatchedWithInternal"] = Properties.Resources.red_dotTB;
+                            _scannResults.ResultTable.Rows[rowIndex]["MatchedWithInternal"] = Properties.Resources.red_dot_s;
                         }
                         if (string.IsNullOrEmpty(resultHostname))
                         {
@@ -1483,7 +1483,7 @@ namespace MyNetworkMonitor
 
                 if (ipToScan.UsedScanMethod == ScanMethod.Lookup)
                 {
-                    _scannResults.ResultTable.Rows[rowIndex]["LookUpStatus"] = ipToScan.LookUpStatus ? Properties.Resources.green_dot : Properties.Resources.red_dotTB;
+                    _scannResults.ResultTable.Rows[rowIndex]["LookUpStatus"] = ipToScan.LookUpStatus ? Properties.Resources.green_dot_s : Properties.Resources.red_dot_s;
                     _scannResults.ResultTable.Rows[rowIndex]["LookUpIPs"] = ipToScan.LookUpIPs;
                 }
 
@@ -1516,7 +1516,7 @@ namespace MyNetworkMonitor
 
                 if (ipToScan.UsedScanMethod == ScanMethod.SSDP)
                 {
-                    row["SSDPStatus"] = ipToScan.SSDPStatus ? Properties.Resources.green_dot : Properties.Resources.red_dotTB;
+                    row["SSDPStatus"] = ipToScan.SSDPStatus ? Properties.Resources.green_dot_s : Properties.Resources.red_dot_s;
                 }
 
                 if (ipToScan.UsedScanMethod == ScanMethod.SNMP)
@@ -1545,7 +1545,7 @@ namespace MyNetworkMonitor
 
                 if (ipToScan.UsedScanMethod == ScanMethod.ARPRequest)
                 {
-                    row["ARPStatus"] = ipToScan.ARPStatus ? Properties.Resources.green_dot : Properties.Resources.red_dotTB;
+                    row["ARPStatus"] = ipToScan.ARPStatus ? Properties.Resources.green_dot_s : Properties.Resources.red_dot_s;
                     row["MAC"] = ipToScan.MAC;
                     row["Vendor"] = ipToScan.Vendor;
                 }
@@ -1554,14 +1554,14 @@ namespace MyNetworkMonitor
                 {
                     if (!string.IsNullOrEmpty(row["ARPStatus"].ToString()))
                     {
-                        byte[] greenDot = Properties.Resources.green_dot;
+                        byte[] greenDot = Properties.Resources.green_dot_s;
                         byte[] cellValue = (byte[])row["ARPStatus"];
                         bool bla = greenDot.SequenceEqual(cellValue);
-                        if (!bla) row["ARPStatus"] = Properties.Resources.gray_dotTB;
+                        if (!bla) row["ARPStatus"] = Properties.Resources.gray_dot_s;
                     }
                     else
                     {
-                        row["ARPStatus"] = Properties.Resources.gray_dotTB;
+                        row["ARPStatus"] = Properties.Resources.gray_dot_s;
                     }
                     //row["ARPStatus"] = ipToScan.ARPStatus ? Properties.Resources.green_dot : Properties.Resources.red_dotTB;
                     row["MAC"] = ipToScan.MAC;
@@ -1570,7 +1570,7 @@ namespace MyNetworkMonitor
 
                 if (ipToScan.UsedScanMethod == ScanMethod.Ping)
                 {
-                    row["PingStatus"] = ipToScan.PingStatus ? Properties.Resources.green_dot : Properties.Resources.red_dotTB;
+                    row["PingStatus"] = ipToScan.PingStatus ? Properties.Resources.green_dot_s : Properties.Resources.red_dot_s;
                     row["ResponseTime"] = ipToScan.ResponseTime;
                 }
 
@@ -1578,7 +1578,7 @@ namespace MyNetworkMonitor
 
                 if (ipToScan.UsedScanMethod == ScanMethod.ONVIF_IPCam)
                 {
-                    row["IsIPCam"] = ipToScan.IsIPCam ? Properties.Resources.green_dot : null;
+                    row["IsIPCam"] = ipToScan.IsIPCam ? Properties.Resources.green_dot_s : null;
                     row["IPCamName"] = ipToScan.IPCamName;
                     row["IPCamXAddress"] = ipToScan.IPCamXAddress;
                 }
@@ -1607,11 +1607,11 @@ namespace MyNetworkMonitor
 
                         if (dnsMatched && !string.IsNullOrEmpty(resultHostname))
                         {
-                            row["MatchedWithInternal"] = Properties.Resources.green_dot;
+                            row["MatchedWithInternal"] = Properties.Resources.green_dot_s;
                         }
                         if (!dnsMatched && !string.IsNullOrEmpty(resultHostname))
                         {
-                            row["MatchedWithInternal"] = Properties.Resources.red_dotTB;
+                            row["MatchedWithInternal"] = Properties.Resources.red_dot_s;
                         }
                         if (string.IsNullOrEmpty(resultHostname))
                         {
@@ -1630,7 +1630,7 @@ namespace MyNetworkMonitor
 
                 if (ipToScan.UsedScanMethod == ScanMethod.Lookup)
                 {
-                    row["LookUpStatus"] = ipToScan.LookUpStatus ? Properties.Resources.green_dot : Properties.Resources.red_dotTB;
+                    row["LookUpStatus"] = ipToScan.LookUpStatus ? Properties.Resources.green_dot_s : Properties.Resources.red_dot_s;
                     row["LookUpIPs"] = ipToScan.LookUpIPs;
                 }
 
@@ -2089,8 +2089,8 @@ namespace MyNetworkMonitor
                 foreach (DataRow row in _scannResults.ResultTable.Rows)
                 {
                     //if (!string.IsNullOrEmpty(row["SSDPStatus"].ToString())) row["SSDPStatus"] = Properties.Resources.gray_dotTB;
-                    if (!string.IsNullOrEmpty(row["ARPStatus"].ToString())) row["ARPStatus"] = Properties.Resources.gray_dotTB;
-                    if (!string.IsNullOrEmpty(row["PingStatus"].ToString())) row["PingStatus"] = Properties.Resources.gray_dotTB;
+                    if (!string.IsNullOrEmpty(row["ARPStatus"].ToString())) row["ARPStatus"] = Properties.Resources.gray_dot_s;
+                    if (!string.IsNullOrEmpty(row["PingStatus"].ToString())) row["PingStatus"] = Properties.Resources.gray_dot_s;
                     //if (!string.IsNullOrEmpty(row["IsIPCam"].ToString())) row["IsIPCam"] = Properties.Resources.gray_dotTB;
 
                     //if (!string.IsNullOrEmpty(row["LookUpStatus"].ToString()))
@@ -2630,11 +2630,11 @@ namespace MyNetworkMonitor
 
                     if (dnsMatched && !string.IsNullOrEmpty(resultHostname))
                     {
-                        row["MatchedWithInternal"] = Properties.Resources.green_dot;
+                        row["MatchedWithInternal"] = Properties.Resources.green_dot_s;
                     }
                     if (!dnsMatched && !string.IsNullOrEmpty(resultHostname))
                     {
-                        row["MatchedWithInternal"] = Properties.Resources.red_dotTB;
+                        row["MatchedWithInternal"] = Properties.Resources.red_dot_s;
                     }
                     if (string.IsNullOrEmpty(resultHostname))
                     {
@@ -3058,8 +3058,8 @@ namespace MyNetworkMonitor
                             if (originalRow[col.ColumnName] != DBNull.Value && col.ColumnName.ToLower() == "lookupstatus")
                             {
                                 byte[] tada = (byte[])originalRow[col.ColumnName];
-                                var green = Properties.Resources.green_dot;
-                                var red = Properties.Resources.red_dotTB;
+                                var green = Properties.Resources.green_dot_s;
+                                var red = Properties.Resources.red_dot_s;
 
                                 if (tada.SequenceEqual(green)) 
                                 { 

@@ -133,6 +133,16 @@ namespace MyNetworkMonitor.Properties {
         /// <summary>
         ///   Sucht eine lokalisierte Ressource vom Typ System.Byte[].
         /// </summary>
+        internal static byte[] gray_dot_s {
+            get {
+                object obj = ResourceManager.GetObject("gray_dot_s", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Sucht eine lokalisierte Ressource vom Typ System.Byte[].
+        /// </summary>
         internal static byte[] gray_dotTB {
             get {
                 object obj = ResourceManager.GetObject("gray_dotTB", resourceCulture);
@@ -146,6 +156,26 @@ namespace MyNetworkMonitor.Properties {
         internal static byte[] green_dot {
             get {
                 object obj = ResourceManager.GetObject("green_dot", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Sucht eine lokalisierte Ressource vom Typ System.Byte[].
+        /// </summary>
+        internal static byte[] green_dot_s {
+            get {
+                object obj = ResourceManager.GetObject("green_dot_s", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Sucht eine lokalisierte Ressource vom Typ System.Byte[].
+        /// </summary>
+        internal static byte[] red_dot_s {
+            get {
+                object obj = ResourceManager.GetObject("red_dot_s", resourceCulture);
                 return ((byte[])(obj));
             }
         }
