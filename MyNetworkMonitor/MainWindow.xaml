@@ -5,8 +5,9 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:MyNetworkMonitor"
          xmlns:scm="clr-namespace:System.ComponentModel;assembly=WindowsBase"
-        
-        xmlns:dxg="http://schemas.devexpress.com/winfx/2008/xaml/grid" xmlns:dx="http://schemas.devexpress.com/winfx/2008/xaml/core" x:Name="mainWindow" x:Class="MyNetworkMonitor.MainWindow"
+
+
+    xmlns:dxg="http://schemas.devexpress.com/winfx/2008/xaml/grid" xmlns:dx="http://schemas.devexpress.com/winfx/2008/xaml/core" x:Name="mainWindow" x:Class="MyNetworkMonitor.MainWindow"
         
         mc:Ignorable="d"
         Title="My Network Monitor" Height="845" Width="1865" MinWidth="1865" MinHeight="845" Closing="Window_Closing" Background="#FFF3F3F3" Loaded="mainWindow_Loaded">
@@ -437,7 +438,7 @@
                         </ContextMenu>
                     </DataGrid.ContextMenu>
 
-
+                 
 
                     <DataGrid.Resources>
 
@@ -450,7 +451,7 @@
                         </DataTemplate>
 
                         <DataTemplate x:Key="IsIPCam">
-                            <Image Source="{Binding IsIPCam}" Width="16" Height="16" CacheMode="BitmapCache" SnapsToDevicePixels="True" UseLayoutRounding="True"/>
+                            <Image Source="{Binding IsIPCam}" Width="16" Height="16" CacheMode="BitmapCache"  SnapsToDevicePixels="True" UseLayoutRounding="True"/>
                         </DataTemplate>
 
                         <DataTemplate x:Key="SSDPStatus">
