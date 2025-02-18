@@ -442,27 +442,27 @@
                     <DataGrid.Resources>
 
                         <DataTemplate x:Key="ARPStatus">
-                            <Image Source="{Binding ARPStatus}" Width="16" Height="16" CacheMode="BitmapCache"/>
+                            <Image Source="{Binding ARPStatus}" Width="16" Height="16" CacheMode="BitmapCache" SnapsToDevicePixels="True" UseLayoutRounding="True"/>
                         </DataTemplate>
 
                         <DataTemplate x:Key="PingStatus">
-                            <Image Source="{Binding PingStatus}" Width="16" Height="16" CacheMode="BitmapCache"/>
+                            <Image Source="{Binding PingStatus}" Width="16" Height="16" CacheMode="BitmapCache" SnapsToDevicePixels="True" UseLayoutRounding="True"/>
                         </DataTemplate>
 
                         <DataTemplate x:Key="IsIPCam">
-                            <Image Source="{Binding IsIPCam}" Width="16" Height="16" CacheMode="BitmapCache"/>
+                            <Image Source="{Binding IsIPCam}" Width="16" Height="16" CacheMode="BitmapCache" SnapsToDevicePixels="True" UseLayoutRounding="True"/>
                         </DataTemplate>
 
                         <DataTemplate x:Key="SSDPStatus">
-                            <Image Source="{Binding SSDPStatus}" Width="16" Height="16" CacheMode="BitmapCache"/>
+                            <Image Source="{Binding SSDPStatus}" Width="16" Height="16" CacheMode="BitmapCache" SnapsToDevicePixels="True" UseLayoutRounding="True"/>
                         </DataTemplate>
 
                         <DataTemplate x:Key="LookUpStatus">
-                            <Image Source="{Binding LookUpStatus}" Width="16" Height="16" CacheMode="BitmapCache"/>
+                            <Image Source="{Binding LookUpStatus}" Width="16" Height="16" CacheMode="BitmapCache" SnapsToDevicePixels="True" UseLayoutRounding="True"/>
                         </DataTemplate>
 
                         <DataTemplate x:Key="MatchedWithInternal">
-                            <Image Source="{Binding MatchedWithInternal}" Width="16" Height="16" CacheMode="BitmapCache"/>
+                            <Image Source="{Binding MatchedWithInternal}" Width="16" Height="16" CacheMode="BitmapCache" SnapsToDevicePixels="True" UseLayoutRounding="True"/>
                         </DataTemplate>
 
                     </DataGrid.Resources>
