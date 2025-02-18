@@ -365,12 +365,14 @@ public class ScanningMethod_Services
         foreach (ServiceType service in services)
         {
             var serviceResult = new ServiceResult { Service = service };
-            var ports = GetDefaultServicePorts(service);
+            //var ports = GetDefaultServicePorts(service);
 
-            if (extraPorts != null && extraPorts.TryGetValue(service, out var additionalPorts))
-            {
-                ports.AddRange(additionalPorts);
-            }
+            //if (extraPorts != null && extraPorts.TryGetValue(service, out var additionalPorts))
+            //{
+            //    ports.AddRange(additionalPorts);
+            //}
+
+            extraPorts.TryGetValue(service, out var ports);
 
             byte[] detectionPacket = GetDetectionPacket(service);
 
@@ -2100,7 +2102,7 @@ public class ScanningMethod_Services
 
 
 
-    private static List<int> GetDefaultServicePorts(ServiceType service)
+    public static List<int> GetDefaultServicePorts(ServiceType service)
     {
         return service switch
         {
