@@ -3388,5 +3388,28 @@ namespace MyNetworkMonitor
             }
             await scanningMethod_Services.FindServicePortAsync(_IPsToScan[0], services[0]);
         }
+
+        private void dg_ServicesGetDefaultPorts_Click(object sender, RoutedEventArgs e)
+        {
+            if (dg_Services.SelectedCells.Count > 0)
+            {
+                var selectedCell = dg_Services.SelectedCells[0]; // Erste selektierte Zelle
+                var selectedItem = selectedCell.Item as DataRowView; // Zeile als DataRowView
+
+                if (selectedItem != null)
+                {
+                    // Wert aus der "Service"-Spalte holen und zu Enum umwandeln
+                    if (Enum.TryParse<ServiceType>(selectedItem["Service"].ToString(), out var serviceType))
+                    {
+                        // Standardports für den Service abrufen
+                        var ports = ScanningMethod_Services.GetDefaultServicePorts(serviceType);
+
+                        // In die gleiche Zelle als String mit Komma getrennt speichern
+                        selectedItem["Ports"] = string.Join(", ", ports);
+                    }
+                }
+            }
+
+        }
     }
 }
