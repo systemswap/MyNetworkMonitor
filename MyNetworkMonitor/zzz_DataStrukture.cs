@@ -94,7 +94,10 @@ namespace MyNetworkMonitor
                         case ServiceType.BigFixRemote:
                             serviceWithIcon = "🖥️ " + service.Service.ToString();
                             break;
-                        case ServiceType.Rustdesk:
+                        case ServiceType.RustdeskServer:
+                            serviceWithIcon = "🖥️ " + service.Service.ToString();
+                            break;
+                        case ServiceType.RustdeskClient:
                             serviceWithIcon = "🖥️ " + service.Service.ToString();
                             break;
                         case ServiceType.TeamViewer:
