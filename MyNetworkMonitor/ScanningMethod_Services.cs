@@ -52,7 +52,8 @@ public enum ServiceType
     BigFixRemote,    
     TeamViewer,
     Anydesk,
-    Rustdesk,
+    RustdeskServer,
+    RustdeskClient,
 
     // Datenbanken
     MSSQLServer,
@@ -473,7 +474,7 @@ public class ScanningMethod_Services
                 case ServiceType.BigFixRemote:
                     portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
                     break;
-                case ServiceType.Rustdesk:
+                case ServiceType.RustdeskServer:
                     portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
                     break;
                 case ServiceType.TeamViewer:
@@ -2130,7 +2131,8 @@ public class ScanningMethod_Services
             ServiceType.TeamViewer => new List<int> { 5938 },  // Teamviewer
             ServiceType.BigFixRemote => new List<int> { 888 },  // BigFix Remote
             ServiceType.Anydesk => new List<int> { 7070 },  // AnyDesk
-            ServiceType.Rustdesk => new List<int> { 21115 },  // Rustdesk Remote
+            ServiceType.RustdeskServer => new List<int> { 5900 },  // Rustdesk Server
+            ServiceType.RustdeskClient => new List<int> { 21118}, // Rustdesk Remote
 
             // ??? Datenbanken
             ServiceType.MSSQLServer => new List<int> { 1433 }, // Microsoft SQL Server
@@ -2164,7 +2166,7 @@ public class ScanningMethod_Services
                 => "🌍 Netzwerk-Dienste",
 
             // Remote-Desktop & Fernwartung
-            ServiceType.RDP or ServiceType.UltraVNC or ServiceType.BigFixRemote or ServiceType.TeamViewer or ServiceType.Anydesk or ServiceType.Rustdesk
+            ServiceType.RDP or ServiceType.UltraVNC or ServiceType.BigFixRemote or ServiceType.TeamViewer or ServiceType.Anydesk or ServiceType.RustdeskServer or ServiceType.RustdeskClient
                 => "🖥️ Remote-Desktop & Fernwartung",
 
             // Datenbanken
@@ -2253,7 +2255,30 @@ public class ScanningMethod_Services
             ServiceType.UltraVNC => new byte[] { 0x52, 0x46, 0x42, 0x20, 0x30, 0x30, 0x33 },
             ServiceType.BigFixRemote => new byte[] { 0x14, 0x2B, 0xB4, 0x91, 0x05, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
 
-            ServiceType.Rustdesk => new byte[] { 0x52, 0x44, 0x50 },
+            ServiceType.RustdeskServer => new byte[] { 0x52, 0x44, 0x50 },
+
+            ServiceType.RustdeskClient => new byte[] 
+            {
+                0x59, 0x01,                                                                 // Magic Number / ID
+                0x3A, 0x54,                                                                 // Paketlänge (wahrscheinlich 84 Bytes)
+                0x0A, 0x0C,                                                                 // Länge der folgenden IP-Adresse (12 Bytes)
+                0x31, 0x39, 0x38, 0x2E, 0x35, 0x31, 0x2E, 0x31, 0x30, 0x30, 0x2E, 0x31,     // IP-Adresse (ASCII) → "198.51.100.1"
+                0x22, 0x09,                                                                 // Länge der Client-ID (9 Bytes)
+                0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39,                       // Client-ID → "123456789"
+                0x2A, 0x06,                                                                 // Länge des Client-Keys (6 Bytes)
+                0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x32,                                   // Public Key (ASCII, evtl. Base64 kodiert)
+                0x14, 0x48, 0x02,                                                           // Unbekannte Flags/Einstellungen
+                0x52, 0x10,                                                                 // Versionsstring / Protokoll
+                0x08, 0x01, 0x10, 0x01, 0x18, 0x01, 0x28, 0x01, 0x30, 0x01,                 // Verbindungsoptionen (z. B. Encryption, P2P)
+                0x3A, 0x04, 0x10, 0x01, 0x18, 0x01,                                         // Verschlüsselungsparameter
+                0x50, 0xFA, 0x8E, 0xF4, 0xBD, 0xDD, 0x8F, 0x88, 0xF0, 0x9F, 0x01,           // Wahrscheinlich eine Signatur oder ein Hash
+                0x5A, 0x05, 0x31, 0x2E, 0x33, 0x2E, 0x37,                                   // RustDesk-Version "1.3.7"
+                0x62, 0x00,                                                                 // Unbekannt (möglicherweise Terminator/Trennzeichen)
+                0x6A, 0x07, 0x57, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73,                       // Plattform (Windows)
+                0x08,                                                                       // Typ des Pakets (Möglicherweise ACK oder Keep-Alive)
+                0x2A,                                                                       // Möglicherweise ein Status-Code oder eine ID
+                0x00                                                                        // Terminierung / Ende des Pakets
+            },
 
             ////Teamviewer 11-15
             ServiceType.TeamViewer => new byte[]
