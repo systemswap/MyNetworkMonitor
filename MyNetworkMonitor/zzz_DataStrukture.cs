@@ -142,7 +142,7 @@ namespace MyNetworkMonitor
 
 
                     //sb.Append((service.Service.ToString() + ":").ToString().PadRight(14, ' ')); // Service-Name (UltraVNC, RDP, etc.)   
-                    sb.Append((serviceWithIcon + ":").ToString().PadRight(14, ' ')); // Service-Name (UltraVNC, RDP, etc.)   
+                    sb.Append((serviceWithIcon + ":").ToString().PadRight(25, ' ')); // Service-Name (UltraVNC, RDP, etc.)   
 
                     int portcounter = 0;
                     List<PortResult> sortedPorts = service.Ports.OrderBy(x => x.Port).ToList();
@@ -158,7 +158,7 @@ namespace MyNetworkMonitor
                         else
                         {
                             //sb.AppendLine(" ".ToString().PadRight(25, ' '));
-                            sb.Append(" ".ToString().PadRight(25, ' ') + $"\t{port.Port}\t({port.Status})");
+                            sb.Append(" ".ToString().PadRight(35, ' ') + $"\t{port.Port}\t({port.Status})");
                         }
                         if(port != sortedPorts.Last()) sb.AppendLine();
                     }
