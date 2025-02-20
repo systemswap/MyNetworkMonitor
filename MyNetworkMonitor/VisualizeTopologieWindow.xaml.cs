@@ -112,7 +112,7 @@ namespace MyNetworkMonitor
                 Graph = ForceGraph3D()(document.getElementById('3d-graph'))
                     .graphData(data)
                     .nodeAutoColorBy('group')
-                    .nodeLabel(node => `${node.label} (${node.id})\nGruppe: ${node.group}`)
+                    .nodeLabel(node => node.group + ' # ' + node.label + ' # ' + node.id)
                     .linkDirectionalParticles(2)
                     .linkDirectionalParticleSpeed(0.02);
 
