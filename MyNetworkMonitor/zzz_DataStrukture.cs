@@ -50,6 +50,125 @@ namespace MyNetworkMonitor
             public string IP { get; set; }
             public List<ServiceResult> Services { get; set; } = new List<ServiceResult>();
 
+            public bool ShowOnlyIsRunningServices = false;
+
+            //public override string ToString()
+            //{
+            //    if (Services == null || Services.Count == 0)
+            //        return "Keine Services gefunden.";
+
+            //    StringBuilder sb = new StringBuilder();
+
+            //    foreach (var service in Services)
+            //    {
+            //        //if if there is no service running continue
+            //        if (ShowOnlyIsRunningServices && service.Ports.Count(p => p.Status == PortStatus.IsRunning) == 0) continue;                    
+
+            //        string serviceWithIcon = string.Empty;
+
+            //        switch (service.Service)
+            //        {
+            //            case ServiceType.WebServices:
+            //                serviceWithIcon = "🌐 " + service.Service.ToString();
+            //                break;
+            //            case ServiceType.DNS_TCP:
+            //                serviceWithIcon = "🌐 " + service.Service.ToString();
+            //                break;
+            //            case ServiceType.DNS_UDP:
+            //                serviceWithIcon = "🌐 " + service.Service.ToString();
+            //                break;
+            //            case ServiceType.DHCP:
+            //                serviceWithIcon = "🌐 " + service.Service.ToString();
+            //                break;
+            //            case ServiceType.SSH:
+            //                serviceWithIcon = "🔐 " + service.Service.ToString();
+            //                break;
+            //            case ServiceType.FTP:
+            //                serviceWithIcon = "📡 " + service.Service.ToString();
+            //                break;
+            //            case ServiceType.RDP:
+            //                serviceWithIcon = "🖥️ " + service.Service.ToString();
+            //                break;
+            //            case ServiceType.UltraVNC:
+            //                serviceWithIcon = "🖥️ " + service.Service.ToString();
+            //                break;
+            //            case ServiceType.BigFixRemote:
+            //                serviceWithIcon = "🖥️ " + service.Service.ToString();
+            //                break;
+            //            case ServiceType.RustdeskServer:
+            //                serviceWithIcon = "🖥️ " + service.Service.ToString();
+            //                break;
+            //            case ServiceType.RustdeskClient:
+            //                serviceWithIcon = "🖥️ " + service.Service.ToString();
+            //                break;
+            //            case ServiceType.TeamViewer:
+            //                serviceWithIcon = "🖥️ " + service.Service.ToString();
+            //                break;
+            //            case ServiceType.Anydesk:
+            //                serviceWithIcon = "🖥️ " + service.Service.ToString();
+            //                break;
+            //            case ServiceType.MSSQLServer:
+            //                serviceWithIcon = "🗄️ " + service.Service.ToString();
+            //                break;
+            //            case ServiceType.PostgreSQL:
+            //                serviceWithIcon = "🗄️ " + service.Service.ToString();
+            //                break;                        
+            //            case ServiceType.MariaDB:
+            //                serviceWithIcon = "🗄️ " + service.Service.ToString();
+            //                break;
+            //            case ServiceType.MySQL:
+            //                serviceWithIcon = "🗄️ " + service.Service.ToString();
+            //                break;
+            //            case ServiceType.OracleDB:
+            //                serviceWithIcon = "🗄️ " + service.Service.ToString();
+            //                break;
+            //            case ServiceType.MongoDB:
+            //                serviceWithIcon = "🛢️ " + service.Service.ToString();
+            //                break;
+            //            case ServiceType.InfluxDB2:
+            //                serviceWithIcon = "🛢️ " + service.Service.ToString();
+            //                break;
+            //            case ServiceType.OPCUA:
+            //                serviceWithIcon = "⚙️ " + service.Service.ToString();
+            //                break;
+            //            case ServiceType.ModBus:
+            //                serviceWithIcon = "🔌 " + service.Service.ToString();
+            //                break;
+            //            case ServiceType.S7:
+            //                serviceWithIcon = "📟 " + service.Service.ToString();
+            //                break;
+            //            default:
+            //                break;
+            //        }
+
+
+
+            //        sb.Append((serviceWithIcon + ":").ToString().PadRight(25, ' ')); // Service-Name (UltraVNC, RDP, etc.)   
+
+            //        int portcounter = 0;
+            //        List<PortResult> sortedPorts = service.Ports.OrderBy(x => x.Port).ToList();
+            //        foreach (var port in sortedPorts)
+            //        {
+            //            // if the port is not running, skip it
+            //            if (ShowOnlyIsRunningServices && port.Status != PortStatus.IsRunning) continue;
+
+            //            if (portcounter++ == 0)
+            //            {
+            //                sb.Append($"\t{port.Port.ToString().PadRight(6)}\t({port.Status})");
+            //            }
+            //            else
+            //            {
+            //                sb.Append(" ".ToString().PadRight(35, ' ') + $"\t{port.Port}\t({port.Status})");
+            //            }
+            //            if(port != sortedPorts.Last()) sb.AppendLine();
+            //        }
+            //        if (service != Services.Last()) sb.AppendLine();
+            //    }
+            //    string tmp = sb.ToString().Replace(", ", string.Empty);
+            //    return tmp.TrimEnd();
+            //}
+
+
             public override string ToString()
             {
                 if (Services == null || Services.Count == 0)
@@ -59,115 +178,48 @@ namespace MyNetworkMonitor
 
                 foreach (var service in Services)
                 {
-                    //if the service has no open ports, skip it
-                    //if (service.Ports.Count(p => p.Status != PortStatus.Closed) == 0) continue;
+                    // Filtere die Ports nach dem gewünschten Status
+                    List<PortResult> filteredPorts = service.Ports
+                        .Where(p => !ShowOnlyIsRunningServices || p.Status == PortStatus.IsRunning)
+                        .OrderBy(x => x.Port)
+                        .ToList();
 
+                    // Wenn nach dem Filtern keine Ports übrig bleiben, den Service nicht anzeigen
+                    if (filteredPorts.Count == 0) continue;
 
-                    string serviceWithIcon = string.Empty;
-
-                    switch (service.Service)
+                    string serviceWithIcon = service.Service switch
                     {
-                        case ServiceType.WebServices:
-                            serviceWithIcon = "🌐 " + service.Service.ToString();
-                            break;
-                        case ServiceType.DNS_TCP:
-                            serviceWithIcon = "🌐 " + service.Service.ToString();
-                            break;
-                        case ServiceType.DNS_UDP:
-                            serviceWithIcon = "🌐 " + service.Service.ToString();
-                            break;
-                        case ServiceType.DHCP:
-                            serviceWithIcon = "🌐 " + service.Service.ToString();
-                            break;
-                        case ServiceType.SSH:
-                            serviceWithIcon = "🔐 " + service.Service.ToString();
-                            break;
-                        case ServiceType.FTP:
-                            serviceWithIcon = "📡 " + service.Service.ToString();
-                            break;
-                        case ServiceType.RDP:
-                            serviceWithIcon = "🖥️ " + service.Service.ToString();
-                            break;
-                        case ServiceType.UltraVNC:
-                            serviceWithIcon = "🖥️ " + service.Service.ToString();
-                            break;
-                        case ServiceType.BigFixRemote:
-                            serviceWithIcon = "🖥️ " + service.Service.ToString();
-                            break;
-                        case ServiceType.RustdeskServer:
-                            serviceWithIcon = "🖥️ " + service.Service.ToString();
-                            break;
-                        case ServiceType.RustdeskClient:
-                            serviceWithIcon = "🖥️ " + service.Service.ToString();
-                            break;
-                        case ServiceType.TeamViewer:
-                            serviceWithIcon = "🖥️ " + service.Service.ToString();
-                            break;
-                        case ServiceType.Anydesk:
-                            serviceWithIcon = "🖥️ " + service.Service.ToString();
-                            break;
-                        case ServiceType.MSSQLServer:
-                            serviceWithIcon = "🗄️ " + service.Service.ToString();
-                            break;
-                        case ServiceType.PostgreSQL:
-                            serviceWithIcon = "🗄️ " + service.Service.ToString();
-                            break;                        
-                        case ServiceType.MariaDB:
-                            serviceWithIcon = "🗄️ " + service.Service.ToString();
-                            break;
-                        case ServiceType.MySQL:
-                            serviceWithIcon = "🗄️ " + service.Service.ToString();
-                            break;
-                        case ServiceType.OracleDB:
-                            serviceWithIcon = "🗄️ " + service.Service.ToString();
-                            break;
-                        case ServiceType.MongoDB:
-                            serviceWithIcon = "🛢️ " + service.Service.ToString();
-                            break;
-                        case ServiceType.InfluxDB2:
-                            serviceWithIcon = "🛢️ " + service.Service.ToString();
-                            break;
-                        case ServiceType.OPCUA:
-                            serviceWithIcon = "⚙️ " + service.Service.ToString();
-                            break;
-                        case ServiceType.ModBus:
-                            serviceWithIcon = "🔌 " + service.Service.ToString();
-                            break;
-                        case ServiceType.S7:
-                            serviceWithIcon = "📟 " + service.Service.ToString();
-                            break;
-                        default:
-                            break;
-                    }
+                        ServiceType.WebServices or ServiceType.DNS_TCP or ServiceType.DNS_UDP or ServiceType.DHCP => "🌐 " + service.Service.ToString(),
+                        ServiceType.SSH => "🔐 " + service.Service.ToString(),
+                        ServiceType.FTP => "📡 " + service.Service.ToString(),
+                        ServiceType.RDP or ServiceType.UltraVNC or ServiceType.BigFixRemote or ServiceType.RustdeskServer
+                            or ServiceType.RustdeskClient or ServiceType.TeamViewer or ServiceType.Anydesk => "🖥️ " + service.Service.ToString(),
+                        ServiceType.MSSQLServer or ServiceType.PostgreSQL or ServiceType.MariaDB or ServiceType.MySQL
+                            or ServiceType.OracleDB => "🗄️ " + service.Service.ToString(),
+                        ServiceType.MongoDB or ServiceType.InfluxDB2 => "🛢️ " + service.Service.ToString(),
+                        ServiceType.OPCUA => "⚙️ " + service.Service.ToString(),
+                        ServiceType.ModBus => "🔌 " + service.Service.ToString(),
+                        ServiceType.S7 => "📟 " + service.Service.ToString(),
+                        _ => service.Service.ToString()
+                    };
 
+                    sb.Append(serviceWithIcon.PadRight(25, ' '));
 
-                    //sb.Append((service.Service.ToString() + ":").ToString().PadRight(14, ' ')); // Service-Name (UltraVNC, RDP, etc.)   
-                    sb.Append((serviceWithIcon + ":").ToString().PadRight(25, ' ')); // Service-Name (UltraVNC, RDP, etc.)   
-
-                    int portcounter = 0;
-                    List<PortResult> sortedPorts = service.Ports.OrderBy(x => x.Port).ToList();
-                    foreach (var port in sortedPorts)
+                    int portCounter = 0;
+                    foreach (var port in filteredPorts)
                     {
-                        //if the port is closed, skip it
-                        //if (port.Status == PortStatus.Closed) continue;
-
-                        if (portcounter++ == 0)
-                        {
+                        if (portCounter++ == 0)
                             sb.Append($"\t{port.Port.ToString().PadRight(6)}\t({port.Status})");
-                        }
                         else
-                        {
-                            //sb.AppendLine(" ".ToString().PadRight(25, ' '));
-                            sb.Append(" ".ToString().PadRight(35, ' ') + $"\t{port.Port}\t({port.Status})");
-                        }
-                        if(port != sortedPorts.Last()) sb.AppendLine();
+                            sb.Append("\n" + "".PadRight(35, ' ') + $"\t{port.Port}\t({port.Status})");
                     }
-                    if (service != Services.Last()) sb.AppendLine();
+
+                    sb.AppendLine(); // Nur eine Zeile nach einem kompletten Service-Block einfügen
                 }
-                string tmp = sb.ToString().Replace(", ", string.Empty);
-                //tmp = tmp.Remove(tmp.LastIndexOf("\r\n"));
-                return tmp;
+
+                return sb.ToString().TrimEnd(); // Entfernt letzte leere Zeile
             }
+
         }
     }
 
