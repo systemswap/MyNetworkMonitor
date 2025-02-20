@@ -274,7 +274,7 @@
                                 </Button.Resources>
                             </Button>
                         </Grid>
-                        <DataGrid x:Name="dg_InternalNames" Grid.Row="1" Margin="10,0,10,10" CellEditEnding="dg_InternalNames_CellEditEnding" LoadingRow="dg_InternalNames_LoadingRow" ScrollBar.Scroll ="dg_InternalNames_Scroll">
+                        <DataGrid x:Name="dg_InternalNames" Grid.Row="1" Margin="10,0,10,10" CellEditEnding="dg_InternalNames_CellEditEnding" LoadingRow="dg_InternalNames_LoadingRow" ScrollBar.Scroll ="dg_InternalNames_Scroll" RowEditEnding="dg_InternalNames_RowEditEnding">
                             <DataGrid.ContextMenu>
                                 <ContextMenu>
                                     <MenuItem Header="Paste" Click="dg_InternalNames_ContextMenu_Click" />
