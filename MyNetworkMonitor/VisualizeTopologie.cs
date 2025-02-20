@@ -49,18 +49,18 @@ namespace MyNetworkMonitor
                 .GroupBy(row => row["IPGroupDescription"].ToString())
                 .SelectMany(group =>
                 {
-                    var devices = group.Select(row => row["IP"].ToString()).Where(ip => nodeIds.Contains(ip)).ToList();
-                    return devices.Skip(1).Select(ip => new { source = devices.First(), target = ip });
+                    var devices = group.Select(row => row["IP"].ToString())
+                                       .Where(ip => nodeIds.Contains(ip))
+                                       .ToList();
+                    return devices.Skip(1)
+                                  .Select(ip => new { source = devices.First(), target = ip });
                 })
                 .ToList();
 
             var graphData = new { nodes, links };
 
             string json = JsonConvert.SerializeObject(graphData, Formatting.Indented);
-
-            // UTF-8 Encoding wird hier explizit gesetzt
             File.WriteAllText(jsonFilePath, json, new UTF8Encoding(false));
-
             Console.WriteLine("✅ JSON erfolgreich erstellt: " + jsonFilePath);
         }
 
@@ -85,35 +85,38 @@ namespace MyNetworkMonitor
             const graphElement = document.getElementById('3d-graph');
             graphElement.style.width = window.innerWidth + 'px';
             graphElement.style.height = window.innerHeight + 'px';
-            Graph.width(window.innerWidth).height(window.innerHeight);
+            if (Graph) {
+                Graph.width(window.innerWidth).height(window.innerHeight);
+            }
         }
 
         let Graph;
         fetch('graph_data.json')
             .then(response => response.json())
             .then(data => {
-                console.log(""✅ JSON erfolgreich geladen:"", data);
+                console.log('✅ JSON erfolgreich geladen:', data);
 
-                Graph = ForceGraph3D()
-                    (document.getElementById('3d-graph'))
+                Graph = ForceGraph3D()(document.getElementById('3d-graph'))
                     .graphData(data)
                     .nodeAutoColorBy('group')
                     .nodeLabel(node => `${node.label} (${node.id})\nGruppe: ${node.group}`)
                     .linkDirectionalParticles(2)
-                    .linkDirectionalParticleSpeed(0.02)
-                    .onEngineTick(() => Graph.zoomToFit(500, 100));
+                    .linkDirectionalParticleSpeed(0.02);
+
+                // Verzögere den Zoom-Aufruf, bis sich das Layout stabilisiert hat
+                setTimeout(() => {
+                    Graph.zoomToFit(500, 100);
+                }, 1000);
 
                 resizeGraph();
             })
-            .catch(error => console.error(""❌ Fehler beim Laden der JSON-Datei:"", error));
+            .catch(error => console.error('❌ Fehler beim Laden der JSON-Datei:', error));
 
-        // Event-Listener für Fenstergröße ändern
-        window.addEventListener(""resize"", resizeGraph);
+        window.addEventListener('resize', resizeGraph);
     </script>
 </body>
 </html>
 ";
-
             File.WriteAllText(htmlFilePath, htmlContent, Encoding.UTF8);
             Console.WriteLine("✅ HTML erfolgreich erstellt: " + htmlFilePath);
         }
@@ -134,7 +137,6 @@ namespace MyNetworkMonitor
                     var response = context.Response;
 
                     string filePath = Path.Combine(basePath, request.Url.AbsolutePath.TrimStart('/'));
-
                     if (filePath == basePath)
                         filePath = htmlFilePath; // Standardseite
 
