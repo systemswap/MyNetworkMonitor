@@ -187,21 +187,86 @@ namespace MyNetworkMonitor
                     // Wenn nach dem Filtern keine Ports übrig bleiben, den Service nicht anzeigen
                     if (filteredPorts.Count == 0) continue;
 
-                    string serviceWithIcon = service.Service switch
+                    string serviceWithIcon = string.Empty;
+
+                    switch (service.Service)
                     {
-                        ServiceType.WebServices or ServiceType.DNS_TCP or ServiceType.DNS_UDP or ServiceType.DHCP => "🌐 " + service.Service.ToString(),
-                        ServiceType.SSH => "🔐 " + service.Service.ToString(),
-                        ServiceType.FTP => "📡 " + service.Service.ToString(),
-                        ServiceType.RDP or ServiceType.UltraVNC or ServiceType.BigFixRemote or ServiceType.RustdeskServer
-                            or ServiceType.RustdeskClient or ServiceType.TeamViewer or ServiceType.Anydesk => "🖥️ " + service.Service.ToString(),
-                        ServiceType.MSSQLServer or ServiceType.PostgreSQL or ServiceType.MariaDB or ServiceType.MySQL
-                            or ServiceType.OracleDB => "🗄️ " + service.Service.ToString(),
-                        ServiceType.MongoDB or ServiceType.InfluxDB2 => "🛢️ " + service.Service.ToString(),
-                        ServiceType.OPCUA => "⚙️ " + service.Service.ToString(),
-                        ServiceType.ModBus => "🔌 " + service.Service.ToString(),
-                        ServiceType.S7 => "📟 " + service.Service.ToString(),
-                        _ => service.Service.ToString()
-                    };
+                        case ServiceType.WebServices:
+                            serviceWithIcon = "🌐 " + service.Service.ToString();
+                            break;
+                        case ServiceType.DNS_TCP:
+                            serviceWithIcon = "🌐 " + service.Service.ToString();
+                            break;
+                        case ServiceType.DNS_UDP:
+                            serviceWithIcon = "🌐 " + service.Service.ToString();
+                            break;
+                        case ServiceType.DHCP:
+                            serviceWithIcon = "🌐 " + service.Service.ToString();
+                            break;
+                        case ServiceType.SSH:
+                            serviceWithIcon = "🔐 " + service.Service.ToString();
+                            break;
+                        case ServiceType.FTP:
+                            serviceWithIcon = "📡 " + service.Service.ToString();
+                            break;
+                        case ServiceType.RDP:
+                            serviceWithIcon = "🖥️ " + service.Service.ToString();
+                            break;
+                        case ServiceType.UltraVNC:
+                            serviceWithIcon = "🖥️ " + service.Service.ToString();
+                            break;
+                        case ServiceType.BigFixRemote:
+                            serviceWithIcon = "🖥️ " + service.Service.ToString();
+                            break;
+                        case ServiceType.RustdeskServer:
+                            serviceWithIcon = "🖥️ " + service.Service.ToString();
+                            break;
+                        case ServiceType.RustdeskClient:
+                            serviceWithIcon = "🖥️ " + service.Service.ToString();
+                            break;
+                        case ServiceType.TeamViewer:
+                            serviceWithIcon = "🖥️ " + service.Service.ToString();
+                            break;
+                        case ServiceType.Anydesk:
+                            serviceWithIcon = "🖥️ " + service.Service.ToString();
+                            break;
+                        case ServiceType.MSSQLServer:
+                            serviceWithIcon = "🗄️ " + service.Service.ToString();
+                            break;
+                        case ServiceType.PostgreSQL:
+                            serviceWithIcon = "🗄️ " + service.Service.ToString();
+                            break;
+                        case ServiceType.MariaDB:
+                            serviceWithIcon = "🗄️ " + service.Service.ToString();
+                            break;
+                        case ServiceType.MySQL:
+                            serviceWithIcon = "🗄️ " + service.Service.ToString();
+                            break;
+                        case ServiceType.OracleDB:
+                            serviceWithIcon = "🗄️ " + service.Service.ToString();
+                            break;
+                        case ServiceType.MongoDB:
+                            serviceWithIcon = "🛢️ " + service.Service.ToString();
+                            break;
+                        case ServiceType.InfluxDB2:
+                            serviceWithIcon = "🛢️ " + service.Service.ToString();
+                            break;
+                        case ServiceType.OPCUA:
+                            serviceWithIcon = "⚙️ " + service.Service.ToString();
+                            break;
+                        case ServiceType.ModBus:
+                            serviceWithIcon = "🔌 " + service.Service.ToString();
+                            break;
+                        case ServiceType.S7:
+                            serviceWithIcon = "📟 " + service.Service.ToString();
+                            break;
+                        case ServiceType.Custom:
+                            serviceWithIcon = "💡 " + service.Service.ToString();
+                            break;
+                        default:
+                            serviceWithIcon = "🤔 " + service.Service.ToString();
+                            break;
+                    }
 
                     sb.Append(serviceWithIcon.PadRight(25, ' '));
 
