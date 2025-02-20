@@ -239,6 +239,7 @@
                                
                             </DataGrid.Columns>
                         </DataGrid>
+                        <CheckBox Name="chk_Services_showOnlyIsRunning" Content="show only running services" HorizontalAlignment="Left" Margin="43,34,0,0" VerticalAlignment="Top" Width="193" Checked="chk_Services_showOnlyIsRunning_Checked" Unchecked="chk_Services_showOnlyIsRunning_Unchecked"/>
                     </Grid>
 
 
