@@ -20,6 +20,9 @@ namespace MyNetworkMonitor
         private readonly string jsonFilePath;
         private readonly string htmlFilePath;
 
+        // Statische Variable, damit der Webserver nur einmal gestartet wird.
+        private static bool _serverStarted = false;
+
         public VisualizeTopologieWindow(DataTable resultTable)
         {
             InitializeComponent();
@@ -31,7 +34,14 @@ namespace MyNetworkMonitor
 
             GenerateJSON();
             GenerateHTML();
-            StartWebServer(8080);
+
+            // Starte den Webserver nur, wenn er noch nicht gestartet wurde.
+            if (!_serverStarted)
+            {
+                StartWebServer(8080);
+                _serverStarted = true;
+            }
+
             InitializeWebView2();
         }
 
@@ -141,7 +151,7 @@ namespace MyNetworkMonitor
 
                     string filePath = Path.Combine(basePath, request.Url.AbsolutePath.TrimStart('/'));
                     if (filePath == basePath)
-                        filePath = htmlFilePath;
+                        filePath = htmlFilePath; // Standardseite
 
                     if (File.Exists(filePath))
                     {
