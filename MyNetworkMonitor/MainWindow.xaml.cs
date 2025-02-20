@@ -1346,6 +1346,8 @@ namespace MyNetworkMonitor
         {
             Keyboard.ClearFocus();
 
+            ipToScan.Services.ShowOnlyIsRunningServices = (bool)chk_Services_showOnlyIsRunning.IsChecked;
+
             List<DataRow> rows = _scannResults.ResultTable.Select("IP = '" + ipToScan.IPorHostname + "'").ToList();
 
             List<string> ports = new List<string>();
@@ -3409,6 +3411,16 @@ namespace MyNetworkMonitor
                     }
                 }
             }
+
+        }
+
+        private void chk_Services_showOnlyIsRunning_Checked(object sender, RoutedEventArgs e)
+        {
+            
+        }
+
+        private void chk_Services_showOnlyIsRunning_Unchecked(object sender, RoutedEventArgs e)
+        {
 
         }
     }
