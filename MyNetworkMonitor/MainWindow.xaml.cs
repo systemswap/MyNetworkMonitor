@@ -3423,5 +3423,10 @@ namespace MyNetworkMonitor
         {
 
         }
+
+        private void Button_Click(object sender, RoutedEventArgs e)
+        {
+            new VisualizeTopologie(_scannResults.ResultTable); // Erstellt das Netzwerk & öffnet den Browser automatisch
+        }
     }
 }
