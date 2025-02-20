@@ -83,6 +83,7 @@
 
   <ItemGroup>
     <PackageReference Include="DnsClient" Version="1.8.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="SnmpSharpNet" Version="0.9.7" />
   </ItemGroup>
 
@@ -105,6 +106,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="3d-force-graph.min.js">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="MacVendors\mac_vendors.csv">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
