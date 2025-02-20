@@ -69,7 +69,10 @@ public enum ServiceType
     // Industrieprotokolle
     OPCUA,
     ModBus,
-    S7
+    S7,
+
+    //Custom
+    Custom
 }
 
 
