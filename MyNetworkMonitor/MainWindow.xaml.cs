@@ -2811,11 +2811,22 @@ namespace MyNetworkMonitor
 
         private void dg_InternalNames_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
         {
-            if (e.EditAction == DataGridEditAction.Commit)
+            // Falls eine neue Zeile hinzugefügt wird oder eine bestehende Zeile bearbeitet wird
+            var collectionView = CollectionViewSource.GetDefaultView(dg_InternalNames.ItemsSource) as IEditableCollectionView;
+            if (collectionView != null && (collectionView.IsAddingNew || collectionView.IsEditingItem))
             {
-                dg_InternalNames.Dispatcher.BeginInvoke(new Action(() => dg_InternalNames.Items.Refresh()), System.Windows.Threading.DispatcherPriority.Background);
+                return; // Verhindert ein vorzeitiges Refresh während der Bearbeitung
             }
         }
+
+        private void dg_InternalNames_RowEditEnding(object sender, DataGridRowEditEndingEventArgs e)
+        {
+            // Nach Abschluss der Zeilenbearbeitung das Grid aktualisieren
+            dg_InternalNames.Dispatcher.BeginInvoke(new Action(() =>
+                dg_InternalNames.Items.Refresh()),
+                System.Windows.Threading.DispatcherPriority.Background);
+        }
+
 
         private void dg_InternalNames_Scroll(object sender, RoutedEventArgs e)
         {
@@ -3430,5 +3441,7 @@ namespace MyNetworkMonitor
             VisualizeTopologieWindow vtWindow = new VisualizeTopologieWindow(_scannResults.ResultTable);
             vtWindow.Show(); 
         }
+
+       
     }
 }
