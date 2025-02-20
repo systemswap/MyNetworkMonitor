@@ -32,8 +32,6 @@ namespace MyNetworkMonitor
             OpenBrowser("http://localhost:8080");
         }
 
-
-
         private void GenerateJSON()
         {
             var nodes = dt_NetworkResults.AsEnumerable()
@@ -65,7 +63,6 @@ namespace MyNetworkMonitor
 
             Console.WriteLine("✅ JSON erfolgreich erstellt: " + jsonFilePath);
         }
-
 
         private void GenerateHTML()
         {
@@ -101,7 +98,7 @@ namespace MyNetworkMonitor
                     (document.getElementById('3d-graph'))
                     .graphData(data)
                     .nodeAutoColorBy('group')
-                    .nodeLabel(node => `${node.label} (${node.id})`)
+                    .nodeLabel(node => `${node.label} (${node.id})\nGruppe: ${node.group}`)
                     .linkDirectionalParticles(2)
                     .linkDirectionalParticleSpeed(0.02)
                     .onEngineTick(() => Graph.zoomToFit(500, 100));
@@ -115,7 +112,6 @@ namespace MyNetworkMonitor
     </script>
 </body>
 </html>
-
 ";
 
             File.WriteAllText(htmlFilePath, htmlContent, Encoding.UTF8);
