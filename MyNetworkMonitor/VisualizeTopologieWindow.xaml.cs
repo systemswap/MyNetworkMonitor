@@ -45,6 +45,42 @@ namespace MyNetworkMonitor
             InitializeWebView2();
         }
 
+        //private void GenerateJSON()
+        //{
+        //    var nodes = dt_NetworkResults.AsEnumerable()
+        //        .Select(row => new
+        //        {
+        //            id = row["IP"].ToString(),
+        //            group = row["IPGroupDescription"].ToString(),
+        //            label = row["DeviceDescription"].ToString()
+        //        })
+        //        .ToList();
+
+        //    var nodeIds = new HashSet<string>(nodes.Select(n => n.id));
+
+        //    var links = dt_NetworkResults.AsEnumerable()
+        //        .GroupBy(row => row["IPGroupDescription"].ToString())
+        //        .SelectMany(group =>
+        //        {
+        //            var devices = group.Select(row => row["IP"].ToString())
+        //                               .Where(ip => nodeIds.Contains(ip))
+        //                               .ToList();
+        //            return devices.Skip(1)
+        //                          .Select(ip => new { source = devices.First(), target = ip });
+        //        })
+        //        .ToList();
+
+        //    var graphData = new { nodes, links };
+
+        //    string json = JsonConvert.SerializeObject(graphData, Formatting.Indented);
+        //    File.WriteAllText(jsonFilePath, json, new UTF8Encoding(false));
+        //    Debug.WriteLine("✅ JSON erfolgreich erstellt: " + jsonFilePath);
+        //}
+
+
+
+
+
         private void GenerateJSON()
         {
             var nodes = dt_NetworkResults.AsEnumerable()
@@ -58,17 +94,38 @@ namespace MyNetworkMonitor
 
             var nodeIds = new HashSet<string>(nodes.Select(n => n.id));
 
-            var links = dt_NetworkResults.AsEnumerable()
-                .GroupBy(row => row["IPGroupDescription"].ToString())
-                .SelectMany(group =>
+            var links = new List<object>();
+
+            foreach (DataRow row in dt_NetworkResults.Rows)
+            {
+                string ip = row["IP"].ToString();
+                string group = row["IPGroupDescription"].ToString();
+
+                // Verknüpfungen innerhalb der Gruppen
+                var groupDevices = dt_NetworkResults.AsEnumerable()
+                    .Where(r => r["IPGroupDescription"].ToString() == group)
+                    .Select(r => r["IP"].ToString())
+                    .Where(ip => nodeIds.Contains(ip))
+                    .ToList();
+
+                links.AddRange(groupDevices.Skip(1).Select(targetIp => new { source = groupDevices.First(), target = targetIp }));
+
+                // Verknüpfungen aus LookUpIPs hinzufügen
+                if (row["LookUpIPs"] != DBNull.Value)
                 {
-                    var devices = group.Select(row => row["IP"].ToString())
-                                       .Where(ip => nodeIds.Contains(ip))
-                                       .ToList();
-                    return devices.Skip(1)
-                                  .Select(ip => new { source = devices.First(), target = ip });
-                })
-                .ToList();
+                    string lookupIps = row["LookUpIPs"].ToString();
+                    var lookupIpList = lookupIps
+                        .Split(new[] { '\n', '\r', ',' }, StringSplitOptions.RemoveEmptyEntries)
+                        .Select(ip => ip.Trim())
+                        .Where(ip => nodeIds.Contains(ip)) // Nur existierende IPs verbinden
+                        .ToList();
+
+                    foreach (var lookupIp in lookupIpList)
+                    {
+                        links.Add(new { source = ip, target = lookupIp });
+                    }
+                }
+            }
 
             var graphData = new { nodes, links };
 
@@ -76,6 +133,23 @@ namespace MyNetworkMonitor
             File.WriteAllText(jsonFilePath, json, new UTF8Encoding(false));
             Debug.WriteLine("✅ JSON erfolgreich erstellt: " + jsonFilePath);
         }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         private void GenerateHTML()
         {
