@@ -81,6 +81,62 @@ namespace MyNetworkMonitor
 
 
 
+        //private void GenerateJSON()
+        //{
+        //    var nodes = dt_NetworkResults.AsEnumerable()
+        //        .Select(row => new
+        //        {
+        //            id = row["IP"].ToString(),
+        //            group = row["IPGroupDescription"].ToString(),
+        //            label = row["DeviceDescription"].ToString()
+        //        })
+        //        .ToList();
+
+        //    var nodeIds = new HashSet<string>(nodes.Select(n => n.id));
+
+        //    var links = new List<object>();
+
+        //    foreach (DataRow row in dt_NetworkResults.Rows)
+        //    {
+        //        string ip = row["IP"].ToString();
+        //        string group = row["IPGroupDescription"].ToString();
+
+        //        // Verknüpfungen innerhalb der Gruppen
+        //        var groupDevices = dt_NetworkResults.AsEnumerable()
+        //            .Where(r => r["IPGroupDescription"].ToString() == group)
+        //            .Select(r => r["IP"].ToString())
+        //            .Where(ip => nodeIds.Contains(ip))
+        //            .ToList();
+
+        //        links.AddRange(groupDevices.Skip(1).Select(targetIp => new { source = groupDevices.First(), target = targetIp }));
+
+        //        // Verknüpfungen aus LookUpIPs hinzufügen
+        //        if (row["LookUpIPs"] != DBNull.Value)
+        //        {
+        //            string lookupIps = row["LookUpIPs"].ToString();
+        //            var lookupIpList = lookupIps
+        //                .Split(new[] { '\n', '\r', ',' }, StringSplitOptions.RemoveEmptyEntries)
+        //                .Select(ip => ip.Trim())
+        //                .Where(ip => nodeIds.Contains(ip)) // Nur existierende IPs verbinden
+        //                .ToList();
+
+        //            foreach (var lookupIp in lookupIpList)
+        //            {
+        //                links.Add(new { source = ip, target = lookupIp });
+        //            }
+        //        }
+        //    }
+
+        //    var graphData = new { nodes, links };
+
+        //    string json = JsonConvert.SerializeObject(graphData, Formatting.Indented);
+        //    File.WriteAllText(jsonFilePath, json, new UTF8Encoding(false));
+        //    Debug.WriteLine("✅ JSON erfolgreich erstellt: " + jsonFilePath);
+        //}
+
+
+
+
         private void GenerateJSON()
         {
             var nodes = dt_NetworkResults.AsEnumerable()
@@ -110,14 +166,15 @@ namespace MyNetworkMonitor
 
                 links.AddRange(groupDevices.Skip(1).Select(targetIp => new { source = groupDevices.First(), target = targetIp }));
 
-                // Verknüpfungen aus LookUpIPs hinzufügen
+                // Verknüpfungen aus LookUpIPs hinzufügen (wenn LookUpIP nicht gleich IP ist)
                 if (row["LookUpIPs"] != DBNull.Value)
                 {
                     string lookupIps = row["LookUpIPs"].ToString();
                     var lookupIpList = lookupIps
                         .Split(new[] { '\n', '\r', ',' }, StringSplitOptions.RemoveEmptyEntries)
                         .Select(ip => ip.Trim())
-                        .Where(ip => nodeIds.Contains(ip)) // Nur existierende IPs verbinden
+                        .Where(lookupIp => lookupIp != ip) // Ignoriert LookUpIP, wenn sie mit IP in der gleichen Zeile übereinstimmt
+                        .Where(lookupIp => nodeIds.Contains(lookupIp)) // Nur existierende IPs verbinden
                         .ToList();
 
                     foreach (var lookupIp in lookupIpList)
@@ -133,10 +190,6 @@ namespace MyNetworkMonitor
             File.WriteAllText(jsonFilePath, json, new UTF8Encoding(false));
             Debug.WriteLine("✅ JSON erfolgreich erstellt: " + jsonFilePath);
         }
-
-
-
-
 
 
 
