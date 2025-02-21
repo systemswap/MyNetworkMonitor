@@ -3435,13 +3435,11 @@ namespace MyNetworkMonitor
 
         }
 
-        private void Button_Click(object sender, RoutedEventArgs e)
-        {
-            //new VisualizeTopologie(_scannResults.ResultTable); // Erstellt das Netzwerk & öffnet den Browser automatisch
-            VisualizeTopologieWindow vtWindow = new VisualizeTopologieWindow(_scannResults.ResultTable);
-            vtWindow.Show(); 
-        }
 
-       
+        private void bt_VisualizeTable_Click(object sender, RoutedEventArgs e)
+        {            
+            VisualizeTopologieWindow vtWindow = new VisualizeTopologieWindow(_scannResults.ResultTable);
+            vtWindow.Show();
+        }
     }
 }
