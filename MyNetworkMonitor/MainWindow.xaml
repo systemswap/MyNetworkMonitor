@@ -66,8 +66,7 @@
                         </Button>
                         <Label Content="IPs to Scan:" Grid.Row="8" VerticalContentAlignment="Bottom" HorizontalContentAlignment="Left" HorizontalAlignment="Left" Width="145" Height="23" VerticalAlignment="Center" Margin="10,0,0,0" Background="#FF189AB4" />
                         <Label x:Name="lb_IPsToScan" Content="..."  Grid.Row="8" Grid.Column="1" Height="23" VerticalAlignment="Center" HorizontalAlignment="Left" Width="148" VerticalContentAlignment="Bottom" HorizontalContentAlignment="Center" Background="#FF189AB4"/>
-                        <Label Content="Attention:&#x0a;all scanning methods are sent&#x0a;via the selected network interface" HorizontalAlignment="Left" Margin="10,52,0,0" Grid.Row="6" VerticalAlignment="Top" Grid.ColumnSpan="2" Width="293" FontWeight="Bold"/>
-                        <Button Content="Button" HorizontalAlignment="Left" Margin="114,220,0,0" Grid.Row="6" VerticalAlignment="Top" Click="Button_Click"/>
+                        <Label Content="Attention:&#x0a;all scanning methods are sent&#x0a;via the selected network interface" HorizontalAlignment="Left" Margin="10,52,0,0" Grid.Row="6" VerticalAlignment="Top" Grid.ColumnSpan="2" Width="293" FontWeight="Bold"/>                     
                     </Grid>
                 </TabItem>
 
@@ -92,7 +91,7 @@
                         </Button>
                         <DataGrid x:Name="dgv_IP_Ranges" Margin="10,10,10,10" Grid.Row="1" AutoGeneratingColumn="dgv_IPRanges_OnAutoGeneratingColumn" CanUserAddRows="False" CanUserDeleteRows="False">
 
-                            
+
 
                             <DataGrid.GroupStyle>
                                 <!-- Style for groups at top level. -->
@@ -203,16 +202,16 @@
                     </Grid>
                 </TabItem>
                 <TabItem x:Name="tab_Services" Header="Services">
-                    
+
                     <Grid>
                         <DataGrid x:Name="dg_Services" AutoGenerateColumns="False" CanUserAddRows="False" Margin="10,68,10,62" AlternationCount="2" AlternatingRowBackground="#FFE6E6E6">
-                            
+
                             <DataGrid.ContextMenu>
                                 <ContextMenu x:Name="contextMenu_dg_Services">
-                                    <MenuItem Header="get default ports)" Click="dg_ServicesGetDefaultPorts_Click"/>                                    
+                                    <MenuItem Header="get default ports)" Click="dg_ServicesGetDefaultPorts_Click"/>
                                 </ContextMenu>
                             </DataGrid.ContextMenu>
-                            
+
                             <DataGrid.GroupStyle>
                                 <GroupStyle>
                                     <GroupStyle.HeaderTemplate>
@@ -237,7 +236,7 @@
                                 <DataGridTextColumn Header="HelloBytePackage" Binding="{Binding HelloBytePackage}" IsReadOnly="True"/>
                                 <DataGridTextColumn Header="ResponsedBytePackagePart" Binding="{Binding ResponsedBytePackagePart}" IsReadOnly="True"/>
                                 <DataGridTextColumn Header="ResponsedContainsString" Binding="{Binding ResponsedContainsString}" IsReadOnly="True"/>
-                               
+
                             </DataGrid.Columns>
                         </DataGrid>
                         <CheckBox Name="chk_Services_showOnlyIsRunning" Content="show only running services" HorizontalAlignment="Left" Margin="43,34,0,0" VerticalAlignment="Top" Width="193" Checked="chk_Services_showOnlyIsRunning_Checked" Unchecked="chk_Services_showOnlyIsRunning_Unchecked"/>
@@ -437,8 +436,8 @@
                           CacheMode="BitmapCache"
                           >
 
-                    
-                    
+
+
                     <DataGrid.ContextMenu>
                         <ContextMenu x:Name="contextMenu">
                             <MenuItem Header="scan selected IPs (select method / services first)" Click="ScanSelectedIPs_Click"/>
@@ -446,7 +445,7 @@
                         </ContextMenu>
                     </DataGrid.ContextMenu>
 
-                 
+
 
                     <DataGrid.Resources>
 
@@ -672,6 +671,7 @@
                 <Label Grid.Column="7" Content="Diff. DNS Server" HorizontalAlignment="Center" VerticalAlignment="Center" Width="112" Height="25"/>
                 <Label Grid.Column="2" Content="Methodes to collect Device Information:" HorizontalAlignment="Left" Margin="4,0,0,0" VerticalAlignment="Center" Width="248"/>
             </Grid>
+            <Button x:Name="bt_VisualizeTable" Grid.Column="1" Content="Visualize Table Information" HorizontalAlignment="Left" Margin="11,52,0,0" Grid.Row="1" VerticalAlignment="Top" Grid.RowSpan="2" Width="252" Click="bt_VisualizeTable_Click"/>
         </Grid>
 
     </Grid>
