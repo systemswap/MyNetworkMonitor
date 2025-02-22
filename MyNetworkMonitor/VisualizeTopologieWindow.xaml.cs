@@ -205,25 +205,24 @@ namespace MyNetworkMonitor
         private void GenerateJSON()
         {
             var nodes = dt_NetworkResults.AsEnumerable()
-                         .Select(row => new
-                         {
-                             id = row["IP"].ToString(),
-                             group = row["IPGroupDescription"].ToString(),
-                             label = row["DeviceDescription"].ToString(),
-                             hostname = row.Table.Columns.Contains("Hostname") ? row["Hostname"].ToString() : "Unbekannt" // Hostname hinzufügen
-                         })
-                         .ToList();
-
+                .Select(row => new
+                {
+                    id = row["IP"].ToString(),
+                    group = row["IPGroupDescription"].ToString(),
+                    label = row["DeviceDescription"].ToString(),
+                    hostname = row.Table.Columns.Contains("HostName") ? row["HostName"].ToString() : "Unbekannt"
+                })
+                .ToList();
 
             var nodeIds = new HashSet<string>(nodes.Select(n => n.id));
-            var links = new HashSet<(string source, string target)>();
+            var links = new HashSet<(string source, string target, bool isLookup)>();
 
             foreach (DataRow row in dt_NetworkResults.Rows)
             {
                 string ip = row["IP"].ToString();
                 string group = row["IPGroupDescription"].ToString();
 
-                // Find other devices in the same group
+                // 🔹 Gruppeninterne Verbindungen (ohne Pfeile)
                 var groupDevices = dt_NetworkResults.AsEnumerable()
                     .Where(r => r["IPGroupDescription"].ToString() == group)
                     .Select(r => r["IP"].ToString())
@@ -235,38 +234,45 @@ namespace MyNetworkMonitor
                     string firstDevice = groupDevices.First();
                     foreach (var targetIp in groupDevices.Skip(1))
                     {
-                        links.Add((firstDevice, targetIp));
+                        links.Add((firstDevice, targetIp, false)); // Kein Pfeil
                     }
                 }
 
-                // Process LookUpIPs
+                // 🔹 LookUpIP-Verbindungen (mit Pfeilen in richtiger Richtung!)
                 if (row["LookUpIPs"] != DBNull.Value)
                 {
                     string lookupIps = row["LookUpIPs"].ToString();
                     var lookupIpList = lookupIps
                         .Split(new[] { '\n', '\r', ',' }, StringSplitOptions.RemoveEmptyEntries)
                         .Select(ip => ip.Trim())
-                        .Where(lookupIp => lookupIp != ip) // Avoid self-referencing
-                        .Where(lookupIp => nodeIds.Contains(lookupIp)) // Only link existing nodes
+                        .Where(lookupIp => lookupIp != ip) // Keine Selbstreferenz
+                        .Where(lookupIp => nodeIds.Contains(lookupIp)) // Nur existierende Nodes
                         .ToList();
 
                     foreach (var lookupIp in lookupIpList)
                     {
-                        links.Add((ip, lookupIp));
+                        links.Add((lookupIp, ip, true)); // 🔹 Richtige Richtung: LookUpIP → Gerät
                     }
                 }
             }
 
+            // JSON mit der neuen `isLookup`-Eigenschaft
             var graphData = new
             {
                 nodes,
-                links = links.Select(l => new { source = l.source, target = l.target }).ToList()
+                links = links.Select(l => new
+                {
+                    source = l.source,
+                    target = l.target,
+                    isLookup = l.isLookup // Setze `isLookup: true` für LookUpIP-Links
+                }).ToList()
             };
 
             string json = JsonConvert.SerializeObject(graphData, Formatting.Indented);
             File.WriteAllText(jsonFilePath, json, new UTF8Encoding(false));
             Debug.WriteLine("✅ JSON erfolgreich erstellt: " + jsonFilePath);
         }
+
 
 
 
@@ -307,7 +313,9 @@ namespace MyNetworkMonitor
                     .nodeAutoColorBy('group')
                     .nodeLabel(node => node.group + ' # ' + node.label + ' # ' + node.id + ' # ' + node.hostname)
                     .linkDirectionalParticles(2)
-                    .linkDirectionalParticleSpeed(0.02);
+                    .linkDirectionalParticleSpeed(0.02)
+                    .linkDirectionalArrowLength(link => link.isLookup ? 5 : 0) // Pfeile nur für LookUpIP-Links
+                    .linkDirectionalArrowRelPos(1); // Pfeil am Ende des Links
 
         // Verzögere den Zoom-Aufruf, damit sich das Layout stabilisieren kann
         setTimeout(() => {{
