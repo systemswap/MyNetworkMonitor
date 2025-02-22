@@ -13,6 +13,12 @@ using Microsoft.Web.WebView2.Core;
 
 namespace MyNetworkMonitor
 {
+    //3d-force-graph.min.js
+    //https://unpkg.com/3d-force-graph@1.76.1/dist/
+
+    //three.module.min.js
+    //three.core.min.js
+    //https://unpkg.com/browse/three@0.173.0/build/
     public partial class VisualizeTopologieWindow : Window
     {
         private readonly DataTable dt_NetworkResults;
