@@ -267,18 +267,12 @@ namespace MyNetworkMonitor
 
 
 
-
-
-
-
-
-
-
-
-
         private void GenerateHTML()
         {
-            string htmlContent = @"
+            // Lese den bereits erzeugten JSON-Inhalt ein
+            string jsonContent = File.ReadAllText(jsonFilePath, new UTF8Encoding(false));
+
+            string htmlContent = $@"
 <!DOCTYPE html>
 <html lang=""de"">
 <head>
@@ -286,44 +280,38 @@ namespace MyNetworkMonitor
     <title>Netzwerk Topologie</title>
     <script src=""https://unpkg.com/3d-force-graph""></script>
     <style>
-        body { margin: 0; overflow: hidden; }
-        #3d-graph { width: 100vw; height: 100vh; position: absolute; }
+        body {{ margin: 0; overflow: hidden; }}
+        #3d-graph {{ width: 100vw; height: 100vh; position: absolute; }}
     </style>
 </head>
 <body>
     <div id=""3d-graph""></div>
     <script>
-        function resizeGraph() {
+        // JSON-Daten werden direkt eingebettet
+        const graphData = {jsonContent};
+
+        function resizeGraph() {{
             const graphElement = document.getElementById('3d-graph');
             graphElement.style.width = window.innerWidth + 'px';
             graphElement.style.height = window.innerHeight + 'px';
-            if (Graph) {
+            if (Graph) {{
                 Graph.width(window.innerWidth).height(window.innerHeight);
-            }
-        }
+            }}
+        }}
 
-        let Graph;
-        fetch('graph_data.json')
-            .then(response => response.json())
-            .then(data => {
-                console.log('✅ JSON erfolgreich geladen:', data);
-
-                Graph = ForceGraph3D()(document.getElementById('3d-graph'))
-                    .graphData(data)
+        let Graph = ForceGraph3D()(document.getElementById('3d-graph'))
+                    .graphData(graphData)
                     .nodeAutoColorBy('group')
                     .nodeLabel(node => node.group + ' # ' + node.label + ' # ' + node.id)
                     .linkDirectionalParticles(2)
                     .linkDirectionalParticleSpeed(0.02);
 
-                // Verzögere den Zoom-Aufruf, damit sich das Layout stabilisieren kann
-                setTimeout(() => {
-                    Graph.zoomToFit(500, 100);
-                }, 1000);
+        // Verzögere den Zoom-Aufruf, damit sich das Layout stabilisieren kann
+        setTimeout(() => {{
+            Graph.zoomToFit(500, 100);
+        }}, 1000);
 
-                resizeGraph();
-            })
-            .catch(error => console.error('❌ Fehler beim Laden der JSON-Datei:', error));
-
+        resizeGraph();
         window.addEventListener('resize', resizeGraph);
     </script>
 </body>
@@ -332,6 +320,16 @@ namespace MyNetworkMonitor
             File.WriteAllText(htmlFilePath, htmlContent, Encoding.UTF8);
             Debug.WriteLine("✅ HTML erfolgreich erstellt: " + htmlFilePath);
         }
+
+
+
+
+
+
+
+
+
+
 
         private void StartWebServer(int port)
         {
