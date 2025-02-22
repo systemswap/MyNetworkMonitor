@@ -46,6 +46,20 @@ namespace MyNetworkMonitor
             GenerateJSON();
             GenerateHTML();
 
+            // JSON-Datei löschen
+            try
+            {
+                if (File.Exists(jsonFilePath))
+                {
+                    File.Delete(jsonFilePath);
+                    Debug.WriteLine("🗑️ JSON-Datei gelöscht: " + jsonFilePath);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("⚠️ Fehler beim Löschen der JSON-Datei: " + ex.Message);
+            }
+
             // Starte den Webserver nur, wenn er noch nicht gestartet wurde.
             if (!_serverStarted)
             {
