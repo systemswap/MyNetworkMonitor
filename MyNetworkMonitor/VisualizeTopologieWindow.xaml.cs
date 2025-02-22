@@ -307,6 +307,17 @@ namespace MyNetworkMonitor
         body {{ margin: 0; overflow: hidden; }}
         #3d-graph {{ width: 100vw; height: 100vh; position: absolute; }}
     </style>
+ <script>
+        function checkBrowser() {{
+            const userAgent = navigator.userAgent;
+            if (!userAgent.includes(""Chrome"") && !userAgent.includes(""Edg"")) {{
+                alert(""This file works only with Chrome or Edge."");
+                document.body.innerHTML = """"; // Löscht den Seiteninhalt
+            }}
+        }}
+        
+        document.addEventListener(""DOMContentLoaded"", checkBrowser);
+    </script>
 </head>
 <body>
     <div id=""3d-graph""></div>
