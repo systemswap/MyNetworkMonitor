@@ -363,7 +363,7 @@ namespace MyNetworkMonitor
         string _lastScanResultXML = Path.Combine(Path.Combine(Environment.ExpandEnvironmentVariables("%userprofile%"), "Documents"), @"MyNetworkMonitor\Settings\lastScanResult.xml");
         string _InternalNamesXML = Path.Combine(Path.Combine(Environment.ExpandEnvironmentVariables("%userprofile%"), "Documents"), @"MyNetworkMonitor\Settings\internalNames.xml");
         string _ServicesXML = Path.Combine(Path.Combine(Environment.ExpandEnvironmentVariables("%userprofile%"), "Documents"), @"MyNetworkMonitor\Settings\services.xml");
-
+        string _3dForceGraphPath = Path.Combine(Path.Combine(Environment.ExpandEnvironmentVariables("%userprofile%"), "Documents"), @"MyNetworkMonitor\3dFoceGraph");
 
 
         IPGroupData ipGroupData = new IPGroupData();
@@ -3438,7 +3438,7 @@ namespace MyNetworkMonitor
 
         private void bt_VisualizeTable_Click(object sender, RoutedEventArgs e)
         {            
-            VisualizeTopologieWindow vtWindow = new VisualizeTopologieWindow(_scannResults.ResultTable);
+            VisualizeTopologieWindow vtWindow = new VisualizeTopologieWindow(_3dForceGraphPath, _scannResults.ResultTable);
             vtWindow.Show();
         }
     }
