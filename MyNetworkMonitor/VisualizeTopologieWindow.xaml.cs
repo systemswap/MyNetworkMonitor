@@ -219,59 +219,146 @@ namespace MyNetworkMonitor
 
         private void GenerateJSON()
         {
+            // Erstelle Knoten – jeder Zeile wird ein eindeutiger numerischer Index als ID zugewiesen.
             var nodes = dt_NetworkResults.AsEnumerable()
-                .Select(row => new
+                .Select((row, index) => new
                 {
-                    id = row["IP"].ToString(),
+                    id = index.ToString(), // Eindeutige Nummer als ID
                     group = row["IPGroupDescription"].ToString(),
                     label = row["DeviceDescription"].ToString(),
-                    hostname = row.Table.Columns.Contains("HostName") ? row["HostName"].ToString() : "Unbekannt"
+                    hostname = row.Table.Columns.Contains("Hostname") ? row["Hostname"].ToString() : "Unbekannt",
+                    ip = row["IP"].ToString(),
+                    mac = row["Mac"].ToString(), // MAC-Adresse
+                    lookupIPs = row["LookUpIPs"] != DBNull.Value ? row["LookUpIPs"].ToString() : ""
                 })
                 .ToList();
 
-            var nodeIds = new HashSet<string>(nodes.Select(n => n.id));
-            var links = new HashSet<(string source, string target, bool isLookup)>();
+            var links = new HashSet<(string source, string target, bool isLookup, bool isDuplicate)>();
 
-            foreach (DataRow row in dt_NetworkResults.Rows)
+            // 🔹 Gruppeninterne Verbindungen: Knoten, die zur selben IPGroupDescription gehören, werden verbunden.
+            foreach (var group in nodes.GroupBy(n => n.group))
             {
-                string ip = row["IP"].ToString();
-                string group = row["IPGroupDescription"].ToString();
-
-                // 🔹 Gruppeninterne Verbindungen (ohne Pfeile)
-                var groupDevices = dt_NetworkResults.AsEnumerable()
-                    .Where(r => r["IPGroupDescription"].ToString() == group)
-                    .Select(r => r["IP"].ToString())
-                    .Where(ip => nodeIds.Contains(ip))
-                    .ToList();
-
-                if (groupDevices.Count > 1)
+                var groupNodes = group.ToList();
+                if (groupNodes.Count > 1)
                 {
-                    string firstDevice = groupDevices.First();
-                    foreach (var targetIp in groupDevices.Skip(1))
+                    var firstNode = groupNodes.First();
+                    foreach (var node in groupNodes.Skip(1))
                     {
-                        links.Add((firstDevice, targetIp, false)); // Kein Pfeil
-                    }
-                }
-
-                // 🔹 LookUpIP-Verbindungen (mit Pfeilen in richtiger Richtung!)
-                if (row["LookUpIPs"] != DBNull.Value)
-                {
-                    string lookupIps = row["LookUpIPs"].ToString();
-                    var lookupIpList = lookupIps
-                        .Split(new[] { '\n', '\r', ',' }, StringSplitOptions.RemoveEmptyEntries)
-                        .Select(ip => ip.Trim())
-                        .Where(lookupIp => lookupIp != ip) // Keine Selbstreferenz
-                        .Where(lookupIp => nodeIds.Contains(lookupIp)) // Nur existierende Nodes
-                        .ToList();
-
-                    foreach (var lookupIp in lookupIpList)
-                    {
-                        links.Add((lookupIp, ip, true)); // 🔹 Richtige Richtung: LookUpIP → Gerät
+                        links.Add((firstNode.id, node.id, false, false));
                     }
                 }
             }
 
-            // JSON mit der neuen `isLookup`-Eigenschaft
+            // 🔹 LookUpIPs-Verbindungen: Für jede Zeile wird, falls vorhanden, der LookUpIPs-Text verarbeitet.
+            foreach (var node in nodes)
+            {
+                if (!string.IsNullOrEmpty(node.lookupIPs))
+                {
+                    var lookupList = node.lookupIPs
+                        .Split(new[] { '\n', '\r', ',' }, StringSplitOptions.RemoveEmptyEntries)
+                        .Select(ip => ip.Trim())
+                        .Where(lookupIp => lookupIp != node.ip) // keine Selbstreferenz
+                        .ToList();
+
+                    foreach (var lookupIp in lookupList)
+                    {
+                        // Finde alle Knoten, deren IP dem LookUpIP entspricht
+                        var targetNodes = nodes.Where(n => n.ip == lookupIp).ToList();
+                        foreach (var target in targetNodes)
+                        {
+                            if (target.id != node.id)
+                            {
+                                // Richtige Richtung: LookUpIP-Knoten → aktueller Knoten
+                                links.Add((target.id, node.id, true, false));
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Hilfsset um Duplikat-Paare nur einmal zu erfassen
+            var duplicatePairs = new HashSet<(string, string)>();
+
+            // 🔹 Duplikate basierend auf IP – nur wenn der Hostname nicht leer ist.
+            foreach (var group in nodes.GroupBy(n => n.ip))
+            {
+                var groupNodes = group.Where(n => !string.IsNullOrWhiteSpace(n.hostname)).ToList();
+                if (groupNodes.Count > 1)
+                {
+                    for (int i = 0; i < groupNodes.Count; i++)
+                    {
+                        for (int j = i + 1; j < groupNodes.Count; j++)
+                        {
+                            var id1 = groupNodes[i].id;
+                            var id2 = groupNodes[j].id;
+                            var pair = (id1.CompareTo(id2) < 0 ? id1 : id2, id1.CompareTo(id2) < 0 ? id2 : id1);
+                            if (!duplicatePairs.Contains(pair))
+                            {
+                                duplicatePairs.Add(pair);
+                                // Bidirektionale Duplicate-Links hinzufügen:
+                                links.Add((id1, id2, false, true));
+                                links.Add((id2, id1, false, true));
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 🔹 Duplikate basierend auf Hostname – nur wenn der Hostname nicht leer ist.
+            foreach (var group in nodes.GroupBy(n => n.hostname))
+            {
+                if (string.IsNullOrWhiteSpace(group.Key))
+                    continue;
+
+                var groupNodes = group.ToList();
+                if (groupNodes.Count > 1)
+                {
+                    for (int i = 0; i < groupNodes.Count; i++)
+                    {
+                        for (int j = i + 1; j < groupNodes.Count; j++)
+                        {
+                            var id1 = groupNodes[i].id;
+                            var id2 = groupNodes[j].id;
+                            var pair = (id1.CompareTo(id2) < 0 ? id1 : id2, id1.CompareTo(id2) < 0 ? id2 : id1);
+                            if (!duplicatePairs.Contains(pair))
+                            {
+                                duplicatePairs.Add(pair);
+                                links.Add((id1, id2, false, true));
+                                links.Add((id2, id1, false, true));
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 🔹 Duplikate basierend auf MAC-Adresse – nur wenn die MAC-Adresse nicht leer ist.
+            foreach (var group in nodes.GroupBy(n => n.mac))
+            {
+                if (string.IsNullOrWhiteSpace(group.Key))
+                    continue;
+
+                var groupNodes = group.ToList();
+                if (groupNodes.Count > 1)
+                {
+                    for (int i = 0; i < groupNodes.Count; i++)
+                    {
+                        for (int j = i + 1; j < groupNodes.Count; j++)
+                        {
+                            var id1 = groupNodes[i].id;
+                            var id2 = groupNodes[j].id;
+                            var pair = (id1.CompareTo(id2) < 0 ? id1 : id2, id1.CompareTo(id2) < 0 ? id2 : id1);
+                            if (!duplicatePairs.Contains(pair))
+                            {
+                                duplicatePairs.Add(pair);
+                                links.Add((id1, id2, false, true));
+                                links.Add((id2, id1, false, true));
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Erstelle das finale Graph-Datenobjekt inklusive aller Knoten und Links.
             var graphData = new
             {
                 nodes,
@@ -279,7 +366,8 @@ namespace MyNetworkMonitor
                 {
                     source = l.source,
                     target = l.target,
-                    isLookup = l.isLookup // Setze `isLookup: true` für LookUpIP-Links
+                    isLookup = l.isLookup,
+                    isDuplicate = l.isDuplicate
                 }).ToList()
             };
 
@@ -289,11 +377,12 @@ namespace MyNetworkMonitor
         }
 
 
-        // <script src = "libs/3d-force-graph.min.js" ></ script >
-        // < script src=""https://unpkg.com/3d-force-graph""></script>
+
+
+
         private void GenerateHTML()
         {
-            // Lese den bereits erzeugten JSON-Inhalt ein
+            // Lese den JSON-Inhalt ein
             string jsonContent = File.ReadAllText(jsonFilePath, new UTF8Encoding(false));
 
             string htmlContent = $@"
@@ -302,20 +391,19 @@ namespace MyNetworkMonitor
 <head>
     <meta charset=""UTF-8"">
     <title>Netzwerk Topologie</title>
-        <script src=""https://unpkg.com/3d-force-graph""></script>
+    <script src=""https://unpkg.com/3d-force-graph""></script>
     <style>
         body {{ margin: 0; overflow: hidden; }}
         #3d-graph {{ width: 100vw; height: 100vh; position: absolute; }}
     </style>
- <script>
+    <script>
         function checkBrowser() {{
             const userAgent = navigator.userAgent;
             if (!userAgent.includes(""Chrome"") && !userAgent.includes(""Edg"")) {{
-                alert(""This file works only with Chrome or Edge."");
-                document.body.innerHTML = """"; // Löscht den Seiteninhalt
+                alert(""Diese Datei funktioniert nur mit Chrome oder Edge."");
+                document.body.innerHTML = """";
             }}
         }}
-        
         document.addEventListener(""DOMContentLoaded"", checkBrowser);
     </script>
 </head>
@@ -337,16 +425,16 @@ namespace MyNetworkMonitor
         let Graph = ForceGraph3D()(document.getElementById('3d-graph'))
                     .graphData(graphData)
                     .nodeAutoColorBy('group')
-                    .nodeLabel(node => node.group + ' # ' + node.label + ' # ' + node.id + ' # ' + node.hostname)
+                    // Hier werden ausschließlich IP und Hostname als Label angezeigt.
+                    .nodeLabel(node => node.group + ' # ' + node.label + ' # ' + node.ip + ' # ' + node.hostname)
                     .linkDirectionalParticles(2)
-                    .linkDirectionalParticleSpeed(0.02)
-                    .linkDirectionalArrowLength(link => link.isLookup ? 5 : 0) // Pfeile nur für LookUpIP-Links
-                    .linkDirectionalArrowRelPos(1) // Pfeil am Ende des Links
-                    .linkWidth(link => link.isLookup ? 1.1 : 1) // Dickere Linien für doppelte IPs/Hostnamen
-                    .linkColor(link => link.isLookup ? 'red' : 'white'); 
-                    
+                    // Pfeile und Linkstile: LookUpIPs oder doppelte Verbindungen werden hervorgehoben.
+                    .linkDirectionalArrowLength(link => (link.isLookup || link.isDuplicate) ? 5 : 0)
+                    .linkDirectionalArrowRelPos(1)
+                    .linkWidth(link => (link.isLookup || link.isDuplicate) ? 1.1 : 1)
+                    .linkColor(link => link.isDuplicate ? 'red' : link.isLookup ? 'orange' : 'white');
 
-        // Verzögere den Zoom-Aufruf, damit sich das Layout stabilisieren kann
+        // Verzögere den Zoom, damit sich das Layout stabilisiert
         setTimeout(() => {{
             Graph.zoomToFit(500, 100);
         }}, 1000);
@@ -360,6 +448,7 @@ namespace MyNetworkMonitor
             File.WriteAllText(htmlFilePath, htmlContent, Encoding.UTF8);
             Debug.WriteLine("✅ HTML erfolgreich erstellt: " + htmlFilePath);
         }
+
 
 
 
