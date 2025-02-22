@@ -23,12 +23,15 @@ namespace MyNetworkMonitor
         // Statische Variable, damit der Webserver nur einmal gestartet wird.
         private static bool _serverStarted = false;
 
-        public VisualizeTopologieWindow(DataTable resultTable)
+        public VisualizeTopologieWindow(string GraphPath, DataTable resultTable)
         {
             InitializeComponent();
             dt_NetworkResults = resultTable ?? throw new ArgumentNullException(nameof(resultTable));
 
-            basePath = AppDomain.CurrentDomain.BaseDirectory;
+            if (!Directory.Exists(GraphPath)) Directory.CreateDirectory(GraphPath);
+
+            //basePath = AppDomain.CurrentDomain.BaseDirectory;
+            basePath = GraphPath;
             jsonFilePath = Path.Combine(basePath, "graph_data.json");
             htmlFilePath = Path.Combine(basePath, "network_topology.html");
 
@@ -137,6 +140,61 @@ namespace MyNetworkMonitor
 
 
 
+        //private void GenerateJSON()
+        //{
+        //    var nodes = dt_NetworkResults.AsEnumerable()
+        //        .Select(row => new
+        //        {
+        //            id = row["IP"].ToString(),
+        //            group = row["IPGroupDescription"].ToString(),
+        //            label = row["DeviceDescription"].ToString()
+        //        })
+        //        .ToList();
+
+        //    var nodeIds = new HashSet<string>(nodes.Select(n => n.id));
+
+        //    var links = new List<object>();
+
+        //    foreach (DataRow row in dt_NetworkResults.Rows)
+        //    {
+        //        string ip = row["IP"].ToString();
+        //        string group = row["IPGroupDescription"].ToString();
+
+        //        // Verknüpfungen innerhalb der Gruppen
+        //        var groupDevices = dt_NetworkResults.AsEnumerable()
+        //            .Where(r => r["IPGroupDescription"].ToString() == group)
+        //            .Select(r => r["IP"].ToString())
+        //            .Where(ip => nodeIds.Contains(ip))
+        //            .ToList();
+
+        //        links.AddRange(groupDevices.Skip(1).Select(targetIp => new { source = groupDevices.First(), target = targetIp }));
+
+        //        // Verknüpfungen aus LookUpIPs hinzufügen (wenn LookUpIP nicht gleich IP ist)
+        //        if (row["LookUpIPs"] != DBNull.Value)
+        //        {
+        //            string lookupIps = row["LookUpIPs"].ToString();
+        //            var lookupIpList = lookupIps
+        //                .Split(new[] { '\n', '\r', ',' }, StringSplitOptions.RemoveEmptyEntries)
+        //                .Select(ip => ip.Trim())
+        //                .Where(lookupIp => lookupIp != ip) // Ignoriert LookUpIP, wenn sie mit IP in der gleichen Zeile übereinstimmt
+        //                .Where(lookupIp => nodeIds.Contains(lookupIp)) // Nur existierende IPs verbinden
+        //                .ToList();
+
+        //            foreach (var lookupIp in lookupIpList)
+        //            {
+        //                links.Add(new { source = ip, target = lookupIp });
+        //            }
+        //        }
+        //    }
+
+        //    var graphData = new { nodes, links };
+
+        //    string json = JsonConvert.SerializeObject(graphData, Formatting.Indented);
+        //    File.WriteAllText(jsonFilePath, json, new UTF8Encoding(false));
+        //    Debug.WriteLine("✅ JSON erfolgreich erstellt: " + jsonFilePath);
+        //}
+
+
         private void GenerateJSON()
         {
             var nodes = dt_NetworkResults.AsEnumerable()
@@ -149,49 +207,57 @@ namespace MyNetworkMonitor
                 .ToList();
 
             var nodeIds = new HashSet<string>(nodes.Select(n => n.id));
-
-            var links = new List<object>();
+            var links = new HashSet<(string source, string target)>();
 
             foreach (DataRow row in dt_NetworkResults.Rows)
             {
                 string ip = row["IP"].ToString();
                 string group = row["IPGroupDescription"].ToString();
 
-                // Verknüpfungen innerhalb der Gruppen
+                // Find other devices in the same group
                 var groupDevices = dt_NetworkResults.AsEnumerable()
                     .Where(r => r["IPGroupDescription"].ToString() == group)
                     .Select(r => r["IP"].ToString())
                     .Where(ip => nodeIds.Contains(ip))
                     .ToList();
 
-                links.AddRange(groupDevices.Skip(1).Select(targetIp => new { source = groupDevices.First(), target = targetIp }));
+                if (groupDevices.Count > 1)
+                {
+                    string firstDevice = groupDevices.First();
+                    foreach (var targetIp in groupDevices.Skip(1))
+                    {
+                        links.Add((firstDevice, targetIp));
+                    }
+                }
 
-                // Verknüpfungen aus LookUpIPs hinzufügen (wenn LookUpIP nicht gleich IP ist)
+                // Process LookUpIPs
                 if (row["LookUpIPs"] != DBNull.Value)
                 {
                     string lookupIps = row["LookUpIPs"].ToString();
                     var lookupIpList = lookupIps
                         .Split(new[] { '\n', '\r', ',' }, StringSplitOptions.RemoveEmptyEntries)
                         .Select(ip => ip.Trim())
-                        .Where(lookupIp => lookupIp != ip) // Ignoriert LookUpIP, wenn sie mit IP in der gleichen Zeile übereinstimmt
-                        .Where(lookupIp => nodeIds.Contains(lookupIp)) // Nur existierende IPs verbinden
+                        .Where(lookupIp => lookupIp != ip) // Avoid self-referencing
+                        .Where(lookupIp => nodeIds.Contains(lookupIp)) // Only link existing nodes
                         .ToList();
 
                     foreach (var lookupIp in lookupIpList)
                     {
-                        links.Add(new { source = ip, target = lookupIp });
+                        links.Add((ip, lookupIp));
                     }
                 }
             }
 
-            var graphData = new { nodes, links };
+            var graphData = new
+            {
+                nodes,
+                links = links.Select(l => new { source = l.source, target = l.target }).ToList()
+            };
 
             string json = JsonConvert.SerializeObject(graphData, Formatting.Indented);
             File.WriteAllText(jsonFilePath, json, new UTF8Encoding(false));
             Debug.WriteLine("✅ JSON erfolgreich erstellt: " + jsonFilePath);
         }
-
-
 
 
 
