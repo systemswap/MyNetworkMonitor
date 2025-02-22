@@ -10,6 +10,7 @@ using System.Threading;
 using System.Collections.Generic;
 using System.Windows;
 using Microsoft.Web.WebView2.Core;
+using System.Xml.Linq;
 
 namespace MyNetworkMonitor
 {
@@ -204,13 +205,15 @@ namespace MyNetworkMonitor
         private void GenerateJSON()
         {
             var nodes = dt_NetworkResults.AsEnumerable()
-                .Select(row => new
-                {
-                    id = row["IP"].ToString(),
-                    group = row["IPGroupDescription"].ToString(),
-                    label = row["DeviceDescription"].ToString()
-                })
-                .ToList();
+                         .Select(row => new
+                         {
+                             id = row["IP"].ToString(),
+                             group = row["IPGroupDescription"].ToString(),
+                             label = row["DeviceDescription"].ToString(),
+                             hostname = row.Table.Columns.Contains("Hostname") ? row["Hostname"].ToString() : "Unbekannt" // Hostname hinzufügen
+                         })
+                         .ToList();
+
 
             var nodeIds = new HashSet<string>(nodes.Select(n => n.id));
             var links = new HashSet<(string source, string target)>();
@@ -302,7 +305,7 @@ namespace MyNetworkMonitor
         let Graph = ForceGraph3D()(document.getElementById('3d-graph'))
                     .graphData(graphData)
                     .nodeAutoColorBy('group')
-                    .nodeLabel(node => node.group + ' # ' + node.label + ' # ' + node.id)
+                    .nodeLabel(node => node.group + ' # ' + node.label + ' # ' + node.id + ' # ' + node.hostname)
                     .linkDirectionalParticles(2)
                     .linkDirectionalParticleSpeed(0.02);
 
