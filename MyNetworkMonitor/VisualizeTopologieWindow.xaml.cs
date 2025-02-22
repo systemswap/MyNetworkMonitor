@@ -39,8 +39,9 @@ namespace MyNetworkMonitor
 
             //basePath = AppDomain.CurrentDomain.BaseDirectory;
             basePath = GraphPath;
-            jsonFilePath = Path.Combine(basePath, "graph_data.json");
-            htmlFilePath = Path.Combine(basePath, "network_topology.html");
+            string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            jsonFilePath = Path.Combine(basePath, $"graph_data_{timestamp}.json");
+            htmlFilePath = Path.Combine(basePath, $"network_topology_{timestamp}.html");
 
             GenerateJSON();
             GenerateHTML();
@@ -274,8 +275,8 @@ namespace MyNetworkMonitor
         }
 
 
-
-
+        // <script src = "libs/3d-force-graph.min.js" ></ script >
+        // < script src=""https://unpkg.com/3d-force-graph""></script>
         private void GenerateHTML()
         {
             // Lese den bereits erzeugten JSON-Inhalt ein
@@ -287,7 +288,7 @@ namespace MyNetworkMonitor
 <head>
     <meta charset=""UTF-8"">
     <title>Netzwerk Topologie</title>
-    <script src=""https://unpkg.com/3d-force-graph""></script>
+        <script src=""https://unpkg.com/3d-force-graph""></script>
     <style>
         body {{ margin: 0; overflow: hidden; }}
         #3d-graph {{ width: 100vw; height: 100vh; position: absolute; }}
@@ -395,7 +396,7 @@ namespace MyNetworkMonitor
         private async void InitializeWebView2()
         {
             await webView.EnsureCoreWebView2Async(null);
-            webView.CoreWebView2.Navigate("http://localhost:8080");
+            webView.CoreWebView2.Navigate("http://localhost:8080/" + htmlFilePath);
         }
     }
 }
