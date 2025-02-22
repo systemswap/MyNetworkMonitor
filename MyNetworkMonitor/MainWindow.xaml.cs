@@ -2433,21 +2433,25 @@ namespace MyNetworkMonitor
 
         public void groupScanResult()
         {
-            if ((bool)chk_ScanResults_groupDevices.IsChecked)
+            try
             {
-                string groupProperty = "IPGroupDescription";
-                if (!cvTasks_scanResults.GroupDescriptions.OfType<PropertyGroupDescription>().Any(g => g.PropertyName == groupProperty))
+                if ((bool)chk_ScanResults_groupDevices.IsChecked)
                 {
-                    cvTasks_scanResults.GroupDescriptions.Add(new PropertyGroupDescription(groupProperty));
-                }
+                    string groupProperty = "IPGroupDescription";
+                    if (!cvTasks_scanResults.GroupDescriptions.OfType<PropertyGroupDescription>().Any(g => g.PropertyName == groupProperty))
+                    {
+                        cvTasks_scanResults.GroupDescriptions.Add(new PropertyGroupDescription(groupProperty));
+                    }
 
-                cvTasks_scanResults.GroupDescriptions.Add(new PropertyGroupDescription("DeviceDescription"));                
+                    cvTasks_scanResults.GroupDescriptions.Add(new PropertyGroupDescription("DeviceDescription"));
+                }
+                else
+                {
+                    var itemToRemove = cvTasks_scanResults.GroupDescriptions.OfType<PropertyGroupDescription>().FirstOrDefault(pgd => pgd.PropertyName == "DeviceDescription");
+                    cvTasks_scanResults.GroupDescriptions.Remove(itemToRemove);
+                }
             }
-            else
-            {
-                var itemToRemove = cvTasks_scanResults.GroupDescriptions.OfType<PropertyGroupDescription>().FirstOrDefault(pgd => pgd.PropertyName == "DeviceDescription");
-                cvTasks_scanResults.GroupDescriptions.Remove(itemToRemove);
-            }
+            catch { }
         }
 
 
