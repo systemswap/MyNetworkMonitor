@@ -341,7 +341,10 @@ namespace MyNetworkMonitor
                     .linkDirectionalParticles(2)
                     .linkDirectionalParticleSpeed(0.02)
                     .linkDirectionalArrowLength(link => link.isLookup ? 5 : 0) // Pfeile nur für LookUpIP-Links
-                    .linkDirectionalArrowRelPos(1); // Pfeil am Ende des Links
+                    .linkDirectionalArrowRelPos(1) // Pfeil am Ende des Links
+                    .linkWidth(link => link.isLookup ? 1.1 : 1) // Dickere Linien für doppelte IPs/Hostnamen
+                    .linkColor(link => link.isLookup ? 'red' : 'white'); 
+                    
 
         // Verzögere den Zoom-Aufruf, damit sich das Layout stabilisieren kann
         setTimeout(() => {{
