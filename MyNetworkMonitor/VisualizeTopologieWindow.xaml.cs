@@ -257,18 +257,16 @@ namespace MyNetworkMonitor
                     var lookupList = node.lookupIPs
                         .Split(new[] { '\n', '\r', ',' }, StringSplitOptions.RemoveEmptyEntries)
                         .Select(ip => ip.Trim())
-                        .Where(lookupIp => lookupIp != node.ip) // keine Selbstreferenz
+                        .Where(lookupIp => lookupIp != node.ip) // Nur einzelne IPs, die gleich der aktuellen IP sind, werden ausgeschlossen
                         .ToList();
 
                     foreach (var lookupIp in lookupList)
                     {
-                        // Finde alle Knoten, deren IP dem LookUpIP entspricht
                         var targetNodes = nodes.Where(n => n.ip == lookupIp).ToList();
                         foreach (var target in targetNodes)
                         {
                             if (target.id != node.id)
                             {
-                                // Richtige Richtung: LookUpIP-Knoten → aktueller Knoten
                                 links.Add((target.id, node.id, true, false));
                             }
                         }
@@ -282,7 +280,8 @@ namespace MyNetworkMonitor
             // 🔹 Duplikate basierend auf IP – nur wenn der Hostname nicht leer ist.
             foreach (var group in nodes.GroupBy(n => n.ip))
             {
-                var groupNodes = group.Where(n => !string.IsNullOrWhiteSpace(n.hostname)).ToList();
+                //var groupNodes = group.Where(n => !string.IsNullOrWhiteSpace(n.hostname)).ToList();
+                var groupNodes = group.ToList(); // Kein Filtern mehr nach hostname!
                 if (groupNodes.Count > 1)
                 {
                     for (int i = 0; i < groupNodes.Count; i++)
