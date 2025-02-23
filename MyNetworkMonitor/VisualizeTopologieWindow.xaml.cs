@@ -69,9 +69,9 @@ namespace MyNetworkMonitor
             // JSON-Datei löschen
             try
             {
-                if (File.Exists(jsonFilePath))
+                if (System.IO.File.Exists(jsonFilePath))
                 {
-                    File.Delete(jsonFilePath);
+                    System.IO.File.Delete(jsonFilePath);
                     Debug.WriteLine("🗑️ JSON-Datei gelöscht: " + jsonFilePath);
                 }
             }
@@ -391,7 +391,7 @@ namespace MyNetworkMonitor
             };
 
             string json = JsonConvert.SerializeObject(graphData, Formatting.Indented);
-            File.WriteAllText(jsonFilePath, json, new UTF8Encoding(false));
+            System.IO.File.WriteAllText(jsonFilePath, json, new UTF8Encoding(false));
             Debug.WriteLine("✅ JSON erfolgreich erstellt: " + jsonFilePath);
         }
 
@@ -402,7 +402,7 @@ namespace MyNetworkMonitor
         private void GenerateHTML()
         {
             // Lese den JSON-Inhalt ein
-            string jsonContent = File.ReadAllText(jsonFilePath, new UTF8Encoding(false));
+            string jsonContent = System.IO.File.ReadAllText(jsonFilePath, new UTF8Encoding(false));
 
             string htmlContent = $@"
 <!DOCTYPE html>
@@ -464,7 +464,7 @@ namespace MyNetworkMonitor
 </body>
 </html>
 ";
-            File.WriteAllText(htmlFilePath, htmlContent, Encoding.UTF8);
+            System.IO.File.WriteAllText(htmlFilePath, htmlContent, Encoding.UTF8);
             Debug.WriteLine("✅ HTML erfolgreich erstellt: " + htmlFilePath);
         }
 
@@ -498,9 +498,9 @@ namespace MyNetworkMonitor
                     if (filePath == basePath)
                         filePath = htmlFilePath; // Standardseite
 
-                    if (File.Exists(filePath))
+                    if (System.IO.File.Exists(filePath))
                     {
-                        byte[] buffer = File.ReadAllBytes(filePath);
+                        byte[] buffer = System.IO.File.ReadAllBytes(filePath);
                         response.ContentType = GetMimeType(filePath);
                         response.ContentEncoding = Encoding.UTF8;
                         response.ContentLength64 = buffer.Length;
