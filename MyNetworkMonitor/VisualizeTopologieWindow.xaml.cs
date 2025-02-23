@@ -47,11 +47,13 @@ namespace MyNetworkMonitor
 
             try
             {
+                bool shouldCopy = true; // Standardmäßig Datei kopieren
+
                 // Prüfen, ob die Quelldatei existiert
                 if (!System.IO.File.Exists(sourceFile))
                 {
-                    Console.WriteLine("❌ Die Datei '3d-force-graph.min.js' wurde nicht gefunden!");
-                    return;
+                    Console.WriteLine("⚠️  Die Datei '3d-force-graph.min.js' existiert nicht im Quellordner.");
+                    shouldCopy = false; // Keine Aktion möglich, aber Programm läuft weiter
                 }
 
                 // Sicherstellen, dass das Zielverzeichnis existiert
@@ -61,27 +63,29 @@ namespace MyNetworkMonitor
                 }
 
                 // Prüfen, ob die Datei bereits existiert und die Größe unterschiedlich ist
-                if (System.IO.File.Exists(destinationFile))
+                if (shouldCopy && System.IO.File.Exists(destinationFile))
                 {
                     long sourceSize = new FileInfo(sourceFile).Length;
                     long destSize = new FileInfo(destinationFile).Length;
 
                     if (sourceSize == destSize)
                     {
-                        Console.WriteLine("✅ Die Datei existiert bereits mit derselben Größe. Kein Kopieren nötig.");
-                        return;
+                        Console.WriteLine("✅ Die Datei ist bereits aktuell. Kein Kopieren erforderlich.");
+                        shouldCopy = false; // Keine erneute Kopie notwendig
                     }
                 }
 
-                // Datei kopieren (überschreiben, falls nötig)
-                System.IO.File.Copy(sourceFile, destinationFile, true);
-                Console.WriteLine("✅ '3d-force-graph.min.js' wurde erfolgreich nach 'graphpath/libs/' kopiert!");
+                // Falls `shouldCopy` immer noch `true` ist, kopiere die Datei
+                if (shouldCopy)
+                {
+                    System.IO.File.Copy(sourceFile, destinationFile, true);
+                    Console.WriteLine("✅ '3d-force-graph.min.js' wurde erfolgreich nach 'graphpath/libs/' kopiert!");
+                }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"❌ Fehler beim Kopieren der Datei: {ex.Message}");
             }
-
 
 
 
