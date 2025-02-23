@@ -16,28 +16,28 @@ using System.Reflection;
 
 namespace MyNetworkMonitor
 {
-//1. 3d-force-graph
-//    Download: https://unpkg.com/3d-force-graph@1.71.0/dist/3d-force-graph.min.js
+    //1. 3d-force-graph.min.js
+    //    Download: https://unpkg.com/browse/3d-force-graph@1.76.1/dist/
 
-//2. accessor-fn
-//    Download: https://unpkg.com/accessor-fn@1.5.1/dist/accessor-fn.min.js
+    //2. accessor-fn.min.js 
+    //    Download: https://unpkg.com/browse/accessor-fn@1.5.1/dist/
 
-//3. kapsule
-//    Download: https://unpkg.com/kapsule@3.0.3/dist/kapsule.min.js
+    //3. kapsule.min.js 
+    //    Download: https://unpkg.com/browse/kapsule@1.16.0/dist/
 
-//4. three(Empfohlenes Modul)
-//    Empfohlenes Modul(ESM):
-//    import* as THREE from 'https://unpkg.com/three@latest/build/three.module.js';
+    //4. three(Empfohlenes Modul) 
+    //    Empfohlenes Modul(ESM):
+    //    import* as THREE from 'https://unpkg.com/three@latest/build/three.module.js';
 
-//    Falls eine ältere min.js benötigt wird:
-//        Letzte Version mit three.min.js: https://unpkg.com/three@0.160.1/build/three.min.js
-//        Neuere ESM-Version: https://unpkg.com/three@latest/build/three.module.js
+    //    Falls eine ältere min.js benötigt wird:
+    //        Letzte Version mit three.min.js: https://unpkg.com/three@0.160.1/build/three.min.js
+    //        Neuere ESM-Version: https://unpkg.com/browse/three@0.173.0/build/three.module.js
 
-//5. three-forcegraph
-//    Download: https://unpkg.com/three-forcegraph/dist/three-forcegraph.min.js
+    //5. three-forcegraph.min.js 
+    //    Download: https://unpkg.com/browse/three-forcegraph@1.42.12/dist/
 
-//6. three-render-objects
-//    Download: https://unpkg.com/three-render-objects/dist/three-render-objects.min.js
+    //6. three-render-objects.min.js
+    //    Download: https://unpkg.com/browse/three-render-objects@1.39.0/dist/
 
 
     public partial class VisualizeTopologieWindow : Window
