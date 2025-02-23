@@ -456,7 +456,7 @@ namespace MyNetworkMonitor
                     .graphData(graphData)
                     .nodeAutoColorBy('group')
                     // Hier werden ausschließlich IP und Hostname als Label angezeigt.
-                    .nodeLabel(node => node.group + ' # ' + node.label + ' # ' + node.ip + ' # ' + node.hostname)
+                    .nodeLabel(node => node.group + ' # ' + node.label + ' # ' + node.ip + ' # ' + node.hostname + ' # ' + node.mac)
                     .linkDirectionalParticles(2)
                     // Pfeile und Linkstile: LookUpIPs oder doppelte Verbindungen werden hervorgehoben.
                     .linkDirectionalArrowLength(link => (link.isLookup || link.isDuplicate) ? 5 : 0)
