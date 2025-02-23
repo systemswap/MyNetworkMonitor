@@ -39,6 +39,9 @@ namespace MyNetworkMonitor
     //6. three-render-objects.min.js
     //    Download: https://unpkg.com/browse/three-render-objects@1.39.0/dist/
 
+    //7. OrbitControls.js
+    //    Download: https://unpkg.com/browse/three-orbitcontrols@2.110.3/
+
 
     public partial class VisualizeTopologieWindow : Window
     {
