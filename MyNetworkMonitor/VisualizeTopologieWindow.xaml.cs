@@ -418,12 +418,7 @@ namespace MyNetworkMonitor
 <head>
     <meta charset=""UTF-8"">
     <title>Netzwerk Topologie</title>
-     //<script src=""libs/three.min.js""></script>
-        //<script src = ""libs/accessor-fn.min.js""></script >
-        //<script src=""libs/kapsule.min.js""></script>
-        //<script src = ""libs/three-render-objects.min.js""></script >
-        //<script src=""libs/three-forcegraph.min.js""></script>
-        //<script src = ""libs/3d-force-graph.min.js""></script >
+   <script src=""https://unpkg.com/3d-force-graph""></script>
     <style>
         body {{ margin: 0; overflow: hidden; }}
         #3d-graph {{ width: 100vw; height: 100vh; position: absolute; }}
