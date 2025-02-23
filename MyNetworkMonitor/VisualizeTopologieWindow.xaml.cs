@@ -11,15 +11,35 @@ using System.Collections.Generic;
 using System.Windows;
 using Microsoft.Web.WebView2.Core;
 using System.Xml.Linq;
+using static System.Net.WebRequestMethods;
+using System.Reflection;
 
 namespace MyNetworkMonitor
 {
-    //3d-force-graph.min.js
-    //https://unpkg.com/3d-force-graph@1.76.1/dist/
+//1. 3d-force-graph
+//    Download: https://unpkg.com/3d-force-graph@1.71.0/dist/3d-force-graph.min.js
 
-    //three.module.min.js
-    //three.core.min.js
-    //https://unpkg.com/browse/three@0.173.0/build/
+//2. accessor-fn
+//    Download: https://unpkg.com/accessor-fn@1.5.1/dist/accessor-fn.min.js
+
+//3. kapsule
+//    Download: https://unpkg.com/kapsule@3.0.3/dist/kapsule.min.js
+
+//4. three(Empfohlenes Modul)
+//    Empfohlenes Modul(ESM):
+//    import* as THREE from 'https://unpkg.com/three@latest/build/three.module.js';
+
+//    Falls eine ältere min.js benötigt wird:
+//        Letzte Version mit three.min.js: https://unpkg.com/three@0.160.1/build/three.min.js
+//        Neuere ESM-Version: https://unpkg.com/three@latest/build/three.module.js
+
+//5. three-forcegraph
+//    Download: https://unpkg.com/three-forcegraph/dist/three-forcegraph.min.js
+
+//6. three-render-objects
+//    Download: https://unpkg.com/three-render-objects/dist/three-render-objects.min.js
+
+
     public partial class VisualizeTopologieWindow : Window
     {
         private readonly DataTable dt_NetworkResults;
