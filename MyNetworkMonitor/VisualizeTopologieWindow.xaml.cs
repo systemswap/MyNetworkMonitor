@@ -396,6 +396,18 @@ namespace MyNetworkMonitor
         }
 
 
+        //online
+        //<script src=""https://unpkg.com/3d-force-graph""></script>
+
+        //offline
+        //<script src="libs/three.min.js"></script>
+        //<script src = "libs/accessor-fn.min.js"></script >
+        //<script src="libs/kapsule.min.js"></script>
+        //<script src = "libs/three-render-objects.min.js"></script >
+        //<script src="libs/three-forcegraph.min.js"></script>
+        //<script src = "libs/3d-force-graph.min.js"></script >
+
+
 
 
 
