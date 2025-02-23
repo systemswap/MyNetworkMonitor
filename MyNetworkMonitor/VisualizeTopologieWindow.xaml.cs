@@ -17,30 +17,10 @@ using System.Reflection;
 namespace MyNetworkMonitor
 {
     //1. 3d-force-graph.min.js
-    //    Download: https://unpkg.com/browse/3d-force-graph@1.76.1/dist/
-
-    //2. accessor-fn.min.js 
-    //    Download: https://unpkg.com/browse/accessor-fn@1.5.1/dist/
-
-    //3. kapsule.min.js 
-    //    Download: https://unpkg.com/browse/kapsule@1.16.0/dist/
-
-    //4. three(Empfohlenes Modul) 
-    //    Empfohlenes Modul(ESM):
-    //    import* as THREE from 'https://unpkg.com/three@latest/build/three.module.js';
-
-    //    Falls eine ältere min.js benötigt wird:
-    //        Letzte Version mit three.min.js: https://unpkg.com/three@0.160.1/build/three.min.js
-    //        Neuere ESM-Version: https://unpkg.com/browse/three@0.173.0/build/three.module.js
-
-    //5. three-forcegraph.min.js 
-    //    Download: https://unpkg.com/browse/three-forcegraph@1.42.12/dist/
-
-    //6. three-render-objects.min.js
-    //    Download: https://unpkg.com/browse/three-render-objects@1.39.0/dist/
-
-    //7. OrbitControls.js
-    //    Download: https://unpkg.com/browse/three-orbitcontrols@2.110.3/
+    //    Download: muss aus dem browser kommen.
+    // eine visualierung mit der online version
+    // dev tools mit F12 des browser öffnen
+    // im Tab Netzwerk datei auswählen und speichern unter
 
 
     public partial class VisualizeTopologieWindow : Window
@@ -59,6 +39,51 @@ namespace MyNetworkMonitor
             dt_NetworkResults = resultTable ?? throw new ArgumentNullException(nameof(resultTable));
 
             if (!Directory.Exists(GraphPath)) Directory.CreateDirectory(GraphPath);
+
+            // Quell- und Zielpfade
+            string sourceFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "3dForceGraphLib", "3d-force-graph.min.js");
+            string destinationFolder = Path.Combine(GraphPath, "libs");
+            string destinationFile = Path.Combine(destinationFolder, "3d-force-graph.min.js");
+
+            try
+            {
+                // Prüfen, ob die Quelldatei existiert
+                if (!System.IO.File.Exists(sourceFile))
+                {
+                    Console.WriteLine("❌ Die Datei '3d-force-graph.min.js' wurde nicht gefunden!");
+                    return;
+                }
+
+                // Sicherstellen, dass das Zielverzeichnis existiert
+                if (!Directory.Exists(destinationFolder))
+                {
+                    Directory.CreateDirectory(destinationFolder);
+                }
+
+                // Prüfen, ob die Datei bereits existiert und die Größe unterschiedlich ist
+                if (System.IO.File.Exists(destinationFile))
+                {
+                    long sourceSize = new FileInfo(sourceFile).Length;
+                    long destSize = new FileInfo(destinationFile).Length;
+
+                    if (sourceSize == destSize)
+                    {
+                        Console.WriteLine("✅ Die Datei existiert bereits mit derselben Größe. Kein Kopieren nötig.");
+                        return;
+                    }
+                }
+
+                // Datei kopieren (überschreiben, falls nötig)
+                System.IO.File.Copy(sourceFile, destinationFile, true);
+                Console.WriteLine("✅ '3d-force-graph.min.js' wurde erfolgreich nach 'graphpath/libs/' kopiert!");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Fehler beim Kopieren der Datei: {ex.Message}");
+            }
+
+
+
 
             //basePath = AppDomain.CurrentDomain.BaseDirectory;
             basePath = GraphPath;
@@ -403,12 +428,7 @@ namespace MyNetworkMonitor
         //<script src=""https://unpkg.com/3d-force-graph""></script>
 
         //offline
-        //<script src="libs/three.min.js"></script>
-        //<script src="libs/accessor-fn.min.js"></script >
-        //<script src="libs/kapsule.min.js"></script>
-        //<script src="libs/three-render-objects.min.js"></script >
-        //<script src="libs/three-forcegraph.min.js"></script>
-        //<script src="libs/3d-force-graph.min.js"></script >
+        //<script src=""./libs/3d-force-graph.min.js""></script >
 
         private void GenerateHTML()
         {
@@ -421,7 +441,7 @@ namespace MyNetworkMonitor
 <head>
     <meta charset=""UTF-8"">
     <title>Netzwerk Topologie</title>
-   <script src=""https://unpkg.com/3d-force-graph""></script>
+   <script src=""./libs/3d-force-graph.min.js""></script >
     <style>
         body {{ margin: 0; overflow: hidden; }}
         #3d-graph {{ width: 100vw; height: 100vh; position: absolute; }}
