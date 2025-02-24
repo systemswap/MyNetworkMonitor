@@ -3465,7 +3465,7 @@ namespace MyNetworkMonitor
             string paypalEmail = "thomas.mueller@tuta.io";
 
             // Betrag (anpassbar)
-            decimal amount = 20.00m;
+            decimal amount = 25.00m;
 
             // Währung (z.B. EUR, USD)
             string currency = "EUR";
