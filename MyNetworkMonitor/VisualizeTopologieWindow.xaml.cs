@@ -488,7 +488,7 @@ namespace MyNetworkMonitor
                     .linkDirectionalArrowLength(link => (link.isLookup || link.isDuplicatedIP || link.isDuplicatedHostname || link.isDuplicatedMac) ? 10 : 0)
                     .linkDirectionalArrowRelPos(1)
                     .linkWidth(link => (link.isLookup || link.isDuplicatedIP || link.isDuplicatedHostname || link.isDuplicatedMac) ? 3 : 1)
-                    .linkColor(link => link.isDuplicatedMac ? 'red' : link.isDuplicatedHostname ? 'orange' : link.isDuplicatedIP ? 'yellow' : link.isLookup ? 'Aqua' : 'white');
+                    .linkColor(link => link.isDuplicatedMac ? 'red' : link.isDuplicatedHostname ? 'orange' : link.isDuplicatedIP ? 'yellow' : link.isLookup ? 'cyan' : 'white');
 
         // Verzögere den Zoom, damit sich das Layout stabilisiert
         setTimeout(() => {{
