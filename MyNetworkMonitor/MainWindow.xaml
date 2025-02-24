@@ -64,6 +64,11 @@
                                 </Style>
                             </Button.Resources>
                         </Button>
+
+                        <Label Content="TimeOut Portscan:" HorizontalAlignment="Left" VerticalAlignment="Top" Height="25" Width="108" VerticalContentAlignment="Bottom" Margin="10,37,0,0" Grid.Row="5" Grid.RowSpan="2"/>
+                        <Label Content="{Binding Value, ElementName=slider_TimeOut}" HorizontalAlignment="Left" Margin="152,34,0,0" VerticalAlignment="Top" Height="25" VerticalContentAlignment="Bottom" Grid.ColumnSpan="2" Grid.Row="5" Grid.RowSpan="2"/>
+                        <Slider x:Name="slider_TimeOut" HorizontalAlignment="Left" VerticalAlignment="Top" Width="286" Maximum="3000" Minimum="10" Value="1000" TickFrequency="10" SmallChange="10" LargeChange="50"  Grid.Row="6" IsSnapToTickEnabled="True" ValueChanged="slider_TimeOut_ValueChanged" Height="18" Grid.ColumnSpan="2" Margin="10,22,0,0"/>
+
                         <Label Content="IPs to Scan:" Grid.Row="8" VerticalContentAlignment="Bottom" HorizontalContentAlignment="Left" HorizontalAlignment="Left" Width="145" Height="23" VerticalAlignment="Center" Margin="10,0,0,0" Background="#FF189AB4" />
                         <Label x:Name="lb_IPsToScan" Content="..."  Grid.Row="8" Grid.Column="1" Height="23" VerticalAlignment="Center" HorizontalAlignment="Left" Width="148" VerticalContentAlignment="Bottom" HorizontalContentAlignment="Center" Background="#FF189AB4"/>
                         <Label Content="Attention:&#x0a;all scanning methods are sent&#x0a;via the selected network interface" HorizontalAlignment="Left" Margin="10,52,0,0" Grid.Row="6" VerticalAlignment="Top" Grid.ColumnSpan="2" Width="293" FontWeight="Bold"/>
@@ -645,14 +650,13 @@
 
                 </Grid>
             </Grid>
-            <Slider x:Name="slider_TimeOut" HorizontalAlignment="Left" VerticalAlignment="Top" Width="311" Maximum="3000" Minimum="10" Value="1000" TickFrequency="10" SmallChange="10" LargeChange="50" Grid.Row="1" IsSnapToTickEnabled="True" ValueChanged="slider_TimeOut_ValueChanged" Height="18" Margin="18,7,0,0"/>
-            <Grid>
+
+            <Grid Grid.ColumnSpan="2" Margin="10,268,1487,410" Grid.Row="2">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="125"/>
                     <ColumnDefinition/>
                 </Grid.ColumnDefinitions>
-                <Label Content="TimeOut Portscan:" HorizontalAlignment="Center" VerticalAlignment="Center" Height="25" Width="108" VerticalContentAlignment="Bottom"/>
-                <Label Grid.Column="1" Content="{Binding Value, ElementName=slider_TimeOut}" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Center" Height="25" VerticalContentAlignment="Bottom"/>
+
             </Grid>
             <Grid Grid.Column="1">
                 <Grid.ColumnDefinitions>
@@ -673,6 +677,47 @@
                 <Label Grid.Column="2" Content="Methodes to collect Device Information:" HorizontalAlignment="Left" Margin="4,0,0,0" VerticalAlignment="Center" Width="248"/>
             </Grid>
             <Button x:Name="bt_VisualizeTable" Grid.Column="1" Content="Visualize Table Information" HorizontalAlignment="Left" Margin="11,52,0,0" Grid.Row="1" VerticalAlignment="Top" Grid.RowSpan="2" Width="252" Click="bt_VisualizeTable_Click"/>
+            <Button x:Name="bt_PayPal" 
+        HorizontalAlignment="Left" 
+        Margin="46,15,0,0" 
+        VerticalAlignment="Top" 
+        Width="210" 
+        Height="40" 
+        Grid.RowSpan="2"
+        Cursor="Hand"
+        BorderThickness="0" Click="bt_PayPal_Click">
+
+                <Button.Style>
+                    <Style TargetType="Button">
+                        <Setter Property="Opacity" Value="0.85"/>
+                        <Setter Property="Background" Value="Transparent"/>
+
+                        <Style.Triggers>
+                            <!-- Maus über Button: Opacity auf 100% setzen -->
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Opacity" Value="1.0"/>
+                            </Trigger>
+                            <!-- Maus verlässt den Button: Opacity zurück auf 85% -->
+                            <Trigger Property="IsMouseOver" Value="False">
+                                <Setter Property="Opacity" Value="0.85"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Image Source="/Resources/paypalDonate.png" 
+                   Stretch="Uniform" 
+                   RenderOptions.BitmapScalingMode="HighQuality"/>
+                    </ControlTemplate>
+                </Button.Template>
+
+            </Button>
+
+
+
+
         </Grid>
 
     </Grid>

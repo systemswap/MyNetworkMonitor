@@ -32,6 +32,7 @@
     <None Remove="Resources\gray_dot_s.png" />
     <None Remove="Resources\green_dot.png" />
     <None Remove="Resources\green_dot_s.png" />
+    <None Remove="Resources\paypalDonate.png" />
     <None Remove="Resources\Radar.png" />
     <None Remove="Resources\red_dot.png" />
     <None Remove="Resources\red_dotTB.png" />
@@ -168,6 +169,12 @@
     <Content Include="Resources\Radar.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Resources\paypalDonate.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
   </ItemGroup>
 
 </Project>
