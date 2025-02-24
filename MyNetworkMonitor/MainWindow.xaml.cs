@@ -3471,7 +3471,7 @@ namespace MyNetworkMonitor
             string currency = "EUR";
 
             // Zahlungszweck (optional)
-            string itemName = "25€ for personal usage is a fair amount for MyNetworkMonitor";
+            string itemName = "thanks for support of MyNetworkMonitor";
 
 
             try
@@ -3484,7 +3484,7 @@ namespace MyNetworkMonitor
                 var queryParameters = HttpUtility.ParseQueryString(string.Empty);
                 queryParameters["cmd"] = "_donations";
                 queryParameters["business"] = paypalEmail;
-                queryParameters["amount"] = amount.ToString("0.00", CultureInfo.InvariantCulture); // Vorgeschlagener Betrag
+                //queryParameters["amount"] = amount.ToString("0.00", CultureInfo.InvariantCulture); // Vorgeschlagener Betrag
                 queryParameters["currency_code"] = currency;
                 queryParameters["item_name"] = itemName; // Notiz, die auf der PayPal-Seite angezeigt wird
                 queryParameters["no_note"] = "0"; // Notizfeld aktivieren
