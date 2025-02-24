@@ -293,15 +293,15 @@
                         <Grid.RowDefinitions>
                             <RowDefinition Height="40"/>
                             <RowDefinition Height="40"/>
-                            <RowDefinition Height="20"/>
-                            <RowDefinition Height="21"/>
-                            <RowDefinition Height="116"/>
-                            <RowDefinition Height="28*"/>
-                            <RowDefinition Height="23*"/>
+                            <RowDefinition Height="15"/>
+                            <RowDefinition Height="14"/>
+                            <RowDefinition Height="128"/>
+                            <RowDefinition Height="59*"/>
+                            <RowDefinition Height="43*"/>
                         </Grid.RowDefinitions>
                         <Button x:Name="bt_openApplicationFolder" Content="open application folder" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Center" Click="bt_openApplicationFolder_Click" Width="133" Height="20"/>
                         <Button Grid.Row="1" x:Name="bt_opensettingsFolder" Content="open settings folder" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Center" Click="bt_openSettingsFolder_Click" Width="133" Height="20"/>
-                        <Label Content="colors for duplicated values" HorizontalAlignment="Left" Grid.Row="4" VerticalAlignment="Top" Height="26" Width="159" Margin="10,53,0,0"/>
+                        <Label Content="colors for duplicated values" HorizontalAlignment="Left" Grid.Row="4" VerticalAlignment="Top" Height="26" Width="159" Margin="10,60,0,0"/>
                         <Label Content="   matched&#10;InternalName" Background="LightGreen" HorizontalAlignment="Left" Margin="10,2,0,0" Grid.Row="4" VerticalAlignment="Top" MinWidth="65" Width="70" FontSize="10" Height="37" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
                         <Label Content="IP-Address" Background="Yellow" HorizontalAlignment="Left" Margin="10,0,0,3" Grid.Row="4" VerticalAlignment="Bottom" MinWidth="65" Width="70" FontSize="10" Height="34" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
                         <Label Content="Hostname" Background="DarkOrange" HorizontalAlignment="Left" Margin="85,0,0,3" Grid.Row="4" VerticalAlignment="Bottom" MinWidth="65" Width="70" FontSize="10" Height="34" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
@@ -322,7 +322,7 @@
                 explicite rejection received or nothing.&#10;&#10;
    no response: The target did not reply&#10;
                          at all (possible network issue)." Height="192" Margin="12,0,0,10"/>
-                        <Image x:Name="img_Logo" HorizontalAlignment="Left" Margin="48,0,0,0" Grid.Row="6" Width="220" Height="208" VerticalAlignment="Center"/>
+                        <Image x:Name="img_Logo" HorizontalAlignment="Left" Margin="45,18,0,12" Grid.Row="6" Width="220"/>
 
 
                     </Grid>
