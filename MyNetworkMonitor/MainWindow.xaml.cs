@@ -30,6 +30,7 @@ using System.Windows.Media.Imaging;
 using static MyNetworkMonitor.SupportMethods;
 using SnmpSharpNet;
 using System.Collections.ObjectModel;
+using System.Web;
 
 
 //using static System.Net.WebRequestMethods;
@@ -3456,6 +3457,55 @@ namespace MyNetworkMonitor
         {            
             VisualizeTopologieWindow vtWindow = new VisualizeTopologieWindow(_3dForceGraphPath, _scannResults.ResultTable);
             vtWindow.Show();
+        }
+
+        private void bt_PayPal_Click(object sender, RoutedEventArgs e)
+        {
+            // PayPal-Empfänger-Adresse (fix)
+            string paypalEmail = "thomas.mueller@tuta.io";
+
+            // Betrag (anpassbar)
+            decimal amount = 20.00m;
+
+            // Währung (z.B. EUR, USD)
+            string currency = "EUR";
+
+            // Zahlungszweck (optional)
+            string itemName = "25€ for personal usage is a fair amount for MyNetworkMonitor";
+
+
+            try
+            {
+                // Basis-URL für PayPal-Spenden
+                string baseUrl = "https://www.paypal.com/cgi-bin/webscr";
+
+                
+                // Query-Parameter für den Spendenlink
+                var queryParameters = HttpUtility.ParseQueryString(string.Empty);
+                queryParameters["cmd"] = "_donations";
+                queryParameters["business"] = paypalEmail;
+                queryParameters["amount"] = amount.ToString("0.00", CultureInfo.InvariantCulture); // Vorgeschlagener Betrag
+                queryParameters["currency_code"] = currency;
+                queryParameters["item_name"] = itemName; // Notiz, die auf der PayPal-Seite angezeigt wird
+                queryParameters["no_note"] = "0"; // Notizfeld aktivieren
+                queryParameters["no_shipping"] = "1"; // Kein Versand erforderlich
+                queryParameters["undefined_amount"] = "1"; // Benutzer kann Betrag auf PayPal ändern
+
+
+                // Endgültige URL generieren
+                string donationUrl = $"{baseUrl}?{queryParameters}";
+
+                // Öffne den Standardbrowser mit dem PayPal-Link
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = donationUrl,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Fehler beim Öffnen der PayPal-Spendenseite: " + ex.Message);
+            }
         }
     }
 }
