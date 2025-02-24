@@ -173,16 +173,6 @@ namespace MyNetworkMonitor.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] paypalDonate {
-            get {
-                object obj = ResourceManager.GetObject("paypalDonate", resourceCulture);
-                return ((byte[])(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type System.Byte[].
-        /// </summary>
         internal static byte[] red_dot_s {
             get {
                 object obj = ResourceManager.GetObject("red_dot_s", resourceCulture);
