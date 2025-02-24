@@ -285,7 +285,7 @@ namespace MyNetworkMonitor
                 })
                 .ToList();
 
-            var links = new HashSet<(string source, string target, bool isLookup, bool isDuplicate)>();
+            var links = new HashSet<(string source, string target, bool isLookup, bool isDuplicatedIP, bool isDuplicatedHostname, bool isDuplicatedMac)>();
 
             // 🔹 Gruppeninterne Verbindungen: Knoten, die zur selben IPGroupDescription gehören, werden verbunden.
             foreach (var group in nodes.GroupBy(n => n.group))
@@ -296,7 +296,7 @@ namespace MyNetworkMonitor
                     var firstNode = groupNodes.First();
                     foreach (var node in groupNodes.Skip(1))
                     {
-                        links.Add((firstNode.id, node.id, false, false));
+                        links.Add((firstNode.id, node.id, false, false, false, false));
                     }
                 }
             }
@@ -319,7 +319,7 @@ namespace MyNetworkMonitor
                         {
                             if (target.id != node.id)
                             {
-                                links.Add((target.id, node.id, true, false));
+                                links.Add((target.id, node.id, true, false, false, false));
                             }
                         }
                     }
@@ -347,8 +347,8 @@ namespace MyNetworkMonitor
                             {
                                 duplicatePairs.Add(pair);
                                 // Bidirektionale Duplicate-Links hinzufügen:
-                                links.Add((id1, id2, false, true));
-                                links.Add((id2, id1, false, true));
+                                links.Add((id1, id2, false, true, false, false));
+                                links.Add((id2, id1, false, true, false, false));
                             }
                         }
                     }
@@ -374,8 +374,8 @@ namespace MyNetworkMonitor
                             if (!duplicatePairs.Contains(pair))
                             {
                                 duplicatePairs.Add(pair);
-                                links.Add((id1, id2, false, true));
-                                links.Add((id2, id1, false, true));
+                                links.Add((id1, id2, false, false, true, false));
+                                links.Add((id2, id1, false, false, true, false));
                             }
                         }
                     }
@@ -401,8 +401,8 @@ namespace MyNetworkMonitor
                             if (!duplicatePairs.Contains(pair))
                             {
                                 duplicatePairs.Add(pair);
-                                links.Add((id1, id2, false, true));
-                                links.Add((id2, id1, false, true));
+                                links.Add((id1, id2, false, false, false, true));
+                                links.Add((id2, id1, false, false, false, true));
                             }
                         }
                     }
@@ -418,7 +418,9 @@ namespace MyNetworkMonitor
                     source = l.source,
                     target = l.target,
                     isLookup = l.isLookup,
-                    isDuplicate = l.isDuplicate
+                    isDuplicatedIP = l.isDuplicatedIP,
+                    isDuplicatedHostname = l.isDuplicatedHostname,
+                    isDuplicatedMac = l.isDuplicatedMac
                 }).ToList()
             };
 
@@ -483,10 +485,10 @@ namespace MyNetworkMonitor
                     .nodeLabel(node => node.group + ' # ' + node.label + ' # ' + node.ip + ' # ' + node.hostname + ' # ' + node.mac)
                     .linkDirectionalParticles(2)
                     // Pfeile und Linkstile: LookUpIPs oder doppelte Verbindungen werden hervorgehoben.
-                    .linkDirectionalArrowLength(link => (link.isLookup || link.isDuplicate) ? 5 : 0)
+                    .linkDirectionalArrowLength(link => (link.isLookup || link.isDuplicatedIP || link.isDuplicatedHostname || link.isDuplicatedMac) ? 10 : 0)
                     .linkDirectionalArrowRelPos(1)
-                    .linkWidth(link => (link.isLookup || link.isDuplicate) ? 1.1 : 1)
-                    .linkColor(link => link.isDuplicate ? 'red' : link.isLookup ? 'orange' : 'white');
+                    .linkWidth(link => (link.isLookup || link.isDuplicatedIP || link.isDuplicatedHostname || link.isDuplicatedMac) ? 3 : 1)
+                    .linkColor(link => link.isDuplicatedMac ? 'red' : link.isDuplicatedHostname ? 'orange' : link.isDuplicatedIP ? 'yellow' : link.isLookup ? 'Aqua' : 'white');
 
         // Verzögere den Zoom, damit sich das Layout stabilisiert
         setTimeout(() => {{

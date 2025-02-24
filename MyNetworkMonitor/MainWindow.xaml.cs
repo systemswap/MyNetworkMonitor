@@ -2709,32 +2709,44 @@ namespace MyNetworkMonitor
                     string rowHostname = row[hostnameIndex].ToString();
                     string rowMAC = row[macIndex].ToString();
 
-                    int countedDupInternalNames = _scannResults.ResultTable.Select("InternalName = '" + rowInternalName + "'").Length;
-                    if (countedDupInternalNames > 1)
+                    if (!string.IsNullOrEmpty(rowInternalName))
                     {
-                        if (!string.IsNullOrEmpty(rowInternalName)) e.Row.Background = Brushes.LightGreen;
-                    }
-
-                    int countedDupIPs = _scannResults.ResultTable.Select("IP = '" + rowIP + "'").Length;
-                    if (countedDupIPs > 1)
-                    {
-                        e.Row.Background = Brushes.Orange;
-                    }
-
-                    int countedDupHostnames = _scannResults.ResultTable.Select("Hostname = '" + rowHostname + "'").Length;
-                    if (countedDupHostnames > 1)
-                    {
-                        if (!string.IsNullOrEmpty(rowHostname))
+                        int countedDupInternalNames = _scannResults.ResultTable.Select("InternalName = '" + rowInternalName + "'").Length;
+                        if (countedDupInternalNames > 1)
                         {
-                            e.Row.Background = Brushes.DarkOrange;
+                            if (!string.IsNullOrEmpty(rowInternalName)) e.Row.Background = Brushes.LightGreen;
                         }
                     }
 
-                    int countedDupMac = _scannResults.ResultTable.Select("Mac = '" + rowMAC + "'").Length;
-                    if (countedDupMac > 1)
+                    if (!string.IsNullOrEmpty(rowIP))
                     {
-                        e.Row.Background = (Brush)new BrushConverter().ConvertFromString("#FFC73D3D");
-                        e.Row.Foreground = Brushes.WhiteSmoke;                        
+                        int countedDupIPs = _scannResults.ResultTable.Select("IP = '" + rowIP + "'").Length;
+                        if (countedDupIPs > 1)
+                        {
+                            e.Row.Background = Brushes.Orange;
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(rowHostname))
+                    {
+                        int countedDupHostnames = _scannResults.ResultTable.Select("Hostname = '" + rowHostname + "'").Length;
+                        if (countedDupHostnames > 1)
+                        {
+                            if (!string.IsNullOrEmpty(rowHostname))
+                            {
+                                e.Row.Background = Brushes.DarkOrange;
+                            }
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(rowMAC))
+                    {
+                        int countedDupMac = _scannResults.ResultTable.Select("Mac = '" + rowMAC + "'").Length;
+                        if (countedDupMac > 1)
+                        {
+                            e.Row.Background = (Brush)new BrushConverter().ConvertFromString("#FFC73D3D");
+                            e.Row.Foreground = Brushes.WhiteSmoke;
+                        }
                     }
                 }
             }
