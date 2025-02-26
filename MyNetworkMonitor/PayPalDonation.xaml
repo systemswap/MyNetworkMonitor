@@ -2,59 +2,86 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
-        Title="PayPal Donation" Height="400" Width="400">
+        Title="Thanks to Support Me" Height="500" Width="600" MinWidth="500" MinHeight="500"
+        WindowStartupLocation="CenterOwner">
+
+    <Window.Resources>
+        <!-- Abgerundeter Button-Style -->
+        <Style x:Key="RoundedButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#0070BA"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="Padding" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                            CornerRadius="2">
+                            <!-- Halb so hoch wie der Button für runde Enden -->
+                            <ContentPresenter HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
 
     <Grid Background="#F5F7FA">
-        <Border Background="White" Padding="20" CornerRadius="10"
-                Width="350" Height="340" HorizontalAlignment="Center" VerticalAlignment="Center">
-            <StackPanel Margin="-20,-20,-20,-20">
+        <Border Background="White" Padding="20" CornerRadius="20" Margin="32,10,31,17">
 
-                <!-- PayPal Logo -->
-                <Image Source="/Images/PayPal.png"
-                       Width="100" Height="40" Margin="0,30,0,20"
+            <Border.Effect>
+                <DropShadowEffect Color="Black" Opacity="0.2" BlurRadius="10" ShadowDepth="3"/>
+            </Border.Effect>
+
+            <StackPanel Margin="-20,11,-20,11">
+
+                <!-- Hero Image -->
+                <Image Source="/Images/paypal.png"
+                       Width="180" Height="80" Margin="0,20,0,10"
                        RenderOptions.BitmapScalingMode="HighQuality"
                        RenderOptions.EdgeMode="Aliased"
                        SnapsToDevicePixels="True"/>
 
-                <!-- "Donate to: MyCons" in einer Zeile -->
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                    <TextBlock Text="Donate to: " FontSize="14" FontWeight="Bold" Foreground="Black"/>
-                    <TextBlock x:Name="RecipientNameTextBlock" Text="MyCons"
-                               FontSize="14" FontWeight="Bold" Foreground="Black"/>
-                </StackPanel>
+                <!-- Emotionale Headline -->
+                <TextBlock Text="Make a Difference Today ❤️" FontSize="18" FontWeight="Bold" Foreground="Black"
+                           HorizontalAlignment="Center" Margin="0,5,0,10"/>
 
-                <!-- Zweck -->
-                <TextBlock x:Name="DonationPurposeTextBlock" Text="Purpose: MyNetworkMonitor"
-                           FontSize="12" Foreground="Gray"
-                           HorizontalAlignment="Center" Margin="0,5,0,20"/>
+                <!-- Kurzer Erklärtext -->
+                <TextBlock Text="Your support keeps this project alive." 
+                           FontSize="14" Foreground="Gray" TextAlignment="Center" 
+                           HorizontalAlignment="Center" Width="300" Margin="0,0,0,15"/>
 
                 <!-- Betrag + Währung in einer Zeile -->
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                    <TextBox x:Name="AmountTextBox" Width="80" FontSize="20" 
-                             TextAlignment="Center"
-                             Text="25"
-                             PreviewTextInput="AmountTextBox_PreviewTextInput"
+                    <TextBox x:Name="AmountTextBox" Width="80" FontSize="28"
+                             TextAlignment="Center" Text="25" PreviewTextInput="AmountTextBox_PreviewTextInput" 
                              PreviewKeyDown="AmountTextBox_PreviewKeyDown"/>
-                    <TextBlock x:Name="CurrencyTextBlock" Text="USD" FontSize="14" Foreground="Gray" Margin="10,5,0,0"/>
+                    <TextBlock x:Name="CurrencyTextBlock" Text="USD" FontSize="24" Foreground="Gray" Margin="5,0,0,0" Height="29"/>
                 </StackPanel>
 
                 <!-- Subscription Option -->
-                <CheckBox x:Name="SubscriptionCheckBox" Content="Make this a yearly subscription"
-                          FontSize="12" Foreground="Black" HorizontalAlignment="Center" Margin="0,5,0,25"
+                <CheckBox x:Name="SubscriptionCheckBox" Content="Make it a yearly donation"
+                          FontSize="12" Foreground="Black" HorizontalAlignment="Center" Margin="0,5,0,20"
                           Checked="SubscriptionCheckBox_Checked" Unchecked="SubscriptionCheckBox_Unchecked"/>
 
                 <!-- Spenden-Button -->
                 <Button x:Name="DonatePayPalButton"
-                        Content="Donate with PayPal" Click="DonateWithPayPal_Click"
-                        Background="#0070BA" Foreground="White"
-                        FontSize="14" Width="250" Height="40"
-                        BorderThickness="0"
-                        Cursor="Hand"/>
+                        Content="Donate Now 🚀" 
+                        Click="DonateWithPayPal_Click"
+                        Style="{StaticResource RoundedButtonStyle}" Width="250" Height="50" />
+
+                <!-- Social Proof (Dynamisch aktualisieren) -->
+                <TextBlock x:Name="DonationCountTextBlock"
+                           Text="Even a small donation helps!" 
+                           FontSize="12" Foreground="Gray" HorizontalAlignment="Center" Margin="0,10,0,0"/>
 
             </StackPanel>
         </Border>
 
-        <!-- WebView2 füllt das gesamte Fenster -->
+        <!-- WebView2 für PayPal -->
         <wv2:WebView2 x:Name="PayPalWebView"
                       Visibility="Collapsed" Margin="10,10,10,0"/>
     </Grid>
