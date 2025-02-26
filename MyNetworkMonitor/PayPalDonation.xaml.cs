@@ -13,11 +13,24 @@ namespace MyNetworkMonitor
     public partial class PayPalDonation : Window
     {
         private const string PayPalClientId = "thomas.mueller@tuta.io"; // Nur Client ID, kein Secret nötig!
-        private const string Currency = "USD"; // Währung
+        private string Currency = "USD"; // Währung
+        private bool isSubscription = false;
 
         public PayPalDonation()
         {
             InitializeComponent();
+
+            // Systemsprache abrufen
+            string systemLang = CultureInfo.CurrentCulture.TwoLetterISOLanguageName;
+
+            // Falls Deutsch → EUR, sonst USD
+            if (systemLang == "de")
+                Currency = "EUR";
+            else
+                Currency = "USD";
+
+            // Währung im UI aktualisieren
+            CurrencyTextBlock.Text = Currency;
         }
 
     
@@ -31,7 +44,7 @@ namespace MyNetworkMonitor
             decimal amount = Convert.ToDecimal(AmountTextBox.Text);
 
             // Währung (z.B. EUR, USD)
-            string currency = "USD";
+            string currency = Currency;
 
             // Zahlungszweck (optional)
             string itemName = "thanks for support of MyNetworkMonitor";
@@ -39,34 +52,38 @@ namespace MyNetworkMonitor
 
             try
             {
-                // Basis-URL für PayPal-Spenden
-                string baseUrl = "https://www.paypal.com/cgi-bin/webscr";
+              
+                    string baseUrl = "https://www.paypal.com/cgi-bin/webscr";
+                    var queryParameters = HttpUtility.ParseQueryString(string.Empty);
 
+                    if (SubscriptionCheckBox.IsChecked == true) // Wenn Abo ausgewählt
+                    {
+                        queryParameters["cmd"] = "_xclick-subscriptions";
+                        queryParameters["business"] = paypalEmail;
+                        queryParameters["a3"] = amount.ToString("0.00", CultureInfo.InvariantCulture);
+                        queryParameters["p3"] = "1"; // Alle 1 Jahr
+                        queryParameters["t3"] = "Y"; // Zeitraum = Jahr
+                        queryParameters["src"] = "1"; // Automatische Verlängerung aktivieren
+                        queryParameters["sra"] = "1"; // Falls gekündigt, keine neue Buchung
+                        queryParameters["currency_code"] = currency;
+                        queryParameters["item_name"] = itemName;
+                    }
+                    else // Einmalige Spende
+                    {
+                        queryParameters["cmd"] = "_donations";
+                        queryParameters["business"] = paypalEmail;
+                        queryParameters["amount"] = amount.ToString("0.00", CultureInfo.InvariantCulture);
+                        queryParameters["currency_code"] = currency;
+                        queryParameters["item_name"] = itemName;
+                        queryParameters["no_note"] = "0";
+                        queryParameters["no_shipping"] = "1";
+                        queryParameters["undefined_amount"] = "1";
+                    }
 
-                // Query-Parameter für den Spendenlink
-                var queryParameters = HttpUtility.ParseQueryString(string.Empty);
-                queryParameters["cmd"] = "_donations";
-                queryParameters["business"] = paypalEmail;
-                queryParameters["amount"] = amount.ToString("0.00", CultureInfo.InvariantCulture); // Vorgeschlagener Betrag
-                queryParameters["currency_code"] = currency;
-                queryParameters["item_name"] = itemName; // Notiz, die auf der PayPal-Seite angezeigt wird
-                queryParameters["no_note"] = "0"; // Notizfeld aktivieren
-                queryParameters["no_shipping"] = "1"; // Kein Versand erforderlich
-                queryParameters["undefined_amount"] = "1"; // Benutzer kann Betrag auf PayPal ändern
+                    string donationUrl = $"{baseUrl}?{queryParameters}";
 
-
-                // Endgültige URL generieren
-                string donationUrl = $"{baseUrl}?{queryParameters}";
-
-                // Öffne den Standardbrowser mit dem PayPal-Link
-                //Process.Start(new ProcessStartInfo
-                //{
-                //    FileName = donationUrl,
-                //    UseShellExecute = true
-                //});
-
-                // WebView2 sichtbar machen und gesamte UI ausblenden
-                PayPalWebView.Visibility = Visibility.Collapsed;
+                    // WebView2 sichtbar machen und gesamte UI ausblenden
+                    PayPalWebView.Visibility = Visibility.Collapsed;
                 PayPalWebView.Visibility = Visibility.Visible;
                 PayPalWebView.Source = new Uri(donationUrl);
 
@@ -99,6 +116,20 @@ namespace MyNetworkMonitor
             {
                 e.Handled = true;
             }
+        }
+
+        private void SubscriptionCheckBox_Checked(object sender, RoutedEventArgs e)
+        {
+            isSubscription = true;
+            AmountTextBox.Text = "99"; // Standardbetrag für jährliches Abo
+            //AmountTextBox.IsEnabled = false;
+        }
+
+        private void SubscriptionCheckBox_Unchecked(object sender, RoutedEventArgs e)
+        {
+            isSubscription = false;
+            AmountTextBox.Text = "25"; // Standardbetrag für einmalige Spende
+            //AmountTextBox.IsEnabled = true;
         }
     }
 }
