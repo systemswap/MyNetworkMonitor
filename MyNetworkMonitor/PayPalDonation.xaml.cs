@@ -47,7 +47,7 @@ namespace MyNetworkMonitor
             string currency = Currency;
 
             // Zahlungszweck (optional)
-            string itemName = "thanks for support of MyNetworkMonitor";
+            string itemName = "support of MyNetworkMonitor";
 
 
             try
