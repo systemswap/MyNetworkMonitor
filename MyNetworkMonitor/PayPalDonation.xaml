@@ -1,0 +1,69 @@
+﻿<Window x:Class="MyNetworkMonitor.PayPalDonation"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        Title="PayPal Donation" Height="321" Width="384">
+    <Grid Background="#F5F7FA">
+        <Border Background="White" Padding="20" CornerRadius="10"
+                Width="350" Height="277" HorizontalAlignment="Center" VerticalAlignment="Center">
+            <StackPanel Margin="-20,-20,-20,-20">
+
+                <!-- PayPal Logo -->
+                <Image Source="/Images/PayPal.png"
+                       Width="100" Height="40" Margin="0,0,0,10"
+                       RenderOptions.BitmapScalingMode="HighQuality"
+                       RenderOptions.EdgeMode="Aliased"
+                       SnapsToDevicePixels="True"/>
+
+                <!-- Title -->
+                <TextBlock Text="Donate to" FontSize="14" FontWeight="Bold" Foreground="Black"
+                           HorizontalAlignment="Center" Margin="0,10,0,2"/>
+
+                <!-- Empfänger-Name -->
+                <TextBlock x:Name="RecipientNameTextBlock" Text="MyCons"
+                           FontSize="16" FontWeight="Bold" Foreground="Black"
+                           HorizontalAlignment="Center"/>
+
+                <!-- Zweck -->
+                <TextBlock x:Name="DonationPurposeTextBlock" Text="Purpose: MyNetworkMonitor"
+                           FontSize="12" Foreground="Gray"
+                           HorizontalAlignment="Center" Margin="0,5,0,10"/>
+
+                <!-- Betrag -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                    <TextBlock Text="$" FontSize="20" VerticalAlignment="Center" />
+                    <TextBox x:Name="AmountTextBox" Width="80" FontSize="20" 
+             TextAlignment="Center" VerticalAlignment="Center" Margin="5,0,0,0"
+             Text="25"
+             PreviewTextInput="AmountTextBox_PreviewTextInput"
+             PreviewKeyDown="AmountTextBox_PreviewKeyDown"/>
+                </StackPanel>
+
+
+
+                <!-- Währung -->
+                <TextBlock Text="USD" FontSize="12" Foreground="Gray"
+                           HorizontalAlignment="Center" Margin="0,5,0,10"/>
+
+                <!-- Spenden-Button -->
+                <Button x:Name="DonatePayPalButton"
+                        Content="Donate with PayPal" Click="DonateWithPayPal_Click"
+                        Background="#0070BA" Foreground="White"
+                        FontSize="14" Width="250" Height="40"
+                        BorderThickness="0"
+                        Cursor="Hand"/>
+
+                <!-- Monatliche Spende (ausgeblendet) -->
+                <CheckBox x:Name="MonthlyDonationCheckBox" Content="Make this a monthly donation"
+                          FontSize="12" Foreground="Black" HorizontalAlignment="Center" Margin="0,5,0,10"
+                          Visibility="Hidden"/>
+                
+            </StackPanel>
+        </Border>
+
+        <!-- WebView2 füllt das gesamte Fenster -->
+        <wv2:WebView2 x:Name="PayPalWebView"
+                  Visibility="Collapsed"/>
+
+    </Grid>
+</Window>
