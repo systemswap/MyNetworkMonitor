@@ -11,10 +11,8 @@ using Microsoft.Web.WebView2.Core;
 namespace MyNetworkMonitor
 {
     public partial class PayPalDonation : Window
-    {
-        private const string PayPalClientId = "thomas.mueller@tuta.io"; // Nur Client ID, kein Secret nötig!
+    {       
         private string Currency = "USD"; // Währung
-        private bool isSubscription = false;
 
         public PayPalDonation()
         {
@@ -120,16 +118,12 @@ namespace MyNetworkMonitor
 
         private void SubscriptionCheckBox_Checked(object sender, RoutedEventArgs e)
         {
-            isSubscription = true;
             AmountTextBox.Text = "99"; // Standardbetrag für jährliches Abo
-            //AmountTextBox.IsEnabled = false;
         }
 
         private void SubscriptionCheckBox_Unchecked(object sender, RoutedEventArgs e)
         {
-            isSubscription = false;
             AmountTextBox.Text = "25"; // Standardbetrag für einmalige Spende
-            //AmountTextBox.IsEnabled = true;
         }
     }
 }
