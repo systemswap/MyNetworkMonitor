@@ -3464,7 +3464,8 @@ namespace MyNetworkMonitor
         private void bt_PayPal_Click(object sender, RoutedEventArgs e)
         {
             PayPalDonation payPalWindow = new PayPalDonation();
-            payPalWindow.Show(); // Blockiert bis Fenster geschlossen wird
+            payPalWindow.Owner = this;
+            payPalWindow.ShowDialog(); // Blockiert bis Fenster geschlossen wird
             return;
 
             // PayPal-Empfänger-Adresse (fix)
@@ -3512,6 +3513,6 @@ namespace MyNetworkMonitor
             {
                 Console.WriteLine("Fehler beim Öffnen der PayPal-Spendenseite: " + ex.Message);
             }
-        }
+        }       
     }
 }
