@@ -13,6 +13,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Images\DevDonation.jpg" />
     <None Remove="Images\florida.png" />
     <None Remove="Images\florida2.png" />
     <None Remove="Images\logo.png" />
@@ -44,6 +45,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="Images\DevDonation.jpg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="Images\logo.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
@@ -68,6 +72,9 @@
     </Content>
     <Content Include="Resources\gray_dotTB.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\paypalDonate.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\red_dotTB.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
@@ -173,12 +180,6 @@
     <Content Include="Resources\Radar.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Resource Include="Resources\paypalDonate.png">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Resource>
   </ItemGroup>
 
 </Project>
