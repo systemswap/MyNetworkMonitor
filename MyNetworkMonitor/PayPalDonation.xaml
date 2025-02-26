@@ -63,7 +63,7 @@
                 </StackPanel>
 
                 <!-- Subscription Option -->
-                <CheckBox x:Name="SubscriptionCheckBox" Content="Make it a yearly donation"
+                <CheckBox x:Name="SubscriptionCheckBox" Content="Make a yearly donation"
                           FontSize="12" Foreground="Black" HorizontalAlignment="Center" Margin="0,5,0,20"
                           Checked="SubscriptionCheckBox_Checked" Unchecked="SubscriptionCheckBox_Unchecked"/>
 
