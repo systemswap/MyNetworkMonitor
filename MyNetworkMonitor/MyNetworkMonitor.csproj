@@ -16,6 +16,7 @@
     <None Remove="Images\florida.png" />
     <None Remove="Images\florida2.png" />
     <None Remove="Images\logo.png" />
+    <None Remove="Images\PayPal.png" />
     <None Remove="Resources\Add.png" />
     <None Remove="Resources\AddBlack.png" />
     <None Remove="Resources\AddWhite.png" />
@@ -44,6 +45,9 @@
 
   <ItemGroup>
     <Content Include="Images\logo.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\PayPal.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\gray_dot_s.png">
