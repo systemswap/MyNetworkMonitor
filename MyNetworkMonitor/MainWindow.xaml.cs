@@ -751,7 +751,7 @@ namespace MyNetworkMonitor
                     {
                         foreach (IPAddress address in _entry.AddressList)
                         {
-                            DataRow groupedRow = GetIPDescription(IP_or_Hostname);
+                            DataRow groupedRow = GetIPDescription(address.ToString());
 
                             string ipGroupDescription = string.Empty;
                             string str_DeviceDescription = string.Empty;
@@ -1516,10 +1516,12 @@ namespace MyNetworkMonitor
                     row["IPToSort"] = string.Join('.', ipToScan.IPorHostname.Split('.').Select(o => o.PadLeft(3, '0')));
                 }
 
-
-                row["DNSServers"] = string.Join(',', ipToScan.DNSServerList);
-                row["GatewayIP"] = ipToScan.GatewayIP;
-                row["GatewayPort"] = ipToScan.GatewayPort;
+                if (ipToScan.DNSServerList != null)
+                {
+                    row["DNSServers"] = string.Join(',', ipToScan.DNSServerList);
+                    row["GatewayIP"] = ipToScan.GatewayIP;
+                    row["GatewayPort"] = ipToScan.GatewayPort;
+                }
 
                 if (ipToScan.UsedScanMethod == ScanMethod.SSDP)
                 {
@@ -3461,6 +3463,10 @@ namespace MyNetworkMonitor
 
         private void bt_PayPal_Click(object sender, RoutedEventArgs e)
         {
+            PayPalDonation payPalWindow = new PayPalDonation();
+            payPalWindow.Show(); // Blockiert bis Fenster geschlossen wird
+            return;
+
             // PayPal-Empfänger-Adresse (fix)
             string paypalEmail = "thomas.mueller@tuta.io";
 
