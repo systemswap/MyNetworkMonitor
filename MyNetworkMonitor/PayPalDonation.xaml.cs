@@ -69,6 +69,11 @@ namespace MyNetworkMonitor
                 PayPalWebView.Visibility = Visibility.Collapsed;
                 PayPalWebView.Visibility = Visibility.Visible;
                 PayPalWebView.Source = new Uri(donationUrl);
+
+                System.Threading.Tasks.Task.Delay(1500).Wait();
+
+                this.Height = 780;
+                this.Width = 850;
             }
             catch (Exception ex)
             {

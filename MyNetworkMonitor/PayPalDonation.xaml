@@ -63,7 +63,7 @@
 
         <!-- WebView2 füllt das gesamte Fenster -->
         <wv2:WebView2 x:Name="PayPalWebView"
-                  Visibility="Collapsed"/>
+                  Visibility="Collapsed" Margin="10,10,10,0"/>
 
     </Grid>
 </Window>
