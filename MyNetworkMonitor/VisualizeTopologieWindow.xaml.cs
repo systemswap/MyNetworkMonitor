@@ -446,12 +446,14 @@ namespace MyNetworkMonitor
 <html lang=""de"">
 <head>
     <meta charset=""UTF-8"">
-    <title>Netzwerk Topologie</title>
+    <title>Network DNS Topology</title>   
    <script src=""./libs/3d-force-graph.min.js""></script >
+
     <style>
         body {{ margin: 0; overflow: hidden; }}
         #3d-graph {{ width: 100vw; height: 100vh; position: absolute; }}
     </style>
+
     <script>
         function checkBrowser() {{
             const userAgent = navigator.userAgent;
@@ -463,6 +465,7 @@ namespace MyNetworkMonitor
         document.addEventListener(""DOMContentLoaded"", checkBrowser);
     </script>
 </head>
+lookup IPs will only linked to another network if they are in the IP coloumn as seperate device
 <body>
     <div id=""3d-graph""></div>
     <script>
