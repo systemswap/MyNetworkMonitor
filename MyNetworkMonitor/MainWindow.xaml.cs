@@ -1368,7 +1368,7 @@ namespace MyNetworkMonitor
                     _scannResults.ResultTable.Rows[rowIndex]["IPToSort"] = string.Join('.', ipToScan.IPorHostname.Split('.').Select(o => o.PadLeft(3, '0')));
                 }
 
-                _scannResults.ResultTable.Rows[rowIndex]["DNSServers"] = string.Join(',', ipToScan.DNSServerList);
+                if(ipToScan.DNSServerList != null) _scannResults.ResultTable.Rows[rowIndex]["DNSServers"] = string.Join(',', ipToScan.DNSServerList);
                 _scannResults.ResultTable.Rows[rowIndex]["GatewayIP"] = ipToScan.GatewayIP;
                 _scannResults.ResultTable.Rows[rowIndex]["GatewayPort"] = ipToScan.GatewayPort;
 
@@ -2723,6 +2723,15 @@ namespace MyNetworkMonitor
 
                     if (!string.IsNullOrEmpty(rowIP))
                     {
+                        DataRow groupedRow = GetIPDescription(rowIP);
+                        
+                        //wenn keine gruppen zugeordnet sind wird es hier dynamisch nachgeholt
+                        if (groupedRow != null)
+                        {
+                            if(string.IsNullOrEmpty(row["IPGroupDescription"].ToString()) && !string.IsNullOrEmpty(groupedRow["IPGroupDescription"].ToString())) row["IPGroupDescription"] = groupedRow["IPGroupDescription"].ToString();
+                            if(string.IsNullOrEmpty(row["DeviceDescription"].ToString()) && !string.IsNullOrEmpty(groupedRow["DeviceDescription"].ToString())) row["DeviceDescription"] = groupedRow["DeviceDescription"].ToString();
+                        }
+
                         int countedDupIPs = _scannResults.ResultTable.Select("IP = '" + rowIP + "'").Length;
                         if (countedDupIPs > 1)
                         {
@@ -3467,52 +3476,6 @@ namespace MyNetworkMonitor
             payPalWindow.Owner = this;
             payPalWindow.ShowDialog(); // Blockiert bis Fenster geschlossen wird
             return;
-
-            // PayPal-Empfänger-Adresse (fix)
-            string paypalEmail = "thomas.mueller@tuta.io";
-
-            // Betrag (anpassbar)
-            decimal amount = 25.00m;
-
-            // Währung (z.B. EUR, USD)
-            string currency = "EUR";
-
-            // Zahlungszweck (optional)
-            string itemName = "thanks for support of MyNetworkMonitor";
-
-
-            try
-            {
-                // Basis-URL für PayPal-Spenden
-                string baseUrl = "https://www.paypal.com/cgi-bin/webscr";
-
-                
-                // Query-Parameter für den Spendenlink
-                var queryParameters = HttpUtility.ParseQueryString(string.Empty);
-                queryParameters["cmd"] = "_donations";
-                queryParameters["business"] = paypalEmail;
-                //queryParameters["amount"] = amount.ToString("0.00", CultureInfo.InvariantCulture); // Vorgeschlagener Betrag
-                queryParameters["currency_code"] = currency;
-                queryParameters["item_name"] = itemName; // Notiz, die auf der PayPal-Seite angezeigt wird
-                queryParameters["no_note"] = "0"; // Notizfeld aktivieren
-                queryParameters["no_shipping"] = "1"; // Kein Versand erforderlich
-                queryParameters["undefined_amount"] = "1"; // Benutzer kann Betrag auf PayPal ändern
-
-
-                // Endgültige URL generieren
-                string donationUrl = $"{baseUrl}?{queryParameters}";
-
-                // Öffne den Standardbrowser mit dem PayPal-Link
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = donationUrl,
-                    UseShellExecute = true
-                });
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("Fehler beim Öffnen der PayPal-Spendenseite: " + ex.Message);
-            }
         }       
     }
 }
