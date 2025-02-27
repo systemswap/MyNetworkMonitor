@@ -973,8 +973,22 @@ namespace MyNetworkMonitor
             counted_total_UDP_Port_Devices = 0;
 
 
+
+
+
+
+
             foreach (DataRow row in _scannResults.ResultTable.Rows)
             {
+                DataRow groupedRow = GetIPDescription(row["IP"].ToString());
+
+                //wenn keine gruppen zugeordnet sind wird es hier dynamisch nachgeholt
+                if (groupedRow != null)
+                {
+                    if (string.IsNullOrEmpty(row["IPGroupDescription"].ToString()) && !string.IsNullOrEmpty(groupedRow["IPGroupDescription"].ToString())) row["IPGroupDescription"] = groupedRow["IPGroupDescription"].ToString();
+                    if (string.IsNullOrEmpty(row["DeviceDescription"].ToString()) && !string.IsNullOrEmpty(groupedRow["DeviceDescription"].ToString())) row["DeviceDescription"] = groupedRow["DeviceDescription"].ToString();
+                }
+
                 if (_IPsToScan.Where(i => i.IPorHostname == row["IP"].ToString()).Count() > 0)
                 {
                     if ((bool)chk_Methodes_ARP_A.IsChecked && !string.IsNullOrEmpty(row["ARPStatus"].ToString())) row["ARPStatus"] = Properties.Resources.gray_dot_s;
@@ -2722,16 +2736,7 @@ namespace MyNetworkMonitor
                     }
 
                     if (!string.IsNullOrEmpty(rowIP))
-                    {
-                        DataRow groupedRow = GetIPDescription(rowIP);
-                        
-                        //wenn keine gruppen zugeordnet sind wird es hier dynamisch nachgeholt
-                        if (groupedRow != null)
-                        {
-                            if(string.IsNullOrEmpty(row["IPGroupDescription"].ToString()) && !string.IsNullOrEmpty(groupedRow["IPGroupDescription"].ToString())) row["IPGroupDescription"] = groupedRow["IPGroupDescription"].ToString();
-                            if(string.IsNullOrEmpty(row["DeviceDescription"].ToString()) && !string.IsNullOrEmpty(groupedRow["DeviceDescription"].ToString())) row["DeviceDescription"] = groupedRow["DeviceDescription"].ToString();
-                        }
-
+                    { 
                         int countedDupIPs = _scannResults.ResultTable.Select("IP = '" + rowIP + "'").Length;
                         if (countedDupIPs > 1)
                         {
