@@ -436,6 +436,8 @@ namespace MyNetworkMonitor
         //offline
         //<script src=""./libs/3d-force-graph.min.js""></script >
 
+        //lookup IPs will only linked to another network if they are in the IP coloumn as seperate device
+
         private void GenerateHTML()
         {
             // Lese den JSON-Inhalt ein
@@ -465,7 +467,6 @@ namespace MyNetworkMonitor
         document.addEventListener(""DOMContentLoaded"", checkBrowser);
     </script>
 </head>
-lookup IPs will only linked to another network if they are in the IP coloumn as seperate device
 <body>
     <div id=""3d-graph""></div>
     <script>
