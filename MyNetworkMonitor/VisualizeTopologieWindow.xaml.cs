@@ -451,9 +451,20 @@ namespace MyNetworkMonitor
     <title>Network DNS Topology</title>   
    <script src=""./libs/3d-force-graph.min.js""></script >
 
-    <style>
-        body {{ margin: 0; overflow: hidden; }}
-        #3d-graph {{ width: 100vw; height: 100vh; position: absolute; }}
+        <style>
+        body {{margin: 0; overflow: hidden; }}
+        #3d-graph {{width: 100vw; height: 100vh; position: absolute; }}
+        #info-label {{
+            position: absolute;
+            top: 10px; /* 10px vom oberen Rand */
+            left: 10px; /* 10px vom linken Rand */
+            background-color: #222222; /* Anthrazit Hintergrundfarbe */
+            color: white;
+            padding: 7px;
+            border-radius: 5px;
+            font-size: 13px;
+            z-index: 10;
+        }}
     </style>
 
     <script>
@@ -468,6 +479,11 @@ namespace MyNetworkMonitor
     </script>
 </head>
 <body>
+ <!-- Label über dem Body mit erklärendem Text -->
+    <div id=""info-label"">
+        lookup IPs will only linked to another network device if they are in the IP column as separate device
+    </div>
+
     <div id=""3d-graph""></div>
     <script>
         // JSON-Daten werden direkt eingebettet
