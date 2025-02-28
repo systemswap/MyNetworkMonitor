@@ -677,7 +677,8 @@
                 <RadioButton x:Name="rb_ScanHostnames_onlyKnown" Grid.Column="3" Content="only IPs in Table" IsChecked="True" Margin="10,0,0,0" VerticalContentAlignment="Center"/>
                 <RadioButton x:Name="rb_ScanHostnames_All_IPs" Grid.Column="4" Content="all" Margin="10,0,282,0" VerticalContentAlignment="Center"/>
             </Grid>
-            <Button x:Name="bt_VisualizeTable" Grid.Column="1" Content="Visualize DNS &amp; Duplicate Table Information" HorizontalAlignment="Left" Margin="11,52,0,0" Grid.Row="1" VerticalAlignment="Top" Grid.RowSpan="2" Width="252" Click="bt_VisualizeTable_Click"/>
+            <Button x:Name="bt_VisualizeTable" Grid.Column="1" Content="Visualize DNS &amp; Duplicate Table Information" HorizontalAlignment="Left" Margin="11,52,0,0" Grid.Row="1" VerticalAlignment="Top" Grid.RowSpan="2" Width="262" Click="bt_VisualizeTable_Click"/>
+            <CheckBox x:Name="chk_3dForceGraph_OnlineVersion" Content="use 3dForceGraph online (means no library is needed when sharing the html file)" Margin="293,54,0,0" Grid.Column="1" Grid.Row="1" Grid.RowSpan="2" HorizontalAlignment="Left" Width="427" Height="18" VerticalAlignment="Top" FontSize="11" VerticalContentAlignment="Center"/>
             <Button x:Name="bt_PayPal" 
         HorizontalAlignment="Left" 
         Margin="46,15,0,0" 
