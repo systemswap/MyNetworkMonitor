@@ -3335,7 +3335,10 @@ namespace MyNetworkMonitor
                     str_DeviceDescription = groupedRow["DeviceDescription"].ToString();
                 }
 
-                _IPsToScan.Add(new IPToScan { IPGroupDescription = ipGroupDescription, DeviceDescription = str_DeviceDescription, IPorHostname = ip });
+                // Suchen des Hostnamens basierend auf der IP-Adresse mit LINQ
+                string hostname = dv_resultTable.Table.AsEnumerable().Where(row => row.Field<string>("IP") == ip).Select(row => row.Field<string>("Hostname")).FirstOrDefault().ToString();
+
+                _IPsToScan.Add(new IPToScan { IPGroupDescription = ipGroupDescription, DeviceDescription = str_DeviceDescription, IPorHostname = ip, HostName = hostname });
             }
 
 
