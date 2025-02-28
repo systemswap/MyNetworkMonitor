@@ -3336,7 +3336,7 @@ namespace MyNetworkMonitor
                 }
 
                 // Suchen des Hostnamens basierend auf der IP-Adresse mit LINQ
-                string hostname = dv_resultTable.Table.AsEnumerable().Where(row => row.Field<string>("IP") == ip).Select(row => row.Field<string>("Hostname")).FirstOrDefault().ToString();
+                string hostname = dv_resultTable.Table.AsEnumerable().Where(row => row.Field<string>("IP") == ip).Select(row => row.Field<string>("Hostname")).FirstOrDefault() ?? string.Empty;
 
                 _IPsToScan.Add(new IPToScan { IPGroupDescription = ipGroupDescription, DeviceDescription = str_DeviceDescription, IPorHostname = ip, HostName = hostname });
             }
