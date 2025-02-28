@@ -2702,7 +2702,7 @@ namespace MyNetworkMonitor
 
         private void bt_openSettingsFolder_Click(object sender, RoutedEventArgs e)
         {
-            string settingsFolder = Path.Combine(Path.Combine(Environment.ExpandEnvironmentVariables("%userprofile%"), "Documents"), @"MyNetworkMonitor\Settings");
+            string settingsFolder = Path.Combine(Path.Combine(Environment.ExpandEnvironmentVariables("%userprofile%"), "Documents"), @"MyNetworkMonitor\");
             if (Directory.Exists(settingsFolder))
             {
                 ProcessStartInfo startInfo = new ProcessStartInfo("explorer.exe", settingsFolder);
