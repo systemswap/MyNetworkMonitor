@@ -1136,25 +1136,30 @@ namespace MyNetworkMonitor
                 await Task.Run(() => Thread.Sleep(1000));
 
                 List<IPToScan> IPsForLookUp = new List<IPToScan>();
-                foreach (IPToScan _ipToScan in DNS_Hostname_IPsToScan)
-                {
-                    List<DataRow> rows = _scannResults.ResultTable.Select("IP = '" + _ipToScan.IPorHostname + "'").ToList();
 
-                    if (rows.Count > 0)
+                if (_scannResults.ResultTable.Rows.Count != 0 && IsSelectiveScan)
+                {
+                    IPsForLookUp = _IPsToScan;
+                }
+                else
+                {
+                    List<DataRow> rows = _scannResults.ResultTable.Select("Hostname <> ''").ToList();
+
+                    foreach (DataRow row in rows)
                     {
                         int rowIndex = _scannResults.ResultTable.Rows.IndexOf(rows[0]);
 
                         if (!string.IsNullOrEmpty(_scannResults.ResultTable.Rows[rowIndex]["Hostname"].ToString()))
                         {
                             IPToScan ipToScan = new IPToScan();
-                            ipToScan.IPGroupDescription = _scannResults.ResultTable.Rows[rowIndex]["IPGroupDescription"].ToString();
+                            ipToScan.IPGroupDescription = row["IPGroupDescription"].ToString();
                             ipToScan.DeviceDescription = _scannResults.ResultTable.Rows[rowIndex]["DeviceDescription"].ToString();
-                            ipToScan.IPorHostname = _ipToScan.IPorHostname;
-                            ipToScan.HostName = _scannResults.ResultTable.Rows[rowIndex]["Hostname"].ToString();
-                            ipToScan.Domain = _scannResults.ResultTable.Rows[rowIndex]["Domain"].ToString();
-                            ipToScan.DNSServerList = _scannResults.ResultTable.Rows[rowIndex]["DNSServers"].ToString().Split(',').ToList();
-                            ipToScan.GatewayIP = _scannResults.ResultTable.Rows[rowIndex]["GatewayIP"].ToString();
-                            ipToScan.GatewayPort = _scannResults.ResultTable.Rows[rowIndex]["GatewayPort"].ToString();
+                            ipToScan.IPorHostname = row["IP"].ToString();
+                            ipToScan.HostName = row["Hostname"].ToString();
+                            ipToScan.Domain = row["Domain"].ToString();
+                            ipToScan.DNSServerList = row["DNSServers"].ToString().Split(',').ToList();
+                            ipToScan.GatewayIP = row["GatewayIP"].ToString();
+                            ipToScan.GatewayPort = row["GatewayPort"].ToString();
 
                             IPsForLookUp.Add(ipToScan);
                         }
