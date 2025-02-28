@@ -31,6 +31,7 @@ using static MyNetworkMonitor.SupportMethods;
 using SnmpSharpNet;
 using System.Collections.ObjectModel;
 using System.Web;
+using System.Net.NetworkInformation;
 
 
 //using static System.Net.WebRequestMethods;
@@ -1118,11 +1119,11 @@ namespace MyNetworkMonitor
                 //CountedHostnames = _IPsToRefresh.Count;
                 Status();
 
-                if ((bool)chk_Methodes_LookUp.IsChecked)
-                {
-                    status_Lookup_Scan = ScanStatus.waiting;
-                    Status();
-                }
+                //if ((bool)chk_Methodes_LookUp.IsChecked)
+                //{
+                //    status_Lookup_Scan = ScanStatus.waiting;
+                //    Status();
+                //}
 
                 await Task.Run(() => scanningMethode_ReverseLookupToHostAndAliases.GetHost_Aliases(DNS_Hostname_IPsToScan));
                 //await Task.Run(() => scanningMethode_DNS.Get_Host_and_Alias_From_IP(_IPsToRefresh));
@@ -2534,6 +2535,19 @@ namespace MyNetworkMonitor
 
                 SelectedNetworkInterfaceInfos.Name = selectedNicName;
                 SelectedNetworkInterfaceInfos.IPv4 = !string.IsNullOrEmpty(n.IPv4) ? IPAddress.Parse(n.IPv4) : null;
+
+
+                // Netzwerk-Adapter anhand des Namens suchen
+                NetworkInterface nic = NetworkInterface.GetAllNetworkInterfaces().FirstOrDefault(ni => ni.Name == selectedNicName);
+                if (nic != null)
+                {
+                    // DNS-Server-Adressen in die ListBox setzen
+                    lstb_DNSServers.ItemsSource = nic.GetIPProperties().DnsAddresses.Select(dns => dns.ToString()).ToList();
+                }
+                else
+                {
+                    lstb_DNSServers.ItemsSource = new List<string> { "" };
+                }
 
                 TextChangedByComboBox = false;
             }
