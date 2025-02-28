@@ -3493,7 +3493,7 @@ namespace MyNetworkMonitor
 
         private void bt_VisualizeTable_Click(object sender, RoutedEventArgs e)
         {            
-            VisualizeTopologieWindow vtWindow = new VisualizeTopologieWindow(_3dForceGraphPath, _scannResults.ResultTable);
+            VisualizeTopologieWindow vtWindow = new VisualizeTopologieWindow(_3dForceGraphPath, _scannResults.ResultTable, (bool)chk_3dForceGraph_OnlineVersion.IsChecked);
             vtWindow.Show();
         }
 
