@@ -50,10 +50,20 @@ namespace MyNetworkMonitor
                 bool _LookUpStatus = false;
                 string _LookUpIPs = string.Empty;
 
+                //wenn nur eine ip zurück kommt und diese gleich der in der spalte ip dann passt alles
                 if (_entry.AddressList.ToList().Count == 1 && ipToScan.IPorHostname == _entry.AddressList[0].ToString())
                 {
                     _LookUpStatus = true;
                 }
+
+                //wenn nur eine ip zurück kommt und diese ungleich der in der spalte ip ist dann false
+                if (_entry.AddressList.ToList().Count == 1 && ipToScan.IPorHostname != _entry.AddressList[0].ToString())
+                {
+                    _LookUpStatus = false;
+                    _LookUpIPs = _entry.AddressList[0].ToString();
+                }
+
+                //werden mehrere ips zurück gegeben werden alle eingetragen
                 if (_entry.AddressList.ToList().Count != 1)
                 {
                     _LookUpStatus = false;
@@ -67,6 +77,10 @@ namespace MyNetworkMonitor
                         _LookUpIPs = string.Join("\r\n", _entry.AddressList.ToList());
                     }
                 }
+
+
+
+
 
                 if (Lookup_Task_Finished != null)
                 {
