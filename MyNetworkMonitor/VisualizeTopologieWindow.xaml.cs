@@ -30,13 +30,17 @@ namespace MyNetworkMonitor
         private readonly string jsonFilePath;
         private readonly string htmlFilePath;
 
+        private bool useOnlineVersion = false;
+
         // Statische Variable, damit der Webserver nur einmal gestartet wird.
         private static bool _serverStarted = false;
 
-        public VisualizeTopologieWindow(string GraphPath, DataTable resultTable)
+        public VisualizeTopologieWindow(string GraphPath, DataTable resultTable, bool use_online_version = false)
         {
             InitializeComponent();
             dt_NetworkResults = resultTable ?? throw new ArgumentNullException(nameof(resultTable));
+
+            useOnlineVersion = use_online_version;
 
             if (!Directory.Exists(GraphPath)) Directory.CreateDirectory(GraphPath);
 
@@ -443,13 +447,24 @@ namespace MyNetworkMonitor
             // Lese den JSON-Inhalt ein
             string jsonContent = System.IO.File.ReadAllText(jsonFilePath, new UTF8Encoding(false));
 
-            string htmlContent = $@"
+            string LibraryPath = string.Empty;
+            if (useOnlineVersion)
+            {
+                LibraryPath = "<script src=\"https://unpkg.com/3d-force-graph\"></script>";
+            }
+            else
+            {
+                LibraryPath = "<script src=\"./libs/3d-force-graph.min.js\"></script>";
+            }
+
+                string htmlContent = $@"
 <!DOCTYPE html>
 <html lang=""de"">
 <head>
     <meta charset=""UTF-8"">
-    <title>Network DNS Topology</title>   
-   <script src=""./libs/3d-force-graph.min.js""></script >
+    <title>Network DNS Topology</title>  
+
+        {LibraryPath}
 
         <style>
         body {{margin: 0; overflow: hidden; }}
