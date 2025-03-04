@@ -716,6 +716,7 @@
                 </Button.Template>
 
             </Button>
+            <Label Content="Free for personal use, for commercial inquiries: syswap@tuta.io" HorizontalAlignment="Center" Margin="0,24,0,0" Grid.Row="1" VerticalAlignment="Top" Width="339" Height="28" VerticalContentAlignment="Center" Foreground="#FF1196A7" FontSize="11" HorizontalContentAlignment="Center" FontWeight="Bold"/>
 
 
 
