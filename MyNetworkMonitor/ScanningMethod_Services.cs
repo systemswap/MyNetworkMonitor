@@ -21,6 +21,7 @@ using System.Diagnostics;
 using System.Net.NetworkInformation;
 using System.Xml.Serialization;
 using SnmpSharpNet;
+using System.Text.RegularExpressions;
 
 
 public enum PortStatus
@@ -1680,7 +1681,15 @@ public class ScanningMethod_Services
                     string response = await readTask;
 
                     // **Überprüfe, ob Server antwortet**
-                    if (response.Contains("HTTP/1.1") && (response.Contains("200 OK") || response.Contains("<html")))
+                    //if (response.Contains("HTTP/1.1") || response.Contains("302 Redirect") || (response.Contains("200 OK") || response.Contains("<html")))
+
+                    // [2345] → Erfasst alle wichtigen HTTP-Statuscodes:
+                    // 2xx = Erfolg
+                    // 3xx = Weiterleitung
+                    // 4xx = Client - Fehler(z.B.falsche Anfrage, aber Gerät antwortet)
+                    // 5xx = Server - Fehler
+
+                    if (Regex.IsMatch(response, @"^HTTP/\d\.\d [2345]\d{2}") || response.ToLower().Contains("<html"))
                     {
                         portResult.Status = PortStatus.IsRunning; // Webseite erkannt
                         return true;
@@ -1771,7 +1780,15 @@ public class ScanningMethod_Services
                     {
                         string response = Encoding.ASCII.GetString(buffer, 0, bytesRead);
 
-                        if (response.Contains("HTTP/1.1") && (response.Contains("200 OK") || response.Contains("<html")))
+                        //if (response.Contains("HTTP/1.1") && (response.Contains("200 OK") || response.Contains("<html")))
+
+                        // [2345] → Erfasst alle wichtigen HTTP-Statuscodes:
+                        // 2xx = Erfolg
+                        // 3xx = Weiterleitung
+                        // 4xx = Client - Fehler(z.B.falsche Anfrage, aber Gerät antwortet)
+                        // 5xx = Server - Fehler
+
+                        if (Regex.IsMatch(response, @"^HTTP/\d\.\d [2345]\d{2}") || response.ToLower().Contains("<html"))
                         {
                             portResult.Status = PortStatus.IsRunning; // Webseite erkannt.
                             return true;
