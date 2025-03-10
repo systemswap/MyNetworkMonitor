@@ -32,6 +32,7 @@ using SnmpSharpNet;
 using System.Collections.ObjectModel;
 using System.Web;
 using System.Net.NetworkInformation;
+using System.Windows.Documents;
 
 
 //using static System.Net.WebRequestMethods;
@@ -49,8 +50,12 @@ namespace MyNetworkMonitor
             InitializeComponent();
            
 
-            mainWindow.Title += " - version: " + Assembly.GetExecutingAssembly().GetName().Version.ToString(); 
-           
+            mainWindow.Title += " - version: " + Assembly.GetExecutingAssembly().GetName().Version.ToString();
+
+            if (ZZZ_EnterpriseUsage.IsCompanyNetwork())
+            {
+                ZZZ_EnterpriseUsage.ShowEnterpriseMessage();
+            }
 
             if (!Directory.Exists(Path.GetDirectoryName(_portsToScanXML))) Directory.CreateDirectory(Path.GetDirectoryName(_portsToScanXML));
 
@@ -3503,6 +3508,6 @@ namespace MyNetworkMonitor
             payPalWindow.Owner = this;
             payPalWindow.ShowDialog(); // Blockiert bis Fenster geschlossen wird
             return;
-        }       
+        }
     }
 }
