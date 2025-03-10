@@ -88,8 +88,6 @@ namespace MyNetworkMonitor
         }
 
 
-
-
         public static void ShowEnterpriseMessage()
         {
             // Fenster erstellen
@@ -197,6 +195,18 @@ namespace MyNetworkMonitor
 
             closeButton.Click += (s, e) => window.Close();
 
+
+            // Schließen des Fensters abfangen
+            window.Closing += (sender, e) =>
+            {
+                // Wenn das Fenster durch das "X" geschlossen wird
+                if (!closeButton.IsEnabled)
+                {
+                    // Die gesamte Anwendung wird hier geschlossen
+                    Application.Current.Shutdown();
+                }
+            };
+
             // Elemente hinzufügen
             panel.Children.Add(headline);
             panel.Children.Add(message);
@@ -208,9 +218,5 @@ namespace MyNetworkMonitor
             window.Content = border;
             window.ShowDialog();
         }
-
-
-
-
     }
 }
