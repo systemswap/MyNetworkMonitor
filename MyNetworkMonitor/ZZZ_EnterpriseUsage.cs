@@ -13,6 +13,7 @@ using System.Windows;
 using Microsoft.Win32;
 using System.Diagnostics;
 using System.Windows.Media.Effects;
+using System.Windows.Threading;
 
 namespace MyNetworkMonitor
 {
@@ -145,7 +146,7 @@ namespace MyNetworkMonitor
             };
 
             // Kontakt-Link
-            TextBlock contactText = new TextBlock { Text = "If you need a license, contact us: ", TextAlignment = TextAlignment.Center };
+            TextBlock contactText = new TextBlock { Text = "If you need a licensed version, contact us: ", TextAlignment = TextAlignment.Center };
             Hyperlink emailLink = new Hyperlink(new Run("syswap@tuta.io"))
             {
                 NavigateUri = new Uri("mailto:syswap@tuta.io"),
@@ -155,18 +156,45 @@ namespace MyNetworkMonitor
 
             contactText.Inlines.Add(emailLink);
 
+            int countdown = 30;
+
             // OK-Button
             Button closeButton = new Button
             {
-                Content = "OK",
-                Width = 150,
-                Height = 40,
+                Content = $"You can click OK in: {countdown} seconds",
+                Width = 250,
+                Height = 50,
                 Background = new SolidColorBrush(Color.FromRgb(0, 112, 186)), // Blau für Konsistenz
-                Foreground = Brushes.White,
+                //Foreground = Brushes.White,
+                Foreground = new SolidColorBrush(Color.FromRgb(169, 169, 169)),
                 FontWeight = FontWeights.Bold,
                 Margin = new Thickness(0, 20, 0, 0),
-                Cursor = System.Windows.Input.Cursors.Hand
+                Cursor = System.Windows.Input.Cursors.Hand,
+                IsEnabled = false // Button wird zunächst deaktiviert
             };
+
+            // Timer erstellen und starten
+            DispatcherTimer timer = new DispatcherTimer();
+            timer.Interval = TimeSpan.FromSeconds(1);
+
+
+            // Countdown-Tick-Ereignis
+            timer.Tick += (s, e) =>
+            {
+                countdown--;
+                closeButton.Content = $"You can click OK in: {countdown} seconds";
+
+                // Wenn Countdown 0 erreicht, Button aktivieren
+                if (countdown <= 0)
+                {
+                    closeButton.Foreground = Brushes.White; // Zurück zu Weiß
+                    closeButton.Content = "OK";
+                    closeButton.IsEnabled = true; // Button aktivieren
+                    timer.Stop(); // Timer stoppen
+                }
+            };
+            timer.Start();
+
             closeButton.Click += (s, e) => window.Close();
 
             // Elemente hinzufügen
