@@ -145,13 +145,24 @@ namespace MyNetworkMonitor
 
             // Kontakt-Link
             TextBlock contactText = new TextBlock { Text = "If you need a licensed version, contact us: ", TextAlignment = TextAlignment.Center };
-            Hyperlink emailLink = new Hyperlink(new Run("syswap@tuta.io"))
+
+            // Erstellen des Run-Objekts für die E-Mail-Adresse mit einer benutzerdefinierten Schriftgröße
+            Run emailRun = new Run("syswap@tuta.io")
+            {
+                FontSize = 14 // Schriftgröße für die E-Mail-Adresse festlegen
+            };
+
+            // Erstellen des Hyperlinks mit dem Run
+            Hyperlink emailLink = new Hyperlink(emailRun)
             {
                 NavigateUri = new Uri("mailto:syswap@tuta.io"),
                 Foreground = new SolidColorBrush(Color.FromRgb(0, 112, 186)) // Blau für Seriosität
             };
+
+            // Ereignis, um den E-Mail-Client zu öffnen, wenn der Hyperlink angeklickt wird
             emailLink.RequestNavigate += (s, e) => Process.Start(new ProcessStartInfo(e.Uri.AbsoluteUri) { UseShellExecute = true });
 
+            // Hinzufügen des Hyperlinks zu den Inlines des TextBlocks
             contactText.Inlines.Add(emailLink);
 
             int countdown = 30;
