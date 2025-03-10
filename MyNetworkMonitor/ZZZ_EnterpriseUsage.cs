@@ -95,7 +95,7 @@ namespace MyNetworkMonitor
             // Fenster erstellen
             Window window = new Window
             {
-                Title = "Notice: Private Use Only",
+                Title = "Notice: Enterprise Network detected.",
                 Width = 500,
                 Height = 350,
                 ResizeMode = ResizeMode.NoResize,
