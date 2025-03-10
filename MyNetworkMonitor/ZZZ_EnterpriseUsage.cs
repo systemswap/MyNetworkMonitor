@@ -149,7 +149,8 @@ namespace MyNetworkMonitor
             // Erstellen des Run-Objekts für die E-Mail-Adresse mit einer benutzerdefinierten Schriftgröße
             Run emailRun = new Run("syswap@tuta.io")
             {
-                FontSize = 14 // Schriftgröße für die E-Mail-Adresse festlegen
+                FontSize = 14, // Schriftgröße für die E-Mail-Adresse festlegen
+                FontWeight = FontWeights.Bold // Schrift fett machen
             };
 
             // Erstellen des Hyperlinks mit dem Run
