@@ -19,6 +19,45 @@ namespace MyNetworkMonitor
 
         }
 
+        private CancellationTokenSource _cts = new CancellationTokenSource(); // 🔹 Ermöglicht das Abbrechen
+     
+        public void StopScan()
+        {
+            if (_cts != null && !_cts.IsCancellationRequested)
+            {
+                _cts.Cancel(); // 🔹 Scan abbrechen
+                _cts.Dispose();
+                _cts = new CancellationTokenSource();
+            }
+
+            // 🔹 Zähler zurücksetzen
+            current = 0;
+            responded = 0;
+            total = 0;
+
+            //ProgressUpdated?.Invoke(current, responded, total); // 🔹 UI auf 0 setzen
+        }
+
+        private void StartNewScan()
+        {
+            if (_cts != null)
+            {
+                if (!_cts.IsCancellationRequested)
+                {
+                    _cts.Cancel();
+                }
+                _cts.Dispose();
+            }
+            _cts = new CancellationTokenSource();
+
+            // 🔹 Zähler zurücksetzen
+            current = 0;
+            responded = 0;
+            total = 0;
+        }
+
+
+
         SupportMethods support = new SupportMethods();
 
         public event Action<int, int, int> ProgressUpdated;
@@ -37,61 +76,80 @@ namespace MyNetworkMonitor
 
         public async Task SendARPRequestAsync(List<IPToScan> ipsToRefresh)
         {
-            List<IPToScan> originalIPsToRefresh = ipsToRefresh;
-
-            List<IPToScan> filtered = new List<IPToScan>();
-           
-
-            filtered = GetIPsInSameVLAN(ipsToRefresh);
-
-            if (filtered.Count <= 1)
-            {
-                filtered = originalIPsToRefresh;
-            }
+            StartNewScan();
             
-               
 
+            if (_cts.Token.IsCancellationRequested) return; // 🔹 Sofort abbrechen
+
+            List<IPToScan> filtered;
+            try
+            {
+                filtered = await GetIPsInSameVLANAsync(ipsToRefresh).WaitAsync(_cts.Token);
+            }
+            catch (TaskCanceledException)
+            {
+                Debug.WriteLine("Task für GetIPsInSameVLANAsync wurde abgebrochen.");
+                return; // Beende die Methode sauber
+            }
+            if (filtered.Count <= 1) filtered = ipsToRefresh;
+
+            current = 0;
+            responded = 0;
             total = filtered.Count;
             ProgressUpdated?.Invoke(current, responded, total);
 
-
-            //var tasks = new List<Task>();
-
-            //Parallel.ForEach(ipsToRefresh, ip =>
-            //{
-            //    if (!string.IsNullOrEmpty(ip.IPorHostname))
-            //    {
-            //        var task = ArpRequestTask(ip);
-            //        if (task != null) tasks.Add(task);
-            //    }
-            //});
-
             var tasks = new List<Task>();
 
-            //foreach (var ip in ipsToRefresh.Where(ip => !string.IsNullOrEmpty(ip.IPorHostname)))
-            foreach (var ip in filtered.Where(ip => !string.IsNullOrEmpty(ip.IPorHostname)))
+            try
             {
-                tasks.Add(ArpRequestTask(ip));
+                foreach (var ip in filtered.Where(ip => !string.IsNullOrEmpty(ip.IPorHostname)))
+                {
+                    if (_cts.Token.IsCancellationRequested) throw new TaskCanceledException(); // 🔹 Abbruch erzwingen
 
-                await Task.Delay(20);
+                    tasks.Add(ArpRequestTask(ip));
+
+                    await Task.Delay(20, _cts.Token);
+                }
+
+                await Task.WhenAll(tasks); // 🔹 Warte auf alle Tasks
             }
-
-            await Task.WhenAll(tasks);
-
-            // mit ? prüft man ob das event im hauptthread auch angelegt wurde mit +=
-            ARP_Request_Finished?.Invoke(this, new Method_Finished_EventArgs() { ScanStatus = MainWindow.ScanStatus.finished});
+            catch (TaskCanceledException)
+            {
+                Debug.WriteLine("Scan wurde abgebrochen!");
+            }
+            finally
+            {
+                // 🔹 Hier wird sichergestellt, dass der Scan als beendet gemeldet wird
+                ARP_Request_Finished?.Invoke(this, new Method_Finished_EventArgs()
+                {
+                    ScanStatus = MainWindow.ScanStatus.finished
+                });
+            }
         }
 
         private async Task ArpRequestTask(IPToScan ipToScan)
-        {
+        {            
+            Interlocked.Increment(ref current); // 🔹 Thread-sicheres Hochzählen
+            ProgressUpdated?.Invoke(current, responded, total);
+
+            if (_cts.Token.IsCancellationRequested) return; // Sofort abbrechen, falls der Scan bereits gestoppt wurde
+
             IPAddress ipAddress = IPAddress.Parse(ipToScan.IPorHostname);
             byte[] macAddr = new byte[6];
             uint macAddrLen = (uint)macAddr.Length;
 
-            int arp_response = await Task.Run(() => SendARP(BitConverter.ToInt32(ipAddress.GetAddressBytes(), 0), 0, macAddr, ref macAddrLen));
+            //int arp_response = await Task.Run(() => SendARP(BitConverter.ToInt32(ipAddress.GetAddressBytes(), 0), 0, macAddr, ref macAddrLen));
+
+            int arp_response = await Task.Run(() =>
+            {
+                if (_cts.Token.IsCancellationRequested) return -1; // Falls abgebrochen wurde, beenden
+                return SendARP(BitConverter.ToInt32(ipAddress.GetAddressBytes(), 0), 0, macAddr, ref macAddrLen);
+            }, _cts.Token);
+
+            if (_cts.Token.IsCancellationRequested || arp_response == -1) return; // 🔹 Falls abgebrochen wurde, einfach beenden
 
             if (arp_response != 0)
-            {
+            {                
                 if (ARP_Request_Task_Finished != null)
                 {
                     ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
@@ -121,8 +179,11 @@ namespace MyNetworkMonitor
 
                     ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
                     scanTask_Finished.ipToScan = ipToScan;
+                    
+                    Interlocked.Increment(ref responded); // 🔹 Thread-sicheres Hochzählen
+                    ProgressUpdated?.Invoke(current, responded, total);
 
-                    ARP_Request_Task_Finished(this, scanTask_Finished);
+                    ARP_Request_Task_Finished(this, scanTask_Finished);                    
                 }
             }
         }
@@ -156,13 +217,17 @@ namespace MyNetworkMonitor
         /// <returns></returns>
         public async Task ARP_A(List<IPToScan> IPs)
         {
+            StartNewScan();
+
             try
             {
-                string str_arpResult = await GetARPResult();
+                string str_arpResult = await GetARPResult().WaitAsync(_cts.Token);
                 string[] arpResult = str_arpResult.Split(new char[] { '\n', '\r' });
 
                 foreach (var arp in arpResult)
                 {
+                    if (_cts.Token.IsCancellationRequested) break;
+
                     // Parse out all the MAC / IP Address combinations
                     if (!string.IsNullOrEmpty(arp))
                     {
@@ -298,20 +363,27 @@ namespace MyNetworkMonitor
 
 
 
-        public static List<IPToScan> GetIPsInSameVLAN(List<IPToScan> ipsToRefresh)
+        public static async Task<List<IPToScan>> GetIPsInSameVLANAsync(List<IPToScan> ipsToRefresh)
         {
-            var knownIps = GetLocalArpTable();      // 1️⃣ ARP-Tabelle abrufen
-            string gateway = GetDefaultGateway();   // 2️⃣ Standard-Gateway bestimmen
-            var routingTable = GetRoutingTable();   // 3️⃣ Routing-Tabelle abrufen
-            string subnetMask = GetSubnetMaskViaSnmp(gateway); // 4️⃣ SNMP-Subnetzmaske abrufen
+            var knownIpsTask = Task.Run(() => GetLocalArpTable()); // 1️⃣ ARP-Tabelle abrufen (asynchron)
+            var gatewayTask = Task.Run(() => GetDefaultGateway()); // 2️⃣ Standard-Gateway bestimmen (asynchron)
+            var routingTableTask = Task.Run(() => GetRoutingTable()); // 3️⃣ Routing-Tabelle abrufen (asynchron)
+
+            await Task.WhenAll(knownIpsTask, gatewayTask, routingTableTask);
+
+            List<string> knownIps = await knownIpsTask;
+            string gateway = await gatewayTask;
+            List<string> routingTable = await routingTableTask;
+            string subnetMask = await Task.Run(() => GetSubnetMaskViaSnmp(gateway)); // 4️⃣ SNMP-Subnetzmaske abrufen (asynchron)
 
             return ipsToRefresh.Where(ip =>
                 knownIps.Contains(ip.IPorHostname) || // Ist IP in ARP-Tabelle?
-                (gateway != null && ip.IPorHostname.StartsWith(gateway.Substring(0, gateway.LastIndexOf('.')))) || // Gehört IP zum Gateway-Netz?
+                (!string.IsNullOrEmpty(gateway) && ip.IPorHostname.StartsWith(gateway.Substring(0, gateway.LastIndexOf('.')))) || // Gehört IP zum Gateway-Netz?
                 routingTable.Any(route => ip.IPorHostname.StartsWith(route.Substring(0, route.LastIndexOf('.')))) || // Gehört IP zu bekannten Routen?
                 (subnetMask != "255.255.255.255" && IsIpInSubnet(ip.IPorHostname, gateway, subnetMask)) // Falls SNMP-Subnetzmaske sinnvoll ist
             ).ToList();
         }
+
 
         private static List<string> GetLocalArpTable()
         {
