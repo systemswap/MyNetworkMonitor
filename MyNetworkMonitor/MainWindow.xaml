@@ -10,7 +10,7 @@
     xmlns:dxg="http://schemas.devexpress.com/winfx/2008/xaml/grid" xmlns:dx="http://schemas.devexpress.com/winfx/2008/xaml/core" x:Name="mainWindow" x:Class="MyNetworkMonitor.MainWindow"
         
         mc:Ignorable="d"
-        Title="My Network Monitor" Height="845" Width="1865" MinWidth="1865" MinHeight="845" Closing="Window_Closing" Background="#FFF3F3F3" Loaded="mainWindow_Loaded">
+        Title="My Network Monitor" Height="845" Width="1865" MinWidth="1865" MinHeight="845" Closing="Window_Closing" Background="#FFFAFBFA" Loaded="mainWindow_Loaded">
 
     <Grid>
         <Grid>
