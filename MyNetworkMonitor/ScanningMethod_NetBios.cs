@@ -187,10 +187,32 @@ public class ScanningMethod_NetBios
     //    NetbiosScanFinished?.Invoke(true);
     //}
 
+    private CancellationTokenSource _cts = new CancellationTokenSource(); // 🔹 Ermöglicht das Abbrechen
 
-
-    public async Task ScanMultipleIPsAsync(List<IPToScan> IPsToScan, CancellationToken cancellationToken, int maxParallelScans = 50)
+    public void StopScan()
     {
+        _cts.Cancel(); // 🔹 Scan abbrechen
+    }
+
+    private void StartNewScan()
+    {
+        if (_cts != null)
+        {
+            if (!_cts.IsCancellationRequested)
+            {
+                _cts.Cancel();
+            }
+            _cts.Dispose();
+        }
+        _cts = new CancellationTokenSource();
+    }
+
+
+
+    public async Task ScanMultipleIPsAsync(List<IPToScan> IPsToScan, int maxParallelScans = 50)
+    {
+        StartNewScan();
+
         current = 0;
         responded = 0;
         total = IPsToScan.Count;
@@ -200,19 +222,21 @@ public class ScanningMethod_NetBios
 
         foreach (var ip in IPsToScan)
         {
-            if (cancellationToken.IsCancellationRequested) break;
+            if (_cts.Token.IsCancellationRequested) break;  // 🔹 Saubere Abbruchprüfung
 
-            await semaphore.WaitAsync(cancellationToken); // Erlaubt nur `maxParallelScans` gleichzeitige Anfragen
+            await semaphore.WaitAsync(_cts.Token); // Erlaubt nur `maxParallelScans` gleichzeitige Anfragen
 
             tasks.Add(Task.Run(async () =>
             {
                 try
                 {
+                    if (_cts.Token.IsCancellationRequested) return;  // 🔹 Vor dem Start abbrechen
+
                     Interlocked.Increment(ref current);
                     ProgressUpdated?.Invoke(current, responded, total);
 
                     ip.UsedScanMethod = ScanMethod.NetBios;
-                    bool success = await RunWithTimeout(QueryNetBiosAsync(ip, cancellationToken), TimeSpan.FromSeconds(5));
+                    bool success = await RunWithTimeout(QueryNetBiosAsync(ip, _cts.Token), TimeSpan.FromSeconds(5));
 
                     if (success)
                     {
@@ -238,8 +262,12 @@ public class ScanningMethod_NetBios
     {
         try
         {
+            if (cancellationToken.IsCancellationRequested) return; // 🔹 Abbruchprüfung
+
             if (GetRemoteNetBiosName(IPAddress.Parse(iPToScan.IPorHostname), out string nbName, out _, out _))
             {
+                if (cancellationToken.IsCancellationRequested) return; // 🔹 Abbruchprüfung
+
                 iPToScan.NetBiosHostname = nbName;
 
                 if (!string.IsNullOrEmpty(nbName))
@@ -256,7 +284,7 @@ public class ScanningMethod_NetBios
         }
     }
 
-    private static bool GetRemoteNetBiosName(IPAddress targetAddress, out string nbName, out string nbDomainOrWorkgroupName, out string macAddress, int receiveTimeOut = 5000, int retries = 1)
+    private bool GetRemoteNetBiosName(IPAddress targetAddress, out string nbName, out string nbDomainOrWorkgroupName, out string macAddress, int receiveTimeOut = 5000, int retries = 1)
     {
         nbName = null;
         nbDomainOrWorkgroupName = null;
@@ -266,11 +294,15 @@ public class ScanningMethod_NetBios
 
         do
         {
+            if (_cts.Token.IsCancellationRequested) return false; // 🔹 Abbruchprüfung
+
             using Socket requestSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
             requestSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReceiveTimeout, receiveTimeOut);
 
             EndPoint remoteEndpoint = new IPEndPoint(targetAddress, 137);
             requestSocket.SendTo(NameRequest, remoteEndpoint);
+
+            if (_cts.Token.IsCancellationRequested) return false; // 🔹 Abbruchprüfung
 
             try
             {

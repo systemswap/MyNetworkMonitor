@@ -16,10 +16,33 @@ namespace MyNetworkMonitor
 {
     internal class ScanningMethod_SSDP_UPNP
     {
+
+        private CancellationTokenSource _cts = new CancellationTokenSource(); // 🔹 Ermöglicht das Abbrechen
+
+        public void StopScan()
+        {
+            _cts.Cancel(); // 🔹 Scan abbrechen
+        }
+
+        private void StartNewScan()
+        {
+            if (_cts != null)
+            {
+                if (!_cts.IsCancellationRequested)
+                {
+                    _cts.Cancel();
+                }
+                _cts.Dispose();
+            }
+            _cts = new CancellationTokenSource();
+        }
+
+
         public ScanningMethod_SSDP_UPNP()
         {
 
         }
+
         AsyncTimer timer = new AsyncTimer();
         public event EventHandler<ScanTask_Finished_EventArgs>? SSDP_foundNewDevice;
         public event EventHandler<Method_Finished_EventArgs>? SSDP_Scan_Finished;
@@ -71,6 +94,7 @@ namespace MyNetworkMonitor
         /// <param name="scanDuration">in milliseconds</param>
         public async void Scan_for_SSDP_devices_async(int scanDuration = 5000)
         {
+            StartNewScan();
 
             current = 0;
             responsed = 0;
@@ -108,11 +132,13 @@ namespace MyNetworkMonitor
                 {
                     // Starte den Timer und warte nicht auf seine Beendigung
                     var timerTask = timer.StartAsync(scanDuration, 1000, async () => { });
-
+                    
                     while (timer.IsRunning)
                     {
+                        if (_cts.Token.IsCancellationRequested) break; // 🔹 Abbruchprüfung
+
                         var receiveTask = udpClient.ReceiveAsync();
-                        var completedTask = await Task.WhenAny(receiveTask, Task.Delay(100));
+                        var completedTask = await Task.WhenAny(receiveTask, Task.Delay(100, _cts.Token));
 
                         if (completedTask == receiveTask) // Antwort erhalten
                         {
