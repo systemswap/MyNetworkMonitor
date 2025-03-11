@@ -237,9 +237,9 @@
                                 </DataGridCheckBoxColumn>
                                 <DataGridTextColumn Header="Service" Binding="{Binding Service}" IsReadOnly="True"/>
                                 <DataGridTextColumn Header="Ports" Binding="{Binding Ports}" IsReadOnly="false"/>
-                                <DataGridTextColumn Header="HelloBytePackage" Binding="{Binding HelloBytePackage}" IsReadOnly="True"/>
-                                <DataGridTextColumn Header="ResponsedBytePackagePart" Binding="{Binding ResponsedBytePackagePart}" IsReadOnly="True"/>
-                                <DataGridTextColumn Header="ResponsedContainsString" Binding="{Binding ResponsedContainsString}" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="HelloBytePackage" Binding="{Binding HelloBytePackage}" IsReadOnly="True" Visibility="Hidden"/>
+                                <DataGridTextColumn Header="ResponsedBytePackagePart" Binding="{Binding ResponsedBytePackagePart}" IsReadOnly="True" Visibility="Hidden"/>
+                                <DataGridTextColumn Header="ResponsedContainsString" Binding="{Binding ResponsedContainsString}" IsReadOnly="True" Visibility="Hidden"/>
 
                             </DataGrid.Columns>
                         </DataGrid>
@@ -713,14 +713,7 @@
                    RenderOptions.BitmapScalingMode="HighQuality"/>
                     </ControlTemplate>
                 </Button.Template>
-
             </Button>
-
-
-
-
-
         </Grid>
-
     </Grid>
 </Window>
