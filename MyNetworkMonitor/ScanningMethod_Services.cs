@@ -105,6 +105,26 @@ public class ScanningMethod_Services
         _serviceXMLPath = ServiceXMLPath;
     }
 
+    private CancellationTokenSource _cts = new CancellationTokenSource(); // 🔹 Ermöglicht das Abbrechen
+    public void StopScan()
+    {
+        _cts.Cancel(); // 🔹 Scan abbrechen
+    }
+
+    private void StartNewScan()
+    {
+        if (_cts != null)
+        {
+            if (!_cts.IsCancellationRequested)
+            {
+                _cts.Cancel();
+            }
+            _cts.Dispose();
+        }
+        _cts = new CancellationTokenSource();
+    }
+
+
     private string _serviceXMLPath = string.Empty;
 
     bool scanDHCP = true;
@@ -132,6 +152,8 @@ public class ScanningMethod_Services
 
     public async Task ScanIPsAsync(List<IPToScan> IPsToScan, List<ServiceType> services, Dictionary<ServiceType, List<int>> extraPorts = null)
     {
+        StartNewScan();
+
         current = 0;
         responded = 0;
         total = IPsToScan.Count;
@@ -139,13 +161,17 @@ public class ScanningMethod_Services
         var semaphore = new SemaphoreSlim(MaxParallelIPs);
         var tasks = IPsToScan.Select(async ipToScan =>
         {
-            await semaphore.WaitAsync();
+            await semaphore.WaitAsync(_cts.Token);
+
+            if (_cts.Token.IsCancellationRequested)
+                return; // Vorzeitig abbrechen
+
             try
             {
                 int currentValue = Interlocked.Increment(ref current);
                 ProgressUpdated?.Invoke(current, responded, total);
 
-                await Task.Run(() => ScanIPAsync(ipToScan, services, extraPorts));
+                await Task.Run(() => ScanIPAsync(ipToScan, services, extraPorts), _cts.Token);
 
             }
             finally
@@ -366,6 +392,8 @@ public class ScanningMethod_Services
 
         foreach (ServiceType service in services)
         {
+            if (_cts.Token.IsCancellationRequested) return; // Direkt abbrechen, falls nötig
+
             var serviceResult = new ServiceResult { Service = service };
             //var ports = GetDefaultServicePorts(service);
 
@@ -383,8 +411,10 @@ public class ScanningMethod_Services
 
             foreach (var port in ports.Distinct())
             {
-                await semaphore.WaitAsync();
-                
+                await semaphore.WaitAsync(_cts.Token);
+
+                if (_cts.Token.IsCancellationRequested) return; // Direkt abbrechen, falls nötig
+
                 tasks.Add(ScanServicePortAsync(service, ipAddress, port, detectionPacket, serviceResult, semaphore));                
             }
 
@@ -414,14 +444,16 @@ public class ScanningMethod_Services
     /// </summary>
     private async Task ScanServicePortAsync(ServiceType service, string ipAddress, int port, byte[] detectionPacket, ServiceResult serviceResult, SemaphoreSlim semaphore)
     {
+        if (_cts.Token.IsCancellationRequested) return; // Sofort abbrechen, falls Stopp angefordert wurde
+
         try
         {
-            PortResult portResult = new PortResult();            
+            PortResult portResult = new PortResult();
 
             switch (service)
             {
                 case ServiceType.WebServices:
-                    portResult = await CheckWebServicePortAsync(ipAddress, port);
+                    portResult = await CheckWebServicePortAsync(ipAddress, port).WaitAsync(_cts.Token);
                     break;
                 case ServiceType.DNS_TCP:
 
@@ -429,7 +461,7 @@ public class ScanningMethod_Services
                     string domain = "gotme.tcp.com";
 
                     byte[] dnsQuery = BuildDnsRequest(domain);
-                    portResult = await SendTcpDnsQuery(dnsTCPServerIP, dnsQuery, port);
+                    portResult = await SendTcpDnsQuery(dnsTCPServerIP, dnsQuery, port).WaitAsync(_cts.Token);
 
                     break;
                 case ServiceType.DNS_UDP:
@@ -438,21 +470,21 @@ public class ScanningMethod_Services
                     string domain2 = "gotme.udp.com";
 
                     byte[] dnsQuery2 = BuildDnsRequest(domain2);
-                    portResult = await SendUdpDnsQuery(dnsUDPServerIP, dnsQuery2, port);
+                    portResult = await SendUdpDnsQuery(dnsUDPServerIP, dnsQuery2, port).WaitAsync(_cts.Token);
 
                     break;
-                    case ServiceType.DHCP:
+                case ServiceType.DHCP:
 
                     portResult.Port = 67;
 
                     if (scanDHCP)
                     {
                         scanDHCP = false;
-                        DHCP_Server_IPs = await SendDhcpDiscoverAsync(detectionPacket);                        
+                        DHCP_Server_IPs = await SendDhcpDiscoverAsync(detectionPacket).WaitAsync(_cts.Token);
                     }
 
                     if (DHCP_Server_IPs.Contains(ipAddress))
-                    {                        
+                    {
                         portResult.Status = PortStatus.IsRunning;
                     }
                     else
@@ -461,31 +493,31 @@ public class ScanningMethod_Services
                     }
                     break;
                 case ServiceType.SSH:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
                     break;
                 case ServiceType.FTP:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
                     break;
                 case ServiceType.RDP:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
                     break;
                 case ServiceType.UltraVNC:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
                     break;
                 case ServiceType.BigFixRemote:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
                     break;
                 case ServiceType.RustdeskServer:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
                     break;
                 case ServiceType.TeamViewer:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
                     break;
                 case ServiceType.Anydesk:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
                     break;
                 case ServiceType.MSSQLServer:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
 
                     if (portResult.Status != PortStatus.IsRunning)
                     {
@@ -512,41 +544,46 @@ public class ScanningMethod_Services
                     }
                     break;
                 case ServiceType.PostgreSQL:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
                     break;
                 case ServiceType.MySQL:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
                     break;
                 case ServiceType.MariaDB:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
                     break;
                 case ServiceType.OracleDB:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
                     break;
                 case ServiceType.MongoDB:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
                     break;
                 case ServiceType.InfluxDB2:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
-                    break;               
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
+                    break;
                 case ServiceType.OPCUA:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
                     break;
                 case ServiceType.ModBus:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
                     break;
                 case ServiceType.S7:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
                     break;
                 default:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket);
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
                     break;
             }
+            if (_cts.Token.IsCancellationRequested) return;
 
             lock (serviceResult.Ports) // Schutz vor parallelem Zugriff
             {
                 serviceResult.Ports.Add(portResult);
             }
+        }
+        catch (OperationCanceledException)
+        {
+            return; // Falls ein Task abgebrochen wurde, sauber zurückkehren
         }
         finally
         {
@@ -720,6 +757,8 @@ public class ScanningMethod_Services
 
     public async Task<IPToScan> FindServicePortAsync(IPToScan ipToScan, ServiceType service)
     {
+        StartNewScan();
+
         current = 0;
         responded = 0;
         total = 65536;
@@ -730,7 +769,7 @@ public class ScanningMethod_Services
         ipToScan.Services.Services.Add(serviceResult);
 
         var semaphore = new SemaphoreSlim(200); // Maximal 100 parallele Tasks
-        var cts = new CancellationTokenSource();
+        
         List<int> ports = Enumerable.Range(0, 65536).ToList(); // Alle Ports von 0 bis 65535
         //List<int> ports = Enumerable.Range(1880, 8087).ToList(); // Alle Ports von 0 bis 65535
 
@@ -743,12 +782,14 @@ public class ScanningMethod_Services
 
         foreach (int port in ports)
         {
+            if (_cts.Token.IsCancellationRequested) break; // 🔹 Falls der Scan gestoppt wurde, Schleife sofort beenden
+
             int currentValue = Interlocked.Increment(ref current);
             FindServicePortProgressUpdated?.Invoke(port, responded, total);
 
             try
             {
-                await semaphore.WaitAsync(cts.Token); // Warten auf freien Slot
+                await semaphore.WaitAsync(_cts.Token); // Warten auf freien Slot
             }
             catch (OperationCanceledException)
             {
@@ -792,6 +833,8 @@ public class ScanningMethod_Services
 
                             while ((DateTime.Now - startTime).TotalMilliseconds < 2000)
                             {
+                                if (_cts.Token.IsCancellationRequested) break; // 🔹 Falls der Scan gestoppt wurde, Schleife sofort beenden
+
                                 if (stream.DataAvailable)
                                 {
                                     int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
@@ -819,7 +862,7 @@ public class ScanningMethod_Services
                                     ipToScan.Services.Services[0].Ports.Add(new PortResult { Port = port, Status = PortStatus.IsRunning });
                                 }
 
-                                cts.Cancel(); // Abbruch, wenn der Service erkannt wurde
+                                _cts.Cancel(); // Abbruch, wenn der 1. [erste] Service erkannt wurde
                             }
                         }
                     }
