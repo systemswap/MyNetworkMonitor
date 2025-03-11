@@ -69,26 +69,31 @@ namespace MyNetworkMonitor
             supportMethods = new SupportMethods();
             //supportMethods.GetNetworkInterfaces();            
 
+            if(scanningMethode_SSDP_UPNP != null) scanningMethode_SSDP_UPNP.StopScan();
             scanningMethode_SSDP_UPNP = new ScanningMethod_SSDP_UPNP();
             scanningMethode_SSDP_UPNP.ProgressUpdated += ScanningMethode_SSDP_UPNP_ProgressUpdated;
             scanningMethode_SSDP_UPNP.SSDP_foundNewDevice += SSDP_foundNewDevice;
             scanningMethode_SSDP_UPNP.SSDP_Scan_Finished += SSDP_Scan_Finished;
 
+            if(scanningMethode_SNMP != null) scanningMethode_SNMP.StopScan();
             scanningMethode_SNMP = new ScanningMethod_SNMP();
             scanningMethode_SNMP.ProgressUpdated += ScanningMethode_SNMP_ProgressUpdated; ;
             scanningMethode_SNMP.SNMB_Task_Finished += ScanningMethode_SNMP_SNMB_Task_Finished; ;
             scanningMethode_SNMP.SNMBFinished += ScanningMethode_SNMP_SNMBFinished; ;
 
+            if(scanningMethode_NetBios != null) scanningMethode_NetBios.StopScan();
             scanningMethode_NetBios = new ScanningMethod_NetBios();
             scanningMethode_NetBios.ProgressUpdated += ScanningMethode_NetBios_ProgressUpdated;
             scanningMethode_NetBios.NetbiosIPScanFinished += ScanningMethod_NetBios_NetbiosIPScanFinished;
             scanningMethode_NetBios.NetbiosScanFinished += ScanningMethod_NetBios_NetbiosScanFinished;
 
+            if(scanningMethod_SMB_VersionCheck != null) scanningMethod_SMB_VersionCheck.StopScan();
             scanningMethod_SMB_VersionCheck = new ScanningMethod_SMBVersionCheck();
             scanningMethod_SMB_VersionCheck.ProgressUpdated += ScanningMethod_SMB_VersionCheck_ProgressUpdated; ;
             scanningMethod_SMB_VersionCheck.SMBIPScanFinished += ScanningMethod_SMB_VersionCheck_SMB_IP_Scan_Finished;
             scanningMethod_SMB_VersionCheck.SMBScanFinished += ScanningMethod_SMBVersionCheck_SMB_Scan_Finished;
 
+            if(scanningMethod_Services != null) scanningMethod_Services.StopScan();
             scanningMethod_Services = new ScanningMethod_Services(_ServicesXML);
             scanningMethod_Services.FindServicePortProgressUpdated += ScanningMethod_Services_FindServicePortProgressUpdated;
             scanningMethod_Services.FindServicePortFinished += ScanningMethod_Services_FindServicePortFinished; ;
@@ -96,12 +101,13 @@ namespace MyNetworkMonitor
             scanningMethod_Services.ProgressUpdated += ScanningMethod_Services_ProgressUpdated;
             scanningMethod_Services.ServiceScanFinished += ScanningMethod_Services_ServiceScanFinished;
 
-
+            if (scanningMethode_ARP != null) scanningMethode_ARP.StopScan();
             scanningMethode_ARP = new ScanningMethod_ARP();
             scanningMethode_ARP.ProgressUpdated += ScanningMethode_ARP_ProgressUpdated;
             scanningMethode_ARP.ARP_A_newDevice += ARP_A_newDevive_Finished;
             scanningMethode_ARP.ARP_Request_Task_Finished += ARP_Request_Task_Finished;
             scanningMethode_ARP.ARP_Request_Finished += ARP_Request_Finished;
+
 
             scanningMethods_Ping = new ScanningMethods_Ping();
             scanningMethods_Ping.ProgressUpdated += ScanningMethods_Ping_ProgressUpdated;
@@ -951,35 +957,35 @@ namespace MyNetworkMonitor
             counted_responded_SNMP_Devices = 0;
             counted_total_SNMP_Devices = 0;
 
-            counted_current_DNS_HostNames = 0;
-            counted_total_DNS_HostNames = 0;
+            counted_current_DNS_HostNames = 0;            
             counted_responded_DNS_HostNames = 0;
+            counted_total_DNS_HostNames = 0;
 
-            counted_total_NetBiosInfos = 0;
             counted_current_NetBiosScan = 0;
             counted_responded_NetBiosInfos = 0;
+            counted_total_NetBiosInfos = 0;
 
             counted_current_Service_IP_Scan = 0;
             counted_responded_Services_IP_Scan = 0;
             counted_total_Services_IP_Scan = 0;
 
             counted_current_Lookup_Scan = 0;
-            counted_total_Lookup_Scans = 0;
             counted_responded_Lookup_Devices = 0;
+            counted_total_Lookup_Scans = 0;            
 
             counted_current_ARP_Requests = 0;
-            counted_total_ARP_Requests = 0;
             counted_responded_ARP_Requests = 0;
+            counted_total_ARP_Requests = 0;            
 
             counted_current_TCP_Port_Scan = 0;
-            counted_total_TCP_Port_Scans = 0;
             counted_responded_TCP_Port_Scan_Devices = 0;
+            counted_total_TCP_Port_Scans = 0;            
 
             counted_current_UDP_Port_Scan = 0;
             counted_total_UDP_Port_Devices = 0;
 
 
-
+            lbl_ScanStatus.Content = "...";
 
 
 
@@ -997,7 +1003,11 @@ namespace MyNetworkMonitor
 
                 if (_IPsToScan.Where(i => i.IPorHostname == row["IP"].ToString()).Count() > 0)
                 {
-                    if ((bool)chk_Methodes_ARP_A.IsChecked && !string.IsNullOrEmpty(row["ARPStatus"].ToString())) row["ARPStatus"] = Properties.Resources.gray_dot_s;
+                    byte[]? arpStatus = row["ARPStatus"] as byte[];
+                    if (((bool)chk_ARPRequest.IsChecked || (bool)chk_Methodes_ARP_A.IsChecked) && arpStatus.Length != null)
+                    { 
+                        row["ARPStatus"] = Properties.Resources.gray_dot_s;                    
+                    }
 
 
                     if ((bool)chk_Methodes_Ping.IsChecked && !string.IsNullOrEmpty(row["PingStatus"].ToString())) row["PingStatus"] = Properties.Resources.gray_dot_s;
@@ -1060,7 +1070,8 @@ namespace MyNetworkMonitor
                 status_ARP_Request_Scan = ScanStatus.running;
                 Status();
 
-                await Task.Run(() => scanningMethode_ARP.SendARPRequestAsync(_IPsToScan));
+                //await Task.Run(() => scanningMethode_ARP.SendARPRequestAsync(_IPsToScan));
+                await scanningMethode_ARP.SendARPRequestAsync(_IPsToScan);
             }
 
             if ((bool)chk_Methodes_Ping.IsChecked)
@@ -1195,7 +1206,7 @@ namespace MyNetworkMonitor
                     }
                 }
                 status_SMB_VersionCheck = ScanStatus.running;
-                await scanningMethod_SMB_VersionCheck.ScanMultipleIPsAsync(SMB_IPsToScan, CancellationToken.None);
+                await scanningMethod_SMB_VersionCheck.ScanMultipleIPsAsync(SMB_IPsToScan);
             }
 
             List<IPToScan> NetBios_IPsToScan = new List<IPToScan>();
@@ -1215,7 +1226,7 @@ namespace MyNetworkMonitor
                     }
                 }
                 status_NetBios_Scan = ScanStatus.running;
-                await Task.Run(() => scanningMethode_NetBios.ScanMultipleIPsAsync(NetBios_IPsToScan, CancellationToken.None));
+                await Task.Run(() => scanningMethode_NetBios.ScanMultipleIPsAsync(NetBios_IPsToScan));
             }
 
 
@@ -1940,6 +1951,9 @@ namespace MyNetworkMonitor
             //throw new NotImplementedException();
             Dispatcher.Invoke(() => 
             {
+                status_ARP_Request_Scan = ScanStatus.running;
+                counted_current_ARP_Requests = arg1;
+                counted_responded_ARP_Requests = arg2;
                 counted_total_ARP_Requests = arg3;
                 Status();
             });
@@ -1950,8 +1964,6 @@ namespace MyNetworkMonitor
         {
             Dispatcher.BeginInvoke(() =>
             {
-                ++counted_current_ARP_Requests;
-                Status();
 
                 if (string.IsNullOrEmpty(e.ipToScan.IPorHostname))
                 {
@@ -1959,9 +1971,6 @@ namespace MyNetworkMonitor
                 }
 
                 InsertIPToScanResult(e.ipToScan);
-
-                ++counted_responded_ARP_Requests;
-                Status();
             });
         }
         private void ARP_Request_Finished(object? sender, Method_Finished_EventArgs e)

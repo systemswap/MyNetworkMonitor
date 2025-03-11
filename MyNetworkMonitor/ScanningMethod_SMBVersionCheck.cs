@@ -24,10 +24,34 @@ public class ScanningMethod_SMBVersionCheck
     {
 
     }
+
+
+    private CancellationTokenSource _cts = new CancellationTokenSource(); // 🔹 Ermöglicht das Abbrechen
+
+    public void StopScan()
+    {
+        _cts.Cancel(); // 🔹 Scan abbrechen
+    }
+
+
+    private void StartNewScan()
+    {
+        if (_cts != null)
+        {
+            if (!_cts.IsCancellationRequested)
+            {
+                _cts.Cancel();
+            }
+            _cts.Dispose();
+        }
+        _cts = new CancellationTokenSource();
+    }
+
+
     private async Task RunWithTimeout(Func<Task> action, TimeSpan timeout)
     {
         var task = action();
-        if (await Task.WhenAny(task, Task.Delay(timeout)) == task)
+        if (await Task.WhenAny(task, Task.Delay(timeout, _cts.Token)) == task)
         {
             await task; // ✅ Die Task wurde erfolgreich beendet
         }
@@ -37,8 +61,10 @@ public class ScanningMethod_SMBVersionCheck
         }
     }
 
-    public async Task ScanMultipleIPsAsync(List<IPToScan> IPsToScan, CancellationToken cancellationToken)
+    public async Task ScanMultipleIPsAsync(List<IPToScan> IPsToScan)
     {
+        StartNewScan();
+
         current = 0;
         responded = 0;
         total = IPsToScan.Count;
@@ -47,7 +73,7 @@ public class ScanningMethod_SMBVersionCheck
         var options = new ParallelOptions
         {
             MaxDegreeOfParallelism = 20, // Begrenze gleichzeitige SMB-Anfragen auf 20
-            CancellationToken = cancellationToken
+            CancellationToken = _cts.Token
         };
 
         // Verwende `ConcurrentBag<Task>`, um parallele Tasks sicher zu speichern
@@ -55,7 +81,7 @@ public class ScanningMethod_SMBVersionCheck
 
         await Task.Run(() => Parallel.ForEach(IPsToScan, options, ipToScan =>
         {
-            if (cancellationToken.IsCancellationRequested) return;
+            if (_cts.Token.IsCancellationRequested) return;
 
             int currentValue = Interlocked.Increment(ref current);
             ProgressUpdated?.Invoke(current, responded, total);
@@ -81,6 +107,8 @@ public class ScanningMethod_SMBVersionCheck
     {
         foreach (SMBDialects dialect in Enum.GetValues(typeof(SMBDialects)))
         {
+            if (_cts.Token.IsCancellationRequested) return;
+
             try
             {
                 using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
@@ -88,7 +116,7 @@ public class ScanningMethod_SMBVersionCheck
                     socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
 
                     var connectTask = socket.ConnectAsync(IPAddress.Parse(ipToScan.IPorHostname), port);
-                    if (await Task.WhenAny(connectTask, Task.Delay(5000)) != connectTask) // Timeout nach 5 Sek
+                    if (await Task.WhenAny(connectTask, Task.Delay(5000, _cts.Token)) != connectTask) // Timeout nach 5 Sek
                     {
                         Console.WriteLine($"❌ Timeout: {ipToScan.IPorHostname} reagiert nicht.");
                         socket.Close();
@@ -105,7 +133,7 @@ public class ScanningMethod_SMBVersionCheck
 
                         byte[] tempResponse = new byte[1024];
                         var readTask = stream.ReadAsync(tempResponse, 0, tempResponse.Length);
-                        if (await Task.WhenAny(readTask, Task.Delay(2000)) != readTask) // Timeout für Response
+                        if (await Task.WhenAny(readTask, Task.Delay(2000, _cts.Token)) != readTask) // Timeout für Response
                         {
                             Console.WriteLine($"⚠ Keine SMB-Antwort von {ipToScan.IPorHostname}");
                             continue;
