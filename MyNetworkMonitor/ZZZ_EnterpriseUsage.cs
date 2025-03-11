@@ -19,6 +19,7 @@ namespace MyNetworkMonitor
 {
     static class ZZZ_EnterpriseUsage
     {
+        static int countdown = 0;
 
         public static bool IsCompanyNetwork()
         {
@@ -86,8 +87,7 @@ namespace MyNetworkMonitor
             }
             return false;
         }
-
-
+        
         public static void ShowEnterpriseMessage()
         {
             // Fenster erstellen
@@ -164,9 +164,7 @@ namespace MyNetworkMonitor
             emailLink.RequestNavigate += (s, e) => Process.Start(new ProcessStartInfo(e.Uri.AbsoluteUri) { UseShellExecute = true });
 
             // Hinzufügen des Hyperlinks zu den Inlines des TextBlocks
-            contactText.Inlines.Add(emailLink);
-
-            int countdown = 30;
+            contactText.Inlines.Add(emailLink);            
 
             // OK-Button
             Button closeButton = new Button
