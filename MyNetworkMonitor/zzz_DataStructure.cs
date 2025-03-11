@@ -259,10 +259,7 @@ namespace MyNetworkMonitor
                             break;
                         case ServiceType.S7:
                             serviceWithIcon = "📟 " + service.Service.ToString();
-                            break;
-                        case ServiceType.Custom:
-                            serviceWithIcon = "💡 " + service.Service.ToString();
-                            break;
+                            break;                        
                         default:
                             serviceWithIcon = "🤔 " + service.Service.ToString();
                             break;
