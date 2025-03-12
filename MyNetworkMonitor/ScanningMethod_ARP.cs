@@ -77,9 +77,13 @@ namespace MyNetworkMonitor
         public async Task SendARPRequestAsync(List<IPToScan> ipsToRefresh)
         {
             StartNewScan();
-            
 
             if (_cts.Token.IsCancellationRequested) return; // 🔹 Sofort abbrechen
+            
+            current = 0;
+            responded = 0;
+            total = 0;
+            ProgressUpdated?.Invoke(current, responded, total);
 
             List<IPToScan> filtered;
             try
@@ -91,35 +95,28 @@ namespace MyNetworkMonitor
                 Debug.WriteLine("Task für GetIPsInSameVLANAsync wurde abgebrochen.");
                 return; // Beende die Methode sauber
             }
-            if (filtered.Count <= 1) filtered = ipsToRefresh;
 
-            current = 0;
-            responded = 0;
+            if (filtered.Count <= 1) filtered = ipsToRefresh;
+          
             total = filtered.Count;
             ProgressUpdated?.Invoke(current, responded, total);
 
-            var tasks = new List<Task>();
-
             try
             {
-                foreach (var ip in filtered.Where(ip => !string.IsNullOrEmpty(ip.IPorHostname)))
-                {
-                    if (_cts.Token.IsCancellationRequested) throw new TaskCanceledException(); // 🔹 Abbruch erzwingen
-
-                    tasks.Add(ArpRequestTask(ip));
-
-                    await Task.Delay(20, _cts.Token);
-                }
-
-                await Task.WhenAll(tasks); // 🔹 Warte auf alle Tasks
+                await Parallel.ForEachAsync(filtered.Where(ip => !string.IsNullOrEmpty(ip.IPorHostname)), _cts.Token,
+                    async (ip, token) =>
+                    {
+                        token.ThrowIfCancellationRequested(); // 🔹 Sofort abbrechen, wenn gefordert
+                        await ArpRequestTask(ip);
+                    });
             }
-            catch (TaskCanceledException)
+            catch (OperationCanceledException)
             {
                 Debug.WriteLine("Scan wurde abgebrochen!");
             }
             finally
             {
-                // 🔹 Hier wird sichergestellt, dass der Scan als beendet gemeldet wird
+                // 🔹 Sicherstellen, dass der Scan als beendet gemeldet wird
                 ARP_Request_Finished?.Invoke(this, new Method_Finished_EventArgs()
                 {
                     ScanStatus = MainWindow.ScanStatus.finished
@@ -127,66 +124,54 @@ namespace MyNetworkMonitor
             }
         }
 
+
         private async Task ArpRequestTask(IPToScan ipToScan)
-        {            
+        {
+            _cts.Token.ThrowIfCancellationRequested(); // 🔹 Falls abgebrochen, sofort raus
+
             Interlocked.Increment(ref current); // 🔹 Thread-sicheres Hochzählen
             ProgressUpdated?.Invoke(current, responded, total);
 
-            if (_cts.Token.IsCancellationRequested) return; // Sofort abbrechen, falls der Scan bereits gestoppt wurde
+            if (_cts.Token.IsCancellationRequested) return;
 
             IPAddress ipAddress = IPAddress.Parse(ipToScan.IPorHostname);
             byte[] macAddr = new byte[6];
             uint macAddrLen = (uint)macAddr.Length;
 
-            //int arp_response = await Task.Run(() => SendARP(BitConverter.ToInt32(ipAddress.GetAddressBytes(), 0), 0, macAddr, ref macAddrLen));
-
             int arp_response = await Task.Run(() =>
             {
-                if (_cts.Token.IsCancellationRequested) return -1; // Falls abgebrochen wurde, beenden
+                _cts.Token.ThrowIfCancellationRequested(); // 🔹 Falls abgebrochen, sofort raus
                 return SendARP(BitConverter.ToInt32(ipAddress.GetAddressBytes(), 0), 0, macAddr, ref macAddrLen);
             }, _cts.Token);
 
-            if (_cts.Token.IsCancellationRequested || arp_response == -1) return; // 🔹 Falls abgebrochen wurde, einfach beenden
+            if (_cts.Token.IsCancellationRequested || arp_response == -1) return;
 
             if (arp_response != 0)
-            {                
-                if (ARP_Request_Task_Finished != null)
+            {
+                ARP_Request_Task_Finished?.Invoke(this, new ScanTask_Finished_EventArgs()
                 {
-                    ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
-
-                    scanTask_Finished.ipToScan.UsedScanMethod = ScanMethod.failed;
-
-                    ARP_Request_Task_Finished(this, scanTask_Finished);
-                }
+                    ipToScan = { UsedScanMethod = ScanMethod.failed }
+                });
             }
             else
             {
-                string[] str = new string[(int)macAddrLen];
-                for (int i = 0; i < macAddrLen; i++)
-                {
-                    str[i] = macAddr[i].ToString("x2");
-                }
-                string mac = string.Join("-", str);
+                string mac = string.Join("-", macAddr.Take((int)macAddrLen).Select(b => b.ToString("x2")));
 
                 if (ARP_Request_Task_Finished != null)
                 {
                     ipToScan.ARPStatus = true;
                     ipToScan.MAC = mac;
                     ipToScan.Vendor = support.GetVendorFromMac(mac).First();
-
-
                     ipToScan.UsedScanMethod = ScanMethod.ARPRequest;
 
-                    ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
-                    scanTask_Finished.ipToScan = ipToScan;
-                    
                     Interlocked.Increment(ref responded); // 🔹 Thread-sicheres Hochzählen
                     ProgressUpdated?.Invoke(current, responded, total);
 
-                    ARP_Request_Task_Finished(this, scanTask_Finished);                    
+                    ARP_Request_Task_Finished(this, new ScanTask_Finished_EventArgs() { ipToScan = ipToScan });
                 }
             }
         }
+
 
 
 

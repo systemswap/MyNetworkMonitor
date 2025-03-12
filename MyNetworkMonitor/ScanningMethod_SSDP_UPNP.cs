@@ -21,7 +21,19 @@ namespace MyNetworkMonitor
 
         public void StopScan()
         {
-            _cts.Cancel(); // 🔹 Scan abbrechen
+            if (_cts != null && !_cts.IsCancellationRequested)
+            {
+                _cts.Cancel(); // 🔹 Scan abbrechen
+                _cts.Dispose();
+                _cts = new CancellationTokenSource();
+            }
+
+            // 🔹 Zähler zurücksetzen
+            current = 0;
+            responsed = 0;
+            total = 0;
+
+            //ProgressUpdated?.Invoke(current, responded, total); // 🔹 UI auf 0 setzen
         }
 
         private void StartNewScan()
@@ -35,6 +47,11 @@ namespace MyNetworkMonitor
                 _cts.Dispose();
             }
             _cts = new CancellationTokenSource();
+
+            // 🔹 Zähler zurücksetzen
+            current = 0;
+            responsed = 0;
+            total = 0;
         }
 
 
@@ -43,7 +60,7 @@ namespace MyNetworkMonitor
 
         }
 
-        AsyncTimer timer = new AsyncTimer();
+        AsyncTimer timer = new AsyncTimer();        
         public event EventHandler<ScanTask_Finished_EventArgs>? SSDP_foundNewDevice;
         public event EventHandler<Method_Finished_EventArgs>? SSDP_Scan_Finished;
 
@@ -84,10 +101,8 @@ namespace MyNetworkMonitor
 
         private readonly string SSDP_IP = "239.255.255.250"; // SSDP Multicast-Adresse
         private readonly int SSDP_PORT = 1900;               // Standard-SSDP-Port
-        bool allowWhile = true;
-        public static Task<bool> ReturnFalseAfter(int timeoutMs) => Task.Delay(timeoutMs).ContinueWith(_ => false);
-
-
+    
+        
         /// <summary>
         /// Führt einen SSDP-Scan durch, empfängt Antworten und extrahiert Geräteinformationen.
         /// </summary>
@@ -132,18 +147,21 @@ namespace MyNetworkMonitor
                 {
                     // Starte den Timer und warte nicht auf seine Beendigung
                     var timerTask = timer.StartAsync(scanDuration, 1000, async () => { });
-                    
+
                     while (timer.IsRunning)
                     {
                         if (_cts.Token.IsCancellationRequested) break; // 🔹 Abbruchprüfung
 
                         var receiveTask = udpClient.ReceiveAsync();
-                        var completedTask = await Task.WhenAny(receiveTask, Task.Delay(100, _cts.Token));
+                        var completedTask = await Task.WhenAny(receiveTask, Task.Delay(10, _cts.Token));
 
-                        if (completedTask == receiveTask) // Antwort erhalten
+                        if (_cts.Token.IsCancellationRequested) break; // 🔹 Falls während `Task.WhenAny()` ein Abbruch passiert
+
+                        if (completedTask == receiveTask && !_cts.Token.IsCancellationRequested) // Antwort erhalten
                         {
                             UdpReceiveResult result = receiveTask.Result;
                             string response = Encoding.UTF8.GetString(result.Buffer);
+
 
                             var device = await ParseSSDPResponseAsync(response, result.RemoteEndPoint.Address.ToString());
 
@@ -165,14 +183,19 @@ namespace MyNetworkMonitor
                                     ipToScan = ipToScan
                                 };
 
-                                // Event im UI-Thread aufrufen
-                                Application.Current.Dispatcher.Invoke(() =>
-                                {
-                                    SSDP_foundNewDevice?.Invoke(this, scanTask_Finished);
-                                });
+                                
 
-                                int responsedValue = Interlocked.Increment(ref responsed);
-                                ProgressUpdated?.Invoke(current, responsedValue, total);
+                                if (!_cts.Token.IsCancellationRequested)
+                                {
+                                    // Event im UI-Thread aufrufen
+                                    Application.Current.Dispatcher.Invoke(() =>
+                                    {
+                                        SSDP_foundNewDevice?.Invoke(this, scanTask_Finished);
+                                    });
+
+                                    int responsedValue = Interlocked.Increment(ref responsed);
+                                    ProgressUpdated?.Invoke(current, responsed, total);
+                                }
                             }
                         }
                     }
@@ -186,10 +209,12 @@ namespace MyNetworkMonitor
                     //Console.WriteLine("✅ SSDP-Scan abgeschlossen.");
 
                     // Sicherstellen, dass das Event auf dem UI-Thread aufgerufen wird
+
                     Application.Current.Dispatcher.Invoke(() =>
                     {
                         SSDP_Scan_Finished?.Invoke(this, new Method_Finished_EventArgs() { ScanStatus = MainWindow.ScanStatus.finished });
                     });
+
                 }
             }
             //return devices;        
@@ -234,38 +259,7 @@ namespace MyNetworkMonitor
             var match = Regex.Match(input, pattern, RegexOptions.IgnoreCase);
             return match.Success ? match.Groups[1].Value.Trim() : string.Empty;
         }
-
-        ///// <summary>
-        ///// Lädt die XML-Datei von der angegebenen URL und extrahiert wichtige Informationen.
-        ///// </summary>
-        //private static async Task ParseXMLFromURL(SSDPDeviceInfo device, string url)
-        //{
-        //    try
-        //    {
-        //        using HttpClient client = new HttpClient();
-        //        string xmlContent = await client.GetStringAsync(url);
-
-        //        // XML in ein XElement laden
-        //        XDocument doc = XDocument.Parse(xmlContent);
-        //        XElement deviceElement = doc.Root?.Element("device");
-
-        //        if (deviceElement != null)
-        //        {
-        //            device.FriendlyName = deviceElement.Element("friendlyName")?.Value ?? string.Empty;
-        //            device.Manufacturer = deviceElement.Element("manufacturer")?.Value ?? string.Empty;
-        //            device.ModelDescription = deviceElement.Element("modelDescription")?.Value ?? string.Empty;
-        //            device.ModelName = deviceElement.Element("modelName")?.Value ?? string.Empty;
-        //            device.ModelNumber = deviceElement.Element("modelNumber")?.Value ?? string.Empty;
-        //            device.ModelType = deviceElement.Element("modelType")?.Value ?? string.Empty;
-        //            device.URLBase = deviceElement.Element("serviceList")?.Element("service")?.Element("URLBase")?.Value ?? string.Empty;
-        //            device.PresentationURL = deviceElement.Element("presentationURL")?.Value ?? string.Empty;
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        Console.WriteLine($"⚠ Fehler beim Abrufen oder Parsen der XML: {ex.Message}");
-        //    }
-        //}
+      
 
         private static async Task ParseXMLFromURL(SSDPDeviceInfo device, string url)
         {
