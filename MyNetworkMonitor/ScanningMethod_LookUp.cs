@@ -20,6 +20,7 @@ namespace MyNetworkMonitor
         public event EventHandler<ScanTask_Finished_EventArgs>? Lookup_Task_Finished;
         public event EventHandler<Method_Finished_EventArgs>? Lookup_Finished;
 
+        private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(10); // Max. 10 parallele Lookups
 
         private int current = 0;
         private int responded = 0;
@@ -109,13 +110,34 @@ namespace MyNetworkMonitor
 
             var tasks = new List<Task>();
 
+            //foreach (var ip in IPs)
+            //{ 
+            //    if (_cts.Token.IsCancellationRequested) break; // 🔹 Falls abgebrochen, verlasse die Schleife
+
+            //    if (!string.IsNullOrEmpty(ip.HostName))
+            //    {
+            //        tasks.Add(LookupTask(ip)); // 🔹 CancellationToken übergeben
+            //    }
+            //}
+
             foreach (var ip in IPs)
             {
-                if (_cts.Token.IsCancellationRequested) break; // 🔹 Falls abgebrochen, verlasse die Schleife
+                if (_cts.Token.IsCancellationRequested) break;
 
                 if (!string.IsNullOrEmpty(ip.HostName))
                 {
-                    tasks.Add(LookupTask(ip)); // 🔹 CancellationToken übergeben
+                    tasks.Add(Task.Run(async () =>
+                    {
+                        await _semaphore.WaitAsync(); // Warte, bis ein Platz frei wird
+                        try
+                        {
+                            await LookupTask(ip);
+                        }
+                        finally
+                        {
+                            _semaphore.Release(); // Nach Abschluss freigeben
+                        }
+                    }));
                 }
             }
 
@@ -277,21 +299,43 @@ namespace MyNetworkMonitor
         //    }
         //}
 
+        //public async Task<IPHostEntry> nsLookup(string Hostname)
+        //{
+        //    try
+        //    {
+        //        IPHostEntry _entry = await Dns.GetHostEntryAsync(Hostname).WaitAsync(_cts.Token);
+        //        return _entry.AddressList.Length > 0 ? _entry : null;
+        //    }
+        //    catch (OperationCanceledException)
+        //    {
+        //        return null; // 🔹 Abbruch sicherstellen
+        //    }
+        //    catch (Exception)
+        //    {
+        //        return null;
+        //    }
+        //}
+
+
         public async Task<IPHostEntry> nsLookup(string Hostname)
         {
+            if (_cts.Token.IsCancellationRequested) return null;
+
             try
-            {
-                IPHostEntry _entry = await Dns.GetHostEntryAsync(Hostname).WaitAsync(_cts.Token);
+            {               
+                IPHostEntry _entry = await Dns.GetHostEntryAsync(Hostname).WaitAsync(TimeSpan.FromSeconds(3), _cts.Token);
                 return _entry.AddressList.Length > 0 ? _entry : null;
             }
             catch (OperationCanceledException)
             {
                 return null; // 🔹 Abbruch sicherstellen
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                Console.WriteLine($"Fehler bei nsLookup für {Hostname}: {ex.Message}");
                 return null;
             }
         }
+
     }
 }
