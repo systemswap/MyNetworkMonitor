@@ -50,20 +50,36 @@ namespace MyNetworkMonitor
 
         private void bt_EditRow_Click(object sender, RoutedEventArgs e)
         {
+            // Die aktuell ausgewählte Zeile aus dem DataGrid holen
             var row = dg_IPGroups.SelectedItems[0];
-            indexOfCurrentRow = dg_IPGroups.Items.IndexOf(row);
 
-            chk_isActive.IsChecked = Convert.ToBoolean(_dt.Rows[indexOfCurrentRow]["isActive"]);
-            tb_Description.Text = _dt.Rows[indexOfCurrentRow]["IPGroupDescription"].ToString();
-            tb_DeviceDescription.Text = _dt.Rows[indexOfCurrentRow]["DeviceDescription"].ToString();
-            tb_firstIP.Text = _dt.Rows[indexOfCurrentRow]["FirstIP"].ToString();
-            tb_LastIP.Text = _dt.Rows[indexOfCurrentRow]["LastIP"].ToString();
-            tb_Domain.Text = _dt.Rows[indexOfCurrentRow]["Domain"].ToString();
-            tb_DNSServer.Text = _dt.Rows[indexOfCurrentRow]["DNSServers"].ToString();
-            tb_IPWhereNetworkMonitorRunAsGateway.Text = _dt.Rows[indexOfCurrentRow]["GatewayIP"].ToString();
-            tb_GatewayPort.Text = _dt.Rows[indexOfCurrentRow]["GatewayPort"].ToString();
-            chk_AutomaticScan.IsChecked = Convert.ToBoolean(_dt.Rows[indexOfCurrentRow]["AutomaticScan"]);
-            tb_ScanInterval.Text = _dt.Rows[indexOfCurrentRow]["ScanIntervalMinutes"].ToString();
+            // Werte aus der DataGrid-Zeile extrahieren
+            string selectedIPGroup = ((DataRowView)row)["IPGroupDescription"].ToString();
+            string selectedDeviceDescription = ((DataRowView)row)["DeviceDescription"].ToString();
+            string selectedFirstIP = ((DataRowView)row)["FirstIP"].ToString();
+
+            // Die richtige Zeile in der DataTable suchen
+            DataRow[] foundRows = _dt.Select(
+                $"IPGroupDescription = '{selectedIPGroup}' AND DeviceDescription = '{selectedDeviceDescription}' AND FirstIP = '{selectedFirstIP}'"
+            );
+
+            
+                DataRow selectedRow = foundRows[0];
+
+                // Werte aus der gefundenen DataRow setzen
+                chk_isActive.IsChecked = Convert.ToBoolean(selectedRow["isActive"]);
+                tb_Description.Text = selectedRow["IPGroupDescription"].ToString();
+                tb_DeviceDescription.Text = selectedRow["DeviceDescription"].ToString();
+                tb_firstIP.Text = selectedRow["FirstIP"].ToString();
+                tb_LastIP.Text = selectedRow["LastIP"].ToString();
+                tb_Domain.Text = selectedRow["Domain"].ToString();
+                tb_DNSServer.Text = selectedRow["DNSServers"].ToString();
+                tb_IPWhereNetworkMonitorRunAsGateway.Text = selectedRow["GatewayIP"].ToString();
+                tb_GatewayPort.Text = selectedRow["GatewayPort"].ToString();
+                chk_AutomaticScan.IsChecked = Convert.ToBoolean(selectedRow["AutomaticScan"]);
+                tb_ScanInterval.Text = selectedRow["ScanIntervalMinutes"].ToString();
+          
+
         }
 
         private void bt_addEntry_Click(object sender, RoutedEventArgs e)
