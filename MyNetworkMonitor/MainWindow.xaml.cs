@@ -108,7 +108,7 @@ namespace MyNetworkMonitor
             scanningMethode_ARP.ARP_Request_Task_Finished += ARP_Request_Task_Finished;
             scanningMethode_ARP.ARP_Request_Finished += ARP_Request_Finished;
 
-
+            if(scanningMethods_Ping != null) scanningMethods_Ping.StopScan();
             scanningMethods_Ping = new ScanningMethods_Ping();
             scanningMethods_Ping.ProgressUpdated += ScanningMethods_Ping_ProgressUpdated;
             scanningMethods_Ping.Ping_Task_Finished += Ping_Task_Finished;
@@ -419,6 +419,7 @@ namespace MyNetworkMonitor
             waiting,
             running,
             finished,
+            caceled,
             [Description("port was used by another app, try later again")]
             AnotherLocalAppUsedThePort,
 

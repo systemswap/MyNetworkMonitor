@@ -21,204 +21,6 @@ namespace MyNetworkMonitor
 {
     internal class ScanningMethods_Ping
     {
-        //    public ScanningMethods_Ping()
-        //    {
-
-        //    }
-
-        //    //current, responsed, total
-        //    public event Action<int, int, int> ProgressUpdated;
-        //    public event EventHandler<ScanTask_Finished_EventArgs>? Ping_Task_Finished;
-        //    public event EventHandler<Method_Finished_EventArgs>? PingFinished;
-        //    private int current = 0;
-        //    private int responsed = 0;
-        //    private int total = 0;
-
-
-        //    public async Task PingIPsAsync(List<IPToScan> IPsToRefresh, bool ShowUnused = false)
-        //    {
-        //        current = 0;
-        //        responsed = 0;
-        //        total = IPsToRefresh.Count;
-
-        //        await Parallel.ForEachAsync(IPsToRefresh, async (ip, token) =>
-        //        {
-        //            int currentValue = Interlocked.Increment(ref current);
-        //            ProgressUpdated?.Invoke(current, responsed, total);
-
-        //            await PingTask(ip, ip.TimeOut, ShowUnused);
-        //        });
-
-        //        PingFinished?.Invoke(this, new Method_Finished_EventArgs());
-        //    }
-
-
-        //    private async Task PingTask(IPToScan ipToScan, int TimeOut, bool ShowUnused)
-        //    {
-        //        if (!new SupportMethods().Is_Valid_IP(ipToScan.IPorHostname)) return;
-
-        //        bool sendResult = false;
-
-        //        try
-        //        {
-        //            string data = "nothing less than the world domination pinky, nothing less!";
-        //            byte[] buffer = Encoding.ASCII.GetBytes(data);
-
-        //            PingOptions options = new PingOptions(200, true);
-
-        //            Ping ping = new Ping();
-
-
-
-        //            PingReply reply = null;
-        //            for (int i = 0; i < 5; i++)
-        //            {
-        //                reply = await ping.SendPingAsync(ipToScan.IPorHostname, TimeOut, buffer, options);
-        //                if (reply.Status == IPStatus.Success) break;
-        //            }
-        //            bool PingStatus = false;
-        //            //string IP = string.Empty;
-        //            string ResponseTime = string.Empty;
-
-        //            if (reply.Status == IPStatus.Success)
-        //            {
-        //                PingStatus = true;
-        //                //IP = reply.Address.ToString();
-        //                ResponseTime = reply.RoundtripTime.ToString();
-        //                sendResult = true;
-        //            }
-        //            else if (ShowUnused && reply.Status != IPStatus.Success)
-        //            {
-        //                PingStatus = false;
-        //                sendResult = true;
-        //                //IP = ipToScan.IP;
-        //                //ResponseTime = string.Empty;
-        //            }
-
-        //            if (!sendResult) { return; }
-
-        //            if (Ping_Task_Finished != null)
-        //            {
-        //                //ipToScan.IP = IP;
-        //                ipToScan.ResponseTime = ResponseTime;
-        //                ipToScan.PingStatus = PingStatus;
-
-        //                ipToScan.UsedScanMethod = ScanMethod.Ping;
-
-        //                ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
-        //                scanTask_Finished.ipToScan = ipToScan;
-
-        //                ++responsed;
-        //                ProgressUpdated?.Invoke(current, responsed, total);
-
-        //                Ping_Task_Finished(this, scanTask_Finished);
-        //            }
-        //        }
-        //        catch (PingException ex)
-        //        {
-        //            throw;
-        //        }
-        //    }
-
-
-        //    public async Task<PingReply> PingIPAsync(IPToScan ipToScan, int TimeOut)
-        //    {
-        //        PingReply reply;
-        //        try
-        //        {
-        //            string data = "nothing less than the world domination pinky, nothing less!";
-        //            byte[] buffer = Encoding.ASCII.GetBytes(data);
-
-        //            PingOptions options = new PingOptions(200, true);
-
-        //            Ping ping = new Ping();
-        //            reply = await ping.SendPingAsync(ipToScan.IPorHostname, TimeOut, buffer, options);
-
-        //            return reply;
-        //        }
-        //        catch (PingException ex)
-        //        {
-        //            throw;
-        //        }
-        //    }
-        //}
-
-
-
-        //    public ScanningMethods_Ping() { }
-
-        //    public event Action<int, int, int> ProgressUpdated;
-        //    public event EventHandler<ScanTask_Finished_EventArgs>? Ping_Task_Finished;
-        //    public event EventHandler<Method_Finished_EventArgs>? PingFinished;
-
-        //    private int current = 0;
-        //    private int responsed = 0;
-        //    private int total = 0;
-        //    private readonly PingOptions pingOptions = new PingOptions(200, true);
-        //    private readonly byte[] buffer = Encoding.ASCII.GetBytes("nothing less than the world domination pinky, nothing less!");
-
-        //    public async Task PingIPsAsync(List<IPToScan> IPsToRefresh, bool ShowUnused = false)
-        //    {
-        //        current = 0;
-        //        responsed = 0;
-        //        total = IPsToRefresh.Count;
-
-        //        var tasks = IPsToRefresh
-        //            .Where(ip => !string.IsNullOrEmpty(ip.IPorHostname))
-        //            .Select(ip => PingTask(ip, ip.TimeOut, ShowUnused))
-        //            .ToList();
-
-        //        await Task.WhenAll(tasks);
-
-        //        PingFinished?.Invoke(this, new Method_Finished_EventArgs());
-        //    }
-
-        //    private async Task PingTask(IPToScan ipToScan, int timeout, bool showUnused)
-        //    {
-        //        if (!new SupportMethods().Is_Valid_IP(ipToScan.IPorHostname)) return;
-
-        //        try
-        //        {
-        //            using Ping ping = new Ping();
-        //            PingReply reply = await ping.SendPingAsync(ipToScan.IPorHostname, timeout, buffer, pingOptions);
-
-        //            bool success = reply.Status == IPStatus.Success;
-        //            bool sendResult = success || showUnused;
-
-        //            if (!sendResult) return;
-
-        //            ipToScan.ResponseTime = success ? reply.RoundtripTime.ToString() : string.Empty;
-        //            ipToScan.PingStatus = success;
-        //            ipToScan.UsedScanMethod = ScanMethod.Ping;
-
-        //            Interlocked.Increment(ref responsed);
-        //            ProgressUpdated?.Invoke(Interlocked.Increment(ref current), responsed, total);
-
-        //            Ping_Task_Finished?.Invoke(this, new ScanTask_Finished_EventArgs { ipToScan = ipToScan });
-        //        }
-        //        catch (Exception ex) when (ex is PingException || ex is SocketException)
-        //        {
-        //            Console.WriteLine($"Ping Fehler für {ipToScan.IPorHostname}: {ex.Message}");
-        //        }
-        //    }
-
-        //    public async Task<PingReply> PingIPAsync(IPToScan ipToScan, int timeout)
-        //    {
-        //        try
-        //        {
-        //            using Ping ping = new Ping();
-        //            return await ping.SendPingAsync(ipToScan.IPorHostname, timeout, buffer, pingOptions);
-        //        }
-        //        catch (Exception ex) when (ex is PingException || ex is SocketException)
-        //        {
-        //            Console.WriteLine($"Ping Einzelanfrage Fehler für {ipToScan.IPorHostname}: {ex.Message}");
-        //            return null;
-        //        }
-        //    }
-        //}
-
-
-
         public ScanningMethods_Ping() { }
 
         public event Action<int, int, int> ProgressUpdated;
@@ -233,43 +35,89 @@ namespace MyNetworkMonitor
 
         private readonly SynchronizationContext syncContext = SynchronizationContext.Current;
 
+
+        private CancellationTokenSource _cts = new CancellationTokenSource(); // 🔹 Ermöglicht das Abbrechen
+        public void StopScan()
+        {
+            if (_cts != null && !_cts.IsCancellationRequested)
+            {
+                _cts.Cancel(); // 🔹 Scan abbrechen
+                _cts.Dispose();
+                _cts = new CancellationTokenSource();
+            }
+
+            // 🔹 Zähler zurücksetzen
+            current = 0;
+            responsed = 0;
+            total = 0;
+
+            //ProgressUpdated?.Invoke(current, responded, total); // 🔹 UI auf 0 setzen
+        }
+
+        private void StartNewScan()
+        {
+            if (_cts != null)
+            {
+                if (!_cts.IsCancellationRequested)
+                {
+                    _cts.Cancel();
+                }
+                _cts.Dispose();
+            }
+            _cts = new CancellationTokenSource();
+        }
+
+
+
+
         public async Task PingIPsAsync(List<IPToScan> IPsToRefresh, bool ShowUnused = false)
         {
+            StartNewScan(); // `_cts` wird hier zurückgesetzt
+
             current = 0;
             responsed = 0;
             total = IPsToRefresh.Count;
+            ProgressUpdated?.Invoke(current, responsed, total);
 
-            //await Task.Run(async () =>
-            //{
-            //    var tasks = IPsToRefresh
-            //        .Where(ip => !string.IsNullOrEmpty(ip.IPorHostname))
-            //        .Select(ip => PingTask(ip, ip.TimeOut, ShowUnused))
-            //        .ToList();
-
-            //    await Task.WhenAll(tasks);
-            //});
-
-            await Task.Run(async () =>
+            try
             {
                 var tasks = new List<Task>();
+                var ipListCopy = IPsToRefresh.ToList(); // 🔹 Erstelle eine Kopie der Liste
 
-                foreach (var ip in IPsToRefresh.Where(ip => !string.IsNullOrEmpty(ip.IPorHostname)))
+                foreach (var ip in ipListCopy.Where(ip => !string.IsNullOrEmpty(ip.IPorHostname)))
                 {
+                    if (_cts.Token.IsCancellationRequested) break;
+
                     tasks.Add(PingTask(ip, ip.TimeOut, ShowUnused));
-                    await Task.Delay(20); // 20 ms Pause zwischen jedem Ping-Start
+
+                    try
+                    {
+                        await Task.Delay(20, _cts.Token);
+                    }
+                    catch (TaskCanceledException)
+                    {
+                        break;
+                    }
                 }
 
                 await Task.WhenAll(tasks);
-            });
-
-
-            PingFinished?.Invoke(this, new Method_Finished_EventArgs());
+            }
+            catch (OperationCanceledException)
+            {
+                Debug.WriteLine("Ping-Scan wurde abgebrochen!");
+            }
+            finally
+            {
+                PingFinished?.Invoke(this, new Method_Finished_EventArgs());
+            }
         }
+
 
 
         private async Task PingTask(IPToScan ipToScan, int timeout, bool showUnused)
         {
             if (!new SupportMethods().Is_Valid_IP(ipToScan.IPorHostname)) return;
+            if (_cts.Token.IsCancellationRequested) return; // 🔹 Falls Scan abgebrochen, sofort raus
 
             try
             {
@@ -284,6 +132,8 @@ namespace MyNetworkMonitor
                 // Bis zu 3 Versuche mit steigenden Timeouts
                 for (int attempt = 1; attempt <= 3; attempt++)
                 {
+                    _cts.Token.ThrowIfCancellationRequested(); // 🔹 Falls gestoppt, sofort beenden
+
                     reply = await ping.SendPingAsync(ipToScan.IPorHostname, timeout * attempt, buffer, pingOptions);
 
                     if (reply != null && reply.Status == IPStatus.Success)
@@ -292,7 +142,17 @@ namespace MyNetworkMonitor
                         break; // Erfolgreich, keine weiteren Versuche nötig
                     }
 
-                    if (attempt < 3) await Task.Delay(100);
+                    if (attempt < 3)
+                    {
+                        try
+                        {
+                            await Task.Delay(100, _cts.Token); // 🔹 Falls gestoppt, bricht es sofort ab
+                        }
+                        catch (TaskCanceledException)
+                        {
+                            return; // 🔹 Falls Scan gestoppt, sofort raus
+                        }
+                    }
                 }
 
                 if (!success && !showUnused) return;
@@ -308,38 +168,14 @@ namespace MyNetworkMonitor
                 // Event auslösen
                 syncContext.Post(_ => Ping_Task_Finished?.Invoke(this, new ScanTask_Finished_EventArgs { ipToScan = ipToScan }), null);
             }
+            catch (OperationCanceledException)
+            {
+                Debug.WriteLine($"Ping für {ipToScan.IPorHostname} wurde abgebrochen.");
+            }
             catch (Exception ex) when (ex is PingException || ex is SocketException)
             {
                 Console.WriteLine($"Ping Fehler für {ipToScan.IPorHostname}: {ex.Message}");
             }
         }
-
-        //public async Task<PingReply> PingIPAsync(IPToScan ipToScan, int timeout)
-        //{
-        //    try
-        //    {
-        //        using Ping ping = new Ping();
-        //        PingReply reply = null;
-
-        //        for (int attempt = 1; attempt <= 3; attempt++)
-        //        {
-        //            reply = await ping.SendPingAsync(ipToScan.IPorHostname, timeout * attempt, buffer, pingOptions);
-
-        //            if (reply.Status == IPStatus.Success)
-        //            {
-        //                return reply;
-        //            }
-
-        //            await Task.Delay(100);
-        //        }
-
-        //        return reply;
-        //    }
-        //    catch (Exception ex) when (ex is PingException || ex is SocketException)
-        //    {
-        //        Console.WriteLine($"Ping Einzelanfrage Fehler für {ipToScan.IPorHostname}: {ex.Message}");
-        //        return null;
-        //    }
-        //}
     }
 }
