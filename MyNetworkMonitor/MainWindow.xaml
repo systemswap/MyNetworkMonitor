@@ -54,7 +54,15 @@
                         <Label Content="Last Subnet IP"  HorizontalAlignment="Center" VerticalAlignment="Top" Grid.Column="1" Margin="0,12,0,0" Grid.Row="4" VerticalContentAlignment="Bottom" HorizontalContentAlignment="Left" Width="138" Background="#FF189AB4" Height="26"/>
                         <TextBox x:Name="tb_Adapter_FirstSubnetIP" Width="135" HorizontalAlignment="Center" VerticalAlignment="Top" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" TextChanged="tb_Adapter_FirstSubnetIP_TextChanged" Margin="0,1,0,0" Grid.Row="5" Height="18"/>
                         <TextBox x:Name="tb_Adapter_LastSubnetIP" VerticalAlignment="Top" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" TextChanged="tb_Adapter_LastSubnetIP_TextChanged" Grid.Row="5" Grid.Column="1" Margin="0,1,0,0" HorizontalAlignment="Center" Width="138" Height="18"/>
-                        <Button x:Name="bt_StartScanFromNIC" Background="#BFA4B1BF" Content="start scan" HorizontalAlignment="Center" VerticalAlignment="Center" Width="138" Grid.Row="9" HorizontalContentAlignment="Center" Click="bt_StartScanFromNIC_Click" Grid.Column="1" Height="20">
+                        <Button x:Name="bt_StopScanFromNIC" Background="#BFA4B1BF" Content="stop scan" HorizontalAlignment="Left" VerticalAlignment="Center" Width="100" Grid.Row="9" HorizontalContentAlignment="Center"  Grid.Column="0" Height="20" Margin="24,0,0,0" Click="StopScanning_Click">
+                            <Button.Resources>
+                                <Style TargetType="{x:Type Border}">
+                                    <Setter Property="CornerRadius" Value="5"/>
+                                </Style>
+                            </Button.Resources>
+                        </Button>
+
+                        <Button x:Name="bt_StartScanFromNIC" Background="#BFA4B1BF" Content="re- / start scan" HorizontalAlignment="Center" VerticalAlignment="Center" Width="138" Grid.Row="9" HorizontalContentAlignment="Center" Click="bt_StartScanFromNIC_Click" Grid.Column="1" Height="20">
                             <Button.Resources>
                                 <Style TargetType="{x:Type Border}">
                                     <Setter Property="CornerRadius" Value="5"/>
@@ -175,6 +183,15 @@
                                 <ColumnDefinition/>
                                 <ColumnDefinition/>
                             </Grid.ColumnDefinitions>
+
+                            <Button x:Name="bt_StopScanFromRange" Background="#BFA4B1BF" Content="stop scan" HorizontalAlignment="Left" VerticalAlignment="Center" Width="100" Grid.Row="9" HorizontalContentAlignment="Center"  Grid.Column="0" Height="20" Margin="24,0,0,0" Click="StopScanning_Click">
+                                <Button.Resources>
+                                    <Style TargetType="{x:Type Border}">
+                                        <Setter Property="CornerRadius" Value="5"/>
+                                    </Style>
+                                </Button.Resources>
+                            </Button>
+
                             <Button x:Name="bt_Scan_IP_Ranges" Content="Scan IP Ranges" Click="bt_Scan_IP_Ranges_Click" Margin="10,10,10,10" Background="#BFA4B1BF" OpacityMask="Black" Grid.Column="1">
                                 <!--Background="#BFA4B1BF"-->
                                 <Button.Resources>

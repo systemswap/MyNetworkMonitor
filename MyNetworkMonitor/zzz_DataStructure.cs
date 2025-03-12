@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Data;
 using System.DirectoryServices.ActiveDirectory;
 using System.Linq;
@@ -11,6 +12,20 @@ using static System.Net.Mime.MediaTypeNames;
 
 namespace MyNetworkMonitor
 {
+    public enum ScanStatus
+    {
+        ignored,
+        waiting,
+        running,
+        finished,
+        caceled,
+        [Description("port was used by another app, try later again")]
+        AnotherLocalAppUsedThePort,
+
+        [Description("wrong network interface selected")]
+        wrongNetworkInterfaceSelected
+    }
+
     public enum ScanMethod
     {
         failed,
