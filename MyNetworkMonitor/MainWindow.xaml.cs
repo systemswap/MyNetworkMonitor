@@ -69,46 +69,41 @@ namespace MyNetworkMonitor
             supportMethods = new SupportMethods();
             //supportMethods.GetNetworkInterfaces();            
 
-            if(scanningMethode_SSDP_UPNP != null) scanningMethode_SSDP_UPNP.StopScan();
+            StopScanning();
+
             scanningMethode_SSDP_UPNP = new ScanningMethod_SSDP_UPNP();
             scanningMethode_SSDP_UPNP.ProgressUpdated += ScanningMethode_SSDP_UPNP_ProgressUpdated;
             scanningMethode_SSDP_UPNP.SSDP_foundNewDevice += SSDP_foundNewDevice;
             scanningMethode_SSDP_UPNP.SSDP_Scan_Finished += SSDP_Scan_Finished;
-
-            if(scanningMethode_SNMP != null) scanningMethode_SNMP.StopScan();
+            
             scanningMethode_SNMP = new ScanningMethod_SNMP();
             scanningMethode_SNMP.ProgressUpdated += ScanningMethode_SNMP_ProgressUpdated; ;
             scanningMethode_SNMP.SNMB_Task_Finished += ScanningMethode_SNMP_SNMB_Task_Finished; ;
             scanningMethode_SNMP.SNMBFinished += ScanningMethode_SNMP_SNMBFinished; ;
-
-            if(scanningMethode_NetBios != null) scanningMethode_NetBios.StopScan();
+            
             scanningMethode_NetBios = new ScanningMethod_NetBios();
             scanningMethode_NetBios.ProgressUpdated += ScanningMethode_NetBios_ProgressUpdated;
             scanningMethode_NetBios.NetbiosIPScanFinished += ScanningMethod_NetBios_NetbiosIPScanFinished;
             scanningMethode_NetBios.NetbiosScanFinished += ScanningMethod_NetBios_NetbiosScanFinished;
-
-            if(scanningMethod_SMB_VersionCheck != null) scanningMethod_SMB_VersionCheck.StopScan();
+            
             scanningMethod_SMB_VersionCheck = new ScanningMethod_SMBVersionCheck();
             scanningMethod_SMB_VersionCheck.ProgressUpdated += ScanningMethod_SMB_VersionCheck_ProgressUpdated; ;
             scanningMethod_SMB_VersionCheck.SMBIPScanFinished += ScanningMethod_SMB_VersionCheck_SMB_IP_Scan_Finished;
             scanningMethod_SMB_VersionCheck.SMBScanFinished += ScanningMethod_SMBVersionCheck_SMB_Scan_Finished;
-
-            if(scanningMethod_Services != null) scanningMethod_Services.StopScan();
+            
             scanningMethod_Services = new ScanningMethod_Services(_ServicesXML);
             scanningMethod_Services.FindServicePortProgressUpdated += ScanningMethod_Services_FindServicePortProgressUpdated;
             scanningMethod_Services.FindServicePortFinished += ScanningMethod_Services_FindServicePortFinished; ;
             scanningMethod_Services.ServiceIPScanFinished += ScanningMethod_Services_ServiceIPScanFinished;
             scanningMethod_Services.ProgressUpdated += ScanningMethod_Services_ProgressUpdated;
             scanningMethod_Services.ServiceScanFinished += ScanningMethod_Services_ServiceScanFinished;
-
-            if (scanningMethode_ARP != null) scanningMethode_ARP.StopScan();
+           
             scanningMethode_ARP = new ScanningMethod_ARP();
             scanningMethode_ARP.ProgressUpdated += ScanningMethode_ARP_ProgressUpdated;
             scanningMethode_ARP.ARP_A_newDevice += ARP_A_newDevive_Finished;
             scanningMethode_ARP.ARP_Request_Task_Finished += ARP_Request_Task_Finished;
             scanningMethode_ARP.ARP_Request_Finished += ARP_Request_Finished;
-
-            if(scanningMethods_Ping != null) scanningMethods_Ping.StopScan();
+            
             scanningMethods_Ping = new ScanningMethods_Ping();
             scanningMethods_Ping.ProgressUpdated += ScanningMethods_Ping_ProgressUpdated;
             scanningMethods_Ping.Ping_Task_Finished += Ping_Task_Finished;
@@ -120,6 +115,7 @@ namespace MyNetworkMonitor
             scanningMethod_Find_ONVIF_IP_Cameras.ONVIF_IP_Camera_Scan_Finished += IPCameraScan_Finished;
 
             scanningMethode_ReverseLookupToHostAndAliases = new ScanningMethod_ReverseLookupToHostAndAlieases();
+            scanningMethode_ReverseLookupToHostAndAliases.ProgressUpdated += ScanningMethode_ReverseLookupToHostAndAliases_ProgressUpdated;
             scanningMethode_ReverseLookupToHostAndAliases.GetHostAliases_Task_Finished += DNS_GetHostAliases_Task_Finished;
             scanningMethode_ReverseLookupToHostAndAliases.GetHostAliases_Finished += DNS_GetHostAndAliasFromIP_Finished;
 
@@ -257,7 +253,7 @@ namespace MyNetworkMonitor
             
         }
 
-       
+      
 
         private void LoadLogo()
         {
@@ -413,20 +409,6 @@ namespace MyNetworkMonitor
         SupportMethods supportMethods;
 
         #region ScanStatus
-        public enum ScanStatus
-        {
-            ignored,
-            waiting,
-            running,
-            finished,
-            caceled,
-            [Description("port was used by another app, try later again")]
-            AnotherLocalAppUsedThePort,
-
-            [Description("wrong network interface selected")]
-            wrongNetworkInterfaceSelected
-        }
-
 
         ScanStatus status_ARP_A_Scan = ScanStatus.ignored;
 
@@ -1984,23 +1966,28 @@ namespace MyNetworkMonitor
         }
 
 
+        private void ScanningMethode_ReverseLookupToHostAndAliases_ProgressUpdated(int arg1, int arg2, int arg3, ScanStatus status = ScanStatus.running)
+        {
+            Dispatcher.BeginInvoke(() =>
+            {
+                status_DNS_HostName_Scan = status;
+                counted_current_DNS_HostNames = arg1;
+                counted_responded_DNS_HostNames = arg2;
+                counted_total_DNS_HostNames = arg3;
+                Status();
+            });
+        }
+
 
         private void DNS_GetHostAliases_Task_Finished(object? sender, ScanTask_Finished_EventArgs e)
         {
             Dispatcher.BeginInvoke(() =>
             {
-                ++counted_current_DNS_HostNames;
-                Status();
-
                 if (e == null || string.IsNullOrEmpty(e.ipToScan.HostName))
                 {
                     return;
                 }
-
                 InsertIPToScanResult(e.ipToScan);
-
-                ++counted_responded_DNS_HostNames;
-                Status();
             });
         }
         private void DNS_GetHostAndAliasFromIP_Finished(object? sender, Method_Finished_EventArgs e)
@@ -3518,6 +3505,24 @@ namespace MyNetworkMonitor
             payPalWindow.Owner = this;
             payPalWindow.ShowDialog(); // Blockiert bis Fenster geschlossen wird
             return;
+        }
+
+        private void StopScanning_Click(object sender, RoutedEventArgs e)
+        {
+            StopScanning();
+        }
+
+        public void StopScanning()
+        {
+            if (scanningMethode_SSDP_UPNP != null) scanningMethode_SSDP_UPNP.StopScan();
+            if (scanningMethode_SNMP != null) scanningMethode_SNMP.StopScan();
+            if (scanningMethode_NetBios != null) scanningMethode_NetBios.StopScan();
+            if (scanningMethod_SMB_VersionCheck != null) scanningMethod_SMB_VersionCheck.StopScan();
+            if (scanningMethod_Services != null) scanningMethod_Services.StopScan();
+            if (scanningMethode_ARP != null) scanningMethode_ARP.StopScan();
+            if (scanningMethods_Ping != null) scanningMethods_Ping.StopScan();
+            if (scanningMethod_LookUp != null) scanningMethod_LookUp.StopScan();
+            if (scanningMethode_ReverseLookupToHostAndAliases != null) scanningMethode_ReverseLookupToHostAndAliases.StopScan();
         }
     }
 }

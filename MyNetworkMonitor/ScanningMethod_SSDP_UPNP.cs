@@ -212,7 +212,7 @@ namespace MyNetworkMonitor
 
                     Application.Current.Dispatcher.Invoke(() =>
                     {
-                        SSDP_Scan_Finished?.Invoke(this, new Method_Finished_EventArgs() { ScanStatus = MainWindow.ScanStatus.finished });
+                        SSDP_Scan_Finished?.Invoke(this, new Method_Finished_EventArgs() { ScanStatus = ScanStatus.finished });
                     });
 
                 }

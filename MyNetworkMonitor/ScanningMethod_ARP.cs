@@ -119,7 +119,7 @@ namespace MyNetworkMonitor
                 // 🔹 Sicherstellen, dass der Scan als beendet gemeldet wird
                 ARP_Request_Finished?.Invoke(this, new Method_Finished_EventArgs()
                 {
-                    ScanStatus = MainWindow.ScanStatus.finished
+                    ScanStatus = ScanStatus.finished
                 });
             }
         }

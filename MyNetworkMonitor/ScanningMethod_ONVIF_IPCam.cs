@@ -560,7 +560,7 @@ namespace MyNetworkMonitor
                 {
                     Application.Current.Dispatcher.Invoke(() =>
                     {
-                        ONVIF_IP_Camera_Scan_Finished?.Invoke(this, new Method_Finished_EventArgs() { ScanStatus = MainWindow.ScanStatus.finished});
+                        ONVIF_IP_Camera_Scan_Finished?.Invoke(this, new Method_Finished_EventArgs() { ScanStatus = ScanStatus.finished});
                     });
                 }
             }

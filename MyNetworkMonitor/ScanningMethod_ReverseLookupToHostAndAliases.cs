@@ -1,5 +1,4 @@
-﻿
-using DnsClient;
+﻿using DnsClient;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -18,12 +17,71 @@ namespace MyNetworkMonitor
 
         }
 
-
+        public event Action<int, int, int, ScanStatus> ProgressUpdated;
         public event EventHandler<ScanTask_Finished_EventArgs>? GetHostAliases_Task_Finished;
         public event EventHandler<Method_Finished_EventArgs>? GetHostAliases_Finished;
 
+
+
+        private int current = 0;
+        private int responded = 0;
+        private int total = 0;
+
+
+        private CancellationTokenSource _cts = new CancellationTokenSource(); // 🔹 Ermöglicht das Abbrechen
+
+        public void StopScan()
+        {
+            if (_cts != null && !_cts.IsCancellationRequested)
+            {
+                _cts.Cancel(); // 🔹 Scan abbrechen
+                _cts.Dispose();
+                _cts = new CancellationTokenSource();
+            }
+
+            // 🔹 Zähler zurücksetzen
+            current = 0;
+            responded = 0;
+            total = 0;
+
+            //ProgressUpdated?.Invoke(current, responded, total); // 🔹 UI auf 0 setzen
+        }
+
+        private void StartNewScan()
+        {
+            if (_cts != null)
+            {
+                if (!_cts.IsCancellationRequested)
+                {
+                    _cts.Cancel();
+                }
+                _cts.Dispose();
+            }
+            _cts = new CancellationTokenSource();
+
+            // 🔹 Zähler zurücksetzen
+            current = 0;
+            responded = 0;
+            total = 0;
+        }
+
         public async Task GetHost_Aliases(List<IPToScan> IPs)
         {
+
+            StartNewScan();
+
+
+            current = 0;
+            responded = 0;
+            total = IPs.Count; // 🔹 Gesamtanzahl setzen
+
+            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running); // 🔹 UI auf 0 setzen
+
+
+            if (_cts.Token.IsCancellationRequested) return; // 🔹 Falls der Scan direkt nach Start gestoppt wird
+
+            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running); // 🔹 UI auf 0 setzen
+
             if (IPs.Count == 0)
             {
                 return;
@@ -31,24 +89,41 @@ namespace MyNetworkMonitor
 
             var tasks = new List<Task>();
 
-            Parallel.ForEach(IPs, ip =>
-                    {
-                        var task = Task.Run(() => ReverseLookupToHostAndAliases(ip));
-                        if (task != null) tasks.Add(task);
-                    });
+            //Parallel.ForEach(IPs, ip =>
+            //        {
+            //            var task = Task.Run(() => ReverseLookupToHostAndAliases(ip));
+            //            if (task != null) tasks.Add(task);
+            //        });
+
+            foreach (IPToScan ip in IPs)
+            {
+                if (_cts.Token.IsCancellationRequested) return;
+
+                int currentValue = Interlocked.Increment(ref current);
+                ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running);
+
+                var task = Task.Run(() => ReverseLookupToHostAndAliases(ip));
+                if (task != null) tasks.Add(task);
+            }
+
 
             await Task.WhenAll(tasks.Where(t => t != null));
 
             if (GetHostAliases_Finished != null)
             {
+                ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished); // 🔹 UI auf 0 setzen
                 GetHostAliases_Finished(this, new Method_Finished_EventArgs());
             }
         }
 
 
+  
+
 
         private async Task ReverseLookupToHostAndAliases(IPToScan ipToScan)
         {
+            if (_cts.Token.IsCancellationRequested) return; // 🔹 Abbruch vor dem Start prüfen
+
             try
             {
                 List<NameServer> dnsServers = new List<NameServer>();
@@ -57,6 +132,8 @@ namespace MyNetworkMonitor
                 {
                     foreach (string s in ipToScan.DNSServerList)
                     {
+                        if (_cts.Token.IsCancellationRequested) return; // 🔹 Abbruch vor dem Start prüfen
+
                         dnsServers.Add(IPAddress.Parse(s));
                     }
                     client = new DnsClient.LookupClient(dnsServers.ToArray());
@@ -65,7 +142,12 @@ namespace MyNetworkMonitor
                 {
                     client = new DnsClient.LookupClient();
                 }
-                IPHostEntry _IPHostEntry = await client.GetHostEntryAsync(ipToScan.IPorHostname);
+
+                IPHostEntry _IPHostEntry = await client.GetHostEntryAsync(ipToScan.IPorHostname).WaitAsync(_cts.Token);
+
+
+                if (_cts.Token.IsCancellationRequested) return; // 🔹 Falls der Scan abgebrochen wurde, keine weiteren Aktionen durchführen
+
 
                 if (_IPHostEntry == null)
                 {
@@ -93,6 +175,9 @@ namespace MyNetworkMonitor
 
                     ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
                     scanTask_Finished.ipToScan = ipToScan;
+
+                    int respondedValue = Interlocked.Increment(ref responded);
+                    ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running);
 
                     GetHostAliases_Task_Finished(this, scanTask_Finished);
                 }
