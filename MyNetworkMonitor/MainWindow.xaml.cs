@@ -987,7 +987,7 @@ namespace MyNetworkMonitor
                 if (_IPsToScan.Where(i => i.IPorHostname == row["IP"].ToString()).Count() > 0)
                 {
                     byte[]? arpStatus = row["ARPStatus"] as byte[];
-                    if (((bool)chk_ARPRequest.IsChecked || (bool)chk_Methodes_ARP_A.IsChecked) && arpStatus.Length != null)
+                    if (((bool)chk_ARPRequest.IsChecked || (bool)chk_Methodes_ARP_A.IsChecked) && arpStatus?.Length != null)
                     { 
                         row["ARPStatus"] = Properties.Resources.gray_dot_s;                    
                     }
