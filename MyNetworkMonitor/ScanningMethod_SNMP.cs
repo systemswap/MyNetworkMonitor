@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Text;
@@ -22,7 +23,19 @@ namespace MyNetworkMonitor
 
         public void StopScan()
         {
-            _cts.Cancel(); // 🔹 Scan abbrechen
+            if (_cts != null && !_cts.IsCancellationRequested)
+            {
+                _cts.Cancel(); // 🔹 Scan abbrechen
+                _cts.Dispose();
+                _cts = new CancellationTokenSource();
+            }
+
+            // 🔹 Zähler zurücksetzen
+            current = 0;
+            responded = 0;
+            total = 0;
+
+            //ProgressUpdated?.Invoke(current, responded, total); // 🔹 UI auf 0 setzen
         }
 
         private void StartNewScan()
@@ -36,6 +49,11 @@ namespace MyNetworkMonitor
                 _cts.Dispose();
             }
             _cts = new CancellationTokenSource();
+
+            // 🔹 Zähler zurücksetzen
+            current = 0;
+            responded = 0;
+            total = 0;
         }
 
 
@@ -60,6 +78,7 @@ namespace MyNetworkMonitor
             current = 0;
             responded = 0;
             total = IPsToRefresh.Count;
+            ProgressUpdated?.Invoke(current, responded, total);
 
             var tasks = new List<Task>();
 
@@ -85,7 +104,16 @@ namespace MyNetworkMonitor
             {
                 if (_cts.Token.IsCancellationRequested) break;
 
-                await _semaphore.WaitAsync(_cts.Token);
+                try
+                {
+                    await _semaphore.WaitAsync(_cts.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    Debug.WriteLine($"Scan für {ip.IPorHostname} wurde abgebrochen.");
+                    return; // ⛔ Sauber beenden, falls der gesamte Scan gestoppt wurde
+                }
+
                 tasks.Add(Task.Run(async () =>
                 {
                     try
