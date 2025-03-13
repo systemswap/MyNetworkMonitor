@@ -195,7 +195,7 @@ namespace MyNetworkMonitor
                 {
                     // Filtere die Ports nach dem gewünschten Status
                     List<PortResult> filteredPorts = service.Ports
-                        .Where(p => !ShowOnlyIsRunningServices || p.Status == PortStatus.IsRunning)
+                        .Where(p => !ShowOnlyIsRunningServices || p.Status == PortStatus.IsRunning || p.Status == PortStatus.Error)
                         .OrderBy(x => x.Port)
                         .ToList();
 
