@@ -130,12 +130,12 @@ public class ScanningMethod_SMBVersionCheck
 
     private async Task CheckProtocolsAsync(IPToScan ipToScan, int port)
     {
+        int currentValue = Interlocked.Increment(ref current);
+        ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
+
         foreach (SMBDialects dialect in Enum.GetValues(typeof(SMBDialects)))
         {
-            if (_cts.Token.IsCancellationRequested) return;
-
-            int currentValue = Interlocked.Increment(ref current);
-            ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
+            if (_cts.Token.IsCancellationRequested) return;           
 
             try
             {
