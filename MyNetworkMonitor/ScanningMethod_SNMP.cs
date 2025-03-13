@@ -19,7 +19,19 @@ namespace MyNetworkMonitor
         public ScanningMethod_SNMP() { }
 
 
+        private int current = 0;
+        private int responded = 0;
+        private int total = 0;
+
         private CancellationTokenSource _cts = new CancellationTokenSource(); // 🔹 Ermöglicht das Abbrechen
+
+        //int currentValue = Interlocked.Increment(ref current);
+        //ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
+
+        //int respondedValue = Interlocked.Increment(ref responded);
+        //ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running);
+
+        //ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished);
 
         public void StopScan()
         {
@@ -35,7 +47,7 @@ namespace MyNetworkMonitor
             responded = 0;
             total = 0;
 
-            //ProgressUpdated?.Invoke(current, responded, total); // 🔹 UI auf 0 setzen
+            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped); // 🔹 UI auf 0 setzen
         }
 
         private void StartNewScan()
@@ -57,14 +69,13 @@ namespace MyNetworkMonitor
         }
 
 
-        #region Event-Argumente und Events
-        public event Action<IPToScan> SNMB_Task_Finished;
-        public event Action<int, int, int> ProgressUpdated;
-        public event Action<bool> SNMBFinished;
 
-        private int current = 0;
-        private int responded = 0;
-        private int total = 0;
+
+        #region Event-Argumente und Events
+        public event Action<int, int, int, ScanStatus> ProgressUpdated;
+        public event Action<IPToScan> SNMB_Task_Finished;        
+        public event Action<bool> SNMBFinished;
+      
         #endregion
 
         private static readonly int MaxParallelTasks = 100; // Erhöht für schnellere Scans
@@ -78,7 +89,8 @@ namespace MyNetworkMonitor
             current = 0;
             responded = 0;
             total = IPsToRefresh.Count;
-            ProgressUpdated?.Invoke(current, responded, total);
+
+            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running);
 
             var tasks = new List<Task>();
 
@@ -137,8 +149,8 @@ namespace MyNetworkMonitor
 
         private async Task ScanSingleIPAsync(IPToScan ipToScan)
         {
-            Interlocked.Increment(ref current);
-            ProgressUpdated?.Invoke(current, responded, total);
+            int currentValue = Interlocked.Increment(ref current);
+            ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
 
             using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2))) // Kürzerer Timeout
             {
@@ -264,8 +276,9 @@ namespace MyNetworkMonitor
                 }
 
                 SNMB_Task_Finished?.Invoke(ipToScan);
-                Interlocked.Increment(ref responded);
-                ProgressUpdated?.Invoke(current, responded, total);
+
+                int respondedValue = Interlocked.Increment(ref responded);
+                ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running);
             }
             catch (OperationCanceledException)
             {
