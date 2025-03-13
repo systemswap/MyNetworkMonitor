@@ -191,12 +191,12 @@ public class ScanningMethod_NetBios
     private CancellationTokenSource _cts = new CancellationTokenSource(); // 🔹 Ermöglicht das Abbrechen
 
     //int currentValue = Interlocked.Increment(ref current);
-    //ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
+    //Task.Run(() => ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running));
 
     //int respondedValue = Interlocked.Increment(ref responded);
-    //ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running);
+    //Task.Run(() => ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running));
 
-    //ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished);
+    //Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished));
 
     public void StopScan()
     {
@@ -212,7 +212,7 @@ public class ScanningMethod_NetBios
         responded = 0;
         total = 0;
 
-        ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped); // 🔹 UI auf 0 setzen
+        Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped)); // 🔹 UI auf 0 setzen
     }
 
     private void StartNewScan()
@@ -264,7 +264,7 @@ public class ScanningMethod_NetBios
                     if (success)
                     {
                         //Interlocked.Increment(ref responded);
-                        //ProgressUpdated?.Invoke(current, responded, total);
+                        //Task.Run(() => ProgressUpdated?.Invoke(current, responded, total));
                         //NetbiosIPScanFinished?.Invoke(ip);
                     }
                 }
@@ -288,7 +288,7 @@ public class ScanningMethod_NetBios
             if (cancellationToken.IsCancellationRequested) return; // 🔹 Abbruchprüfung
 
             int currentValue = Interlocked.Increment(ref current);
-            ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
+            Task.Run(() => ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running));
 
             if (GetRemoteNetBiosName(IPAddress.Parse(iPToScan.IPorHostname), out string nbName, out _, out _))
             {
@@ -299,9 +299,9 @@ public class ScanningMethod_NetBios
                 if (!string.IsNullOrEmpty(nbName))
                 {
                     int respondedValue = Interlocked.Increment(ref responded);
-                    ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running);
+                    Task.Run(() => ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running));
 
-                    NetbiosIPScanFinished?.Invoke(iPToScan);
+                    Task.Run(() => NetbiosIPScanFinished?.Invoke(iPToScan));
                 }
             }
         }
