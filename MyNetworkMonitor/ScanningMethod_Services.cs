@@ -105,10 +105,35 @@ public class ScanningMethod_Services
         _serviceXMLPath = ServiceXMLPath;
     }
 
+    private int current = 0;
+    private int responded = 0;
+    private int total = 0;
+
     private CancellationTokenSource _cts = new CancellationTokenSource(); // 🔹 Ermöglicht das Abbrechen
+
+    //int currentValue = Interlocked.Increment(ref current);
+    //ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
+
+    //int respondedValue = Interlocked.Increment(ref responded);
+    //ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running);
+
+    //ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished);
+
     public void StopScan()
     {
-        _cts.Cancel(); // 🔹 Scan abbrechen
+        if (_cts != null && !_cts.IsCancellationRequested)
+        {
+            _cts.Cancel(); // 🔹 Scan abbrechen
+            _cts.Dispose();
+            _cts = new CancellationTokenSource();
+        }
+
+        // 🔹 Zähler zurücksetzen
+        current = 0;
+        responded = 0;
+        total = 0;
+
+        ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped); // 🔹 UI auf 0 setzen
     }
 
     private void StartNewScan()
@@ -122,7 +147,14 @@ public class ScanningMethod_Services
             _cts.Dispose();
         }
         _cts = new CancellationTokenSource();
+
+        // 🔹 Zähler zurücksetzen
+        current = 0;
+        responded = 0;
+        total = 0;
     }
+
+
 
 
     private string _serviceXMLPath = string.Empty;
@@ -135,17 +167,9 @@ public class ScanningMethod_Services
     private const int RetryCount = 3;
 
     public event Action<IPToScan> ServiceIPScanFinished;
-    //public event Action<ServiceScanResult> ServiceIPScanFinished;
-    public event Action<int, int, int> ProgressUpdated;
+  
+    public event Action<int, int, int, ScanStatus> ProgressUpdated;
     public event Action ServiceScanFinished;
-
-
-    private int current = 0;
-    private int responded = 0;
-    private int total = 0;
-
-
-
 
     public event Action<int, int, int> FindServicePortProgressUpdated;
     public event Action<IPToScan> FindServicePortFinished;
@@ -157,6 +181,9 @@ public class ScanningMethod_Services
         current = 0;
         responded = 0;
         total = IPsToScan.Count;
+        
+        ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running);
+
 
         var semaphore = new SemaphoreSlim(MaxParallelIPs);
         var tasks = IPsToScan.Select(async ipToScan =>
@@ -168,11 +195,7 @@ public class ScanningMethod_Services
 
             try
             {
-                int currentValue = Interlocked.Increment(ref current);
-                ProgressUpdated?.Invoke(current, responded, total);
-
                 await Task.Run(() => ScanIPAsync(ipToScan, services, extraPorts), _cts.Token);
-
             }
             finally
             {
@@ -432,7 +455,7 @@ public class ScanningMethod_Services
         if (ipToScan.Services.Services.Count > 0)
         {
             int respondedValue = Interlocked.Increment(ref responded);
-            ProgressUpdated?.Invoke(current, responded, total);
+            ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running);
 
             ipToScan.UsedScanMethod = ScanMethod.Services;
             ServiceIPScanFinished?.Invoke(ipToScan); // Event auslösen
@@ -807,7 +830,7 @@ public class ScanningMethod_Services
                         if (portResult.Status == PortStatus.IsRunning)
                         {
                             int responsedValue = Interlocked.Increment(ref responded);
-                            FindServicePortProgressUpdated?.Invoke(current, responded, total);
+                            FindServicePortProgressUpdated?.Invoke(current, responsedValue, total);
 
                             lock (serviceResult.Ports)
                             {
@@ -855,7 +878,7 @@ public class ScanningMethod_Services
                             if (response.Length > 0 && IdentifyServices(response, service))
                             {
                                 int responsedValue = Interlocked.Increment(ref responded);
-                                FindServicePortProgressUpdated?.Invoke(current, responded, total);
+                                FindServicePortProgressUpdated?.Invoke(current, responsedValue, total);
 
                                 lock (ipToScan.Services.Services[0].Ports)
                                 {

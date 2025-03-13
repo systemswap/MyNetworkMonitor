@@ -155,6 +155,8 @@ namespace MyNetworkMonitor
 
         public async void Discover(List<IPToScan> IPs)
         {
+            StartNewScan();
+
             List<IPCamInfos> discoveredCameras = new List<IPCamInfos>();
             string soapRequest = CreateSoapRequest();
             byte[] requestBytes = Encoding.UTF8.GetBytes(soapRequest); // 📌 **Hier außerhalb definiert!**
@@ -226,74 +228,15 @@ namespace MyNetworkMonitor
                 }
             }
 
-            responded = 0;
+
+
+
 
             //**📌 Unicast - Fallback(falls Multicast nicht alle Geräte erreicht) * *
-            foreach (var ipToScan in IPs)
-            {
-                if (_cts.Token.IsCancellationRequested) return;
+            //kommt vieleicht später
 
-                int currentValue = Interlocked.Increment(ref current);
-                ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
+            //responded = 0;
 
-                using (UdpClient unicastClient = new UdpClient())
-                {
-                    IPEndPoint unicastEP = new IPEndPoint(IPAddress.Parse(ipToScan.IPorHostname), ONVIF_PORT);
-
-                    try
-                    {
-                        // 📌 SOAP-Anfrage als Unicast senden
-                        await unicastClient.SendAsync(requestBytes, requestBytes.Length, unicastEP);
-
-                        // 📌 Warte auf Antwort (3 Sekunden Timeout)
-                        unicastClient.Client.ReceiveTimeout = 3000;
-                        var receiveTask = unicastClient.ReceiveAsync();
-                        var completedTask = await Task.WhenAny(receiveTask, Task.Delay(3000));
-
-                        if (completedTask == receiveTask) // Antwort erhalten
-                        {
-                            UdpReceiveResult result = receiveTask.Result;
-                            string response = Encoding.UTF8.GetString(result.Buffer);
-
-                            // 📌 ONVIF-Antwort parsen
-                            var cameraInfo = await ParseONVIFResponseAsync(response, result.RemoteEndPoint.Address.ToString());
-
-                            if (cameraInfo != null && !discoveredCameras.Any(d => d.UUID == cameraInfo.UUID))
-                            {
-                                discoveredCameras.Add(cameraInfo);
-
-                                IPToScan ipToScanResult = new IPToScan
-                                {
-                                    UsedScanMethod = ScanMethod.ONVIF_IPCam,
-                                    IsIPCam = true,
-                                    IPorHostname = cameraInfo.IPv4Address,
-                                    IPCamName = cameraInfo.Name,
-                                    IPCamXAddress = cameraInfo.XAddress.Replace("/onvif/device_service", string.Empty)
-                                };
-
-                                ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs
-                                {
-                                    ipToScan = ipToScanResult
-                                };
-
-                                // 📌 UI-Event für gefundene Kamera auslösen
-                                Application.Current.Dispatcher.Invoke(() =>
-                                {
-                                    new_ONVIF_IP_Camera_Found_Task_Finished?.Invoke(this, scanTask_Finished);
-                                });
-
-                                // 📌 Fortschritt aktualisieren
-                                int respondedValue = Interlocked.Increment(ref responded);
-                                ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running);
-                            }
-                        }
-                    }
-                    catch (SocketException)
-                    {
-                        // 📌 Keine Antwort oder Netzwerkproblem
-                    }
-                }
-            }
 
             Application.Current.Dispatcher.Invoke(() =>
             {
