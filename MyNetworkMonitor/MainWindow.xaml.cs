@@ -77,8 +77,8 @@ namespace MyNetworkMonitor
             scanningMethode_SSDP_UPNP.SSDP_Scan_Finished += SSDP_Scan_Finished;
             
             scanningMethode_SNMP = new ScanningMethod_SNMP();
-            scanningMethode_SNMP.ProgressUpdated += ScanningMethode_SNMP_ProgressUpdated; ;
-            scanningMethode_SNMP.SNMB_Task_Finished += ScanningMethode_SNMP_SNMB_Task_Finished; ;
+            scanningMethode_SNMP.ProgressUpdated += ScanningMethode_SNMP_ProgressUpdated; 
+            scanningMethode_SNMP.SNMB_Task_Finished += ScanningMethode_SNMP_SNMB_Task_Finished;;
             scanningMethode_SNMP.SNMBFinished += ScanningMethode_SNMP_SNMBFinished; ;
             
             scanningMethode_NetBios = new ScanningMethod_NetBios();
@@ -87,13 +87,13 @@ namespace MyNetworkMonitor
             scanningMethode_NetBios.NetbiosScanFinished += ScanningMethod_NetBios_NetbiosScanFinished;
             
             scanningMethod_SMB_VersionCheck = new ScanningMethod_SMBVersionCheck();
-            scanningMethod_SMB_VersionCheck.ProgressUpdated += ScanningMethod_SMB_VersionCheck_ProgressUpdated; ;
+            scanningMethod_SMB_VersionCheck.ProgressUpdated += ScanningMethod_SMB_VersionCheck_ProgressUpdated;
             scanningMethod_SMB_VersionCheck.SMBIPScanFinished += ScanningMethod_SMB_VersionCheck_SMB_IP_Scan_Finished;
             scanningMethod_SMB_VersionCheck.SMBScanFinished += ScanningMethod_SMBVersionCheck_SMB_Scan_Finished;
             
             scanningMethod_Services = new ScanningMethod_Services(_ServicesXML);
             scanningMethod_Services.FindServicePortProgressUpdated += ScanningMethod_Services_FindServicePortProgressUpdated;
-            scanningMethod_Services.FindServicePortFinished += ScanningMethod_Services_FindServicePortFinished; ;
+            scanningMethod_Services.FindServicePortFinished += ScanningMethod_Services_FindServicePortFinished;
             scanningMethod_Services.ServiceIPScanFinished += ScanningMethod_Services_ServiceIPScanFinished;
             scanningMethod_Services.ProgressUpdated += ScanningMethod_Services_ProgressUpdated;
             scanningMethod_Services.ServiceScanFinished += ScanningMethod_Services_ServiceScanFinished;
@@ -936,6 +936,11 @@ namespace MyNetworkMonitor
 
         public async void DoWork(bool IsSelectiveScan, bool ClearTable = false)
         {
+            if (!ScannerCanStart())
+            {
+                MessageBox.Show("scanner is running, or waiting, you have to stop first", "", MessageBoxButton.OK);
+            }
+
             counted_current_Ping_Scan = 0;
             counted_total_Ping_Scan = 0;
 
@@ -1692,7 +1697,7 @@ namespace MyNetworkMonitor
         }
 
 
-        private void ScanningMethods_Ping_ProgressUpdated(int arg1, int arg2, int arg3)
+        private void ScanningMethods_Ping_ProgressUpdated(int arg1, int arg2, int arg3, ScanStatus scanStatus)
         {
             //throw new NotImplementedException();
             Dispatcher.Invoke(() =>
@@ -1700,6 +1705,7 @@ namespace MyNetworkMonitor
                 counted_current_Ping_Scan = arg1;
                 counted_responded_Ping_Scan = arg2;
                 counted_total_Ping_Scan = arg3;
+                status_Ping_Scan = scanStatus;
                 Status();
             });
         }
@@ -1709,9 +1715,6 @@ namespace MyNetworkMonitor
             Dispatcher.BeginInvoke(() =>
             {
                 InsertIPToScanResult(e.ipToScan);
-
-                //++counted_current_Ping_Scan;
-                //Status();
             });
         }
         private void PingFinished_Event(object? sender, Method_Finished_EventArgs e)
@@ -1761,14 +1764,12 @@ namespace MyNetworkMonitor
             });
         }
 
-        private void ScanningMethode_SSDP_UPNP_ProgressUpdated(int arg1, int arg2, int arg3)
+        private void ScanningMethode_SSDP_UPNP_ProgressUpdated(int arg1, int arg2, int arg3, ScanStatus scanStatus)
         {
-            //throw new NotImplementedException();
-
-            //throw new NotImplementedException();
             Dispatcher.Invoke(() =>
             {                
                 counted_responded_SSDP_device = arg2;
+                status_SSDP_Scan = scanStatus;
                 Status();
             });
         }
@@ -1801,13 +1802,14 @@ namespace MyNetworkMonitor
             });
         }
 
-        private void ScanningMethode_SNMP_ProgressUpdated(int arg1, int arg2, int arg3)
+        private void ScanningMethode_SNMP_ProgressUpdated(int arg1, int arg2, int arg3, ScanStatus scanStatus)
         {
             Dispatcher.BeginInvoke(() =>
             {
                 counted_current_SNMP_Scan = arg1;
                 counted_responded_SNMP_Devices = arg2;
                 counted_total_SNMP_Devices = arg3;
+                status_SNMP_Scan = scanStatus;
                 Status();
             });
         }
@@ -1825,13 +1827,14 @@ namespace MyNetworkMonitor
             }));
         }
 
-        private void ScanningMethod_SMB_VersionCheck_ProgressUpdated(int arg1, int arg2, int arg3)
+        private void ScanningMethod_SMB_VersionCheck_ProgressUpdated(int arg1, int arg2, int arg3, ScanStatus scanStatus)
         {
             Dispatcher.BeginInvoke(new Action(() =>
             {
                 counted_current_SMB_VersionCheck = arg1;
                 counted_responded_SMB_VersionCheck = arg2;
                 counted_total_SMB_VersionCheck = arg3;
+                status_SMB_VersionCheck = scanStatus;
                 Status();
             }));
         }
@@ -1884,13 +1887,14 @@ namespace MyNetworkMonitor
         }
 
 
-        private void ScanningMethod_Services_ProgressUpdated(int arg1, int arg2, int arg3)
+        private void ScanningMethod_Services_ProgressUpdated(int arg1, int arg2, int arg3, ScanStatus scanStatus)
         {
             Dispatcher.BeginInvoke(new Action(() =>
             {
                 counted_current_Service_IP_Scan = arg1;
                 counted_responded_Services_IP_Scan = arg2;
                 counted_total_Services_IP_Scan = arg3;
+                status_Services_Scan = scanStatus;
                 Status();
             }));
         }
@@ -1914,7 +1918,6 @@ namespace MyNetworkMonitor
 
         private void ScanningMethod_Services_FindServicePortProgressUpdated(int arg1, int arg2, int arg3)
         {
-            //throw new NotImplementedException();
             Dispatcher.Invoke(() =>
             {
                 lbl_ScanStatus.Content = "DeepScanedPorts: " + arg1.ToString() + " / " + arg2.ToString() + " / " + arg3.ToString();                
@@ -3535,5 +3538,26 @@ namespace MyNetworkMonitor
             if (scanningMethod_LookUp != null) scanningMethod_LookUp.StopScan();
             if (scanningMethode_ReverseLookupToHostAndAliases != null) scanningMethode_ReverseLookupToHostAndAliases.StopScan();
         }
+
+        public bool ScannerCanStart()
+        {
+            var statuses = new List<ScanStatus>
+            {
+                status_ARP_A_Scan,
+                status_ARP_Request_Scan,
+                status_DNS_HostName_Scan,
+                status_Lookup_Scan,
+                status_NetBios_Scan,
+                status_ONVIF_IP_Cam_Scan,
+                status_Ping_Scan,
+                status_Services_Scan,
+                status_SMB_VersionCheck,
+                status_SNMP_Scan,
+                status_SSDP_Scan,
+                status_TCP_Port_Scan
+            };
+            return !statuses.Any(status => status == ScanStatus.running || status == ScanStatus.waiting);
+        }
+
     }
 }

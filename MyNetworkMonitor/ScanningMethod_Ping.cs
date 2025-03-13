@@ -23,20 +23,29 @@ namespace MyNetworkMonitor
     {
         public ScanningMethods_Ping() { }
 
-        public event Action<int, int, int> ProgressUpdated;
+        public event Action<int, int, int, ScanStatus> ProgressUpdated;
         public event EventHandler<ScanTask_Finished_EventArgs>? Ping_Task_Finished;
         public event EventHandler<Method_Finished_EventArgs>? PingFinished;
 
-        private int current = 0;
-        private int responsed = 0;
-        private int total = 0;
+       
         private readonly PingOptions pingOptions = new PingOptions(200, true);
         private readonly byte[] buffer = Encoding.ASCII.GetBytes("nothing less than the world domination pinky, nothing less!");
 
-        private readonly SynchronizationContext syncContext = SynchronizationContext.Current;
 
+        private int current = 0;
+        private int responded = 0;
+        private int total = 0;
 
         private CancellationTokenSource _cts = new CancellationTokenSource(); // 🔹 Ermöglicht das Abbrechen
+
+        //int currentValue = Interlocked.Increment(ref current);
+        //ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
+
+        //int respondedValue = Interlocked.Increment(ref responded);
+        //ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running);
+
+        //ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished);
+
         public void StopScan()
         {
             if (_cts != null && !_cts.IsCancellationRequested)
@@ -48,10 +57,10 @@ namespace MyNetworkMonitor
 
             // 🔹 Zähler zurücksetzen
             current = 0;
-            responsed = 0;
+            responded = 0;
             total = 0;
 
-            //ProgressUpdated?.Invoke(current, responded, total); // 🔹 UI auf 0 setzen
+            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped); // 🔹 UI auf 0 setzen
         }
 
         private void StartNewScan()
@@ -65,7 +74,13 @@ namespace MyNetworkMonitor
                 _cts.Dispose();
             }
             _cts = new CancellationTokenSource();
+
+            // 🔹 Zähler zurücksetzen
+            current = 0;
+            responded = 0;
+            total = 0;
         }
+
 
 
 
@@ -75,9 +90,10 @@ namespace MyNetworkMonitor
             StartNewScan(); // `_cts` wird hier zurückgesetzt
 
             current = 0;
-            responsed = 0;
+            responded = 0;
             total = IPsToRefresh.Count;
-            ProgressUpdated?.Invoke(current, responsed, total);
+
+            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running);
 
             try
             {
@@ -108,6 +124,7 @@ namespace MyNetworkMonitor
             }
             finally
             {
+                ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished);
                 PingFinished?.Invoke(this, new Method_Finished_EventArgs());
             }
         }
@@ -116,8 +133,10 @@ namespace MyNetworkMonitor
 
         private async Task PingTask(IPToScan ipToScan, int timeout, bool showUnused)
         {
-            if (!new SupportMethods().Is_Valid_IP(ipToScan.IPorHostname)) return;
             if (_cts.Token.IsCancellationRequested) return; // 🔹 Falls Scan abgebrochen, sofort raus
+
+            if (!new SupportMethods().Is_Valid_IP(ipToScan.IPorHostname)) return;
+
 
             try
             {
@@ -127,7 +146,7 @@ namespace MyNetworkMonitor
 
                 // Fortschritt aktualisieren → UI-Thread nutzen
                 int currentCount = Interlocked.Increment(ref current);
-                syncContext.Post(_ => ProgressUpdated?.Invoke(currentCount, responsed, total), null);
+                ProgressUpdated?.Invoke(currentCount, responded, total, ScanStatus.running);
 
                 // Bis zu 3 Versuche mit steigenden Timeouts
                 for (int attempt = 1; attempt <= 3; attempt++)
@@ -162,11 +181,11 @@ namespace MyNetworkMonitor
                 ipToScan.UsedScanMethod = ScanMethod.Ping;
 
                 // Fortschritt für erfolgreiche Pings aktualisieren → UI-Thread nutzen
-                int responsedCount = Interlocked.Increment(ref responsed);
-                syncContext.Post(_ => ProgressUpdated?.Invoke(currentCount, responsedCount, total), null);
+                int responsedCount = Interlocked.Increment(ref responded);
+                ProgressUpdated?.Invoke(currentCount, responsedCount, total, ScanStatus.running);
 
                 // Event auslösen
-                syncContext.Post(_ => Ping_Task_Finished?.Invoke(this, new ScanTask_Finished_EventArgs { ipToScan = ipToScan }), null);
+                Ping_Task_Finished?.Invoke(this, new ScanTask_Finished_EventArgs { ipToScan = ipToScan });
             }
             catch (OperationCanceledException)
             {

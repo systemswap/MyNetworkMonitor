@@ -62,7 +62,7 @@
                             </Button.Resources>
                         </Button>
 
-                        <Button x:Name="bt_StartScanFromNIC" Background="#BFA4B1BF" Content="re- / start scan" HorizontalAlignment="Center" VerticalAlignment="Center" Width="138" Grid.Row="9" HorizontalContentAlignment="Center" Click="bt_StartScanFromNIC_Click" Grid.Column="1" Height="20">
+                        <Button x:Name="bt_StartScanFromNIC" Background="#BFA4B1BF" Content="start scan" HorizontalAlignment="Center" VerticalAlignment="Center" Width="138" Grid.Row="9" HorizontalContentAlignment="Center" Click="bt_StartScanFromNIC_Click" Grid.Column="1" Height="20">
                             <Button.Resources>
                                 <Style TargetType="{x:Type Border}">
                                     <Setter Property="CornerRadius" Value="5"/>
