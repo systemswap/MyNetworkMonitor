@@ -27,15 +27,8 @@ namespace MyNetworkMonitor
         private int responded = 0;
         private int total = 0;
 
+
         private CancellationTokenSource _cts = new CancellationTokenSource(); // 🔹 Ermöglicht das Abbrechen
-
-        //int currentValue = Interlocked.Increment(ref current);
-        //ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
-
-        //int respondedValue = Interlocked.Increment(ref responded);
-        //ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running);
-
-        //ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished);
 
         public void StopScan()
         {
@@ -51,7 +44,7 @@ namespace MyNetworkMonitor
             responded = 0;
             total = 0;
 
-            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped); // 🔹 UI auf 0 setzen
+            //ProgressUpdated?.Invoke(current, responded, total); // 🔹 UI auf 0 setzen
         }
 
         private void StartNewScan()
@@ -71,8 +64,6 @@ namespace MyNetworkMonitor
             responded = 0;
             total = 0;
         }
-
-
 
         public async Task GetHost_Aliases(List<IPToScan> IPs)
         {
@@ -106,22 +97,17 @@ namespace MyNetworkMonitor
 
             foreach (IPToScan ip in IPs)
             {
-                await Task.Delay(50);
                 if (_cts.Token.IsCancellationRequested) return;
 
-                //var task = Task.Run(() => ReverseLookupToHostAndAliases(ip), _cts.Token);
-                var task = ReverseLookupToHostAndAliases(ip);
+                int currentValue = Interlocked.Increment(ref current);
+                ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running);
+
+                var task = Task.Run(() => ReverseLookupToHostAndAliases(ip));
                 if (task != null) tasks.Add(task);
             }
 
-            try
-            {
-                await Task.WhenAll(tasks);
-            }
-            catch (Exception ex)
-            {
-                // Fehlerlogik, z.B. Logging oder Fehler weitergeben
-            }
+
+            await Task.WhenAll(tasks.Where(t => t != null));
 
             if (GetHostAliases_Finished != null)
             {
@@ -131,15 +117,12 @@ namespace MyNetworkMonitor
         }
 
 
-  
+
 
 
         private async Task ReverseLookupToHostAndAliases(IPToScan ipToScan)
         {
             if (_cts.Token.IsCancellationRequested) return; // 🔹 Abbruch vor dem Start prüfen
-
-            int currentValue = Interlocked.Increment(ref current);
-            ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
 
             try
             {
@@ -149,6 +132,8 @@ namespace MyNetworkMonitor
                 {
                     foreach (string s in ipToScan.DNSServerList)
                     {
+                        if (_cts.Token.IsCancellationRequested) return; // 🔹 Abbruch vor dem Start prüfen
+
                         dnsServers.Add(IPAddress.Parse(s));
                     }
                     client = new DnsClient.LookupClient(dnsServers.ToArray());
@@ -158,21 +143,8 @@ namespace MyNetworkMonitor
                     client = new DnsClient.LookupClient();
                 }
 
-                //IPHostEntry _IPHostEntry = await client.GetHostEntryAsync(ipToScan.IPorHostname).WaitAsync(_cts.Token);
-                IPHostEntry _IPHostEntry;
-                try
-                {
-                    _IPHostEntry = await client.GetHostEntryAsync(ipToScan.IPorHostname).WaitAsync(TimeSpan.FromSeconds(5), _cts.Token);
-                }
-                catch (OperationCanceledException)
-                {
-                    return; // Falls Scan abgebrochen wird
-                }
-                catch (TimeoutException)
-                {
-                    // Optional: Logging
-                    return;
-                }
+                IPHostEntry _IPHostEntry = await client.GetHostEntryAsync(ipToScan.IPorHostname).WaitAsync(_cts.Token);
+
 
                 if (_cts.Token.IsCancellationRequested) return; // 🔹 Falls der Scan abgebrochen wurde, keine weiteren Aktionen durchführen
 
@@ -205,7 +177,7 @@ namespace MyNetworkMonitor
                     scanTask_Finished.ipToScan = ipToScan;
 
                     int respondedValue = Interlocked.Increment(ref responded);
-                    ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running);
+                    ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running);
 
                     GetHostAliases_Task_Finished(this, scanTask_Finished);
                 }
