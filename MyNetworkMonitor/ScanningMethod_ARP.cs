@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
+using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -412,14 +413,17 @@ namespace MyNetworkMonitor
             return ipList;
         }
 
+
         private static string GetDefaultGateway()
         {
             return NetworkInterface.GetAllNetworkInterfaces()
                 .Where(n => n.OperationalStatus == OperationalStatus.Up)
                 .SelectMany(n => n.GetIPProperties().GatewayAddresses)
+                .Where(g => g.Address.AddressFamily == AddressFamily.InterNetwork) // Nur IPv4 auswählen
                 .Select(g => g.Address.ToString())
-                .FirstOrDefault();
+                .FirstOrDefault() ?? string.Empty; // Falls kein IPv4-Gateway gefunden wird, gib einen leeren String zurück
         }
+
 
         private static List<string> GetRoutingTable()
         {
