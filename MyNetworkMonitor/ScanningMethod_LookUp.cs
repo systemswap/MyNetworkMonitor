@@ -16,7 +16,7 @@ namespace MyNetworkMonitor
 
         }
 
-        public event Action<int, int, int> ProgressUpdated;
+        public event Action<int, int, int, ScanStatus> ProgressUpdated;
         public event EventHandler<ScanTask_Finished_EventArgs>? Lookup_Task_Finished;
         public event EventHandler<Method_Finished_EventArgs>? Lookup_Finished;
 
@@ -28,6 +28,14 @@ namespace MyNetworkMonitor
 
 
         private CancellationTokenSource _cts = new CancellationTokenSource(); // 🔹 Ermöglicht das Abbrechen
+
+        //int currentValue = Interlocked.Increment(ref current);
+        //ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
+
+        //int respondedValue = Interlocked.Increment(ref responded);
+        //ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running);
+
+        //ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished);
 
         public void StopScan()
         {
@@ -43,7 +51,7 @@ namespace MyNetworkMonitor
             responded = 0;
             total = 0;
 
-            //ProgressUpdated?.Invoke(current, responded, total); // 🔹 UI auf 0 setzen
+            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped); // 🔹 UI auf 0 setzen
         }
 
         private void StartNewScan()
@@ -106,7 +114,7 @@ namespace MyNetworkMonitor
             current = 0;
             responded = 0;
             total = IPs.Count; // 🔹 Gesamtzahl setzen
-            ProgressUpdated?.Invoke(current, responded, total);
+            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running);
 
             var tasks = new List<Task>();
 
@@ -150,7 +158,7 @@ namespace MyNetworkMonitor
                 // 🔹 Falls abgebrochen, wird das hier abgefangen
             }
 
-            if (!_cts.Token.IsCancellationRequested && Lookup_Finished != null)
+            if (Lookup_Finished != null)
             {
                 Lookup_Finished(this, new Method_Finished_EventArgs());
             }
@@ -220,6 +228,9 @@ namespace MyNetworkMonitor
         {
             if (_cts.IsCancellationRequested) return;
 
+            int currentValue = Interlocked.Increment(ref current);
+            ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
+
             IPHostEntry _entry;
             try
             {
@@ -263,6 +274,9 @@ namespace MyNetworkMonitor
 
                     var scanTask_Finished = new ScanTask_Finished_EventArgs { ipToScan = ipToScan };
                     Lookup_Task_Finished(this, scanTask_Finished);
+
+                    int respondedValue = Interlocked.Increment(ref responded);
+                    ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running);
                 }
             }
             catch (OperationCanceledException)

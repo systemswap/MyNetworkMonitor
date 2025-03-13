@@ -18,7 +18,7 @@ namespace MyNetworkMonitor
         waiting,
         running,
         finished,
-        caceled,
+        stopped,
         [Description("port was used by another app, try later again")]
         AnotherLocalAppUsedThePort,
 
