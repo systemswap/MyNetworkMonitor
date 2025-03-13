@@ -39,12 +39,12 @@ namespace MyNetworkMonitor
         private CancellationTokenSource _cts = new CancellationTokenSource(); // 🔹 Ermöglicht das Abbrechen
 
         //int currentValue = Interlocked.Increment(ref current);
-        //ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
+        //Task.Run(() => ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running));
 
         //int respondedValue = Interlocked.Increment(ref responded);
-        //ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running);
+        //Task.Run(() => ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running));
 
-        //ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished);
+        //Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished));
 
         public void StopScan()
         {
@@ -60,7 +60,7 @@ namespace MyNetworkMonitor
             responded = 0;
             total = 0;
 
-            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped); // 🔹 UI auf 0 setzen
+            Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped)); // 🔹 UI auf 0 setzen
         }
 
         private void StartNewScan()
@@ -93,7 +93,7 @@ namespace MyNetworkMonitor
             responded = 0;
             total = IPsToRefresh.Count;
 
-            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running);
+            Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running));
 
             try
             {
@@ -124,7 +124,7 @@ namespace MyNetworkMonitor
             }
             finally
             {
-                ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished);
+                Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished));
                 PingFinished?.Invoke(this, new Method_Finished_EventArgs());
             }
         }
@@ -146,7 +146,7 @@ namespace MyNetworkMonitor
 
                 // Fortschritt aktualisieren → UI-Thread nutzen
                 int currentCount = Interlocked.Increment(ref current);
-                ProgressUpdated?.Invoke(currentCount, responded, total, ScanStatus.running);
+                Task.Run(() => ProgressUpdated?.Invoke(currentCount, responded, total, ScanStatus.running));
 
                 // Bis zu 3 Versuche mit steigenden Timeouts
                 for (int attempt = 1; attempt <= 3; attempt++)
@@ -182,10 +182,10 @@ namespace MyNetworkMonitor
 
                 // Fortschritt für erfolgreiche Pings aktualisieren → UI-Thread nutzen
                 int responsedCount = Interlocked.Increment(ref responded);
-                ProgressUpdated?.Invoke(currentCount, responsedCount, total, ScanStatus.running);
+                Task.Run(() => ProgressUpdated?.Invoke(currentCount, responsedCount, total, ScanStatus.running));
 
                 // Event auslösen
-                Ping_Task_Finished?.Invoke(this, new ScanTask_Finished_EventArgs { ipToScan = ipToScan });
+                Task.Run(() => Ping_Task_Finished?.Invoke(this, new ScanTask_Finished_EventArgs { ipToScan = ipToScan }));
             }
             catch (OperationCanceledException)
             {

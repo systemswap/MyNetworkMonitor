@@ -34,12 +34,12 @@ namespace MyNetworkMonitor
         private CancellationTokenSource _cts = new CancellationTokenSource(); // 🔹 Ermöglicht das Abbrechen
 
         //int currentValue = Interlocked.Increment(ref current);
-        //ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
+        //Task.Run(() => ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running));
 
         //int respondedValue = Interlocked.Increment(ref responded);
-        //ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running);
+        //Task.Run(() => ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running));
 
-        //ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished);
+        //Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished));
 
         public void StopScan()
         {
@@ -55,7 +55,7 @@ namespace MyNetworkMonitor
             responded = 0;
             total = 0;
 
-            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped); // 🔹 UI auf 0 setzen
+            Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped)); // 🔹 UI auf 0 setzen
         }
 
         private void StartNewScan()
@@ -128,7 +128,7 @@ namespace MyNetworkMonitor
 
         //                        Application.Current.Dispatcher.Invoke(() =>
         //                        {
-        //                            new_ONVIF_IP_Camera_Found_Task_Finished?.Invoke(this, scanTask_Finished);
+        //                            Task.Run(() => new_ONVIF_IP_Camera_Found_Task_Finished?.Invoke(this, scanTask_Finished));
         //                        });
 
         //                        int respondedValue = Interlocked.Increment(ref responded);
@@ -212,11 +212,11 @@ namespace MyNetworkMonitor
 
                                 Application.Current.Dispatcher.Invoke(() =>
                                 {
-                                    new_ONVIF_IP_Camera_Found_Task_Finished?.Invoke(this, scanTask_Finished);
+                                    Task.Run(() => new_ONVIF_IP_Camera_Found_Task_Finished?.Invoke(this, scanTask_Finished));
                                 });
 
                                 int respondedValue = Interlocked.Increment(ref responded);
-                                ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running);
+                                Task.Run(() => ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running));
                             }
                         }
                     }

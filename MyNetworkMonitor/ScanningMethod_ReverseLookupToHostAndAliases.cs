@@ -44,7 +44,7 @@ namespace MyNetworkMonitor
             responded = 0;
             total = 0;
 
-            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped); // 🔹 UI auf 0 setzen
+            Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped)); // 🔹 UI auf 0 setzen
         }
 
         private void StartNewScan()
@@ -75,12 +75,12 @@ namespace MyNetworkMonitor
             responded = 0;
             total = IPs.Count; // 🔹 Gesamtanzahl setzen
 
-            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running); // 🔹 UI auf 0 setzen
+            Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running)); // 🔹 UI auf 0 setzen
 
 
             if (_cts.Token.IsCancellationRequested) return; // 🔹 Falls der Scan direkt nach Start gestoppt wird
 
-            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running); // 🔹 UI auf 0 setzen
+            Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running)); // 🔹 UI auf 0 setzen
 
             if (IPs.Count == 0)
             {
@@ -94,7 +94,7 @@ namespace MyNetworkMonitor
             //            await Task.Delay(50, _cts.Token);
 
             //            int currentValue = Interlocked.Increment(ref current);
-            //            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running);
+            //            Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running));
 
             //            var task = Task.Run(() => ReverseLookupToHostAndAliases(ip), _cts.Token);
             //            if (task != null) tasks.Add(task);
@@ -105,13 +105,13 @@ namespace MyNetworkMonitor
             //    if (_cts.Token.IsCancellationRequested) return;
 
             //    int currentValue = Interlocked.Increment(ref current);
-            //    ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running);
+            //    Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running));
 
             //    var task = Task.Run(() => ReverseLookupToHostAndAliases(ip));
             //    if (task != null) tasks.Add(task);
             //}
 
-                        
+
             SemaphoreSlim semaphore = new SemaphoreSlim(50); // Begrenze parallele Tasks auf 10
 
             foreach (IPToScan ip in IPs)
@@ -140,7 +140,7 @@ namespace MyNetworkMonitor
 
             if (GetHostAliases_Finished != null)
             {
-                ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished); // 🔹 UI auf 0 setzen
+                Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished)); // 🔹 UI auf 0 setzen
                 GetHostAliases_Finished(this, new Method_Finished_EventArgs());
             }
         }
@@ -174,7 +174,7 @@ namespace MyNetworkMonitor
 
 
                 int currentValue = Interlocked.Increment(ref current);
-                ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running);
+                Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running));
 
                 IPHostEntry _IPHostEntry = await client.GetHostEntryAsync(ipToScan.IPorHostname).WaitAsync(_cts.Token);
 
@@ -210,14 +210,14 @@ namespace MyNetworkMonitor
                     scanTask_Finished.ipToScan = ipToScan;
 
                     int respondedValue = Interlocked.Increment(ref responded);
-                    ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running);
+                    Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running));
 
-                    GetHostAliases_Task_Finished(this, scanTask_Finished);
+                    Task.Run(() => GetHostAliases_Task_Finished(this, scanTask_Finished));
                 }
             }
             catch (Exception ex)
             {
-                GetHostAliases_Task_Finished(this, null);
+                Task.Run(() => GetHostAliases_Task_Finished(this, null));
             }
         }
     }

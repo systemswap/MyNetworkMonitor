@@ -29,12 +29,12 @@ namespace MyNetworkMonitor
         private CancellationTokenSource _cts = new CancellationTokenSource(); // 🔹 Ermöglicht das Abbrechen
 
         //int currentValue = Interlocked.Increment(ref current);
-        //ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
+        //Task.Run(() => ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running));
 
         //int respondedValue = Interlocked.Increment(ref responded);
-        //ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running);
+        //Task.Run(() => ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running));
 
-        //ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished);
+        //Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished));
 
         public void StopScan()
         {
@@ -50,7 +50,7 @@ namespace MyNetworkMonitor
             responded = 0;
             total = 0;
 
-            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped); // 🔹 UI auf 0 setzen
+            Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped)); // 🔹 UI auf 0 setzen
         }
 
         private void StartNewScan()
@@ -98,7 +98,7 @@ namespace MyNetworkMonitor
             current = 0;
             responded = 0;
             total = 0;
-            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running);
+            Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running));
 
             List<IPToScan> filtered;
             try
@@ -114,7 +114,7 @@ namespace MyNetworkMonitor
             if (filtered.Count <= 1) filtered = ipsToRefresh;
           
             total = filtered.Count;
-            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running);
+            Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running));
 
             try
             {
@@ -145,7 +145,7 @@ namespace MyNetworkMonitor
             _cts.Token.ThrowIfCancellationRequested(); // 🔹 Falls abgebrochen, sofort raus
 
             int currentValue = Interlocked.Increment(ref current);
-            ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
+            Task.Run(() => ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running));
 
             if (_cts.Token.IsCancellationRequested) return;
 
@@ -163,10 +163,10 @@ namespace MyNetworkMonitor
 
             if (arp_response != 0)
             {
-                ARP_Request_Task_Finished?.Invoke(this, new ScanTask_Finished_EventArgs()
+                Task.Run(() => ARP_Request_Task_Finished?.Invoke(this, new ScanTask_Finished_EventArgs()
                 {
                     ipToScan = { UsedScanMethod = ScanMethod.failed }
-                });
+                }));
             }
             else
             {
@@ -180,9 +180,9 @@ namespace MyNetworkMonitor
                     ipToScan.UsedScanMethod = ScanMethod.ARPRequest;
 
                     int respondedValue = Interlocked.Increment(ref responded);
-                    ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running);
+                    Task.Run(() => ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running));
 
-                    ARP_Request_Task_Finished(this, new ScanTask_Finished_EventArgs() { ipToScan = ipToScan });
+                    Task.Run(() => ARP_Request_Task_Finished(this, new ScanTask_Finished_EventArgs() { ipToScan = ipToScan }));
                 }
             }
         }
@@ -268,7 +268,7 @@ namespace MyNetworkMonitor
                                 ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
                                 scanTask_Finished.ipToScan = ipToScan;
 
-                                ARP_A_newDevice(this, scanTask_Finished);
+                                Task.Run(() => ARP_A_newDevice(this, scanTask_Finished));
                             }
                         }
                     }
