@@ -18,9 +18,23 @@ namespace MyNetworkMonitor
         {
 
         }
+        
+        
+        
+        private int current = 0;
+        private int responded = 0;
+        private int total = 0;
 
         private CancellationTokenSource _cts = new CancellationTokenSource(); // 🔹 Ermöglicht das Abbrechen
-     
+
+        //int currentValue = Interlocked.Increment(ref current);
+        //ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
+
+        //int respondedValue = Interlocked.Increment(ref responded);
+        //ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running);
+
+        //ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished);
+
         public void StopScan()
         {
             if (_cts != null && !_cts.IsCancellationRequested)
@@ -35,7 +49,7 @@ namespace MyNetworkMonitor
             responded = 0;
             total = 0;
 
-            //ProgressUpdated?.Invoke(current, responded, total); // 🔹 UI auf 0 setzen
+            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped); // 🔹 UI auf 0 setzen
         }
 
         private void StartNewScan()
@@ -55,20 +69,20 @@ namespace MyNetworkMonitor
             responded = 0;
             total = 0;
         }
+        
+
 
 
 
         SupportMethods support = new SupportMethods();
 
-        public event Action<int, int, int> ProgressUpdated;
+        public event Action<int, int, int, ScanStatus> ProgressUpdated;
         public event EventHandler<ScanTask_Finished_EventArgs>? ARP_A_newDevice;
         public event EventHandler<ScanTask_Finished_EventArgs> ARP_Request_Task_Finished;
         public event EventHandler<Method_Finished_EventArgs> ARP_Request_Finished;
 
 
-        private int current = 0;
-        private int responded = 0;
-        private int total = 0;
+        
 
 
         [DllImport("iphlpapi.dll", ExactSpelling = true)]
@@ -83,7 +97,7 @@ namespace MyNetworkMonitor
             current = 0;
             responded = 0;
             total = 0;
-            ProgressUpdated?.Invoke(current, responded, total);
+            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running);
 
             List<IPToScan> filtered;
             try
@@ -99,7 +113,7 @@ namespace MyNetworkMonitor
             if (filtered.Count <= 1) filtered = ipsToRefresh;
           
             total = filtered.Count;
-            ProgressUpdated?.Invoke(current, responded, total);
+            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running);
 
             try
             {
@@ -129,8 +143,8 @@ namespace MyNetworkMonitor
         {
             _cts.Token.ThrowIfCancellationRequested(); // 🔹 Falls abgebrochen, sofort raus
 
-            Interlocked.Increment(ref current); // 🔹 Thread-sicheres Hochzählen
-            ProgressUpdated?.Invoke(current, responded, total);
+            int currentValue = Interlocked.Increment(ref current);
+            ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
 
             if (_cts.Token.IsCancellationRequested) return;
 
@@ -164,8 +178,8 @@ namespace MyNetworkMonitor
                     ipToScan.Vendor = support.GetVendorFromMac(mac).First();
                     ipToScan.UsedScanMethod = ScanMethod.ARPRequest;
 
-                    Interlocked.Increment(ref responded); // 🔹 Thread-sicheres Hochzählen
-                    ProgressUpdated?.Invoke(current, responded, total);
+                    int respondedValue = Interlocked.Increment(ref responded);
+                    ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running);
 
                     ARP_Request_Task_Finished(this, new ScanTask_Finished_EventArgs() { ipToScan = ipToScan });
                 }

@@ -120,6 +120,7 @@ namespace MyNetworkMonitor
             scanningMethode_ReverseLookupToHostAndAliases.GetHostAliases_Finished += DNS_GetHostAndAliasFromIP_Finished;
 
             scanningMethod_LookUp = new ScanningMethod_LookUp();
+            scanningMethod_LookUp.ProgressUpdated += ScanningMethod_LookUp_ProgressUpdated;
             scanningMethod_LookUp.Lookup_Task_Finished += Lookup_Task_Finished;
             scanningMethod_LookUp.Lookup_Finished += Lookup_Finished;
 
@@ -253,7 +254,7 @@ namespace MyNetworkMonitor
             
         }
 
-      
+        
 
         private void LoadLogo()
         {
@@ -287,7 +288,7 @@ namespace MyNetworkMonitor
         //            { chk_Services_DNS_TCP.Name, chk_Services_DNS_TCP.IsChecked ?? false },
         //            {chk_Services_DNS_UDP.Name, chk_Services_DNS_UDP.IsChecked ?? false },
         //            {chk_Services_DHCP.Name, chk_Services_DHCP.IsChecked ?? false },
-                   
+
         //            {chk_Services_RDP.Name, chk_Services_RDP.IsChecked ?? false },
         //            {chk_Services_UltraVNC.Name, chk_Services_UltraVNC.IsChecked ?? false },
         //            {chk_Services_TeamViewer.Name, chk_Services_TeamViewer.IsChecked ?? false },
@@ -351,6 +352,9 @@ namespace MyNetworkMonitor
         //}
 
 
+
+
+        private CancellationTokenSource _cts = new CancellationTokenSource();
 
         bool TextChangedByComboBox = false;
         List<NicInfo> nicInfos = new List<NicInfo>();
@@ -422,7 +426,9 @@ namespace MyNetworkMonitor
         int counted_total_SSDPs = 0;
 
         ScanStatus status_ONVIF_IP_Cam_Scan = ScanStatus.ignored;
+        int counted_current__ONVIF_IP_Cam = 0;
         int counted_responded_ONVIF_IP_Cams = 0;
+        int counted_total_ONVIF_IPs_toScan = 0;
 
         
 
@@ -488,7 +494,7 @@ namespace MyNetworkMonitor
             if (status_ARP_Request_Scan == ScanStatus.ignored) { lst_ignored.Add("ARP Request: ignored"); } else { lst_statusUpdate.Add($"ARP Request: {status_ARP_Request_Scan.ToString()} {counted_current_ARP_Requests} / {counted_responded_ARP_Requests} / {counted_total_ARP_Requests}"); }
             if (status_Ping_Scan == ScanStatus.ignored) { lst_ignored.Add("Ping: ignored"); } else { lst_statusUpdate.Add($"Ping: {status_Ping_Scan.ToString()} {counted_current_Ping_Scan} / {counted_responded_Ping_Scan} / {counted_total_Ping_Scan}"); }
             if (status_SSDP_Scan == ScanStatus.ignored) { lst_ignored.Add("SSDP: ignored"); } else { lst_statusUpdate.Add($"SSDP: {status_SSDP_Scan.ToString()} ... / {counted_responded_SSDP_device} / ..."); }
-            if (status_ONVIF_IP_Cam_Scan == ScanStatus.ignored) { lst_ignored.Add("IP-Cam`s: ignored"); } else { lst_statusUpdate.Add($"IP-Cam`s: {status_ONVIF_IP_Cam_Scan.ToString()} ... / {counted_responded_ONVIF_IP_Cams} / ..."); }            
+            if (status_ONVIF_IP_Cam_Scan == ScanStatus.ignored) { lst_ignored.Add("IP-Cam`s: ignored"); } else { lst_statusUpdate.Add($"IP-Cam`s: {status_ONVIF_IP_Cam_Scan.ToString()} {counted_current__ONVIF_IP_Cam.ToString()} / {counted_responded_ONVIF_IP_Cams} / {counted_total_ONVIF_IPs_toScan}"); }            
             if (status_DNS_HostName_Scan == ScanStatus.ignored) { lst_ignored.Add("DNS Hostnames: ignored"); } else { lst_statusUpdate.Add($"DNS Hostnames: {status_DNS_HostName_Scan.ToString()} {counted_current_DNS_HostNames} / {counted_responded_DNS_HostNames} / {counted_total_DNS_HostNames}"); }
             if (status_Lookup_Scan == ScanStatus.ignored) { lst_ignored.Add("Lookup: ignored"); } else { lst_statusUpdate.Add($"Lookup: {status_Lookup_Scan.ToString()} {counted_current_Lookup_Scan} / {counted_responded_Lookup_Devices} / {counted_total_Lookup_Scans}"); }
             if (status_SMB_VersionCheck == ScanStatus.ignored) { lst_ignored.Add("SMB Check: ignored"); } else { lst_statusUpdate.Add($"SMB Check: {status_SMB_VersionCheck.ToString()} {counted_current_SMB_VersionCheck} / {counted_responded_SMB_VersionCheck} / {counted_total_SMB_VersionCheck}"); }
@@ -1079,9 +1085,7 @@ namespace MyNetworkMonitor
             {
                 status_ONVIF_IP_Cam_Scan = ScanStatus.running;
                 Status();
-                await Task.Run(() => scanningMethod_Find_ONVIF_IP_Cameras.Discover(_IPsToScan));
-
-                //Task.Run(() => scanningMethod_FindIPCameras.GetSoapResponsesFromCamerasAsync(IPAddress.Parse("192.168.178.255"), _IPsToScan));
+                await Task.Run(() => scanningMethod_Find_ONVIF_IP_Cameras.Discover(_IPsToScan), _cts.Token);
             }
 
             List<IPToScan> DNS_Hostname_IPsToScan = new List<IPToScan>();
@@ -1719,12 +1723,14 @@ namespace MyNetworkMonitor
             });
         }
 
-        private void ScanningMethod_Find_ONVIF_IP_Cameras_ProgressUpdated(int arg1, int arg2, int arg3)
-        {
-            
+        private void ScanningMethod_Find_ONVIF_IP_Cameras_ProgressUpdated(int arg1, int arg2, int arg3, ScanStatus scanStatus)
+        {            
             Dispatcher.BeginInvoke(() =>
             {
+                counted_current__ONVIF_IP_Cam = arg1;
                 counted_responded_ONVIF_IP_Cams = arg2;
+                counted_total_ONVIF_IPs_toScan = arg3;
+                status_ONVIF_IP_Cam_Scan = scanStatus;
                 Status();
             });
         }
@@ -1734,9 +1740,6 @@ namespace MyNetworkMonitor
             Dispatcher.BeginInvoke(() =>
             {
                 InsertIPToScanResult(e.ipToScan);
-                
-                //IPCameraScanFinishet = true;
-                //Status();
             });
         }
 
@@ -1856,10 +1859,11 @@ namespace MyNetworkMonitor
                 InsertIPToScanResult(ipToScan);
             });
         }
-        private void ScanningMethode_NetBios_ProgressUpdated(int current, int responsed, int total)
+        private void ScanningMethode_NetBios_ProgressUpdated(int current, int responsed, int total, ScanStatus scanStatus)
         {
             Dispatcher.Invoke(() =>
             {
+                status_NetBios_Scan = scanStatus;
                 counted_current_NetBiosScan = current;
                 counted_responded_NetBiosInfos = responsed;
                 counted_total_NetBiosInfos = total;
@@ -1929,15 +1933,15 @@ namespace MyNetworkMonitor
 
 
 
-        private void ScanningMethode_ARP_ProgressUpdated(int arg1, int arg2, int arg3)
+        private void ScanningMethode_ARP_ProgressUpdated(int arg1, int arg2, int arg3, ScanStatus scanStatus)
         {
             //throw new NotImplementedException();
             Dispatcher.Invoke(() => 
             {
-                status_ARP_Request_Scan = ScanStatus.running;
                 counted_current_ARP_Requests = arg1;
                 counted_responded_ARP_Requests = arg2;
                 counted_total_ARP_Requests = arg3;
+                status_ARP_Request_Scan = scanStatus;
                 Status();
             });
         }
@@ -1947,12 +1951,10 @@ namespace MyNetworkMonitor
         {
             Dispatcher.BeginInvoke(() =>
             {
-
                 if (string.IsNullOrEmpty(e.ipToScan.IPorHostname))
                 {
                     return;
                 }
-
                 InsertIPToScanResult(e.ipToScan);
             });
         }
@@ -2000,20 +2002,22 @@ namespace MyNetworkMonitor
         }
 
 
-
+        private void ScanningMethod_LookUp_ProgressUpdated(int arg1, int arg2, int arg3, ScanStatus arg4)
+        {
+            Dispatcher.BeginInvoke(() =>
+            {
+                counted_current_Lookup_Scan = arg1;
+                counted_responded_Lookup_Devices = arg2;
+                counted_total_Lookup_Scans = arg3;
+                status_Lookup_Scan = arg4;
+                Status();
+            });
+        }
         private void Lookup_Task_Finished(object? sender, ScanTask_Finished_EventArgs e)
         {
             Dispatcher.BeginInvoke(() =>
             {
-                ++counted_current_Lookup_Scan;
-                Status();
-
-
                 InsertIPToScanResult(e.ipToScan);
-
-
-                ++counted_responded_Lookup_Devices;
-                Status();
             });
         }
         private void Lookup_Finished(object? sender, Method_Finished_EventArgs e)
@@ -3514,6 +3518,13 @@ namespace MyNetworkMonitor
 
         public void StopScanning()
         {
+            if (_cts != null && !_cts.IsCancellationRequested)
+            {
+                _cts.Cancel(); // 🔹 Scan abbrechen
+                _cts.Dispose();
+                _cts = new CancellationTokenSource();
+            }
+
             if (scanningMethode_SSDP_UPNP != null) scanningMethode_SSDP_UPNP.StopScan();
             if (scanningMethode_SNMP != null) scanningMethode_SNMP.StopScan();
             if (scanningMethode_NetBios != null) scanningMethode_NetBios.StopScan();

@@ -140,12 +140,9 @@ public class ScanningMethod_NetBios
 
 
     public event Action<IPToScan> NetbiosIPScanFinished;
-    public event Action<int, int, int> ProgressUpdated;
+    public event Action<int, int, int, ScanStatus> ProgressUpdated;
     public event Action<bool> NetbiosScanFinished;
-
-    private int current = 0;
-    private int responded = 0;
-    private int total = 0;
+    
 
     private static readonly byte[] NameRequest = {
         0x80, 0x94, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00,
@@ -187,11 +184,35 @@ public class ScanningMethod_NetBios
     //    NetbiosScanFinished?.Invoke(true);
     //}
 
+    private int current = 0;
+    private int responded = 0;
+    private int total = 0;
+
     private CancellationTokenSource _cts = new CancellationTokenSource(); // 🔹 Ermöglicht das Abbrechen
+
+    //int currentValue = Interlocked.Increment(ref current);
+    //ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
+
+    //int respondedValue = Interlocked.Increment(ref responded);
+    //ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running);
+
+    //ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished);
 
     public void StopScan()
     {
-        _cts.Cancel(); // 🔹 Scan abbrechen
+        if (_cts != null && !_cts.IsCancellationRequested)
+        {
+            _cts.Cancel(); // 🔹 Scan abbrechen
+            _cts.Dispose();
+            _cts = new CancellationTokenSource();
+        }
+
+        // 🔹 Zähler zurücksetzen
+        current = 0;
+        responded = 0;
+        total = 0;
+
+        ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped); // 🔹 UI auf 0 setzen
     }
 
     private void StartNewScan()
@@ -205,6 +226,11 @@ public class ScanningMethod_NetBios
             _cts.Dispose();
         }
         _cts = new CancellationTokenSource();
+
+        // 🔹 Zähler zurücksetzen
+        current = 0;
+        responded = 0;
+        total = 0;
     }
 
 
@@ -230,10 +256,7 @@ public class ScanningMethod_NetBios
             {
                 try
                 {
-                    if (_cts.Token.IsCancellationRequested) return;  // 🔹 Vor dem Start abbrechen
-
-                    Interlocked.Increment(ref current);
-                    ProgressUpdated?.Invoke(current, responded, total);
+                    if (_cts.Token.IsCancellationRequested) return;  // 🔹 Vor dem Start abbrechen                    
 
                     ip.UsedScanMethod = ScanMethod.NetBios;
                     bool success = await RunWithTimeout(QueryNetBiosAsync(ip, _cts.Token), TimeSpan.FromSeconds(5));
@@ -264,6 +287,9 @@ public class ScanningMethod_NetBios
         {
             if (cancellationToken.IsCancellationRequested) return; // 🔹 Abbruchprüfung
 
+            int currentValue = Interlocked.Increment(ref current);
+            ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
+
             if (GetRemoteNetBiosName(IPAddress.Parse(iPToScan.IPorHostname), out string nbName, out _, out _))
             {
                 if (cancellationToken.IsCancellationRequested) return; // 🔹 Abbruchprüfung
@@ -272,8 +298,9 @@ public class ScanningMethod_NetBios
 
                 if (!string.IsNullOrEmpty(nbName))
                 {
-                    Interlocked.Increment(ref responded);
-                    ProgressUpdated?.Invoke(current, responded, total);
+                    int respondedValue = Interlocked.Increment(ref responded);
+                    ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running);
+
                     NetbiosIPScanFinished?.Invoke(iPToScan);
                 }
             }
