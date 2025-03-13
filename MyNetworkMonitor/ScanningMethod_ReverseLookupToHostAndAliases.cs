@@ -44,7 +44,7 @@ namespace MyNetworkMonitor
             responded = 0;
             total = 0;
 
-            //ProgressUpdated?.Invoke(current, responded, total); // 🔹 UI auf 0 setzen
+            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped); // 🔹 UI auf 0 setzen
         }
 
         private void StartNewScan()
@@ -89,25 +89,54 @@ namespace MyNetworkMonitor
 
             var tasks = new List<Task>();
 
-            //Parallel.ForEach(IPs, ip =>
+            //Parallel.ForEach(IPs, async ip =>
             //        {
-            //            var task = Task.Run(() => ReverseLookupToHostAndAliases(ip));
+            //            await Task.Delay(50, _cts.Token);
+
+            //            int currentValue = Interlocked.Increment(ref current);
+            //            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running);
+
+            //            var task = Task.Run(() => ReverseLookupToHostAndAliases(ip), _cts.Token);
             //            if (task != null) tasks.Add(task);
             //        });
+
+            //foreach (IPToScan ip in IPs)
+            //{
+            //    if (_cts.Token.IsCancellationRequested) return;
+
+            //    int currentValue = Interlocked.Increment(ref current);
+            //    ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running);
+
+            //    var task = Task.Run(() => ReverseLookupToHostAndAliases(ip));
+            //    if (task != null) tasks.Add(task);
+            //}
+
+                        
+            SemaphoreSlim semaphore = new SemaphoreSlim(50); // Begrenze parallele Tasks auf 10
 
             foreach (IPToScan ip in IPs)
             {
                 if (_cts.Token.IsCancellationRequested) return;
 
-                int currentValue = Interlocked.Increment(ref current);
-                ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running);
+               
 
-                var task = Task.Run(() => ReverseLookupToHostAndAliases(ip));
-                if (task != null) tasks.Add(task);
+                var task = Task.Run(async () =>
+                {
+                    await semaphore.WaitAsync();
+                    try
+                    {
+                        await ReverseLookupToHostAndAliases(ip);
+                    }
+                    finally
+                    {
+                        semaphore.Release();
+                    }
+                }, _cts.Token);
+
+                tasks.Add(task);
             }
 
-
-            await Task.WhenAll(tasks.Where(t => t != null));
+            await Task.WhenAll(tasks);
 
             if (GetHostAliases_Finished != null)
             {
@@ -142,6 +171,10 @@ namespace MyNetworkMonitor
                 {
                     client = new DnsClient.LookupClient();
                 }
+
+
+                int currentValue = Interlocked.Increment(ref current);
+                ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running);
 
                 IPHostEntry _IPHostEntry = await client.GetHostEntryAsync(ipToScan.IPorHostname).WaitAsync(_cts.Token);
 
