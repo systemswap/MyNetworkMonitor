@@ -45,12 +45,7 @@ namespace MyNetworkMonitor
                 _cts.Dispose();
                 _cts = new CancellationTokenSource();
             }
-
-            // 🔹 Zähler zurücksetzen
-            current = 0;
-            responded = 0;
-            total = 0;
-
+                       
             Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped)); // 🔹 UI auf 0 setzen
         }
 

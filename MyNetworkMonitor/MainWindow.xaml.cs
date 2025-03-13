@@ -67,9 +67,9 @@ namespace MyNetworkMonitor
 
 
             supportMethods = new SupportMethods();
-            //supportMethods.GetNetworkInterfaces();            
+            //supportMethods.GetNetworkInterfaces();          
 
-            StopScanning();
+            
 
             scanningMethode_SSDP_UPNP = new ScanningMethod_SSDP_UPNP();
             scanningMethode_SSDP_UPNP.ProgressUpdated += ScanningMethode_SSDP_UPNP_ProgressUpdated;
@@ -934,17 +934,21 @@ namespace MyNetworkMonitor
         }
 
 
-        public async void DoWork(bool IsSelectiveScan, bool ClearTable = false)
+        public async Task DoWork(bool IsSelectiveScan, bool ClearTable = false)
         {
             if (!ScannerCanStart())
             {
                 MessageBox.Show("scanner is running, or waiting, you have to stop first", "", MessageBoxButton.OK);
+                return;
             }
 
-            counted_current_Ping_Scan = 0;
-            counted_total_Ping_Scan = 0;
+            _cts = new CancellationTokenSource();
 
-            counted_responded_SSDP_device = 0;
+            counted_current_Ping_Scan = 0;
+            counted_responded_Ping_Scan = 0;
+            counted_total_Ping_Scan = 0;
+            
+            counted_responded_SSDP_device = 0;           
             counted_total_SSDPs = 0;
 
             counted_current_SNMP_Scan = 0;
@@ -1029,6 +1033,7 @@ namespace MyNetworkMonitor
                 }
             }
 
+            _cts.Token.ThrowIfCancellationRequested();
 
             /* set the states */
             if ((bool)chk_Methodes_SSDP.IsChecked) status_SSDP_Scan = ScanStatus.waiting;
@@ -1045,47 +1050,49 @@ namespace MyNetworkMonitor
             //if ((bool)chk_Methodes_ScanUDPPorts.IsChecked) status_UDP_Port_Scan = ScanStatus.waiting;
             if ((bool)chk_Methodes_ARP_A.IsChecked) status_ARP_A_Scan = ScanStatus.waiting;
 
-
+            _cts.Token.ThrowIfCancellationRequested();
             if ((bool)chk_ARP_DeleteCacheBefore.IsChecked)
             {
                 foreach (DataRow row in _scannResults.ResultTable.Rows)
                 {
                     row["ARPStatus"] = null;
                 }
-                await Task.Run(() => scanningMethode_ARP.DeleteARPCache());
+                await Task.Run(() => scanningMethode_ARP.DeleteARPCache(), _cts.Token);
 
                 //give the operating systeme time to refresh themself
                 await Task.Delay(2000);
             }
 
+            _cts.Token.ThrowIfCancellationRequested();
             if ((bool)chk_ARPRequest.IsChecked)
             {
                 counted_total_ARP_Requests = _IPsToScan.Count;
                 status_ARP_Request_Scan = ScanStatus.running;
                 Status();
 
-                //await Task.Run(() => scanningMethode_ARP.SendARPRequestAsync(_IPsToScan));
-                await scanningMethode_ARP.SendARPRequestAsync(_IPsToScan);
+                await Task.Run(() => scanningMethode_ARP.SendARPRequestAsync(_IPsToScan), _cts.Token);
+            
             }
 
-            if ((bool)chk_Methodes_Ping.IsChecked)
-            {
+            _cts.Token.ThrowIfCancellationRequested();
+            if ((bool)chk_Methodes_Ping.IsChecked)   
+            {    
                 status_Ping_Scan = ScanStatus.running;
                 counted_total_Ping_Scan = _IPsToScan.Count;
                 Status();
-                await Task.Run(() => scanningMethods_Ping.PingIPsAsync(_IPsToScan, false));
+                await Task.Run(() => scanningMethods_Ping.PingIPsAsync(_IPsToScan, false), _cts.Token);
             }
 
-
+            _cts.Token.ThrowIfCancellationRequested();
             if ((bool)chk_Methodes_SSDP.IsChecked)
             {
                 status_SSDP_Scan = ScanStatus.running;
                 counted_total_SSDPs = _IPsToScan.Count;
                 Status();
-                await Task.Run(() => scanningMethode_SSDP_UPNP.Scan_for_SSDP_devices_async());
+                await Task.Run(() => scanningMethode_SSDP_UPNP.Scan_for_SSDP_devices_async(), _cts.Token);
             }
 
-
+            _cts.Token.ThrowIfCancellationRequested();
             if ((bool)chk_Methodes_ONVIF.IsChecked)
             {
                 status_ONVIF_IP_Cam_Scan = ScanStatus.running;
@@ -1093,6 +1100,7 @@ namespace MyNetworkMonitor
                 await Task.Run(() => scanningMethod_Find_ONVIF_IP_Cameras.Discover(_IPsToScan), _cts.Token);
             }
 
+            _cts.Token.ThrowIfCancellationRequested();
             List<IPToScan> DNS_Hostname_IPsToScan = new List<IPToScan>();
             if ((bool)chk_Methodes_ScanHostnames.IsChecked)
             {
@@ -1133,15 +1141,15 @@ namespace MyNetworkMonitor
                 //    Status();
                 //}
 
-                await Task.Run(() => scanningMethode_ReverseLookupToHostAndAliases.GetHost_Aliases(DNS_Hostname_IPsToScan));
+                await Task.Run(() => scanningMethode_ReverseLookupToHostAndAliases.GetHost_Aliases(DNS_Hostname_IPsToScan), _cts.Token);
                 //await Task.Run(() => scanningMethode_DNS.Get_Host_and_Alias_From_IP(_IPsToRefresh));
             }
 
-
+            _cts.Token.ThrowIfCancellationRequested();
             if ((bool)chk_Methodes_LookUp.IsChecked)
             {
                 //give some time to insert the results of DNS Hostname into Datatable
-                await Task.Run(() => Thread.Sleep(1000));
+                await Task.Run(() => Thread.Sleep(500));
 
                 List<IPToScan> IPsForLookUp = new List<IPToScan>();
 
@@ -1178,9 +1186,10 @@ namespace MyNetworkMonitor
                 counted_total_Lookup_Scans = IPsForLookUp.Count;
                 Status();
 
-                Task.Run(() => scanningMethod_LookUp.LookupAsync(IPsForLookUp));
+                Task.Run(() => scanningMethod_LookUp.LookupAsync(IPsForLookUp), _cts.Token);
             }
 
+            _cts.Token.ThrowIfCancellationRequested();
             List<IPToScan> SMB_IPsToScan = new List<IPToScan>();
             if ((bool)chk_Methodes_Scan_SMBVersions.IsChecked)
             {
@@ -1198,9 +1207,10 @@ namespace MyNetworkMonitor
                     }
                 }
                 status_SMB_VersionCheck = ScanStatus.running;
-                await scanningMethod_SMB_VersionCheck.ScanMultipleIPsAsync(SMB_IPsToScan);
+                await Task.Run(() => scanningMethod_SMB_VersionCheck.ScanMultipleIPsAsync(SMB_IPsToScan), _cts.Token);
             }
 
+            _cts.Token.ThrowIfCancellationRequested();
             List<IPToScan> NetBios_IPsToScan = new List<IPToScan>();
             if ((bool)chk_Methodes_ScanNetBios.IsChecked)
             {
@@ -1218,19 +1228,19 @@ namespace MyNetworkMonitor
                     }
                 }
                 status_NetBios_Scan = ScanStatus.running;
-                await Task.Run(() => scanningMethode_NetBios.ScanMultipleIPsAsync(NetBios_IPsToScan));
+                await Task.Run(() => scanningMethode_NetBios.ScanMultipleIPsAsync(NetBios_IPsToScan), _cts.Token);
             }
 
-
+            _cts.Token.ThrowIfCancellationRequested();
             if ((bool)chk_Methodes_SNMP.IsChecked)
             {
                 status_SNMP_Scan = ScanStatus.running;
                 //requestedSNMPCount = _IPsToScan.Count;
                 Status();
-                await Task.Run(() => scanningMethode_SNMP.ScanAsync(_IPsToScan));
+                await Task.Run(() => scanningMethode_SNMP.ScanAsync(_IPsToScan), _cts.Token);
             }
-            
 
+            _cts.Token.ThrowIfCancellationRequested();
             List<IPToScan> Services_IPsToScan = new List<IPToScan>();
             if ((bool)chk_Methodes_Scan_Services.IsChecked)
             {
@@ -1313,10 +1323,10 @@ namespace MyNetworkMonitor
                 }
 
 
-                await scanningMethod_Services.ScanIPsAsync(Services_IPsToScan, services, additionalServicePorts);
+                await Task.Run(() => scanningMethod_Services.ScanIPsAsync(Services_IPsToScan, services, additionalServicePorts), _cts.Token);
             }
-           
 
+            _cts.Token.ThrowIfCancellationRequested();
             List<IPToScan> _IPsForTCPPortScan = new List<IPToScan>();
             if ((bool)chk_Methodes_ScanTCPPorts.IsChecked)
             {
@@ -1349,7 +1359,7 @@ namespace MyNetworkMonitor
                 counted_total_TCP_Port_Scans = _IPsForTCPPortScan.Count;
                 Status();
 
-                await Task.Run(() => scanningMethode_PortsTCP.ScanTCPPortsAsync(_IPsForTCPPortScan, new TimeSpan(0, 0, 0, 0, _TimeOut)));
+                await Task.Run(() => scanningMethode_PortsTCP.ScanTCPPortsAsync(_IPsForTCPPortScan, new TimeSpan(0, 0, 0, 0, _TimeOut)), _cts.Token);
             }
 
 
@@ -1361,13 +1371,13 @@ namespace MyNetworkMonitor
             //    Task.Run(() => scanningMethode_PortsUDP.Get_All_UPD_Listener_as_List(_IPsToScan));
             //}
 
-
+            _cts.Token.ThrowIfCancellationRequested();
             if ((bool)chk_Methodes_ARP_A.IsChecked)
             {
                 status_ARP_A_Scan = ScanStatus.running;
                 Status();
 
-                Task.Run(() => scanningMethode_ARP.ARP_A(_IPsToScan));
+                Task.Run(() => scanningMethode_ARP.ARP_A(_IPsToScan), _cts.Token);
             }
         }
 
@@ -3524,19 +3534,27 @@ namespace MyNetworkMonitor
             if (_cts != null && !_cts.IsCancellationRequested)
             {
                 _cts.Cancel(); // 🔹 Scan abbrechen
-                _cts.Dispose();
-                _cts = new CancellationTokenSource();
+                //_cts.Dispose();
+                //_cts = new CancellationTokenSource();
             }
 
-            if (scanningMethode_SSDP_UPNP != null) scanningMethode_SSDP_UPNP.StopScan();
-            if (scanningMethode_SNMP != null) scanningMethode_SNMP.StopScan();
-            if (scanningMethode_NetBios != null) scanningMethode_NetBios.StopScan();
-            if (scanningMethod_SMB_VersionCheck != null) scanningMethod_SMB_VersionCheck.StopScan();
-            if (scanningMethod_Services != null) scanningMethod_Services.StopScan();
-            if (scanningMethode_ARP != null) scanningMethode_ARP.StopScan();
-            if (scanningMethods_Ping != null) scanningMethods_Ping.StopScan();
-            if (scanningMethod_LookUp != null) scanningMethod_LookUp.StopScan();
-            if (scanningMethode_ReverseLookupToHostAndAliases != null) scanningMethode_ReverseLookupToHostAndAliases.StopScan();
+            if (scanningMethode_SSDP_UPNP != null && (status_SSDP_Scan == ScanStatus.running || status_SSDP_Scan == ScanStatus.waiting)) scanningMethode_SSDP_UPNP.StopScan();
+
+            if (scanningMethode_SNMP != null && (status_SNMP_Scan == ScanStatus.running || status_SNMP_Scan == ScanStatus.waiting)) scanningMethode_SNMP.StopScan();
+
+            if (scanningMethode_NetBios != null && ( status_NetBios_Scan == ScanStatus.running || status_NetBios_Scan == ScanStatus.waiting)) scanningMethode_NetBios.StopScan();
+
+            if (scanningMethod_SMB_VersionCheck != null && ( status_SMB_VersionCheck == ScanStatus.running || status_SMB_VersionCheck == ScanStatus.waiting)) scanningMethod_SMB_VersionCheck.StopScan();
+
+            if (scanningMethod_Services != null && ( status_Services_Scan == ScanStatus.running || status_Services_Scan == ScanStatus.waiting)) scanningMethod_Services.StopScan();
+
+            if (scanningMethode_ARP != null && ( status_ARP_Request_Scan == ScanStatus.running || status_ARP_Request_Scan == ScanStatus.waiting)) scanningMethode_ARP.StopScan();
+
+            if (scanningMethods_Ping != null && ( status_Ping_Scan == ScanStatus.running || status_Ping_Scan == ScanStatus.waiting)) scanningMethods_Ping.StopScan();
+
+            if (scanningMethod_LookUp != null && ( status_Lookup_Scan == ScanStatus.running || status_Lookup_Scan == ScanStatus.waiting)) scanningMethod_LookUp.StopScan();
+
+            if (scanningMethode_ReverseLookupToHostAndAliases != null && ( status_DNS_HostName_Scan == ScanStatus.running || status_DNS_HostName_Scan == ScanStatus.waiting)) scanningMethode_ReverseLookupToHostAndAliases.StopScan();
         }
 
         public bool ScannerCanStart()

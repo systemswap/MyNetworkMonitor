@@ -127,14 +127,11 @@ public class ScanningMethod_Services
             _cts.Dispose();
             _cts = new CancellationTokenSource();
         }
-
-        // 🔹 Zähler zurücksetzen
-        current = 0;
-        responded = 0;
-        total = 0;
-
-        ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped); // 🔹 UI auf 0 setzen
+        scanStatus = ScanStatus.stopped;
+        ProgressUpdated?.Invoke(current, responded, total, scanStatus); // 🔹 UI auf 0 setzen
     }
+
+    ScanStatus scanStatus = ScanStatus.running;
 
     private void StartNewScan()
     {
@@ -182,7 +179,28 @@ public class ScanningMethod_Services
         responded = 0;
         total = IPsToScan.Count;
 
-        Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running));
+        if(!_cts.Token.IsCancellationRequested) Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, scanStatus));
+
+
+        //var semaphore = new SemaphoreSlim(MaxParallelIPs);
+        //var tasks = IPsToScan.Select(async ipToScan =>
+        //{
+        //    await semaphore.WaitAsync(_cts.Token);
+
+        //    if (_cts.Token.IsCancellationRequested)
+        //        return; // Vorzeitig abbrechen
+
+        //    try
+        //    {
+        //        await Task.Run(() => ScanIPAsync(ipToScan, services, extraPorts), _cts.Token);
+        //    }
+        //    finally
+        //    {
+        //        semaphore.Release();
+        //    }
+        //}).ToArray();
+
+        //await Task.WhenAll(tasks.Where(t => t != null));
 
 
         var semaphore = new SemaphoreSlim(MaxParallelIPs);
@@ -191,22 +209,41 @@ public class ScanningMethod_Services
             await semaphore.WaitAsync(_cts.Token);
 
             if (_cts.Token.IsCancellationRequested)
-                return; // Vorzeitig abbrechen
+            {
+                semaphore.Release(); // 🔹 Wichtig: Slot freigeben!
+                return;
+            }
 
             try
             {
-                await Task.Run(() => ScanIPAsync(ipToScan, services, extraPorts), _cts.Token);
+                _cts.Token.ThrowIfCancellationRequested();
+                await ScanIPAsync(ipToScan, services, extraPorts); // ✅ CancellationToken direkt übergeben!
+            }
+            catch (OperationCanceledException)
+            {
+                Console.WriteLine($"Scan für {ipToScan} wurde abgebrochen.");
             }
             finally
             {
-                semaphore.Release();
+                semaphore.Release(); // ✅ Immer freigeben!
             }
         }).ToArray();
 
-        await Task.WhenAll(tasks);
+        // ✅ Warte auf alle Tasks, aber ignoriere abgebrochene Tasks
+        try
+        {
+            await Task.WhenAll(tasks.Where(t => t != null));
+        }
+        catch (OperationCanceledException)
+        {
+            Console.WriteLine("Einige Tasks wurden abgebrochen, aber das ist okay.");
+        }
+
+
+
 
         // ? Garantiert: SMBScanFinished wird NUR ausgelöst, wenn alle SMB-Scans beendet sind
-        ServiceScanFinished?.Invoke();
+        Task.Run(() => ServiceScanFinished?.Invoke());
     }
 
 
@@ -411,7 +448,12 @@ public class ScanningMethod_Services
     private async Task ScanIPAsync(IPToScan ipToScan, List<ServiceType> services, Dictionary<ServiceType, List<int>> extraPorts)
     {
         scanDHCP = true;
-        string ipAddress = IPAddress.Parse(ipToScan.IPorHostname).ToString(); // Einmal parsen
+        string ipAddress = IPAddress.Parse(ipToScan.IPorHostname).ToString(); // Einmal parsen        
+
+        _cts.Token.ThrowIfCancellationRequested();
+
+        int currentValue = Interlocked.Increment(ref current);
+        if (!_cts.Token.IsCancellationRequested) Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, scanStatus));
 
         foreach (ServiceType service in services)
         {
@@ -432,14 +474,40 @@ public class ScanningMethod_Services
             var semaphore = new SemaphoreSlim(50); // Begrenzung gleichzeitiger Scans
             var tasks = new List<Task>();
 
+            //foreach (var port in ports.Distinct())
+            //{
+            //    await semaphore.WaitAsync(_cts.Token);
+
+            //    if (_cts.Token.IsCancellationRequested) return; // Direkt abbrechen, falls nötig
+
+            //    tasks.Add(ScanServicePortAsync(service, ipAddress, port, detectionPacket, serviceResult, semaphore));                
+            //}
+
+
             foreach (var port in ports.Distinct())
             {
                 await semaphore.WaitAsync(_cts.Token);
 
-                if (_cts.Token.IsCancellationRequested) return; // Direkt abbrechen, falls nötig
+                if (_cts.Token.IsCancellationRequested)
+                {
+                    semaphore.Release(); // ✅ Stelle sicher, dass der Slot freigegeben wird!
+                    return;
+                }
 
-                tasks.Add(ScanServicePortAsync(service, ipAddress, port, detectionPacket, serviceResult, semaphore));                
+                tasks.Add(Task.Run(async () =>
+                {
+                    try
+                    {
+                        await ScanServicePortAsync(service, ipAddress, port, detectionPacket, serviceResult, semaphore);
+                    }
+                    finally
+                    {
+                        semaphore.Release(); // ✅ Immer freigeben, selbst bei Fehlern oder Abbruch
+                    }
+                }, _cts.Token));
             }
+
+
 
             // Parallel ausführen und warten
             await Task.WhenAll(tasks);
@@ -453,12 +521,12 @@ public class ScanningMethod_Services
         }
 
         if (ipToScan.Services.Services.Count > 0)
-        {
-            int respondedValue = Interlocked.Increment(ref responded);
-            Task.Run(() => ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running));
-
+        {    
             ipToScan.UsedScanMethod = ScanMethod.Services;
             Task.Run(() => ServiceIPScanFinished?.Invoke(ipToScan)); // Event auslösen
+
+            int respondedValue = Interlocked.Increment(ref responded);
+            if (!_cts.Token.IsCancellationRequested) Task.Run(() => ProgressUpdated?.Invoke(current, respondedValue, total, scanStatus));
         }
     }
 
