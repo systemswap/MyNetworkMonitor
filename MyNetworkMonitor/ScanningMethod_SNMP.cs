@@ -26,12 +26,12 @@ namespace MyNetworkMonitor
         private CancellationTokenSource _cts = new CancellationTokenSource(); // 🔹 Ermöglicht das Abbrechen
 
         //int currentValue = Interlocked.Increment(ref current);
-        //ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
+        //Task.Run(() => ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running));
 
         //int respondedValue = Interlocked.Increment(ref responded);
-        //ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running);
+        //Task.Run(() => ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running));
 
-        //ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished);
+        //Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished));
 
         public void StopScan()
         {
@@ -47,7 +47,7 @@ namespace MyNetworkMonitor
             responded = 0;
             total = 0;
 
-            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped); // 🔹 UI auf 0 setzen
+            Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped)); // 🔹 UI auf 0 setzen
         }
 
         private void StartNewScan()
@@ -90,7 +90,7 @@ namespace MyNetworkMonitor
             responded = 0;
             total = IPsToRefresh.Count;
 
-            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running);
+            Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running));
 
             var tasks = new List<Task>();
 
@@ -150,7 +150,7 @@ namespace MyNetworkMonitor
         private async Task ScanSingleIPAsync(IPToScan ipToScan)
         {
             int currentValue = Interlocked.Increment(ref current);
-            ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
+            Task.Run(() => ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running));
 
             using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2))) // Kürzerer Timeout
             {
@@ -275,10 +275,10 @@ namespace MyNetworkMonitor
                     await QueryZebraPrinter(ipToScan, community, cancellationToken);
                 }
 
-                SNMB_Task_Finished?.Invoke(ipToScan);
+                Task.Run(() => SNMB_Task_Finished?.Invoke(ipToScan));
 
                 int respondedValue = Interlocked.Increment(ref responded);
-                ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running);
+                Task.Run(() => ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running));
             }
             catch (OperationCanceledException)
             {

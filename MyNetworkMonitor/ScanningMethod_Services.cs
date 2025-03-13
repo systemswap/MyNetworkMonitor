@@ -181,8 +181,8 @@ public class ScanningMethod_Services
         current = 0;
         responded = 0;
         total = IPsToScan.Count;
-        
-        ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running);
+
+        Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running));
 
 
         var semaphore = new SemaphoreSlim(MaxParallelIPs);
@@ -234,7 +234,7 @@ public class ScanningMethod_Services
     //                // ?? Sicherstellen, dass UI-Updates nicht blockieren
     //                await Application.Current.Dispatcher.InvokeAsync(() =>
     //                {
-    //                    ProgressUpdated?.Invoke(current, responded, total);
+    //                    Task.Run(() => ProgressUpdated?.Invoke(current, responded, total));
     //                });
 
     //                await ScanIPAsync(ipToScan, services, extraPorts);
@@ -396,11 +396,11 @@ public class ScanningMethod_Services
     //      if (ipToScan.Services.Services.Count > 0)
     //      {
     //          int respondedValue = Interlocked.Increment(ref responded);
-    //          ProgressUpdated?.Invoke(current, responded, total);
+    //          Task.Run(() => ProgressUpdated?.Invoke(current, responded, total));
 
     //          ipToScan.UsedScanMethod = ScanMethod.Services;
 
-    //          ServiceIPScanFinished?.Invoke(ipToScan); // Event auslösen
+    //          Task.Run(() => ServiceIPScanFinished?.Invoke(ipToScan)); // Event auslösen
     //      }
     //  }
 
@@ -455,10 +455,10 @@ public class ScanningMethod_Services
         if (ipToScan.Services.Services.Count > 0)
         {
             int respondedValue = Interlocked.Increment(ref responded);
-            ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running);
+            Task.Run(() => ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running));
 
             ipToScan.UsedScanMethod = ScanMethod.Services;
-            ServiceIPScanFinished?.Invoke(ipToScan); // Event auslösen
+            Task.Run(() => ServiceIPScanFinished?.Invoke(ipToScan)); // Event auslösen
         }
     }
 
@@ -655,7 +655,7 @@ public class ScanningMethod_Services
     //    foreach (int port in ports)
     //    {
     //        int currentValue = Interlocked.Increment(ref current);
-    //        FindServicePortProgressUpdated?.Invoke(current, responded, total);
+    //        Task.Run(() => FindServicePortProgressUpdated?.Invoke(current, responded, total));
 
     //        try
     //        {
@@ -680,7 +680,7 @@ public class ScanningMethod_Services
     //                if (portResult.Status == PortStatus.IsRunning)
     //                {
     //                    int responsedValue = Interlocked.Increment(ref responded);
-    //                    FindServicePortProgressUpdated?.Invoke(current, responded, total);
+    //                    Task.Run(() => FindServicePortProgressUpdated?.Invoke(current, responded, total));
 
     //                    lock (serviceResult.Ports)
     //                    {
@@ -743,7 +743,7 @@ public class ScanningMethod_Services
     //                            bool serviceMatched = IdentifyServices(response, service);
 
     //                            int responsedValue = Interlocked.Increment(ref responded);
-    //                            FindServicePortProgressUpdated?.Invoke(current, responded, total);
+    //                            Task.Run(() => FindServicePortProgressUpdated?.Invoke(current, responded, total));
 
     //                            if (serviceMatched)
     //                            {
@@ -753,7 +753,7 @@ public class ScanningMethod_Services
     //                                    ipToScan.Services.Services[0].Ports[0].Port = port;
     //                                }
 
-    //                                //FindServicePortFinished?.Invoke(ipToScan);
+    //                                //Task.Run(() => FindServicePortFinished?.Invoke(ipToScan));
     //                                cts.Cancel(); // Abbruch, wenn der Service erkannt wurde
     //                            }
     //                        }
@@ -773,7 +773,7 @@ public class ScanningMethod_Services
 
     //    await Task.WhenAll(Enumerable.Range(0, semaphore.CurrentCount).Select(_ => semaphore.WaitAsync()).ToArray());
 
-    //    FindServicePortFinished?.Invoke(ipToScan);
+    //    Task.Run(() => FindServicePortFinished?.Invoke(ipToScan));
     //    return ipToScan;
     //}
 
@@ -808,7 +808,7 @@ public class ScanningMethod_Services
             if (_cts.Token.IsCancellationRequested) break; // 🔹 Falls der Scan gestoppt wurde, Schleife sofort beenden
 
             int currentValue = Interlocked.Increment(ref current);
-            FindServicePortProgressUpdated?.Invoke(port, responded, total);
+            Task.Run(() => FindServicePortProgressUpdated?.Invoke(port, responded, total));
 
             try
             {
@@ -830,7 +830,7 @@ public class ScanningMethod_Services
                         if (portResult.Status == PortStatus.IsRunning)
                         {
                             int responsedValue = Interlocked.Increment(ref responded);
-                            FindServicePortProgressUpdated?.Invoke(current, responsedValue, total);
+                            Task.Run(() => FindServicePortProgressUpdated?.Invoke(current, responsedValue, total));
 
                             lock (serviceResult.Ports)
                             {
@@ -878,7 +878,7 @@ public class ScanningMethod_Services
                             if (response.Length > 0 && IdentifyServices(response, service))
                             {
                                 int responsedValue = Interlocked.Increment(ref responded);
-                                FindServicePortProgressUpdated?.Invoke(current, responsedValue, total);
+                                Task.Run(() => FindServicePortProgressUpdated?.Invoke(current, responsedValue, total));
 
                                 lock (ipToScan.Services.Services[0].Ports)
                                 {
@@ -914,7 +914,7 @@ public class ScanningMethod_Services
         }
         finally
         {
-            FindServicePortFinished?.Invoke(ipToScan);  // Stelle sicher, dass das Event ausgelöst wird
+            Task.Run(() => FindServicePortFinished?.Invoke(ipToScan));  // Stelle sicher, dass das Event ausgelöst wird
         }
         return ipToScan;
     }
