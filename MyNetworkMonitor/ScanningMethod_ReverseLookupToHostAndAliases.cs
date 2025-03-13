@@ -27,8 +27,15 @@ namespace MyNetworkMonitor
         private int responded = 0;
         private int total = 0;
 
-
         private CancellationTokenSource _cts = new CancellationTokenSource(); // 🔹 Ermöglicht das Abbrechen
+
+        //int currentValue = Interlocked.Increment(ref current);
+        //ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
+
+        //int respondedValue = Interlocked.Increment(ref responded);
+        //ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running);
+
+        //ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished);
 
         public void StopScan()
         {
@@ -44,7 +51,7 @@ namespace MyNetworkMonitor
             responded = 0;
             total = 0;
 
-            //ProgressUpdated?.Invoke(current, responded, total); // 🔹 UI auf 0 setzen
+            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped); // 🔹 UI auf 0 setzen
         }
 
         private void StartNewScan()
@@ -64,6 +71,8 @@ namespace MyNetworkMonitor
             responded = 0;
             total = 0;
         }
+
+
 
         public async Task GetHost_Aliases(List<IPToScan> IPs)
         {

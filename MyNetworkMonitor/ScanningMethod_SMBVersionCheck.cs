@@ -11,40 +11,14 @@ using System.Collections.Concurrent;
 
 public class ScanningMethod_SMBVersionCheck
 {
-    public event Action<IPToScan> SMBIPScanFinished;
-    public event Action<int, int, int> ProgressUpdated;
+    public event Action<int, int, int, ScanStatus> ProgressUpdated;
+    public event Action<IPToScan> SMBIPScanFinished;    
     public event Action SMBScanFinished;
-       
 
-    private int current = 0;
-    private int responded = 0;
-    private int total = 0;
 
     public ScanningMethod_SMBVersionCheck()
     {
 
-    }
-
-
-    private CancellationTokenSource _cts = new CancellationTokenSource(); // 🔹 Ermöglicht das Abbrechen
-
-    public void StopScan()
-    {
-        _cts.Cancel(); // 🔹 Scan abbrechen
-    }
-
-
-    private void StartNewScan()
-    {
-        if (_cts != null)
-        {
-            if (!_cts.IsCancellationRequested)
-            {
-                _cts.Cancel();
-            }
-            _cts.Dispose();
-        }
-        _cts = new CancellationTokenSource();
     }
 
 
@@ -60,6 +34,58 @@ public class ScanningMethod_SMBVersionCheck
             Console.WriteLine($"❌ Timeout: SMB-Scan hat zu lange gedauert.");
         }
     }
+
+
+    private int current = 0;
+    private int responded = 0;
+    private int total = 0;
+
+    private CancellationTokenSource _cts = new CancellationTokenSource(); // 🔹 Ermöglicht das Abbrechen
+
+    //int currentValue = Interlocked.Increment(ref current);
+    //ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
+
+    //int respondedValue = Interlocked.Increment(ref responded);
+    //ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running);
+
+    //ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished);
+
+    public void StopScan()
+    {
+        if (_cts != null && !_cts.IsCancellationRequested)
+        {
+            _cts.Cancel(); // 🔹 Scan abbrechen
+            _cts.Dispose();
+            _cts = new CancellationTokenSource();
+        }
+
+        // 🔹 Zähler zurücksetzen
+        current = 0;
+        responded = 0;
+        total = 0;
+
+        ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped); // 🔹 UI auf 0 setzen
+    }
+
+    private void StartNewScan()
+    {
+        if (_cts != null)
+        {
+            if (!_cts.IsCancellationRequested)
+            {
+                _cts.Cancel();
+            }
+            _cts.Dispose();
+        }
+        _cts = new CancellationTokenSource();
+
+        // 🔹 Zähler zurücksetzen
+        current = 0;
+        responded = 0;
+        total = 0;
+    }
+
+
 
     public async Task ScanMultipleIPsAsync(List<IPToScan> IPsToScan)
     {
@@ -83,20 +109,19 @@ public class ScanningMethod_SMBVersionCheck
         {
             if (_cts.Token.IsCancellationRequested) return;
 
-            int currentValue = Interlocked.Increment(ref current);
-            ProgressUpdated?.Invoke(current, responded, total);
-
             ipToScan.UsedScanMethod = ScanMethod.SMB;
 
             // **SMB-Protokollversion prüfen (mit Timeout-Schutz)**
             var task = RunWithTimeout(() => CheckProtocolsAsync(ipToScan, port), TimeSpan.FromSeconds(10));
             tasks.Add(task);
-        }));
+        }), _cts.Token);
 
         // **Warte auf ALLE SMB-Scans, bevor das Event ausgelöst wird**
         await Task.WhenAll(tasks);
 
         // ✅ Garantiert: SMBScanFinished wird NUR ausgelöst, wenn alle SMB-Scans beendet sind
+
+        ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished);
         SMBScanFinished?.Invoke();
     }
 
@@ -108,6 +133,9 @@ public class ScanningMethod_SMBVersionCheck
         foreach (SMBDialects dialect in Enum.GetValues(typeof(SMBDialects)))
         {
             if (_cts.Token.IsCancellationRequested) return;
+
+            int currentValue = Interlocked.Increment(ref current);
+            ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
 
             try
             {
@@ -188,7 +216,7 @@ public class ScanningMethod_SMBVersionCheck
         if (ipToScan.SMBVersions.Count > 0)
         {
             int respondedValue = Interlocked.Increment(ref responded);
-            ProgressUpdated?.Invoke(current, responded, total);
+            ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running);
 
             SMBIPScanFinished?.Invoke(ipToScan); // Event auslösen            
         }
