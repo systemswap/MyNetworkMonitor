@@ -98,25 +98,57 @@ public class ScanningMethod_SMBVersionCheck
         };
 
         // Verwende `ConcurrentBag<Task>`, um parallele Tasks sicher zu speichern
-        ConcurrentBag<Task> tasks = new ConcurrentBag<Task>();
+        //ConcurrentBag<Task> tasks = new ConcurrentBag<Task>();
 
-        await Task.Run(() => Parallel.ForEach(IPsToScan, options, ipToScan =>
+        //await Task.Run(() => Parallel.ForEach(IPsToScan, options, ipToScan =>
+        //{
+        //    if (_cts.Token.IsCancellationRequested) return;
+
+        //    ipToScan.UsedScanMethod = ScanMethod.SMB;
+
+        //    // **SMB-Protokollversion prüfen (mit Timeout-Schutz)**
+        //    var task = RunWithTimeout(() => CheckProtocolsAsync(ipToScan, port), TimeSpan.FromSeconds(10));
+        //    tasks.Add(task);
+        //}), _cts.Token);
+
+
+        int maxDegreeOfParallelism = 50;
+        using var semaphore = new SemaphoreSlim(maxDegreeOfParallelism);
+        var tasks = new List<Task>();
+
+        foreach (var ipToScan in IPsToScan)
         {
-            if (_cts.Token.IsCancellationRequested) return;
+            if (_cts.Token.IsCancellationRequested) break;
 
-            ipToScan.UsedScanMethod = ScanMethod.SMB;
+            await semaphore.WaitAsync(_cts.Token); // Warte, bis ein Slot frei wird
+            tasks.Add(Task.Run(async () =>
+            {
+                try
+                {
+                    if (_cts.Token.IsCancellationRequested) return;
 
-            // **SMB-Protokollversion prüfen (mit Timeout-Schutz)**
-            var task = RunWithTimeout(() => CheckProtocolsAsync(ipToScan, port), TimeSpan.FromSeconds(10));
-            tasks.Add(task);
-        }), _cts.Token);
+                    ipToScan.UsedScanMethod = ScanMethod.SMB;
+
+                    // SMB-Protokollversion prüfen mit Timeout-Schutz
+                    await RunWithTimeout(() => CheckProtocolsAsync(ipToScan, port), TimeSpan.FromSeconds(10));
+                }
+                finally
+                {
+                    semaphore.Release(); // Slot freigeben
+                }
+            }, _cts.Token));
+        }
+
+
+
+
+
 
         // **Warte auf ALLE SMB-Scans, bevor das Event ausgelöst wird**
-        await Task.WhenAll(tasks);
+        await Task.WhenAll(tasks.Where(t => t != null));
 
         // ✅ Garantiert: SMBScanFinished wird NUR ausgelöst, wenn alle SMB-Scans beendet sind
-
-        Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished));
+        //Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished));
         Task.Run(() => SMBScanFinished?.Invoke());
     }
 
@@ -126,7 +158,7 @@ public class ScanningMethod_SMBVersionCheck
     private async Task CheckProtocolsAsync(IPToScan ipToScan, int port)
     {
         int currentValue = Interlocked.Increment(ref current);
-        Task.Run(() => ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running));
+        Task.Run(() => ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running),_cts.Token);
 
         foreach (SMBDialects dialect in Enum.GetValues(typeof(SMBDialects)))
         {
@@ -211,7 +243,7 @@ public class ScanningMethod_SMBVersionCheck
         if (ipToScan.SMBVersions.Count > 0)
         {
             int respondedValue = Interlocked.Increment(ref responded);
-            Task.Run(() => ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running));
+            await Task.Run(() => ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running),_cts.Token);
 
             Task.Run(() => SMBIPScanFinished?.Invoke(ipToScan)); // Event auslösen            
         }
