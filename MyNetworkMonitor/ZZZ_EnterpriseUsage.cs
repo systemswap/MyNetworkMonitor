@@ -136,7 +136,7 @@ namespace MyNetworkMonitor
             // Entwickler-Unterstützung
             TextBlock devSupport = new TextBlock
             {
-                Text = "This project has taken over 450 hours to develop.\nEven Open-Source developers need coffee ☕.",
+                Text = "This project has taken around 500 hours to develop until this version,\nand even Open-Source developers need coffee ☕.",
                 FontSize = 13,
                 Foreground = Brushes.Gray,
                 TextAlignment = TextAlignment.Center,
