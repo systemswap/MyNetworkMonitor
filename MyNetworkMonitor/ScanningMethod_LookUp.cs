@@ -146,7 +146,7 @@ namespace MyNetworkMonitor
 
             try
             {
-                await Task.WhenAll(tasks);
+                await Task.WhenAll(tasks.Where(t => t != null));
             }
             catch (OperationCanceledException)
             {

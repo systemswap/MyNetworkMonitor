@@ -239,9 +239,6 @@ public class ScanningMethod_Services
             Console.WriteLine("Einige Tasks wurden abgebrochen, aber das ist okay.");
         }
 
-
-
-
         // ? Garantiert: SMBScanFinished wird NUR ausgelöst, wenn alle SMB-Scans beendet sind
         Task.Run(() => ServiceScanFinished?.Invoke());
     }
@@ -510,7 +507,7 @@ public class ScanningMethod_Services
 
 
             // Parallel ausführen und warten
-            await Task.WhenAll(tasks);
+            await Task.WhenAll(tasks.Where(t => t != null));
 
             //ipToScan.Services.Services.Add(serviceResult);
             lock (ipToScan.Services.Services)
@@ -521,12 +518,13 @@ public class ScanningMethod_Services
         }
 
         if (ipToScan.Services.Services.Count > 0)
-        {    
+        {
+            int respondedValue = Interlocked.Increment(ref responded);
+            if (!_cts.Token.IsCancellationRequested) await Task.Run(() => ProgressUpdated?.Invoke(current, respondedValue, total, scanStatus));
+            
+
             ipToScan.UsedScanMethod = ScanMethod.Services;
             Task.Run(() => ServiceIPScanFinished?.Invoke(ipToScan)); // Event auslösen
-
-            int respondedValue = Interlocked.Increment(ref responded);
-            if (!_cts.Token.IsCancellationRequested) Task.Run(() => ProgressUpdated?.Invoke(current, respondedValue, total, scanStatus));
         }
     }
 

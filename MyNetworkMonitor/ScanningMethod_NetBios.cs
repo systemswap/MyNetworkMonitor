@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -270,7 +271,7 @@ public class ScanningMethod_NetBios
             }));
         }
 
-        await Task.WhenAll(tasks); // Warte auf ALLE Scans
+        await Task.WhenAll(tasks.Where(t => t != null)); // Warte auf ALLE Scans
 
         NetbiosScanFinished?.Invoke(true);
     }
