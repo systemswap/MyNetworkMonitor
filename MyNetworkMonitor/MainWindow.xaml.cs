@@ -92,6 +92,7 @@ namespace MyNetworkMonitor
             scanningMethod_SMB_VersionCheck.SMBScanFinished += ScanningMethod_SMBVersionCheck_SMB_Scan_Finished;
             
             scanningMethod_Services = new ScanningMethod_Services(_ServicesXML);
+            scanningMethod_Services.ScanStatusUpdated += ScanningMethod_Services_ScanStatusUpdated;
             scanningMethod_Services.FindServicePortProgressUpdated += ScanningMethod_Services_FindServicePortProgressUpdated;
             scanningMethod_Services.FindServicePortFinished += ScanningMethod_Services_FindServicePortFinished;
             scanningMethod_Services.ServiceIPScanFinished += ScanningMethod_Services_ServiceIPScanFinished;
@@ -254,7 +255,7 @@ namespace MyNetworkMonitor
             
         }
 
-        
+       
 
         private void LoadLogo()
         {
@@ -1896,15 +1897,20 @@ namespace MyNetworkMonitor
             });
         }
 
+        private void ScanningMethod_Services_ScanStatusUpdated(ScanStatus obj)
+        {
+            status_Services_Scan = obj;
+            Status();
+        }
 
-        private void ScanningMethod_Services_ProgressUpdated(int arg1, int arg2, int arg3, ScanStatus scanStatus)
+        private void ScanningMethod_Services_ProgressUpdated(int arg1, int arg2, int arg3)
         {
             Dispatcher.BeginInvoke(new Action(() =>
             {
                 counted_current_Service_IP_Scan = arg1;
                 counted_responded_Services_IP_Scan = arg2;
                 counted_total_Services_IP_Scan = arg3;
-                status_Services_Scan = scanStatus;
+                //status_Services_Scan = scanStatus;
                 Status();
             }));
         }
