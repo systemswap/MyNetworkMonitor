@@ -128,7 +128,8 @@ public class ScanningMethod_Services
             _cts = new CancellationTokenSource();
         }
         scanStatus = ScanStatus.stopped;
-        ProgressUpdated?.Invoke(current, responded, total, scanStatus); // 🔹 UI auf 0 setzen
+        ScanStatusUpdated?.Invoke(scanStatus);
+        ProgressUpdated?.Invoke(current, responded, total); // 🔹 UI auf 0 setzen
     }
 
     ScanStatus scanStatus = ScanStatus.running;
@@ -165,7 +166,8 @@ public class ScanningMethod_Services
 
     public event Action<IPToScan> ServiceIPScanFinished;
   
-    public event Action<int, int, int, ScanStatus> ProgressUpdated;
+    public event Action<ScanStatus> ScanStatusUpdated;
+    public event Action<int, int, int> ProgressUpdated;
     public event Action ServiceScanFinished;
 
     public event Action<int, int, int> FindServicePortProgressUpdated;
@@ -179,28 +181,7 @@ public class ScanningMethod_Services
         responded = 0;
         total = IPsToScan.Count;
 
-        ProgressUpdated?.Invoke(current, responded, total, scanStatus);
-
-
-        //var semaphore = new SemaphoreSlim(MaxParallelIPs);
-        //var tasks = IPsToScan.Select(async ipToScan =>
-        //{
-        //    await semaphore.WaitAsync(_cts.Token);
-
-        //    if (_cts.Token.IsCancellationRequested)
-        //        return; // Vorzeitig abbrechen
-
-        //    try
-        //    {
-        //        await Task.Run(() => ScanIPAsync(ipToScan, services, extraPorts), _cts.Token);
-        //    }
-        //    finally
-        //    {
-        //        semaphore.Release();
-        //    }
-        //}).ToArray();
-
-        //await Task.WhenAll(tasks.Where(t => t != null));
+        ProgressUpdated?.Invoke(current, responded, total);
 
 
         var semaphore = new SemaphoreSlim(MaxParallelIPs);
@@ -209,35 +190,20 @@ public class ScanningMethod_Services
             await semaphore.WaitAsync(_cts.Token);
 
             if (_cts.Token.IsCancellationRequested)
-            {
-                semaphore.Release(); // 🔹 Wichtig: Slot freigeben!
-                return;
-            }
+                return; // Vorzeitig abbrechen
 
             try
             {
-                _cts.Token.ThrowIfCancellationRequested();
-                await ScanIPAsync(ipToScan, services, extraPorts); // ✅ CancellationToken direkt übergeben!
-            }
-            catch (OperationCanceledException)
-            {
-                Console.WriteLine($"Scan für {ipToScan} wurde abgebrochen.");
+                await Task.Run(() => ScanIPAsync(ipToScan, services, extraPorts), _cts.Token);
             }
             finally
             {
-                semaphore.Release(); // ✅ Immer freigeben!
+                semaphore.Release();
             }
         }).ToArray();
 
-        // ✅ Warte auf alle Tasks, aber ignoriere abgebrochene Tasks
-        try
-        {
-            await Task.WhenAll(tasks.Where(t => t != null));
-        }
-        catch (OperationCanceledException)
-        {
-            Console.WriteLine("Einige Tasks wurden abgebrochen, aber das ist okay.");
-        }
+        await Task.WhenAll(tasks.Where(t => t != null));
+        
 
         // ? Garantiert: SMBScanFinished wird NUR ausgelöst, wenn alle SMB-Scans beendet sind
         ServiceScanFinished?.Invoke();
@@ -444,13 +410,14 @@ public class ScanningMethod_Services
 
     private async Task ScanIPAsync(IPToScan ipToScan, List<ServiceType> services, Dictionary<ServiceType, List<int>> extraPorts)
     {
+        scanStatus = ScanStatus.running;
         scanDHCP = true;
         string ipAddress = IPAddress.Parse(ipToScan.IPorHostname).ToString(); // Einmal parsen        
 
         _cts.Token.ThrowIfCancellationRequested();
 
         int currentValue = Interlocked.Increment(ref current);
-        if (!_cts.Token.IsCancellationRequested) ProgressUpdated?.Invoke(current, responded, total, scanStatus);
+        if (!_cts.Token.IsCancellationRequested) ProgressUpdated?.Invoke(current, responded, total);
 
         foreach (ServiceType service in services)
         {
@@ -471,38 +438,38 @@ public class ScanningMethod_Services
             var semaphore = new SemaphoreSlim(50); // Begrenzung gleichzeitiger Scans
             var tasks = new List<Task>();
 
-            //foreach (var port in ports.Distinct())
-            //{
-            //    await semaphore.WaitAsync(_cts.Token);
-
-            //    if (_cts.Token.IsCancellationRequested) return; // Direkt abbrechen, falls nötig
-
-            //    tasks.Add(ScanServicePortAsync(service, ipAddress, port, detectionPacket, serviceResult, semaphore));                
-            //}
-
-
             foreach (var port in ports.Distinct())
             {
                 await semaphore.WaitAsync(_cts.Token);
 
-                if (_cts.Token.IsCancellationRequested)
-                {
-                    semaphore.Release(); // ✅ Stelle sicher, dass der Slot freigegeben wird!
-                    return;
-                }
+                if (_cts.Token.IsCancellationRequested) return; // Direkt abbrechen, falls nötig
 
-                tasks.Add(Task.Run(async () =>
-                {
-                    try
-                    {
-                        await ScanServicePortAsync(service, ipAddress, port, detectionPacket, serviceResult, semaphore);
-                    }
-                    finally
-                    {
-                        semaphore.Release(); // ✅ Immer freigeben, selbst bei Fehlern oder Abbruch
-                    }
-                }, _cts.Token));
+                tasks.Add(ScanServicePortAsync(service, ipAddress, port, detectionPacket, serviceResult, semaphore));
             }
+
+
+            //foreach (var port in ports.Distinct())
+            //{
+            //    await semaphore.WaitAsync(_cts.Token);
+
+            //    if (_cts.Token.IsCancellationRequested)
+            //    {
+            //        semaphore.Release(); // ✅ Stelle sicher, dass der Slot freigegeben wird!
+            //        return;
+            //    }
+
+            //    tasks.Add(Task.Run(async () =>
+            //    {
+            //        try
+            //        {
+            //            await ScanServicePortAsync(service, ipAddress, port, detectionPacket, serviceResult, semaphore);
+            //        }
+            //        finally
+            //        {
+            //            semaphore.Release(); // ✅ Immer freigeben, selbst bei Fehlern oder Abbruch
+            //        }
+            //    }, _cts.Token));
+            //}
 
 
 
@@ -520,7 +487,7 @@ public class ScanningMethod_Services
         if (ipToScan.Services.Services.Count > 0)
         {
             int respondedValue = Interlocked.Increment(ref responded);
-            ProgressUpdated?.Invoke(current, respondedValue, total, scanStatus);
+            ProgressUpdated?.Invoke(current, respondedValue, total);
             
 
             ipToScan.UsedScanMethod = ScanMethod.Services;
