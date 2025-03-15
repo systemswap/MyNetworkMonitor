@@ -179,7 +179,7 @@ public class ScanningMethod_Services
         responded = 0;
         total = IPsToScan.Count;
 
-        if(!_cts.Token.IsCancellationRequested) Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, scanStatus));
+        ProgressUpdated?.Invoke(current, responded, total, scanStatus);
 
 
         //var semaphore = new SemaphoreSlim(MaxParallelIPs);
@@ -240,7 +240,7 @@ public class ScanningMethod_Services
         }
 
         // ? Garantiert: SMBScanFinished wird NUR ausgelöst, wenn alle SMB-Scans beendet sind
-        Task.Run(() => ServiceScanFinished?.Invoke());
+        ServiceScanFinished?.Invoke();
     }
 
 
@@ -450,7 +450,7 @@ public class ScanningMethod_Services
         _cts.Token.ThrowIfCancellationRequested();
 
         int currentValue = Interlocked.Increment(ref current);
-        if (!_cts.Token.IsCancellationRequested) Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, scanStatus));
+        if (!_cts.Token.IsCancellationRequested) ProgressUpdated?.Invoke(current, responded, total, scanStatus);
 
         foreach (ServiceType service in services)
         {
@@ -520,11 +520,11 @@ public class ScanningMethod_Services
         if (ipToScan.Services.Services.Count > 0)
         {
             int respondedValue = Interlocked.Increment(ref responded);
-            if (!_cts.Token.IsCancellationRequested) await Task.Run(() => ProgressUpdated?.Invoke(current, respondedValue, total, scanStatus));
+            ProgressUpdated?.Invoke(current, respondedValue, total, scanStatus);
             
 
             ipToScan.UsedScanMethod = ScanMethod.Services;
-            Task.Run(() => ServiceIPScanFinished?.Invoke(ipToScan)); // Event auslösen
+            ServiceIPScanFinished?.Invoke(ipToScan); // Event auslösen
         }
     }
 
@@ -874,7 +874,7 @@ public class ScanningMethod_Services
             if (_cts.Token.IsCancellationRequested) break; // 🔹 Falls der Scan gestoppt wurde, Schleife sofort beenden
 
             int currentValue = Interlocked.Increment(ref current);
-            Task.Run(() => FindServicePortProgressUpdated?.Invoke(port, responded, total));
+            FindServicePortProgressUpdated?.Invoke(port, responded, total);
 
             try
             {
@@ -896,7 +896,7 @@ public class ScanningMethod_Services
                         if (portResult.Status == PortStatus.IsRunning)
                         {
                             int responsedValue = Interlocked.Increment(ref responded);
-                            Task.Run(() => FindServicePortProgressUpdated?.Invoke(current, responsedValue, total));
+                            FindServicePortProgressUpdated?.Invoke(current, responsedValue, total);
 
                             lock (serviceResult.Ports)
                             {
@@ -944,7 +944,7 @@ public class ScanningMethod_Services
                             if (response.Length > 0 && IdentifyServices(response, service))
                             {
                                 int responsedValue = Interlocked.Increment(ref responded);
-                                Task.Run(() => FindServicePortProgressUpdated?.Invoke(current, responsedValue, total));
+                                FindServicePortProgressUpdated?.Invoke(current, responsedValue, total);
 
                                 lock (ipToScan.Services.Services[0].Ports)
                                 {

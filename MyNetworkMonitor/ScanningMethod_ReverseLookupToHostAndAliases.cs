@@ -39,7 +39,7 @@ namespace MyNetworkMonitor
                 _cts = new CancellationTokenSource();
             }
           
-            Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped)); // 🔹 UI auf 0 setzen
+            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped); // 🔹 UI auf 0 setzen
         }
 
         private void StartNewScan()
@@ -70,12 +70,11 @@ namespace MyNetworkMonitor
             responded = 0;
             total = IPs.Count; // 🔹 Gesamtanzahl setzen
 
-            Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running)); // 🔹 UI auf 0 setzen
+            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running); // 🔹 UI auf 0 setzen
 
 
             if (_cts.Token.IsCancellationRequested) return; // 🔹 Falls der Scan direkt nach Start gestoppt wird
-
-            Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running)); // 🔹 UI auf 0 setzen
+                                                            
 
             if (IPs.Count == 0)
             {
@@ -135,7 +134,7 @@ namespace MyNetworkMonitor
 
             if (GetHostAliases_Finished != null)
             {
-                Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished)); // 🔹 UI auf 0 setzen
+                //ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished); // 🔹 UI auf 0 setzen
                 GetHostAliases_Finished(this, new Method_Finished_EventArgs());
             }
         }
@@ -169,7 +168,7 @@ namespace MyNetworkMonitor
 
 
                 int currentValue = Interlocked.Increment(ref current);
-                Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running));
+                ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running);
 
                 IPHostEntry _IPHostEntry = await client.GetHostEntryAsync(ipToScan.IPorHostname).WaitAsync(_cts.Token);
 
@@ -205,7 +204,7 @@ namespace MyNetworkMonitor
                     scanTask_Finished.ipToScan = ipToScan;
 
                     int respondedValue = Interlocked.Increment(ref responded);
-                    Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running));
+                    ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running);
 
                     Task.Run(() => GetHostAliases_Task_Finished(this, scanTask_Finished));
                 }

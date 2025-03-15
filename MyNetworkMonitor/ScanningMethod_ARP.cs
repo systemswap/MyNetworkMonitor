@@ -45,7 +45,7 @@ namespace MyNetworkMonitor
                 _cts = new CancellationTokenSource();
             }
 
-            Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped)); // 🔹 UI auf 0 setzen
+            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped); // 🔹 UI auf 0 setzen
         }
 
         private void StartNewScan()
@@ -93,7 +93,7 @@ namespace MyNetworkMonitor
             current = 0;
             responded = 0;
             total = 0;
-            Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running));
+            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running);
 
             List<IPToScan> filtered;
             try
@@ -109,7 +109,7 @@ namespace MyNetworkMonitor
             if (filtered.Count <= 1) filtered = ipsToRefresh;
           
             total = filtered.Count;
-            Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running));
+            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running);
 
             try
             {
@@ -140,7 +140,7 @@ namespace MyNetworkMonitor
             _cts.Token.ThrowIfCancellationRequested(); // 🔹 Falls abgebrochen, sofort raus
 
             int currentValue = Interlocked.Increment(ref current);
-            Task.Run(() => ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running));
+            ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
 
             if (_cts.Token.IsCancellationRequested) return;
 
@@ -158,10 +158,10 @@ namespace MyNetworkMonitor
 
             if (arp_response != 0)
             {
-                Task.Run(() => ARP_Request_Task_Finished?.Invoke(this, new ScanTask_Finished_EventArgs()
+                ARP_Request_Task_Finished?.Invoke(this, new ScanTask_Finished_EventArgs()
                 {
                     ipToScan = { UsedScanMethod = ScanMethod.failed }
-                }));
+                });
             }
             else
             {
@@ -175,9 +175,9 @@ namespace MyNetworkMonitor
                     ipToScan.UsedScanMethod = ScanMethod.ARPRequest;
 
                     int respondedValue = Interlocked.Increment(ref responded);
-                    Task.Run(() => ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running));
+                    ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running);
 
-                    Task.Run(() => ARP_Request_Task_Finished(this, new ScanTask_Finished_EventArgs() { ipToScan = ipToScan }));
+                    ARP_Request_Task_Finished(this, new ScanTask_Finished_EventArgs() { ipToScan = ipToScan });
                 }
             }
         }

@@ -55,7 +55,7 @@ namespace MyNetworkMonitor
                 _cts = new CancellationTokenSource();
             }
            
-            Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped)); // 🔹 UI auf 0 setzen
+            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped); // 🔹 UI auf 0 setzen
         }
 
         private void StartNewScan()
@@ -88,7 +88,7 @@ namespace MyNetworkMonitor
             responded = 0;
             total = IPsToRefresh.Count;
 
-            Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running));
+            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running);
 
             try
             {
@@ -119,7 +119,7 @@ namespace MyNetworkMonitor
             }
             finally
             {
-                Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished));
+                //ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished);
                 PingFinished?.Invoke(this, new Method_Finished_EventArgs());
             }
         }
@@ -141,7 +141,7 @@ namespace MyNetworkMonitor
 
                 // Fortschritt aktualisieren → UI-Thread nutzen
                 int currentCount = Interlocked.Increment(ref current);
-                Task.Run(() => ProgressUpdated?.Invoke(currentCount, responded, total, ScanStatus.running));
+                ProgressUpdated?.Invoke(currentCount, responded, total, ScanStatus.running);
 
                 // Bis zu 3 Versuche mit steigenden Timeouts
                 for (int attempt = 1; attempt <= 3; attempt++)
@@ -177,10 +177,10 @@ namespace MyNetworkMonitor
 
                 // Fortschritt für erfolgreiche Pings aktualisieren → UI-Thread nutzen
                 int responsedCount = Interlocked.Increment(ref responded);
-                Task.Run(() => ProgressUpdated?.Invoke(currentCount, responsedCount, total, ScanStatus.running));
+                ProgressUpdated?.Invoke(currentCount, responsedCount, total, ScanStatus.running);
 
                 // Event auslösen
-                Task.Run(() => Ping_Task_Finished?.Invoke(this, new ScanTask_Finished_EventArgs { ipToScan = ipToScan }));
+                Ping_Task_Finished?.Invoke(this, new ScanTask_Finished_EventArgs { ipToScan = ipToScan });
             }
             catch (OperationCanceledException)
             {

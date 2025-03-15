@@ -46,7 +46,7 @@ namespace MyNetworkMonitor
                 _cts = new CancellationTokenSource();
             }
                        
-            Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped)); // 🔹 UI auf 0 setzen
+            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped); // 🔹 UI auf 0 setzen
         }
 
         private void StartNewScan()
@@ -109,7 +109,7 @@ namespace MyNetworkMonitor
             current = 0;
             responded = 0;
             total = IPs.Count; // 🔹 Gesamtzahl setzen
-            Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running));
+            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running);
 
             var tasks = new List<Task>();
 
@@ -224,7 +224,7 @@ namespace MyNetworkMonitor
             if (_cts.IsCancellationRequested) return;
 
             int currentValue = Interlocked.Increment(ref current);
-            Task.Run(() => ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running));
+            ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
 
             IPHostEntry _entry;
             try
@@ -267,11 +267,11 @@ namespace MyNetworkMonitor
                     ipToScan.IP_HostEntry = _entry;
                     ipToScan.UsedScanMethod = ScanMethod.Lookup;
 
-                    var scanTask_Finished = new ScanTask_Finished_EventArgs { ipToScan = ipToScan };
-                    Task.Run(() => Lookup_Task_Finished(this, scanTask_Finished));
-
                     int respondedValue = Interlocked.Increment(ref responded);
-                    Task.Run(() => ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running));
+                    ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running);
+
+                    var scanTask_Finished = new ScanTask_Finished_EventArgs { ipToScan = ipToScan };
+                    Lookup_Task_Finished(this, scanTask_Finished);
                 }
             }
             catch (OperationCanceledException)
