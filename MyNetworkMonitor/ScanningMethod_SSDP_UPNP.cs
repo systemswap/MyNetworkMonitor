@@ -55,7 +55,7 @@ namespace MyNetworkMonitor
                 _cts = new CancellationTokenSource();
             }
 
-            Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped)); // 🔹 UI auf 0 setzen
+            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped); // 🔹 UI auf 0 setzen
         }
 
         private void StartNewScan()
@@ -201,7 +201,7 @@ namespace MyNetworkMonitor
                                     });
 
                                     int respondedValue = Interlocked.Increment(ref responded);
-                                    Task.Run(() => ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running));
+                                    ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running);
                                 }
                             }
                         }
