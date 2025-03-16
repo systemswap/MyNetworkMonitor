@@ -1958,9 +1958,13 @@ public class ScanningMethod_Services
                     foreach (byte propertyId in propertyIds)
                     {
                         byte[] value = await QueryBacnetProperty(udpClient, targetEndPoint, propertyId);
-                        if (PropertyIdToName(propertyId) == "Device ID")
+                        if (PropertyIdToName(propertyId) == "ObjectID")
                         {
-                            collectedData[PropertyIdToName(propertyId)] = ExtractBacnetObjectInstanceAsString(value);
+                            collectedData[PropertyIdToName(propertyId)] = ExtractBacnetObjectInstanceAsString("ObjectID", value);
+                        }
+                        else if (PropertyIdToName(propertyId) == "VendorID")
+                        {
+                            collectedData[PropertyIdToName(propertyId)] = ExtractBacnetObjectInstanceAsString("VendorID", value);
                         }
                         else
                         {
@@ -2003,8 +2007,8 @@ public class ScanningMethod_Services
     {
         return propertyId switch
         {
-            0x4B => "Device ID",
-            0x78 => "Vendor",
+            0x4B => "ObjectID",
+            0x78 => "VendorID",
             0x79 => "Vendor Name",
             0x2C => "Firmware Revision",
             0x0C => "Application Software",
@@ -2016,25 +2020,34 @@ public class ScanningMethod_Services
         };
     }
 
-    public static string ExtractBacnetObjectInstanceAsString(byte[] data)
+    public static string ExtractBacnetObjectInstanceAsString(string BacNetPropertie, byte[] data)
     {
-        if (data == null || data.Length < 4)
-            return string.Empty; // Fehler: Zu wenig Daten
+        //if (data == null || data.Length < 23) // Sicherstellen, dass genug Bytes vorhanden sind
+        //    return string.Empty;
+        int ID = 0;
 
-        try
+
+        if (BacNetPropertie == "ObjectID") 
         {
-            // Bytes im Big-Endian-Format zu einem 32-Bit-Wert zusammenfügen
-            int objectIdentifier = (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3];
+            // Bytes 20, 21, 22 (Index 19, 20, 21)
+            int byte20 = data[19];
+            int byte21 = data[20];
+            int byte22 = data[21];
 
-            // Die unteren 22 Bits enthalten die Objektinstanz (Maske: 0x3FFFFF)
-            int instanceNumber = objectIdentifier & 0x3FFFFF;
-
-            return instanceNumber.ToString(); // Rückgabe als String
+            // 22-Bit-Wert aus den 3 Bytes zusammenfügen
+             ID = ((byte20 & 0x3F) << 16) | (byte21 << 8) | byte22;            
         }
-        catch
+        if (BacNetPropertie == "VendorID")
         {
-            return string.Empty; // Falls ein Fehler auftritt
+            // Vendor-ID ist in den letzten 2 Bytes des Pakets
+            //int byte1 = data[data.Length - 3]; // Drittletztes Byte
+            int byte2 = data[data.Length - 2]; // Vorletztes Byte
+
+            // 16-Bit-Wert aus 2 Bytes berechnen
+            //ID = (byte1 << 8) | byte2;
+            ID = byte2;
         }
+        return ID.ToString(); // Rückgabe als String
     }
 
 
