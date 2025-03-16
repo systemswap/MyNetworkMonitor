@@ -1956,9 +1956,16 @@ public class ScanningMethod_Services
 
                     // Erste Antwort erhalten - jetzt die weiteren Infos sammeln
                     foreach (byte propertyId in propertyIds)
-                    {  
+                    {
                         byte[] value = await QueryBacnetProperty(udpClient, targetEndPoint, propertyId);
-                        collectedData[PropertyIdToName(propertyId)] = ExtractBacnetAsciiString(value);// BitConverter.ToString(value); //Encoding.UTF8.GetString(value.Where(b => b >= 32 && b <= 126).ToArray());
+                        if (PropertyIdToName(propertyId) == "Device ID")
+                        {
+                            collectedData[PropertyIdToName(propertyId)] = ExtractBacnetObjectInstanceAsString(value);
+                        }
+                        else
+                        {
+                            collectedData[PropertyIdToName(propertyId)] = ExtractBacnetAsciiString(value);// BitConverter.ToString(value); //Encoding.UTF8.GetString(value.Where(b => b >= 32 && b <= 126).ToArray());
+                        }
                     }
 
                     portResult.Status = PortStatus.IsRunning;
@@ -2008,6 +2015,30 @@ public class ScanningMethod_Services
             _ => $"Unbekannte Property (0x{propertyId:X2})"
         };
     }
+
+    public static string ExtractBacnetObjectInstanceAsString(byte[] data)
+    {
+        if (data == null || data.Length < 4)
+            return string.Empty; // Fehler: Zu wenig Daten
+
+        try
+        {
+            // Bytes im Big-Endian-Format zu einem 32-Bit-Wert zusammenfügen
+            int objectIdentifier = (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3];
+
+            // Die unteren 22 Bits enthalten die Objektinstanz (Maske: 0x3FFFFF)
+            int instanceNumber = objectIdentifier & 0x3FFFFF;
+
+            return instanceNumber.ToString(); // Rückgabe als String
+        }
+        catch
+        {
+            return string.Empty; // Falls ein Fehler auftritt
+        }
+    }
+
+
+
 
     public static string ExtractBacnetAsciiString(byte[] data)
     {
