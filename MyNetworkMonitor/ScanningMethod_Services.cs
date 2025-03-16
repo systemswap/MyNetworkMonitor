@@ -22,6 +22,7 @@ using System.Net.NetworkInformation;
 using System.Xml.Serialization;
 using SnmpSharpNet;
 using System.Text.RegularExpressions;
+using System.Collections;
 
 
 public enum PortStatus
@@ -70,7 +71,8 @@ public enum ServiceType
     // Industrieprotokolle
     OPCUA,
     ModBus,
-    S7   
+    S7,
+    BacNet
 }
 
 
@@ -625,6 +627,9 @@ public class ScanningMethod_Services
                     break;
                 case ServiceType.S7:
                     portResult = await ScanPortAsync(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
+                    break;
+                case ServiceType.BacNet:
+                     portResult = await GetBacNetInfos(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
                     break;
                 default:
                     portResult = await ScanPortAsync(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
@@ -1919,6 +1924,129 @@ public class ScanningMethod_Services
 
 
 
+    private async Task<PortResult> GetBacNetInfos(string targetIP, int targetPort, byte[] bacnetRequestPacket)
+    {
+
+        PortResult portResult = new PortResult { Port = targetPort, Status = PortStatus.NoResponse };
+        Dictionary<string, string> collectedData = new Dictionary<string, string>();
+
+        try
+        {
+            using (UdpClient udpClient = new UdpClient())
+            {
+                IPEndPoint targetEndPoint = new IPEndPoint(IPAddress.Parse(targetIP), targetPort);
+
+                Console.WriteLine($"Sende BACnet-Request an {targetIP}:{targetPort}...");
+
+                // 🟢 ZUERST das Paket senden
+                await udpClient.SendAsync(bacnetRequestPacket, bacnetRequestPacket.Length, targetEndPoint);
+
+                // ⏳ Warte auf Antwort (Timeout: 2 Sekunden)
+                using var cts = new CancellationTokenSource(3000);
+                var receiveTask = udpClient.ReceiveAsync();
+
+                if (await Task.WhenAny(receiveTask, Task.Delay(2000, cts.Token)) == receiveTask)
+                {
+                    byte[] response = receiveTask.Result.Buffer;
+                    Console.WriteLine("Antwort erhalten von: " + receiveTask.Result.RemoteEndPoint);
+
+
+                 
+
+                    // Erste Antwort erhalten - jetzt die weiteren Infos sammeln
+                    foreach (byte propertyId in propertyIds)
+                    {  
+                        byte[] value = await QueryBacnetProperty(udpClient, targetEndPoint, propertyId);
+                        collectedData[PropertyIdToName(propertyId)] = Encoding.ASCII.GetString(value.Where(b => b >= 32 && b <= 126).ToArray());
+                    }
+
+                    portResult.Status = PortStatus.IsRunning;
+                    //portResult.PortLog = decodedResponse;
+                }
+                else
+                {
+                    Console.WriteLine("⏳ Timeout: Keine Antwort erhalten.");
+                    portResult.Status = PortStatus.NoResponse;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("❌ Fehler beim Senden/Empfangen: " + ex.Message);
+        }
+
+        return portResult;
+    }
+
+    private readonly List<byte> propertyIds = new List<byte>
+    {
+        0x4B, // Device ID
+        0x78, // Vendor
+        0x79, // Vendor Name
+        0x2C, // Firmware Revision
+        0x0C, // Application Software
+        0x4D, // Object Name
+        0x46, // Model Name
+        0x1C, // Description
+        0x3A  // Location
+    };
+
+    private string PropertyIdToName(byte propertyId)
+    {
+        return propertyId switch
+        {
+            0x4B => "Device ID",
+            0x78 => "Vendor",
+            0x79 => "Vendor Name",
+            0x2C => "Firmware Revision",
+            0x0C => "Application Software",
+            0x4D => "Object Name",
+            0x46 => "Model Name",
+            0x1C => "Description",
+            0x3A => "Location",
+            _ => $"Unbekannte Property (0x{propertyId:X2})"
+        };
+    }
+
+
+
+    private async Task<byte[]> QueryBacnetProperty(UdpClient udpClient, IPEndPoint targetEndPoint, byte propertyId)
+    {
+        byte[] requestPacket = new byte[]
+        {
+            0x81, 0x0A,  // BACnet/IP Header
+            0x00, 0x11,  // Paketlänge (17 Bytes)
+            0x01,        // PDU-Type: Complex-ACK (Antwort auf eine ReadProperty-Anfrage)
+            0x04,        // Invoke ID (Antwort auf die Anfrage mit ID 4)
+            0x00,        // Service Choice: ReadProperty Response
+            0x05,        // Anzahl der Objekte: 1
+            0x01, 0x0C,  // Object Type: Device (0x0C = 12)
+            0x0C,        // Object Instance (Device ID)
+            0x02,        // Anzahl der Properties: 2
+            0x3F, 0xFF, 0xFF,  // Property Identifier (Fehler oder unbekannte Property)
+            0x19,         // Property Data (muss weiter analysiert werden)
+            propertyId  // Property Identifier
+        };
+
+        Console.WriteLine($"🔍 Sende Anfrage für Property {PropertyIdToName(propertyId)} (0x{propertyId:X2})...");
+        await udpClient.SendAsync(requestPacket, requestPacket.Length, targetEndPoint);
+
+        // Warte auf die Antwort
+        using var cts = new CancellationTokenSource(2000);
+        var receiveTask = udpClient.ReceiveAsync();
+
+        if (await Task.WhenAny(receiveTask, Task.Delay(2000, cts.Token)) == receiveTask)
+        {
+            byte[] response = receiveTask.Result.Buffer;
+            Console.WriteLine($"📥 Antwort für Property {PropertyIdToName(propertyId)} erhalten!");
+
+            // Dekodierung der Antwort (Hier nur als Hex)
+            return response;
+        }
+
+        Console.WriteLine($"⏳ Timeout für Property {PropertyIdToName(propertyId)}!");
+        return null;
+    }
 
 
 
@@ -1935,19 +2063,7 @@ public class ScanningMethod_Services
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-    static async Task<PortResult> SendTcpDnsQuery(string dnsServer, byte[] query, int port)
+static async Task<PortResult> SendTcpDnsQuery(string dnsServer, byte[] query, int port)
     {
         PortResult portResult = new PortResult { Port = port, Status = PortStatus.NoResponse };
 
@@ -2267,6 +2383,8 @@ public class ScanningMethod_Services
             // ?? SPS / Industrielle Steuerungen
             ServiceType.S7 => new List<int> { 102, 1020 }, // Siemens S7 ISO-on-TCP
 
+            ServiceType.BacNet => new List<int> { 47808 },
+
             _ => new List<int>()
         };
 
@@ -2293,7 +2411,7 @@ public class ScanningMethod_Services
                 => "📦 NoSQL-Datenbanken",
 
             // Industrieprotokolle
-            ServiceType.OPCUA or ServiceType.ModBus or ServiceType.S7
+            ServiceType.OPCUA or ServiceType.ModBus or ServiceType.S7 or ServiceType.BacNet
                 => "🏭 Industrieprotokolle",
 
             _ => "❓ Sonstige"
@@ -2577,6 +2695,42 @@ public class ScanningMethod_Services
                 0x00, 0xC0, 0x01, 0x0A, 0xC1, 0x02, 0x01, 0x00, 0xC2, 0x02,
                 0x01, 0x02
             },
+
+            //BacNet
+            ServiceType.BacNet => new byte[]
+            {
+                0x81, 0x0A,             // BACnet/IP Header
+                0x00, 0x0F,             // Paketlänge (15 Bytes)
+                0x01,                   // PDU-Type (Confirmed Request)
+                0x00,                   // Invoke ID
+                0x0C,                   // ReadProperty Service Request
+                0x0C,                   // Object Type (Device)
+                0x00, 0x00, 0x00, 0x01, // Device Instance (1)
+                0x19, 0x00,             // Property Identifier (Object_Name)
+                0x4E                    // End-Of-List                
+            },
+
+            //ServiceType.BacNet => new byte[]
+            //{
+            //    0x81, 0x0A,             // BACnet/IP Header
+            //    0x00, 0x1F,             // Paketlänge (31 Bytes)
+            //    0x01,                   // PDU-Type (Confirmed Request)
+            //    0x00,                   // Invoke ID
+            //    0x0E,                   // ReadPropertyMultiple Service Request
+            //    0x0C,                   // Object Type (Device)
+            //    0x00, 0x00, 0x00, 0x00, // Device Instance (1)
+            //    0x1E,                   // Opening List
+            //    0x19, 0x00,             // Property Identifier (Object_Name)
+            //    0x19, 0x01,             // Property Identifier (Object_Identifier)
+            //    0x19, 0x02,             // Property Identifier (Object_Type)
+            //    0x19, 0x0A,             // Property Identifier (System_Status)
+            //    0x19, 0x0B,             // Property Identifier (Vendor_Name)
+            //    0x19, 0x0C,             // Property Identifier (Vendor_Identifier)
+            //    0x19, 0x0D,             // Property Identifier (Model_Name)
+            //    0x19, 0x0E,             // Property Identifier (Firmware_Revision)
+            //    0x19, 0x11,             // Property Identifier (Application_Software_Version)
+            //    0x1F                    // Closing List
+            //},
 
             _ => new byte[0]
         };
