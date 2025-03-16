@@ -23,6 +23,7 @@ using System.Xml.Serialization;
 using SnmpSharpNet;
 using System.Text.RegularExpressions;
 using System.Collections;
+using System.Collections.Specialized;
 
 
 public enum PortStatus
@@ -1957,7 +1958,7 @@ public class ScanningMethod_Services
                     foreach (byte propertyId in propertyIds)
                     {  
                         byte[] value = await QueryBacnetProperty(udpClient, targetEndPoint, propertyId);
-                        collectedData[PropertyIdToName(propertyId)] = Encoding.ASCII.GetString(value.Where(b => b >= 32 && b <= 126).ToArray());
+                        collectedData[PropertyIdToName(propertyId)] = ExtractBacnetAsciiString(value);// BitConverter.ToString(value); //Encoding.UTF8.GetString(value.Where(b => b >= 32 && b <= 126).ToArray());
                     }
 
                     portResult.Status = PortStatus.IsRunning;
@@ -2008,6 +2009,21 @@ public class ScanningMethod_Services
         };
     }
 
+    public static string ExtractBacnetAsciiString(byte[] data)
+    {
+        if (data == null || data.Length < 20)
+            return string.Empty;
+        int index = data.ToList().IndexOf(117);
+        //int index = Array.IndexOf(data, 0x75); // Suche nach `0x75` (ASCII-String-Tag)
+        if (index == -1 || index + 2 >= data.Length)
+            return string.Empty; // Falls kein String gefunden wurde
+
+        int length = data[index + 1]; // Das nächste Byte gibt die Länge des Strings an
+        if (index + 2 + length > data.Length)
+            return string.Empty; // Falls Länge fehlerhaft ist
+        string bla = Encoding.ASCII.GetString(data, index + 2, length).Trim().Replace("\\0", "");
+        return bla;
+    }
 
 
     private async Task<byte[]> QueryBacnetProperty(UdpClient udpClient, IPEndPoint targetEndPoint, byte propertyId)
