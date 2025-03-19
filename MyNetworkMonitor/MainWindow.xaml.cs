@@ -2314,9 +2314,116 @@ namespace MyNetworkMonitor
 
 
 
+        //private async void Filter_ScanResults_Explicite()
+        //{
+        //    // Lese UI-Daten vorab aus (UI-Thread)
+        //    string allFilter = tb_Filter_All1.Text.Trim();
+        //    string allFilter2 = tb_Filter_All2.Text.Trim();
+        //    string ipFilter = tb_Filter_IP.Text.Trim();
+        //    string internalName = tb_Filter_InternalName.Text.Trim();
+        //    string hostName = tb_Filter_HostName.Text.Trim();
+        //    string tcpPort = tb_Filter_TCPPort.Text.Trim();
+        //    string mac = tb_Filter_Mac.Text.Trim();
+        //    string vendor = tb_Filter_Vendor.Text.Trim();
+        //    bool isIPCamChecked = chk_Filter_IsIPCam.IsChecked ?? false;
+        //    bool isSSDP_UPnP_Checked = chk_Filter_IsSSDP.IsChecked ?? false;
+        //    bool supportSMB_Checked = chk_Filter_SupportSMB.IsChecked ?? false;
+        //    bool supportSNMP_Checked = chk_Filter_SupportSNMP.IsChecked ?? false;
+        //    bool supportNETBIOS_Checked = chk_Filter_SupportNetBios.IsChecked ?? false;
+
+        //    await Task.Run(() =>
+        //    {
+        //        // StringBuilder für bessere Performance
+        //        StringBuilder whereFilter = new StringBuilder(200);
+        //        whereFilter.Append("1 = 1");
+
+        //        // Optimierte ALL-Filter-Suche nur in wichtigen Spalten
+        //        List<string> columnConditions = new List<string>();
+        //        foreach (string columnName in new[] { "IP", "Hostname", "Vendor", "Mac", "TCP_Ports", "InternalName" })
+        //        {
+        //            if (!string.IsNullOrEmpty(allFilter))
+        //                columnConditions.Add($"{columnName} LIKE '%{allFilter}%'");
+
+        //            if (!string.IsNullOrEmpty(allFilter2))
+        //                columnConditions.Add($"{columnName} LIKE '%{allFilter2}%'");
+        //        }
+
+        //        if (columnConditions.Count > 0)
+        //        {
+        //            whereFilter.Append($" AND ({string.Join(" OR ", columnConditions)})");
+        //        }
+
+        //        // **Spezifische Filter anwenden**
+        //        if (!string.IsNullOrEmpty(ipFilter))
+        //        {
+        //            if (ipFilter.Contains("*"))
+        //                ipFilter = ipFilter.Replace("*", "%");
+        //            whereFilter.AppendFormat(" and IP LIKE '{0}'", ipFilter);
+        //        }
+
+        //        if (!string.IsNullOrEmpty(internalName))
+        //            whereFilter.AppendFormat(" and InternalName LIKE '%{0}%'", internalName);
+
+        //        if (!string.IsNullOrEmpty(hostName))
+        //            whereFilter.AppendFormat(" and Hostname LIKE '%{0}%'", hostName);
+
+        //        if (!string.IsNullOrEmpty(tcpPort))
+        //            whereFilter.AppendFormat(" and TCP_Ports LIKE '%{0}%'", tcpPort);
+
+        //        if (!string.IsNullOrEmpty(mac))
+        //            whereFilter.AppendFormat(" and Mac LIKE '%{0}%'", mac);
+
+        //        if (!string.IsNullOrEmpty(vendor))
+        //            whereFilter.AppendFormat(" and Vendor LIKE '%{0}%'", vendor);
+
+        //        if (isIPCamChecked)
+        //            whereFilter.Append(" and IsIPCam is not null");
+
+        //        if (isSSDP_UPnP_Checked)
+        //            whereFilter.Append(" and SSDPStatus is not null");
+
+        //        if (supportSMB_Checked)
+        //            whereFilter.Append(" and detectedSMBVersions is not null");
+
+        //        if (supportSNMP_Checked)
+        //            whereFilter.Append(" and SNMPSysName is not null");
+
+        //        if (supportNETBIOS_Checked)
+        //            whereFilter.Append(" and NetBiosHostname is not null");
+
+        //        // Falls keine Filterbedingungen gesetzt sind, Filter zurücksetzen
+        //        string finalFilter = whereFilter.ToString();
+        //        if (finalFilter == "1 = 1")
+        //            finalFilter = "";
+
+        //        // Prüfen, ob der Filter sich geändert hat (Performance-Optimierung)
+        //        if (dv_resultTable.RowFilter != finalFilter)
+        //        {
+        //            Dispatcher.BeginInvoke(new Action(() =>
+        //            {
+        //                try
+        //                {
+        //                    using (cvTasks_scanResults.DeferRefresh()) // UI-Refresh verzögern
+        //                    {
+        //                        dv_resultTable.RowFilter = null; // Setzt den Filter zurück
+        //                        dv_resultTable.RowFilter = finalFilter; // Setzt neuen Filter
+        //                    }
+        //                }
+        //                catch (Exception ex)
+        //                {
+        //                    // MessageBox.Show(ex.Message);
+        //                }
+        //            }), System.Windows.Threading.DispatcherPriority.Background);
+        //        }
+        //    });
+        //}
+
+
+
         private async void Filter_ScanResults_Explicite()
         {
-            // Lese UI-Daten vorab aus (UI-Thread)
+            await Task.Delay(300); // 300ms warten (Debounce)           
+
             string allFilter = tb_Filter_All1.Text.Trim();
             string allFilter2 = tb_Filter_All2.Text.Trim();
             string ipFilter = tb_Filter_IP.Text.Trim();
@@ -2331,97 +2438,81 @@ namespace MyNetworkMonitor
             bool supportSNMP_Checked = chk_Filter_SupportSNMP.IsChecked ?? false;
             bool supportNETBIOS_Checked = chk_Filter_SupportNetBios.IsChecked ?? false;
 
-            await Task.Run(() =>
+            StringBuilder whereFilter = new StringBuilder("1 = 1");
+
+            List<string> columnConditions = new List<string>();
+            foreach (string columnName in new[] { "IP", "Hostname", "Vendor", "Mac", "TCP_Ports", "InternalName" })
             {
-                // StringBuilder für bessere Performance
-                StringBuilder whereFilter = new StringBuilder(200);
-                whereFilter.Append("1 = 1");
+                if (!string.IsNullOrEmpty(allFilter))
+                    columnConditions.Add($"{columnName} LIKE '%{allFilter}%'");
 
-                // Optimierte ALL-Filter-Suche nur in wichtigen Spalten
-                List<string> columnConditions = new List<string>();
-                foreach (string columnName in new[] { "IP", "Hostname", "Vendor", "Mac", "TCP_Ports", "InternalName" })
+                if (!string.IsNullOrEmpty(allFilter2))
+                    columnConditions.Add($"{columnName} LIKE '%{allFilter2}%'");
+            }
+
+            if (columnConditions.Count > 0)
+            {
+                whereFilter.Append($" AND ({string.Join(" OR ", columnConditions)})");
+            }
+
+            if (!string.IsNullOrEmpty(ipFilter))
+            {
+                ipFilter = ipFilter.Replace("*", "%");
+                whereFilter.AppendFormat(" AND IP LIKE '{0}'", ipFilter);
+            }
+
+            if (!string.IsNullOrEmpty(internalName))
+                whereFilter.AppendFormat(" AND InternalName LIKE '%{0}%'", internalName);
+
+            if (!string.IsNullOrEmpty(hostName))
+                whereFilter.AppendFormat(" AND Hostname LIKE '%{0}%'", hostName);
+
+            if (!string.IsNullOrEmpty(tcpPort))
+                whereFilter.AppendFormat(" AND TCP_Ports LIKE '%{0}%'", tcpPort);
+
+            if (!string.IsNullOrEmpty(mac))
+                whereFilter.AppendFormat(" AND Mac LIKE '%{0}%'", mac);
+
+            if (!string.IsNullOrEmpty(vendor))
+                whereFilter.AppendFormat(" AND Vendor LIKE '%{0}%'", vendor);
+
+            if (isIPCamChecked)
+                whereFilter.Append(" AND IsIPCam IS NOT NULL");
+
+            if (isSSDP_UPnP_Checked)
+                whereFilter.Append(" AND SSDPStatus IS NOT NULL");
+
+            if (supportSMB_Checked)
+                whereFilter.Append(" AND detectedSMBVersions IS NOT NULL");
+
+            if (supportSNMP_Checked)
+                whereFilter.Append(" AND SNMPSysName IS NOT NULL");
+
+            if (supportNETBIOS_Checked)
+                whereFilter.Append(" AND NetBiosHostname IS NOT NULL");
+
+            string finalFilter = whereFilter.ToString();
+            if (finalFilter == "1 = 1") finalFilter = "";
+
+            if (dv_resultTable.RowFilter != finalFilter)
+            {
+                Dispatcher.Invoke(() =>
                 {
-                    if (!string.IsNullOrEmpty(allFilter))
-                        columnConditions.Add($"{columnName} LIKE '%{allFilter}%'");
-
-                    if (!string.IsNullOrEmpty(allFilter2))
-                        columnConditions.Add($"{columnName} LIKE '%{allFilter2}%'");
-                }
-
-                if (columnConditions.Count > 0)
-                {
-                    whereFilter.Append($" AND ({string.Join(" OR ", columnConditions)})");
-                }
-
-                // **Spezifische Filter anwenden**
-                if (!string.IsNullOrEmpty(ipFilter))
-                {
-                    if (ipFilter.Contains("*"))
-                        ipFilter = ipFilter.Replace("*", "%");
-                    whereFilter.AppendFormat(" and IP LIKE '{0}'", ipFilter);
-                }
-
-                if (!string.IsNullOrEmpty(internalName))
-                    whereFilter.AppendFormat(" and InternalName LIKE '%{0}%'", internalName);
-
-                if (!string.IsNullOrEmpty(hostName))
-                    whereFilter.AppendFormat(" and Hostname LIKE '%{0}%'", hostName);
-
-                if (!string.IsNullOrEmpty(tcpPort))
-                    whereFilter.AppendFormat(" and TCP_Ports LIKE '%{0}%'", tcpPort);
-
-                if (!string.IsNullOrEmpty(mac))
-                    whereFilter.AppendFormat(" and Mac LIKE '%{0}%'", mac);
-
-                if (!string.IsNullOrEmpty(vendor))
-                    whereFilter.AppendFormat(" and Vendor LIKE '%{0}%'", vendor);
-
-                if (isIPCamChecked)
-                    whereFilter.Append(" and IsIPCam is not null");
-
-                if (isSSDP_UPnP_Checked)
-                    whereFilter.Append(" and SSDPStatus is not null");
-
-                if (supportSMB_Checked)
-                    whereFilter.Append(" and detectedSMBVersions is not null");
-
-                if (supportSNMP_Checked)
-                    whereFilter.Append(" and SNMPSysName is not null");
-
-                if (supportNETBIOS_Checked)
-                    whereFilter.Append(" and NetBiosHostname is not null");
-
-                // Falls keine Filterbedingungen gesetzt sind, Filter zurücksetzen
-                string finalFilter = whereFilter.ToString();
-                if (finalFilter == "1 = 1")
-                    finalFilter = "";
-
-                // Prüfen, ob der Filter sich geändert hat (Performance-Optimierung)
-                if (dv_resultTable.RowFilter != finalFilter)
-                {
-                    Dispatcher.BeginInvoke(new Action(() =>
+                    try
                     {
-                        try
+                        using (cvTasks_scanResults.DeferRefresh())
                         {
-                            using (cvTasks_scanResults.DeferRefresh()) // UI-Refresh verzögern
-                            {
-                                dv_resultTable.RowFilter = null; // Setzt den Filter zurück
-                                dv_resultTable.RowFilter = finalFilter; // Setzt neuen Filter
-                            }
+                            dv_resultTable.RowFilter = finalFilter;
                         }
-                        catch (Exception ex)
-                        {
-                            // MessageBox.Show(ex.Message);
-                        }
-                    }), System.Windows.Threading.DispatcherPriority.Background);
-                }
-            });
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log oder Debug-Ausgabe anstelle von MessageBox
+                        Debug.WriteLine(ex.Message);
+                    }
+                }, System.Windows.Threading.DispatcherPriority.Background);
+            }
         }
-
-
-
-
-
 
 
 
