@@ -434,6 +434,8 @@ namespace MyNetworkMonitor
         }
 
 
+        //Download: https://unpkg.com/3d-force-graph/
+
         //online
         //<script src=""https://unpkg.com/3d-force-graph""></script>
 
@@ -451,6 +453,7 @@ namespace MyNetworkMonitor
             if (useOnlineVersion)
             {
                 LibraryPath = "<script src=\"https://unpkg.com/3d-force-graph\"></script>";
+                //LibraryPath = "<script src=\"https://app.unpkg.com/3d-force-graph@1.76.0/files/dist/3d-force-graph.min.js\"></script>";
             }
             else
             {
