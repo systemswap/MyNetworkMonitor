@@ -1142,7 +1142,7 @@ namespace MyNetworkMonitor
                 //    Status();
                 //}
 
-                await Task.Run(() => scanningMethode_ReverseLookupToHostAndAliases.GetHost_Aliases(DNS_Hostname_IPsToScan), _cts.Token);
+                await Task.Run(() => scanningMethode_ReverseLookupToHostAndAliases.GetHost_Aliases(DNS_Hostname_IPsToScan, false), _cts.Token);
                 //await Task.Run(() => scanningMethode_DNS.Get_Host_and_Alias_From_IP(_IPsToRefresh));
             }
 
@@ -1490,6 +1490,7 @@ namespace MyNetworkMonitor
                     _scannResults.ResultTable.Rows[rowIndex]["Hostname"] = ipToScan.HostName;
                     _scannResults.ResultTable.Rows[rowIndex]["Domain"] = ipToScan.Domain;
                     _scannResults.ResultTable.Rows[rowIndex]["Aliases"] = string.Join("\r\n", ipToScan.Aliases);
+                    _scannResults.ResultTable.Rows[rowIndex]["DNSServers"] = string.Join("\r\n", ipToScan.DNSServerList);
 
                     string resultHostname = _scannResults.ResultTable.Rows[rowIndex]["Hostname"].ToString().ToUpper();
                     string resultIP = _scannResults.ResultTable.Rows[rowIndex]["IP"].ToString();
@@ -1638,6 +1639,9 @@ namespace MyNetworkMonitor
                 {
                     string resultHostname = row["Hostname"].ToString().ToUpper();
                     string resultIP = row["IP"].ToString();
+
+                    row["DNSServers"] = string.Join("\r\n", ipToScan.DNSServerList);
+
 
                     try
                     {
@@ -3679,5 +3683,43 @@ namespace MyNetworkMonitor
             return !statuses.Any(status => status == ScanStatus.running || status == ScanStatus.waiting);
         }
 
+        private async void resolve_ip_across_dns_servers_Click(object sender, RoutedEventArgs e)
+        {
+            _IPsToScan.Clear();
+
+            // HashSet für eindeutige IP-Adressen
+            HashSet<string> selectedIps = new HashSet<string>();
+
+            foreach (var selectedCell in dgv_Results.SelectedCells)
+            {
+                if (selectedCell.Item is DataRowView rowView)
+                {
+                    string ipAddress = rowView["IP"].ToString(); // Spaltenname "IP" anpassen
+                    if (!string.IsNullOrWhiteSpace(ipAddress))
+                    {
+                        selectedIps.Add(ipAddress); // Automatisch Duplikate vermeiden
+                    }
+                }
+            }
+
+            _IPsToScan.Add(new IPToScan { IPorHostname = selectedIps.ToList()[0] });          
+               
+            
+
+            status_DNS_HostName_Scan = ScanStatus.running;
+            counted_total_DNS_HostNames = _IPsToScan.Count;
+            //CountedHostnames = _IPsToRefresh.Count;
+            Status();
+
+            //if ((bool)chk_Methodes_LookUp.IsChecked)
+            //{
+            //    status_Lookup_Scan = ScanStatus.waiting;
+            //    Status();
+            //}
+
+            await Task.Run(() => scanningMethode_ReverseLookupToHostAndAliases.GetHost_Aliases(_IPsToScan, true), _cts.Token);
+            //await Task.Run(() => scanningMethode_DNS.Get_Host_and_Alias_From_IP(_IPsToRefresh));
+
+        }
     }
 }
