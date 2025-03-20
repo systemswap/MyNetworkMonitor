@@ -459,6 +459,7 @@
                         <ContextMenu x:Name="contextMenu">
                             <MenuItem Header="scan selected IPs (select method / services first)" Click="ScanSelectedIPs_Click"/>
                             <MenuItem Header="find port of one service (65536 Ports)" Click="SelectedIPFindServicePort_Click"/>
+                            <MenuItem Header="resolve ip across dns servers" Click="resolve_ip_across_dns_servers_Click" />
                         </ContextMenu>
                     </DataGrid.ContextMenu>
 
