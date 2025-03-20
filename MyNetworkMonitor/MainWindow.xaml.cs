@@ -138,7 +138,7 @@ namespace MyNetworkMonitor
 
 
             dv_resultTable = new DataView(_scannResults.ResultTable);
-            dgv_Results.ItemsSource = dv_resultTable;
+            dgv_Results.ItemsSource = dv_resultTable; 
 
 
             // Setze das DataGrid-ItemSource auf eine CollectionView
@@ -2491,9 +2491,8 @@ namespace MyNetworkMonitor
             if (supportNETBIOS_Checked)
                 whereFilter.Append(" AND NetBiosHostname IS NOT NULL");
 
-            string finalFilter = whereFilter.ToString();
-            if (finalFilter == "1 = 1") finalFilter = "";
-
+            string finalFilter = whereFilter.ToString();            
+           
             if (dv_resultTable.RowFilter != finalFilter)
             {
                 Dispatcher.Invoke(() =>
@@ -2874,7 +2873,7 @@ namespace MyNetworkMonitor
                     }
 
                     if (!string.IsNullOrEmpty(rowIP))
-                    { 
+                    {
                         int countedDupIPs = _scannResults.ResultTable.Select("IP = '" + rowIP + "'").Length;
                         if (countedDupIPs > 1)
                         {
@@ -2907,7 +2906,12 @@ namespace MyNetworkMonitor
             }
             catch { }
         }
-      
+
+
+
+
+
+
         private void dg_InternalNames_LoadingRow(object sender, DataGridRowEventArgs e)
         {
             int internalNameIndex = dg_InternalNames.Columns.Single(c => c.Header.ToString() == "InternalName").DisplayIndex;
