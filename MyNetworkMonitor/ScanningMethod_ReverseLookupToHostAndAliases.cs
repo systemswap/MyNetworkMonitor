@@ -60,7 +60,7 @@ namespace MyNetworkMonitor
             total = 0;
         }
 
-        public async Task GetHost_Aliases(List<IPToScan> IPs)
+        public async Task GetHost_Aliases(List<IPToScan> IPs, bool isDeepDNSServerScan)
         {
 
             StartNewScan();
@@ -119,7 +119,7 @@ namespace MyNetworkMonitor
                     await semaphore.WaitAsync();
                     try
                     {
-                        await ReverseLookupToHostAndAliases(ip);
+                        await ReverseLookupToHostAndAliases(ip, isDeepDNSServerScan);
                     }
                     finally
                     {
@@ -143,7 +143,7 @@ namespace MyNetworkMonitor
 
 
 
-        private async Task ReverseLookupToHostAndAliases(IPToScan ipToScan)
+        private async Task ReverseLookupToHostAndAliases(IPToScan ipToScan, bool isDeepDNSServerScan)
         {
             if (_cts.Token.IsCancellationRequested) return; // 🔹 Abbruch vor dem Start prüfen
 
@@ -172,6 +172,37 @@ namespace MyNetworkMonitor
 
                 IPHostEntry _IPHostEntry = await client.GetHostEntryAsync(ipToScan.IPorHostname).WaitAsync(_cts.Token);
 
+                var results = new List<string>();
+
+                if (isDeepDNSServerScan)
+                {
+                    //alle DNS Server einzeln prüfen welcher diesen hostnamen auflösen kann
+                    foreach (var dnsServer in client.NameServers)
+                    {
+                        try
+                        {
+                            // Erstelle LookupClient mit spezifischem Nameserver
+                            var singleLookup = new LookupClient(dnsServer);
+                            var result = await singleLookup.GetHostEntryAsync(ipToScan.IPorHostname);
+
+                            if (result != null)
+                            {
+                                results.Add(dnsServer.Address.ToString().PadRight(17, ' ') + "\t-> " + result.HostName);
+                            }
+                            else
+                            {
+                                results.Add(dnsServer.Address.ToString().PadRight(17, ' ') + "\t-> nothing");
+                            }
+
+
+                        }
+                        catch (Exception ex)
+                        {
+
+                        }
+                    }
+                }
+
 
                 if (_cts.Token.IsCancellationRequested) return; // 🔹 Falls der Scan abgebrochen wurde, keine weiteren Aktionen durchführen
 
@@ -197,6 +228,9 @@ namespace MyNetworkMonitor
                     }
 
                     ipToScan.Aliases = (_IPHostEntry.Aliases != null) ? string.Join("\r\n", _IPHostEntry.Aliases) : string.Empty;
+
+                    
+                    ipToScan.DNSServerList = results;
 
                     ipToScan.UsedScanMethod = ScanMethod.ReverseLookup;
 
