@@ -1331,7 +1331,7 @@ namespace MyNetworkMonitor
             List<IPToScan> _IPsForTCPPortScan = new List<IPToScan>();
             if ((bool)chk_Methodes_ScanTCPPorts.IsChecked)
             {
-                if (_scannResults.ResultTable.Rows.Count == 0 || !(bool)chk_TCPPortsScanOnlyIPsInTable.IsChecked || IsSelectiveScan)
+                if (_scannResults.ResultTable.Rows.Count == 0 || !(bool)rb_ScanHostnames_onlyIPsInTable.IsChecked || IsSelectiveScan)
                 {
                     _IPsForTCPPortScan = _IPsToScan;
                 }
