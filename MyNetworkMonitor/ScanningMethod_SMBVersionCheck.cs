@@ -22,39 +22,19 @@ public class ScanningMethod_SMBVersionCheck
     }
 
 
-    private async Task RunWithTimeout(Func<Task> action, TimeSpan timeout)
-    {
-        var task = action();
-        if (await Task.WhenAny(task, Task.Delay(timeout, _cts.Token)) == task)
-        {
-            await task; // ✅ Die Task wurde erfolgreich beendet
-        }
-        else
-        {
-            Console.WriteLine($"❌ Timeout: SMB-Scan hat zu lange gedauert.");
-        }
-    }
-
 
     private int current = 0;
     private int responded = 0;
     private int total = 0;
 
-    private CancellationTokenSource _cts = new CancellationTokenSource(); // 🔹 Ermöglicht das Abbrechen
-
-    //int currentValue = Interlocked.Increment(ref current);
-    //Task.Run(() => ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running));
-
-    //int respondedValue = Interlocked.Increment(ref responded);
-    //Task.Run(() => ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running));
-
-    //Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished));
+    private CancellationTokenSource _cts = new CancellationTokenSource(); 
+  
 
     public void StopScan()
     {
         if (_cts != null && !_cts.IsCancellationRequested)
         {
-            _cts.Cancel(); // 🔹 Scan abbrechen
+            _cts.Cancel(); 
             _cts.Dispose();
             _cts = new CancellationTokenSource();
         }
@@ -97,20 +77,7 @@ public class ScanningMethod_SMBVersionCheck
             CancellationToken = _cts.Token
         };
 
-        // Verwende `ConcurrentBag<Task>`, um parallele Tasks sicher zu speichern
-        //ConcurrentBag<Task> tasks = new ConcurrentBag<Task>();
-
-        //await Task.Run(() => Parallel.ForEach(IPsToScan, options, ipToScan =>
-        //{
-        //    if (_cts.Token.IsCancellationRequested) return;
-
-        //    ipToScan.UsedScanMethod = ScanMethod.SMB;
-
-        //    // **SMB-Protokollversion prüfen (mit Timeout-Schutz)**
-        //    var task = RunWithTimeout(() => CheckProtocolsAsync(ipToScan, port), TimeSpan.FromSeconds(10));
-        //    tasks.Add(task);
-        //}), _cts.Token);
-
+       
 
         int maxDegreeOfParallelism = 50;
         using var semaphore = new SemaphoreSlim(maxDegreeOfParallelism);
@@ -127,10 +94,10 @@ public class ScanningMethod_SMBVersionCheck
                 {
                     if (_cts.Token.IsCancellationRequested) return;
 
-                    ipToScan.UsedScanMethod = ScanMethod.SMB;
+                    ipToScan.UsedScanMethod = ScanMethod.SMB;                
 
                     // SMB-Protokollversion prüfen mit Timeout-Schutz
-                    await RunWithTimeout(() => CheckProtocolsAsync(ipToScan, port), TimeSpan.FromSeconds(10));
+                    await CheckProtocolsAsync(ipToScan, port);
                 }
                 finally
                 {
@@ -139,16 +106,9 @@ public class ScanningMethod_SMBVersionCheck
             }, _cts.Token));
         }
 
-
-
-
-
-
         // **Warte auf ALLE SMB-Scans, bevor das Event ausgelöst wird**
         await Task.WhenAll(tasks.Where(t => t != null));
-
-        // ✅ Garantiert: SMBScanFinished wird NUR ausgelöst, wenn alle SMB-Scans beendet sind
-        //Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished));
+       
         SMBScanFinished?.Invoke();
     }
 
@@ -163,6 +123,9 @@ public class ScanningMethod_SMBVersionCheck
         foreach (SMBDialects dialect in Enum.GetValues(typeof(SMBDialects)))
         {
             if (_cts.Token.IsCancellationRequested) return;
+
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
+            cts.CancelAfter(TimeSpan.FromSeconds(10));
 
             try
             {
@@ -184,10 +147,10 @@ public class ScanningMethod_SMBVersionCheck
                             ? GetSMB1NegotiationRequest()
                             : GetSMB2NegotiationRequest_Dialects(dialect);
 
-                        await stream.WriteAsync(smbNegotiationRequest, 0, smbNegotiationRequest.Length);
+                        await stream.WriteAsync(smbNegotiationRequest, 0, smbNegotiationRequest.Length, cts.Token);
 
                         byte[] tempResponse = new byte[1024];
-                        var readTask = stream.ReadAsync(tempResponse, 0, tempResponse.Length);
+                        var readTask = stream.ReadAsync(tempResponse, 0, tempResponse.Length, cts.Token);
                         if (await Task.WhenAny(readTask, Task.Delay(2000, _cts.Token)) != readTask) // Timeout für Response
                         {
                             Console.WriteLine($"⚠ Keine SMB-Antwort von {ipToScan.IPorHostname}");
