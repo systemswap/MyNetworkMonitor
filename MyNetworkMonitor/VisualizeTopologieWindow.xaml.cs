@@ -435,15 +435,9 @@ namespace MyNetworkMonitor
 
 
         //Download: https://unpkg.com/3d-force-graph/
-
-        //online
-        //<script src=""https://unpkg.com/3d-force-graph""></script>
-
-        //offline
-        //<script src=""./libs/3d-force-graph.min.js""></script >
+      
 
         //lookup IPs will only linked to another network if they are in the IP coloumn as seperate device
-
         private void GenerateHTML()
         {
             // Lese den JSON-Inhalt ein
@@ -452,6 +446,7 @@ namespace MyNetworkMonitor
             string LibraryPath = string.Empty;
             if (useOnlineVersion)
             {
+                // UMD verwenden, KEIN ESM
                 LibraryPath = "<script src=\"https://cdn.jsdelivr.net/npm/3d-force-graph@1.76.2/dist/3d-force-graph.min.js\"></script>";
             }
             else
