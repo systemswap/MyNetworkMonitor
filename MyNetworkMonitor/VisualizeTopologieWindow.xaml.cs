@@ -446,7 +446,7 @@ namespace MyNetworkMonitor
             string LibraryPath = string.Empty;
             if (useOnlineVersion)
             {
-                // UMD verwenden, KEIN ESM
+                // UMD-Link verwenden, KEIN ESM
                 LibraryPath = "<script src=\"https://cdn.jsdelivr.net/npm/3d-force-graph@1.76.2/dist/3d-force-graph.min.js\"></script>";
             }
             else
