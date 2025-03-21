@@ -170,9 +170,39 @@ namespace MyNetworkMonitor
                 int currentValue = Interlocked.Increment(ref current);
                 ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running);
 
-                IPHostEntry _IPHostEntry = await client.GetHostEntryAsync(ipToScan.IPorHostname).WaitAsync(_cts.Token);
+                //IPHostEntry _IPHostEntry = await client.GetHostEntryAsync(ipToScan.IPorHostname).WaitAsync(_cts.Token);
 
-                var results = new List<string>();
+                IPHostEntry? _IPHostEntry = null;
+                int maxRetries = 3;
+                int attempt = 0;
+
+                while (attempt < maxRetries && _IPHostEntry == null)
+                {
+                    try
+                    {
+                        _IPHostEntry = await client.GetHostEntryAsync(ipToScan.IPorHostname)
+                                                   .WaitAsync(_cts.Token);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        // Abbruch durch CancellationToken
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        attempt++;
+                        if (attempt >= maxRetries)
+                        {
+                            // Option: Log oder Fehlerbehandlung hier
+                            Console.WriteLine($"Fehler bei Versuch {attempt}: {ex.Message}");
+                        }
+                        else
+                        {
+                            await Task.Delay(500); // kurze Pause vor erneutem Versuch
+                        }
+                    }
+                }
+                    var results = new List<string>();
 
                 if (isDeepDNSServerScan)
                 {
