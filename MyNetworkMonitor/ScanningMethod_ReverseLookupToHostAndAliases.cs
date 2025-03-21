@@ -219,7 +219,7 @@ namespace MyNetworkMonitor
                         {
                             // Erstelle LookupClient mit spezifischem Nameserver
                             var singleLookup = new LookupClient(dnsServer);
-                            var result = await singleLookup.GetHostEntryAsync(ipToScan.IPorHostname);
+                            var result = await singleLookup.GetHostEntryAsync(ipToScan.IPorHostname).WaitAsync(_cts.Token);
 
                             if (result != null)
                             {
