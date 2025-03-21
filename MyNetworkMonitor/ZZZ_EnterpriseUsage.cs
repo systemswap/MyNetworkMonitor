@@ -147,7 +147,7 @@ namespace MyNetworkMonitor
             TextBlock contactText = new TextBlock { Text = "If you need a licensed version, contact us: ", TextAlignment = TextAlignment.Center };
 
             // Erstellen des Run-Objekts für die E-Mail-Adresse mit einer benutzerdefinierten Schriftgröße
-            Run emailRun = new Run("syswap@tuta.io")
+            Run emailRun = new Run("systemswap@tuta.io")
             {
                 FontSize = 14, // Schriftgröße für die E-Mail-Adresse festlegen
                 FontWeight = FontWeights.Bold // Schrift fett machen
@@ -156,7 +156,7 @@ namespace MyNetworkMonitor
             // Erstellen des Hyperlinks mit dem Run
             Hyperlink emailLink = new Hyperlink(emailRun)
             {
-                NavigateUri = new Uri("mailto:syswap@tuta.io"),
+                NavigateUri = new Uri("mailto:systemswap@tuta.io"),
                 Foreground = new SolidColorBrush(Color.FromRgb(0, 112, 186)) // Blau für Seriosität
             };
 
