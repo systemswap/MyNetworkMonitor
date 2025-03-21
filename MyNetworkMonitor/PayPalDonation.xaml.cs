@@ -36,7 +36,7 @@ namespace MyNetworkMonitor
         private void DonateWithPayPal_Click(object sender, RoutedEventArgs e)
         {
             // PayPal-Empfänger-Adresse (fix)
-            string paypalEmail = "syswap@tuta.io";
+            string paypalEmail = "systemswap@tuta.io";
 
             // Betrag (anpassbar)
             decimal amount = Convert.ToDecimal(AmountTextBox.Text);

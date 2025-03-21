@@ -687,7 +687,7 @@
             </Grid>
             <Button x:Name="bt_VisualizeTable" Grid.Column="1" Content="Visualize DNS &amp; Duplicate Table Information" HorizontalAlignment="Left" Margin="11,52,0,0" Grid.Row="1" VerticalAlignment="Top" Grid.RowSpan="2" Width="262" Click="bt_VisualizeTable_Click"/>
             <Label Content="Free for personal use" VerticalAlignment="Center" Height="29" VerticalContentAlignment="Center" Foreground="#FF1196A7" HorizontalContentAlignment="Center" FontWeight="bold" Margin="64,0,65,0"/>
-            <Label Content="for commercial contact: syswap@tuta.io" VerticalAlignment="Top" Height="29" VerticalContentAlignment="Center" Foreground="#FF1196A7" HorizontalContentAlignment="Center" FontWeight="Bold" Grid.Row="1" Margin="51,28,51,0"/>
+            <Label Content="for commercial contact: systemswap@tuta.io" VerticalAlignment="Top" Height="29" VerticalContentAlignment="Center" Foreground="#FF1196A7" HorizontalContentAlignment="Center" FontWeight="Bold" Grid.Row="1" Margin="37,28,37,0"/>
             <CheckBox x:Name="chk_3dForceGraph_OnlineVersion" Content="use 3dForceGraph online (means no library is needed when sharing the html file)" Margin="293,54,0,0" Grid.Column="1" Grid.Row="1" Grid.RowSpan="2" HorizontalAlignment="Left" Width="427" Height="18" VerticalAlignment="Top" FontSize="11" VerticalContentAlignment="Center"/>
             <Button x:Name="bt_PayPal" 
         HorizontalAlignment="Center" 
