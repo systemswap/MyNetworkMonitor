@@ -130,12 +130,18 @@ namespace MyNetworkMonitor
                 tasks.Add(task);
             }
 
-            await Task.WhenAll(tasks);
-
-            if (GetHostAliases_Finished != null)
+            try
             {
-                //ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished); // 🔹 UI auf 0 setzen
-                GetHostAliases_Finished(this, new Method_Finished_EventArgs());
+                await Task.WhenAll(tasks.Where(t => t != null));
+            }
+            catch { }
+            finally
+            {
+                if (GetHostAliases_Finished != null)
+                {
+                    //ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished); // 🔹 UI auf 0 setzen
+                    GetHostAliases_Finished(this, new Method_Finished_EventArgs());
+                }
             }
         }
 
@@ -175,13 +181,13 @@ namespace MyNetworkMonitor
                 IPHostEntry? _IPHostEntry = null;
                 int maxRetries = 3;
                 int attempt = 0;
+               
 
                 while (attempt < maxRetries && _IPHostEntry == null)
                 {
                     try
                     {
-                        _IPHostEntry = await client.GetHostEntryAsync(ipToScan.IPorHostname)
-                                                   .WaitAsync(_cts.Token);
+                        _IPHostEntry = await client.GetHostEntryAsync(ipToScan.IPorHostname).WaitAsync(_cts.Token);
                     }
                     catch (OperationCanceledException)
                     {
