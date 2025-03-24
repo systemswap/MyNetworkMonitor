@@ -1737,11 +1737,11 @@ namespace MyNetworkMonitor
                 InsertIPToScanResult(e.ipToScan);
             });
         }
-        private void PingFinished_Event(object? sender, Method_Finished_EventArgs e)
+        private void PingFinished_Event(ScanStatus status)
         {
             Dispatcher.BeginInvoke(() =>
             {
-                status_Ping_Scan = ScanStatus.finished;
+                status_Ping_Scan = status;
                 Status();
             });
         }
@@ -1766,11 +1766,11 @@ namespace MyNetworkMonitor
             });
         }
 
-        private void IPCameraScan_Finished(object? sender, Method_Finished_EventArgs e)
+        private void IPCameraScan_Finished(ScanStatus status)
         {
             Dispatcher.BeginInvoke(() =>
             {
-                status_ONVIF_IP_Cam_Scan = e.ScanStatus;
+                status_ONVIF_IP_Cam_Scan = status;
                 Status();
             });
         }
@@ -1794,11 +1794,11 @@ namespace MyNetworkMonitor
             });
         }
 
-        private void SSDP_Scan_Finished(object? sender, Method_Finished_EventArgs e)
+        private void SSDP_Scan_Finished(ScanStatus status)
         {
             Dispatcher.BeginInvoke(new Action(() =>
             {
-                status_SSDP_Scan = e.ScanStatus;
+                status_SSDP_Scan = status;
                 Status();
             }));
         }
@@ -1986,11 +1986,11 @@ namespace MyNetworkMonitor
                 InsertIPToScanResult(e.ipToScan);
             });
         }
-        private void ARP_Request_Finished(object? sender, Method_Finished_EventArgs e)
+        private void ARP_Request_Finished(ScanStatus status)
         {
             Dispatcher.BeginInvoke(() =>
             {
-                status_ARP_Request_Scan = ScanStatus.finished;
+                status_ARP_Request_Scan = status;
                 Status();
             });
         }
@@ -2020,11 +2020,11 @@ namespace MyNetworkMonitor
                 InsertIPToScanResult(e.ipToScan);
             });
         }
-        private void DNS_GetHostAndAliasFromIP_Finished(object? sender, Method_Finished_EventArgs e)
+        private void DNS_GetHostAndAliasFromIP_Finished(ScanStatus status)
         {
             Dispatcher.BeginInvoke(() =>
             {
-                status_DNS_HostName_Scan = ScanStatus.finished;
+                status_DNS_HostName_Scan = status;
                 Status();
             });
         }
@@ -2048,11 +2048,11 @@ namespace MyNetworkMonitor
                 InsertIPToScanResult(e.ipToScan);
             });
         }
-        private void Lookup_Finished(object? sender, Method_Finished_EventArgs e)
+        private void Lookup_Finished(ScanStatus status)
         {
             Dispatcher.BeginInvoke(() =>
             {
-                status_Lookup_Scan = ScanStatus.finished;
+                status_Lookup_Scan = status;
                 Status();
             });
         }
@@ -2079,11 +2079,11 @@ namespace MyNetworkMonitor
                 Status();
             });
         }
-        private void TcpPortScan_Finished(object? sender, Method_Finished_EventArgs e)
+        private void TcpPortScan_Finished(ScanStatus status)
         {
             Dispatcher.BeginInvoke(() =>
             {
-                status_TCP_Port_Scan = ScanStatus.finished;
+                status_TCP_Port_Scan = status;
                 Status();
             });
         }
@@ -2100,12 +2100,11 @@ namespace MyNetworkMonitor
                 Status();
             });
         }
-        private void UDPPortScan_Finished(object? sender, Method_Finished_EventArgs e)
+        private void UDPPortScan_Finished(ScanStatus status)
         {
             Dispatcher.BeginInvoke(() =>
             {
-                status_UDP_Port_Scan = ScanStatus.finished;
-                //Counted_UDPListener = e.UDPListener;
+                status_UDP_Port_Scan = status;
                 Status();
             });
         }
@@ -2428,7 +2427,7 @@ namespace MyNetworkMonitor
 
         private async void Filter_ScanResults_Explicite()
         {
-            await Task.Delay(300); // 300ms warten (Debounce)           
+            await Task.Delay(600); // 300ms warten (Debounce)           
 
             string allFilter = tb_Filter_All1.Text.Trim();
             string allFilter2 = tb_Filter_All2.Text.Trim();
