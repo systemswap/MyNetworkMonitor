@@ -3138,8 +3138,8 @@ namespace MyNetworkMonitor
         {
             // Frage den Benutzer, ob alle Zeilen oder nur die ausgewählten Zeilen exportiert werden sollen
             MessageBoxResult result = MessageBox.Show(
-                "Möchten Sie alle Zeilen exportieren? \r\n Für nur selektierte Zeilen bitte \"Nein\" wählen",
-                "Exportoptionen", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+                "Export whole table? \r\n\r\nTo export only selected rows select \"No\"",
+                "Export", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
 
             if (result == MessageBoxResult.Cancel)
             {
@@ -3206,26 +3206,85 @@ namespace MyNetworkMonitor
             {
                 string lastService = ""; // Speichert den letzten bekannten Service-Namen
 
-                foreach (string line in (originalRow["detectedServicePorts"] as string)?.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries) ?? new string[0])
+
+                if ((originalRow["detectedServicePorts"] as string)?.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries)?.Length > 0)
                 {
-                    // Splitt line into service, ports und status
-                    string[] parts = line.Split(new[] { '\t' }, StringSplitOptions.RemoveEmptyEntries);
-                    string service = parts.Length > 0 ? parts[0].Trim(':').Replace(":", string.Empty) : "";
-                    string port = parts.Length > 1 ? parts[1].Trim() : "";
-                    string status = parts.Length > 2 ? parts[2].Trim('(', ')') : "";
-
-                    // Falls die aktuelle Zeile keinen Service-Namen enthält, aber einen Port hat, Service wiederverwenden
-                    if (string.IsNullOrWhiteSpace(service) && !string.IsNullOrWhiteSpace(port))
+                    foreach (string line in (originalRow["detectedServicePorts"] as string)?.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries) ?? new string[0])
                     {
-                        service = lastService;
-                    }
-                    else
-                    {
-                        lastService = service; // Speichert den aktuellen Service für die nächste Zeile
-                    }
+                        // Splitt line into service, ports und status
+                        string[] parts = line.Split(new[] { '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                        string service = parts.Length > 0 ? parts[0].Trim(':').Replace(":", string.Empty) : "";
+                        string port = parts.Length > 1 ? parts[1].Trim() : "";
+                        string status = parts.Length > 2 ? parts[2].Trim('(', ')') : "";
 
-                    //int originRow = independentTable.Rows.IndexOf(originalRow); // Ursprüngliche Zeilennummer
+                        // Falls die aktuelle Zeile keinen Service-Namen enthält, aber einen Port hat, Service wiederverwenden
+                        if (string.IsNullOrWhiteSpace(service) && !string.IsNullOrWhiteSpace(port))
+                        {
+                            service = lastService;
+                        }
+                        else
+                        {
+                            lastService = service; // Speichert den aktuellen Service für die nächste Zeile
+                        }
 
+                        //int originRow = independentTable.Rows.IndexOf(originalRow); // Ursprüngliche Zeilennummer
+
+                        // Erstelle eine neue Zeile für expandedDataTable
+                        DataRow newRow = expandedDataTable.NewRow();
+
+                        // Kopiere alle Spaltenwerte außer detectedServicePorts
+                        foreach (DataColumn col in independentTable.Columns)
+                        {
+                            if (col.ColumnName != "detectedServicePorts" || col.ColumnName != "ARPStatus" || col.ColumnName != "PingStatus")
+                            {
+
+                                var originalValue = originalRow[col.ColumnName];
+                                if (originalValue.ToString().Contains("\r"))
+                                {
+                                    originalValue = "\"" + originalRow[col.ColumnName] + "\"";
+                                }
+
+                                newRow[col.ColumnName] = originalValue;
+
+                                if (originalRow[col.ColumnName] != DBNull.Value && col.ColumnName.ToLower() == "ssdpstatus")
+                                {
+                                    newRow["isSSDP"] = true;
+                                }
+
+                                if (originalRow[col.ColumnName] != DBNull.Value && col.ColumnName.ToLower() == "isipcam")
+                                {
+                                    newRow["isAnIPCam"] = true;
+                                }
+
+                                if (originalRow[col.ColumnName] != DBNull.Value && col.ColumnName.ToLower() == "lookupstatus")
+                                {
+                                    byte[] tada = (byte[])originalRow[col.ColumnName];
+
+                                    if (tada.SequenceEqual(green_dot_s))
+                                    {
+                                        newRow["LookupEqualReverse"] = true;
+                                    }
+
+                                    if (tada.SequenceEqual(red_dot_s))
+                                    {
+                                        newRow["LookupEqualReverse"] = false;
+                                    }
+                                }
+                            }
+                        }
+
+                        // Setze die neuen Werte für Services, Ports, Status
+                        newRow["Services"] = service;
+                        newRow["Ports"] = port;
+                        newRow["Status"] = status;
+                        //newRow["originRow"] = originRow;
+
+                        // Füge die Zeile zur neuen Tabelle hinzu
+                        expandedDataTable.Rows.Add(newRow);
+                    }
+                }
+                else
+                {
                     // Erstelle eine neue Zeile für expandedDataTable
                     DataRow newRow = expandedDataTable.NewRow();
 
@@ -3248,36 +3307,29 @@ namespace MyNetworkMonitor
                                 newRow["isSSDP"] = true;
                             }
 
-                            if (originalRow[col.ColumnName] != DBNull.Value && col.ColumnName.ToLower() == "isipcam" )
+                            if (originalRow[col.ColumnName] != DBNull.Value && col.ColumnName.ToLower() == "isipcam")
                             {
                                 newRow["isAnIPCam"] = true;
                             }
 
                             if (originalRow[col.ColumnName] != DBNull.Value && col.ColumnName.ToLower() == "lookupstatus")
                             {
-                                byte[] tada = (byte[])originalRow[col.ColumnName];                                
+                                byte[] tada = (byte[])originalRow[col.ColumnName];
 
-                                if (tada.SequenceEqual(green_dot_s)) 
-                                { 
-                                    newRow["LookupEqualReverse"] = true; 
-                                }
-
-                                if (tada.SequenceEqual(red_dot_s)) 
+                                if (tada.SequenceEqual(green_dot_s))
                                 {
-                                    newRow["LookupEqualReverse"] = false; 
+                                    newRow["LookupEqualReverse"] = true;
                                 }
-                            }                            
+
+                                if (tada.SequenceEqual(red_dot_s))
+                                {
+                                    newRow["LookupEqualReverse"] = false;
+                                }
+                            }
                         }
                     }
-
-                    // Setze die neuen Werte für Services, Ports, Status
-                    newRow["Services"] = service;
-                    newRow["Ports"] = port;
-                    newRow["Status"] = status;
-                    //newRow["originRow"] = originRow;
-
-                    // Füge die Zeile zur neuen Tabelle hinzu
-                    expandedDataTable.Rows.Add(newRow);
+                        // Füge die Zeile zur neuen Tabelle hinzu
+                        expandedDataTable.Rows.Add(newRow);                    
                 }
             }
             expandedDataTable.Columns.Remove("ARPStatus");
