@@ -25,7 +25,7 @@ namespace MyNetworkMonitor
 
         public event Action<int, int, int, ScanStatus> ProgressUpdated;
         public event EventHandler<ScanTask_Finished_EventArgs>? Ping_Task_Finished;
-        public event EventHandler<Method_Finished_EventArgs>? PingFinished;
+        public event Action<ScanStatus>? PingFinished;
 
        
         private readonly PingOptions pingOptions = new PingOptions(200, true);
@@ -120,7 +120,7 @@ namespace MyNetworkMonitor
             finally
             {
                 //ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished);
-                PingFinished?.Invoke(this, new Method_Finished_EventArgs());
+                PingFinished?.Invoke(ScanStatus.finished);
             }
         }
 

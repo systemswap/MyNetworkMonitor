@@ -207,7 +207,7 @@ namespace MyNetworkMonitor
         public ScanningMethod_PortsTCP() { }
 
         public event EventHandler<ScanTask_Finished_EventArgs>? TcpPortScan_Task_Finished;
-        public event EventHandler<Method_Finished_EventArgs>? TcpPortScan_Finished;
+        public event Action<ScanStatus>? TcpPortScan_Finished;
 
         private CancellationTokenSource _cts = new CancellationTokenSource();
         public CancellationToken CancelPortScan
@@ -242,7 +242,7 @@ namespace MyNetworkMonitor
 
             await Task.WhenAll(tasks);
 
-            TcpPortScan_Finished?.Invoke(this, new Method_Finished_EventArgs());
+            TcpPortScan_Finished?.Invoke(ScanStatus.finished);
         }
 
         private async Task ScanTCPPorts_Task(IPToScan ipToScan, List<int> Ports, TimeSpan TimeOut)

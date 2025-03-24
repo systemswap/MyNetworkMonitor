@@ -20,7 +20,7 @@ namespace MyNetworkMonitor
         }
 
         public event EventHandler<ScanTask_Finished_EventArgs>? UDPPortScan_Task_Finished;
-        public event EventHandler<Method_Finished_EventArgs>? UDPPortScan_Finished;
+        public event Action<ScanStatus>? UDPPortScan_Finished;
 
 
 
@@ -91,7 +91,7 @@ namespace MyNetworkMonitor
                 }
             }
 
-            if (UDPPortScan_Finished != null) UDPPortScan_Finished(this, new Method_Finished_EventArgs());
+            UDPPortScan_Finished?.Invoke(ScanStatus.finished);
         }
     }
 }

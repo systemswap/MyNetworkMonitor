@@ -27,7 +27,7 @@ namespace MyNetworkMonitor
         AsyncTimer timer = new AsyncTimer();
         public event Action<int, int, int, ScanStatus> ProgressUpdated;
         public event EventHandler<ScanTask_Finished_EventArgs>? SSDP_foundNewDevice;
-        public event EventHandler<Method_Finished_EventArgs>? SSDP_Scan_Finished;
+        public event Action<ScanStatus>? SSDP_Scan_Finished;
 
 
         
@@ -219,7 +219,7 @@ namespace MyNetworkMonitor
 
                     Application.Current.Dispatcher.Invoke(() =>
                     {
-                        SSDP_Scan_Finished?.Invoke(this, new Method_Finished_EventArgs() { ScanStatus = ScanStatus.finished });
+                        SSDP_Scan_Finished?.Invoke(ScanStatus.finished);
                     });
 
                 }
