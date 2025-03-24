@@ -134,7 +134,7 @@ public class ScanningMethod_SMBVersionCheck
                     socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
 
                     var connectTask = socket.ConnectAsync(IPAddress.Parse(ipToScan.IPorHostname), port);
-                    if (await Task.WhenAny(connectTask, Task.Delay(5000, _cts.Token)) != connectTask) // Timeout nach 5 Sek
+                    if (await Task.WhenAny(connectTask, Task.Delay(5000, cts.Token)) != connectTask) // Timeout nach 5 Sek
                     {
                         Console.WriteLine($"❌ Timeout: {ipToScan.IPorHostname} reagiert nicht.");
                         socket.Close();

@@ -218,44 +218,6 @@ namespace MyNetworkMonitor
                 str_serialNumber = ConvertHexToAscii(str_serialNumber).Replace("\t", " ");
 
 
-
-                //List<string> lst_SNMPSysDesc = new List<string>();
-                //List<string> lst_SNMPLocation = new List<string>();
-
-                //if (!string.IsNullOrEmpty(str_serialNumber)) 
-                //{ 
-                //    str_serialNumber = str_serialNumber;
-                //    lst_SNMPSysDesc.Add(str_serialNumber);
-                //}
-
-
-                //if (!string.IsNullOrEmpty(str_sysDescribtion))
-                //{
-                //    str_sysDescribtion = str_sysDescribtion;
-                //    lst_SNMPSysDesc.Add(str_sysDescribtion);
-
-                //    lst_SNMPSysDesc[0] = lst_SNMPSysDesc[0].PadRight(20);
-                //}
-
-
-                //if (!string.IsNullOrEmpty(str_location))
-                //{
-                //    str_location = "Location: " + str_location;
-                //    lst_SNMPLocation.Add(str_location);
-                //}
-
-
-                //if (!string.IsNullOrEmpty(str_contact))
-                //{
-                //    str_contact = "Contact: " + str_contact;
-                //    lst_SNMPLocation.Add(str_contact);
-
-                //    lst_SNMPLocation[0] = lst_SNMPLocation[0].PadRight(50);
-                //}
-
-
-
-
                 ipToScan.SNMP_SysName = str_SysName;
                 ipToScan.SNMP_Serial = str_serialNumber;
                 ipToScan.SNMP_SysDesc = str_sysDescribtion;
@@ -275,7 +237,7 @@ namespace MyNetworkMonitor
                     await QueryZebraPrinter(ipToScan, community, cancellationToken);
                 }
 
-                Task.Run(() => SNMB_Task_Finished?.Invoke(ipToScan));
+                SNMB_Task_Finished?.Invoke(ipToScan);
 
                 int respondedValue = Interlocked.Increment(ref responded);
                 ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running);
@@ -316,12 +278,14 @@ namespace MyNetworkMonitor
         {
             try
             {
-                Oid zebraOid = new Oid("1.3.6.1.4.1.10642.20.3.5.0");
+                Oid zebraOid_Hostname = new Oid("1.3.6.1.4.1.10642.20.3.5.0");
+                Oid zebraOid_Serial = new Oid("1.3.6.1.4.1.10642.1.9.0");
                 IPAddress ipAddr = IPAddress.Parse(ipToScan.IPorHostname);
                 UdpTarget target = new UdpTarget(ipAddr, 161, 1000, 1); // **Schnellere Response-Zeit**
 
                 Pdu pdu = new Pdu(PduType.Get);
-                pdu.VbList.Add(zebraOid);
+                pdu.VbList.Add(zebraOid_Hostname);
+                pdu.VbList.Add(zebraOid_Serial);
                 AgentParameters parameters = new AgentParameters(SnmpVersion.Ver2, new OctetString(community));
 
                 for (int i = 0; i < 2; i++)
@@ -333,6 +297,7 @@ namespace MyNetworkMonitor
                     if (response.Pdu.ErrorStatus == 0)
                     {
                         ipToScan.SNMP_SysName = response.Pdu.VbList[0].Value.ToString();
+                        ipToScan.SNMP_Serial = response.Pdu.VbList[1].Value.ToString();
                         break;
                     }
                     await Task.Delay(30, cancellationToken);
