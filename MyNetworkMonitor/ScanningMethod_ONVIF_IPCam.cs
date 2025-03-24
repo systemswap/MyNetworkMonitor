@@ -24,7 +24,7 @@ namespace MyNetworkMonitor
 
         public event Action<int, int, int, ScanStatus> ProgressUpdated;
         public event EventHandler<ScanTask_Finished_EventArgs>? new_ONVIF_IP_Camera_Found_Task_Finished;
-        public event EventHandler<Method_Finished_EventArgs>? ONVIF_IP_Camera_Scan_Finished;
+        public event Action<ScanStatus>? ONVIF_IP_Camera_Scan_Finished;
         
 
         private int current = 0;
@@ -235,7 +235,7 @@ namespace MyNetworkMonitor
 
             Application.Current.Dispatcher.Invoke(() =>
             {
-                ONVIF_IP_Camera_Scan_Finished?.Invoke(this, new Method_Finished_EventArgs() { ScanStatus = ScanStatus.finished });
+                ONVIF_IP_Camera_Scan_Finished?.Invoke(ScanStatus.finished);
             });
         }
 

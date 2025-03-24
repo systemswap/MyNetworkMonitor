@@ -368,12 +368,12 @@
                     <ColumnDefinition Width="72"/>
                     <ColumnDefinition Width="55"/>
                     <ColumnDefinition Width="86"/>
-                    <ColumnDefinition Width="195"/>
-                    <ColumnDefinition Width="81"/>
-                    <ColumnDefinition Width="87"/>
+                    <ColumnDefinition Width="114"/>
+                    <ColumnDefinition Width="31"/>
+                    <ColumnDefinition Width="100"/>
                     <ColumnDefinition/>
-                    <ColumnDefinition Width="136"/>
-                    <ColumnDefinition Width="110"/>
+                    <ColumnDefinition Width="100"/>
+                    <ColumnDefinition Width="146"/>
                     <ColumnDefinition Width="110"/>
                     <ColumnDefinition Width="127"/>
                 </Grid.ColumnDefinitions>
@@ -398,10 +398,9 @@
 
 
 
-                <TextBox x:Name="tb_IP_Address" Grid.Column="11" TextWrapping="Wrap" VerticalAlignment="Center" Height="20" Margin="10,0,9,0"/>
-                <TextBox x:Name="tb_TCPPorts" Grid.Column="12" TextWrapping="Wrap" VerticalAlignment="Center" Height="20" Margin="7,0,10,0"/>
-                <TextBox x:Name="tb_UDPPorts" Grid.Column="13" TextWrapping="Wrap" VerticalAlignment="Center" Height="20" Margin="10,0,10,0"/>
-                <Button x:Name="bt_ScanIP" Click="bt_ScanIP_Click"   Content="scan above IP or if empty selected rows" Grid.Column="11" VerticalAlignment="Center" Height="20" Margin="10,0,0,0" HorizontalAlignment="Left" Width="463" Grid.Row="1" Grid.ColumnSpan="4" Background="#BFA4B1BF" OpacityMask="Black">
+                <TextBox x:Name="tb_IP_Address" Grid.Column="12" TextWrapping="Wrap" VerticalAlignment="Center" Height="20" Margin="10,0,9,0"/>
+                <TextBox x:Name="tb_TCPPorts" Grid.Column="13" TextWrapping="Wrap" VerticalAlignment="Center" Height="20" Margin="10,0,7,0"/>
+                <Button x:Name="bt_ScanIP" Click="bt_ScanIP_Click"   Content="scan above IP or if empty selected rows" Grid.Column="12" VerticalAlignment="Center" Height="20" Margin="7,0,0,0" HorizontalAlignment="Left" Width="369" Grid.Row="1" Grid.ColumnSpan="3" Background="#BFA4B1BF" OpacityMask="Black">
                     <Button.Resources>
                         <Style TargetType="{x:Type Border}">
                             <Setter Property="CornerRadius" Value="5"/>
@@ -411,13 +410,13 @@
 
 
                 <CheckBox x:Name="chk_Methodes_ARP_A" Content="arp -a" Margin="10,0,0,3" HorizontalAlignment="Left" Width="54" Grid.Column="9" VerticalContentAlignment="Center" VerticalAlignment="Bottom" Height="18"/>
-                <CheckBox x:Name="chk_ARP_DeleteCacheBefore" Content="arp -d" VerticalAlignment="Top" Height="32" Click="chk_ARP_DeleteCacheBefore_Click" Grid.Column="9" Grid.Row="1" HorizontalAlignment="Left" Width="54" Margin="28,2,0,0"/>
+                <CheckBox x:Name="chk_ARP_DeleteCacheBefore" Content="arp -d" VerticalAlignment="Top" Height="32" Click="chk_ARP_DeleteCacheBefore_Click" Grid.Column="9" Grid.Row="1" HorizontalAlignment="Left" Width="54" Margin="25,2,0,0"/>
                 <TextBox x:Name="tb_DNSServerIP" Grid.Column="14" HorizontalAlignment="Center" TextWrapping="Wrap" VerticalAlignment="Center" Width="107" Height="18"/>
                 <CheckBox x:Name="chk_Methodes_ONVIF" Content="ONVIF 📷" HorizontalAlignment="Left" Grid.Row="1" VerticalAlignment="Top" Height="34" Width="80" Margin="10,2,0,0"/>
                 <CheckBox x:Name="chk_Methodes_SNMP" Content="SNMP     🖨️"  HorizontalAlignment="Center" Grid.Column="1" Grid.Row="1" VerticalAlignment="Top" Height="15" Width="92" Margin="0,2,0,0"/>
 
                 <CheckBox x:Name="chk_Methodes_LookUp" Content="do Lookup scan" Grid.Row="1" Grid.Column="3" Margin="10,2,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" Height="15" Width="104"/>
-                <CheckBox x:Name="chk_allTCPPorts" Grid.Row="1" Grid.Column="7" Content="all Ports" HorizontalAlignment="Left" VerticalAlignment="Top" Width="65" Height="23" Margin="27,2,0,0"/>
+                <CheckBox x:Name="chk_allTCPPorts" Grid.Row="1" Grid.Column="7" Content="all Ports" VerticalAlignment="Center" Height="23" HorizontalAlignment="Center" Width="66"/>
 
             </Grid>
             <Label x:Name="lbl_ScanStatus" Content="..." Grid.Row="3" VerticalAlignment="Center" Height="26" Grid.ColumnSpan="2" HorizontalContentAlignment="Center" Margin="18,0,2,0"/>
@@ -670,17 +669,16 @@
                     <ColumnDefinition Width="126"/>
                     <ColumnDefinition Width="333"/>
                     <ColumnDefinition/>
-                    <ColumnDefinition Width="154"/>
-                    <ColumnDefinition Width="102"/>
-                    <ColumnDefinition Width="106"/>
-                    <ColumnDefinition Width="134"/>
+                    <ColumnDefinition Width="100"/>
+                    <ColumnDefinition Width="146"/>
+                    <ColumnDefinition Width="109"/>
+                    <ColumnDefinition Width="141"/>
                 </Grid.ColumnDefinitions>
-                <Label Grid.Column="6" Content="IP / Hostname.domain" Margin="7,0,16,0"/>
-                <Label Grid.Column="7" Content="TCP-Ports" Margin="10,-2,10,1"/>
-                <Label Grid.Column="8" Content="UDP-Ports" Margin="10,0,22,0"/>
+                <Label Grid.Column="7" Content="IP / Hostname.domain" Margin="10,0,0,0"/>
+                <Label Grid.Column="8" Content="TCP-Ports" Margin="10,-2,10,1"/>
                 <Label Content="Methodes to find Device:" Grid.Column="0" Margin="10,0,14,1"/>
-                <Label Grid.Column="9" Content="Diff. DNS Server" Margin="11,0,11,0"/>
-                <Label Grid.Column="2" Content="Methodes to collect Device Information:" Margin="4,0,0,0" d:LayoutOverrides="Height" VerticalContentAlignment="Center"/>
+                <Label Grid.Column="9" Content="Diff. DNS Server" Margin="10,0,11,0"/>
+                <Label Grid.Column="2" Content="Methodes to collect Device Information:" Margin="4,0,0,0" VerticalContentAlignment="Center"/>
                 <RadioButton x:Name="rb_ScanHostnames_onlyIPsInTable" Grid.Column="3" Content="only IPs in Table" IsChecked="True" Margin="10,0,0,0" VerticalContentAlignment="Center"/>
                 <RadioButton x:Name="rb_ScanHostnames_All_IPs" Grid.Column="4" Content="all" Margin="10,0,282,0" VerticalContentAlignment="Center"/>
 

@@ -18,7 +18,7 @@ namespace MyNetworkMonitor
 
         public event Action<int, int, int, ScanStatus> ProgressUpdated;
         public event EventHandler<ScanTask_Finished_EventArgs>? Lookup_Task_Finished;
-        public event EventHandler<Method_Finished_EventArgs>? Lookup_Finished;
+        public event Action<ScanStatus>? Lookup_Finished;
 
         private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(10); // Max. 10 parallele Lookups
 
@@ -153,10 +153,8 @@ namespace MyNetworkMonitor
                 // 🔹 Falls abgebrochen, wird das hier abgefangen
             }
 
-            if (Lookup_Finished != null)
-            {
-                Lookup_Finished(this, new Method_Finished_EventArgs());
-            }
+            
+                Lookup_Finished?.Invoke(ScanStatus.finished);            
         }
 
 
