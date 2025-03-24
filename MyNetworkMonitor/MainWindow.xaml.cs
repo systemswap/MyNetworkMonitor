@@ -1439,9 +1439,10 @@ namespace MyNetworkMonitor
 
                 if (ipToScan.UsedScanMethod == ScanMethod.SNMP)
                 {
-                    _scannResults.ResultTable.Rows[rowIndex]["SNMPSysName"] = ipToScan.SNMPSysName;
-                    _scannResults.ResultTable.Rows[rowIndex]["SNMPSysDesc"] = ipToScan.SNMPSysDesc;
-                    _scannResults.ResultTable.Rows[rowIndex]["SNMPLocation"] = ipToScan.SNMPLocation;
+                    _scannResults.ResultTable.Rows[rowIndex]["SNMPSysName"] = ipToScan.SNMP_SysName;
+                    _scannResults.ResultTable.Rows[rowIndex]["SNMPInfos"] = ipToScan.SNMPInfos;
+                    //_scannResults.ResultTable.Rows[rowIndex]["SNMPSysDesc"] = ipToScan.SNMPSysDesc;
+                    //_scannResults.ResultTable.Rows[rowIndex]["SNMPLocation"] = ipToScan.SNMPLocation;
                 }
 
 
@@ -1573,9 +1574,10 @@ namespace MyNetworkMonitor
 
                 if (ipToScan.UsedScanMethod == ScanMethod.SNMP)
                 {
-                    row["SNMPSysName"] = ipToScan.SNMPSysName;
-                    row["SNMPSysDesc"] = ipToScan.SNMPSysDesc;
-                    row["SNMPLocation"] = ipToScan.SNMPLocation;
+                    row["SNMPSysName"] = ipToScan.SNMP_SysName;
+                    row["SNMPInfos"] = ipToScan.SNMPInfos;
+                    //row["SNMPSysDesc"] = ipToScan.SNMPSysDesc;
+                    //row["SNMPLocation"] = ipToScan.SNMPLocation;
                 }
 
                 if (ipToScan.UsedScanMethod == ScanMethod.NetBios)
