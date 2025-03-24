@@ -350,12 +350,25 @@ namespace MyNetworkMonitor
         public string IPCamXAddress { get { return _IPCamXAddress; } set { _IPCamXAddress = value; } }
        
 
-        private string _SNMPSysName = string.Empty;
-        private string _SNMPSysDesc = string.Empty;
-        private string _SNMPLocation = string.Empty;
-        public string SNMPSysName { get { return _SNMPSysName; } set { _SNMPSysName = value; } }
-        public string SNMPSysDesc { get { return _SNMPSysDesc; } set { _SNMPSysDesc = value; } }
-        public string SNMPLocation { get { return _SNMPLocation; } set { _SNMPLocation = value; } }
+        private string _SNMP_SysName = string.Empty;
+        private string _SNMP_Serial = string.Empty;
+        private string _SNMP_SysDesc = string.Empty;
+        private string _SNMP_Location = string.Empty;
+        private string _SNMP_Contact = string.Empty;
+        public string SNMP_SysName { get { return _SNMP_SysName; } set { _SNMP_SysName = value; } }
+        public string SNMP_Serial { get { return _SNMP_Serial; } set { _SNMP_Serial = value; } }
+        public string SNMP_SysDesc { get { return _SNMP_SysDesc; } set { _SNMP_SysDesc = value; } }
+        public string SNMP_Location { get { return _SNMP_Location; } set { _SNMP_Location = value; } }
+
+        public string SNMP_Contact { get { return _SNMP_Contact; } set { _SNMP_Contact = value; } }
+
+        public string SNMPInfos 
+        { 
+            get 
+            {
+                return string.Join("\r\n", "Serial: ".PadRight(15) + "\t" + _SNMP_Serial, "Descr: ".PadRight(15) + "\t" + _SNMP_SysDesc, "Location: ".PadRight(15) + "\t" + _SNMP_Location, "Contact: ".PadRight(15) + "\t" + _SNMP_Contact);
+            } 
+        }
 
 
         private bool _ARPStatus = false;
@@ -497,8 +510,9 @@ namespace MyNetworkMonitor
             dt_NetworkResults.Columns.Add("detectedServicePorts", typeof(string));
 
             dt_NetworkResults.Columns.Add("SNMPSysName", typeof(string));
-            dt_NetworkResults.Columns.Add("SNMPSysDesc", typeof(string));
-            dt_NetworkResults.Columns.Add("SNMPLocation", typeof(string));
+            dt_NetworkResults.Columns.Add("SNMPInfos", typeof(string));           
+            //dt_NetworkResults.Columns.Add("SNMPSysDesc", typeof(string));
+            //dt_NetworkResults.Columns.Add("SNMPLocation", typeof(string));
 
             dt_NetworkResults.Columns.Add("IPCamName", typeof(string));
             dt_NetworkResults.Columns.Add("IPCamXAddress", typeof(string));
