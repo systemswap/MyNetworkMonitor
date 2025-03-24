@@ -75,7 +75,7 @@ namespace MyNetworkMonitor
         public event Action<int, int, int, ScanStatus> ProgressUpdated;
         public event EventHandler<ScanTask_Finished_EventArgs>? ARP_A_newDevice;
         public event EventHandler<ScanTask_Finished_EventArgs> ARP_Request_Task_Finished;
-        public event EventHandler<Method_Finished_EventArgs> ARP_Request_Finished;
+        public event Action<ScanStatus> ARP_Request_Finished;
 
 
         
@@ -127,10 +127,7 @@ namespace MyNetworkMonitor
             finally
             {
                 // 🔹 Sicherstellen, dass der Scan als beendet gemeldet wird
-                ARP_Request_Finished?.Invoke(this, new Method_Finished_EventArgs()
-                {
-                    ScanStatus = ScanStatus.finished
-                });
+                ARP_Request_Finished?.Invoke(ScanStatus.finished);
             }
         }
 
