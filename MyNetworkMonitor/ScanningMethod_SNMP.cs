@@ -219,53 +219,58 @@ namespace MyNetworkMonitor
 
 
 
-                List<string> lst_SNMPSysDesc = new List<string>();
-                List<string> lst_SNMPLocation = new List<string>();
+                //List<string> lst_SNMPSysDesc = new List<string>();
+                //List<string> lst_SNMPLocation = new List<string>();
 
-                if (!string.IsNullOrEmpty(str_serialNumber)) 
-                { 
-                    str_serialNumber = "Serial: " + str_serialNumber;
-                    lst_SNMPSysDesc.Add(str_serialNumber);
-                }
-
-
-                if (!string.IsNullOrEmpty(str_sysDescribtion))
-                {
-                    str_sysDescribtion = "Descr: " + str_sysDescribtion;
-                    lst_SNMPSysDesc.Add(str_sysDescribtion);
-
-                    lst_SNMPSysDesc[0] = lst_SNMPSysDesc[0].PadRight(20);
-                }
+                //if (!string.IsNullOrEmpty(str_serialNumber)) 
+                //{ 
+                //    str_serialNumber = str_serialNumber;
+                //    lst_SNMPSysDesc.Add(str_serialNumber);
+                //}
 
 
-                if (!string.IsNullOrEmpty(str_location))
-                {
-                    str_location = "Location: " + str_location;
-                    lst_SNMPLocation.Add(str_location);
-                }
+                //if (!string.IsNullOrEmpty(str_sysDescribtion))
+                //{
+                //    str_sysDescribtion = str_sysDescribtion;
+                //    lst_SNMPSysDesc.Add(str_sysDescribtion);
+
+                //    lst_SNMPSysDesc[0] = lst_SNMPSysDesc[0].PadRight(20);
+                //}
 
 
-                if (!string.IsNullOrEmpty(str_contact))
-                {
-                    str_contact = "Contact: " + str_contact;
-                    lst_SNMPLocation.Add(str_contact);
-
-                    lst_SNMPLocation[0] = lst_SNMPLocation[0].PadRight(50);
-                }
+                //if (!string.IsNullOrEmpty(str_location))
+                //{
+                //    str_location = "Location: " + str_location;
+                //    lst_SNMPLocation.Add(str_location);
+                //}
 
 
+                //if (!string.IsNullOrEmpty(str_contact))
+                //{
+                //    str_contact = "Contact: " + str_contact;
+                //    lst_SNMPLocation.Add(str_contact);
+
+                //    lst_SNMPLocation[0] = lst_SNMPLocation[0].PadRight(50);
+                //}
 
 
-                ipToScan.SNMPSysName = str_SysName;
-                ipToScan.SNMPSysDesc = string.Join("\t", lst_SNMPSysDesc);
-                ipToScan.SNMPLocation = string.Join("\t", lst_SNMPLocation);
 
-               
+
+                ipToScan.SNMP_SysName = str_SysName;
+                ipToScan.SNMP_Serial = str_serialNumber;
+                ipToScan.SNMP_SysDesc = str_sysDescribtion;
+                ipToScan.SNMP_Location = str_location;
+                ipToScan.SNMP_Contact = str_contact;
+
+                //ipToScan.SNMP_SysDesc = string.Join("\t", lst_SNMPSysDesc);
+                //ipToScan.SNMP_Location = string.Join("\t", lst_SNMPLocation);
+
+
 
 
 
                 // **Optimierung: Zebra-Printer sofort erkennen**
-                if (ipToScan.SNMPSysDesc.Contains("Zebra Technologies", StringComparison.OrdinalIgnoreCase))
+                if (ipToScan.SNMP_SysDesc.Contains("Zebra Technologies", StringComparison.OrdinalIgnoreCase))
                 {
                     await QueryZebraPrinter(ipToScan, community, cancellationToken);
                 }
@@ -327,7 +332,7 @@ namespace MyNetworkMonitor
 
                     if (response.Pdu.ErrorStatus == 0)
                     {
-                        ipToScan.SNMPSysName = response.Pdu.VbList[0].Value.ToString();
+                        ipToScan.SNMP_SysName = response.Pdu.VbList[0].Value.ToString();
                         break;
                     }
                     await Task.Delay(30, cancellationToken);
