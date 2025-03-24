@@ -151,7 +151,7 @@ public class ScanningMethod_SMBVersionCheck
 
                         byte[] tempResponse = new byte[1024];
                         var readTask = stream.ReadAsync(tempResponse, 0, tempResponse.Length, cts.Token);
-                        if (await Task.WhenAny(readTask, Task.Delay(2000, _cts.Token)) != readTask) // Timeout für Response
+                        if (await Task.WhenAny(readTask, Task.Delay(2000, cts.Token)) != readTask) // Timeout für Response
                         {
                             Console.WriteLine($"⚠ Keine SMB-Antwort von {ipToScan.IPorHostname}");
                             continue;
