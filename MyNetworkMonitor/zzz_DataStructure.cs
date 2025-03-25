@@ -355,18 +355,20 @@ namespace MyNetworkMonitor
         private string _SNMP_SysDesc = string.Empty;
         private string _SNMP_Location = string.Empty;
         private string _SNMP_Contact = string.Empty;
+        private string _SNMP_MAC = string.Empty;
+
         public string SNMP_SysName { get { return _SNMP_SysName; } set { _SNMP_SysName = value; } }
         public string SNMP_Serial { get { return _SNMP_Serial; } set { _SNMP_Serial = value; } }
         public string SNMP_SysDesc { get { return _SNMP_SysDesc; } set { _SNMP_SysDesc = value; } }
         public string SNMP_Location { get { return _SNMP_Location; } set { _SNMP_Location = value; } }
-
         public string SNMP_Contact { get { return _SNMP_Contact; } set { _SNMP_Contact = value; } }
+        public string SNMP_MAC { get { return _SNMP_MAC; } set { _SNMP_MAC = value; } }
 
         public string SNMPInfos 
         { 
             get 
             {
-                return string.Join("\r\n", "Serial: ".PadRight(15) + "\t" + _SNMP_Serial, "Descr: ".PadRight(15) + "\t" + _SNMP_SysDesc, "Location: ".PadRight(15) + "\t" + _SNMP_Location, "Contact: ".PadRight(15) + "\t" + _SNMP_Contact);
+                return string.Join("\r\n", "Serial: ".PadRight(15) + "\t" + _SNMP_Serial, "Descr: ".PadRight(15) + "\t" + _SNMP_SysDesc, "Location: ".PadRight(15) + "\t" + _SNMP_Location, "Contact: ".PadRight(15) + "\t" + _SNMP_Contact, "MAC: ".PadRight(15) + "\t" + _SNMP_MAC);
             } 
         }
 
