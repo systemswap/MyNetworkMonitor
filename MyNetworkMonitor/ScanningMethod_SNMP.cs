@@ -147,7 +147,7 @@ namespace MyNetworkMonitor
             int currentValue = Interlocked.Increment(ref current);
             ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
 
-            using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5)))
+            using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10)))
             {
                 await SNMPTask(ipToScan, cts.Token);
             }
@@ -226,7 +226,7 @@ namespace MyNetworkMonitor
 
                 }
 
-                if (cancellationToken.IsCancellationRequested) return;
+                //if (cancellationToken.IsCancellationRequested) return;
 
                 string str_SysName = result.TryGetValue(new Oid(oids[0]), out var sysName) ? sysName.ToString() : string.Empty; ;
 
