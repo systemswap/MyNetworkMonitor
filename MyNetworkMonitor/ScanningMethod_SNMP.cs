@@ -178,7 +178,7 @@ namespace MyNetworkMonitor
                     "1.3.6.1.2.1.1.5.0",    // System Name                    
                     "1.3.6.1.2.1.1.1.0",    // System Description                   
                     "1.3.6.1.2.1.1.6.0",    // System Location
-                    "1.3.6.1.2.1.1.4.0",      // System Contact
+                    "1.3.6.1.2.1.1.4.0",      // System Contact                    
                 };
                 Dictionary<Oid, AsnType>? result = null;
 
@@ -187,9 +187,12 @@ namespace MyNetworkMonitor
                 if (result == null || cancellationToken.IsCancellationRequested)
                     return;
 
-
+                
                 string str_serialNumber = string.Empty;
+                string str_MacAddress = string.Empty;
+
                 Dictionary<Oid, AsnType>? result_Serial = null;
+                Dictionary<Oid, AsnType>? result_MAC = null;
                 try
                 {
                     result_Serial = (snmp.Get(SnmpVersion.Ver1, new[] { "1.3.6.1.2.1.43.5.1.1.17.1" }));
@@ -200,7 +203,30 @@ namespace MyNetworkMonitor
 
                 }
 
-                if (cancellationToken.IsCancellationRequested) return;
+                List<string> macs = new List<string>();
+                try
+                {                    
+                    for (int i = 1; i < 51; i++)
+                    {
+                        try
+                        {
+                            result_MAC = snmp.Get(SnmpVersion.Ver1, new[] { "1.3.6.1.2.1.2.2.1.6." + i.ToString() });
+
+                            if (result_MAC != null && !string.IsNullOrEmpty(result_MAC.Values.ToList()[0].ToString()) && result_MAC.Values.ToList()[0].ToString() != "00 00 00 00 00 00")
+                            {
+                                macs.Add(result_MAC.Values.ToList()[0].ToString().Replace(" ", "-"));
+                            }
+                        }
+                        catch { }
+                    }   
+                    
+                }
+                catch
+                {
+
+                }
+
+                //if (cancellationToken.IsCancellationRequested) return;
 
                 string str_SysName = result.TryGetValue(new Oid(oids[0]), out var sysName) ? sysName.ToString() : string.Empty; ;
 
@@ -210,12 +236,17 @@ namespace MyNetworkMonitor
 
                 string str_contact = result.TryGetValue(new Oid(oids[3]), out var contact) ? contact.ToString() : string.Empty;
 
+                str_MacAddress = string.Join(" / ", macs.Distinct());
+                
+
+
 
                 str_SysName = ConvertHexToAscii(str_SysName).Replace("\t", " ");
                 str_sysDescribtion = ConvertHexToAscii(str_sysDescribtion).Replace("\t", " ");
                 str_contact = ConvertHexToAscii(str_contact).Replace("\t", " ");
                 str_location = ConvertHexToAscii(str_location).Replace("\t", " ");
                 str_serialNumber = ConvertHexToAscii(str_serialNumber).Replace("\t", " ");
+                str_MacAddress = ConvertHexToAscii(str_MacAddress).Replace("\t", " ");
 
 
                 ipToScan.SNMP_SysName = str_SysName;
@@ -223,6 +254,7 @@ namespace MyNetworkMonitor
                 ipToScan.SNMP_SysDesc = str_sysDescribtion;
                 ipToScan.SNMP_Location = str_location;
                 ipToScan.SNMP_Contact = str_contact;
+                ipToScan.SNMP_MAC = str_MacAddress;
 
                 //ipToScan.SNMP_SysDesc = string.Join("\t", lst_SNMPSysDesc);
                 //ipToScan.SNMP_Location = string.Join("\t", lst_SNMPLocation);
@@ -235,6 +267,12 @@ namespace MyNetworkMonitor
                 if (ipToScan.SNMP_SysDesc.Contains("Zebra Technologies", StringComparison.OrdinalIgnoreCase))
                 {
                     await QueryZebraPrinter(ipToScan, community, cancellationToken);
+                }
+
+
+                if (ipToScan.SNMP_SysDesc.ToLower().Contains("wago", StringComparison.OrdinalIgnoreCase))
+                {
+                    await QueryWago(ipToScan, community, cancellationToken);
                 }
 
                 SNMB_Task_Finished?.Invoke(ipToScan);
@@ -298,6 +336,38 @@ namespace MyNetworkMonitor
                     {
                         ipToScan.SNMP_SysName = response.Pdu.VbList[0].Value.ToString();
                         ipToScan.SNMP_Serial = response.Pdu.VbList[1].Value.ToString();
+                        break;
+                    }
+                    await Task.Delay(30, cancellationToken);
+                }
+            }
+            catch { }
+        }
+
+        private async Task QueryWago(IPToScan ipToScan, string community, CancellationToken cancellationToken)
+        {
+            try
+            {
+                Oid WagoSerial = new Oid("1.3.6.1.4.1.13576.10.1.3.0");
+                
+                IPAddress ipAddr = IPAddress.Parse(ipToScan.IPorHostname);
+                UdpTarget target = new UdpTarget(ipAddr, 161, 1000, 1); // **Schnellere Response-Zeit**
+
+                Pdu pdu = new Pdu(PduType.Get);
+                pdu.VbList.Add(WagoSerial);
+                
+                AgentParameters parameters = new AgentParameters(SnmpVersion.Ver2, new OctetString(community));
+
+                for (int i = 0; i < 2; i++)
+                {
+                    if (cancellationToken.IsCancellationRequested) return;
+
+                    SnmpV2Packet response = await Task.Run(() => (SnmpV2Packet)target.Request(pdu, parameters));
+
+                    if (response.Pdu.ErrorStatus == 0)
+                    {                       
+                        ipToScan.SNMP_Serial = response.Pdu.VbList[0].Value.ToString();
+
                         break;
                     }
                     await Task.Delay(30, cancellationToken);
