@@ -42,7 +42,7 @@ namespace MyNetworkMonitor
                 _cts = new CancellationTokenSource();
             }
 
-            Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped)); // 🔹 UI auf 0 setzen
+            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped);
         }
 
         private void StartNewScan()
@@ -147,7 +147,7 @@ namespace MyNetworkMonitor
             int currentValue = Interlocked.Increment(ref current);
             ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
 
-            using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2))) // Kürzerer Timeout
+            using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5)))
             {
                 await SNMPTask(ipToScan, cts.Token);
             }
