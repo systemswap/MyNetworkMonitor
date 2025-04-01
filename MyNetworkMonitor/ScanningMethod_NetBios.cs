@@ -333,8 +333,13 @@ public class ScanningMethod_NetBios
                 if (receivedByteCount >= 90)
                 {
                     Encoding enc = new ASCIIEncoding();
-                    nbName = enc.GetString(receiveBuffer, 57, 15).Trim();
-                    nbDomainOrWorkgroupName = enc.GetString(receiveBuffer, 75, 15).Trim();
+                    //nbName = enc.GetString(receiveBuffer, 57, 15).Trim();
+                    //nbDomainOrWorkgroupName = enc.GetString(receiveBuffer, 75, 15).Trim();
+
+                    //string nbName3 = enc.GetString(receiveBuffer, 93, 15).Trim();
+
+                    nbName = GetBestNetBiosHostname(receiveBuffer);
+
 
                     int macOffset = receivedByteCount - 6;
                     if (macOffset > 0 && receivedByteCount >= macOffset + 6)
@@ -350,6 +355,41 @@ public class ScanningMethod_NetBios
         } while (retries >= 0);
 
         return false;
+    }
+
+
+    private string GetBestNetBiosHostname(byte[] receiveBuffer)
+    {
+        Encoding enc = Encoding.ASCII;
+
+        // Byte 56 enthält die Anzahl der Namen
+        int nameCount = receiveBuffer[56];
+        int offset = 57;
+
+        string fallbackName = null;
+
+        for (int i = 0; i < nameCount; i++)
+        {
+            if (offset + 18 > receiveBuffer.Length)
+                break;
+
+            // 15 Byte Name + 1 Byte Suffix
+            string name = enc.GetString(receiveBuffer, offset, 15).Trim();
+            byte suffix = receiveBuffer[offset + 15];
+
+            // Priorität 1: Suffix 0x20 → File Server
+            if (suffix == 0x20)
+                return name;
+
+            // Priorität 2: Suffix 0x00 → Workstation
+            if (suffix == 0x00 && fallbackName == null)
+                fallbackName = name;
+
+            offset += 18;
+        }
+
+        // Wenn kein 0x20 gefunden wurde, nimm 0x00
+        return fallbackName ?? "UNKNOWN";
     }
 
     private async Task<bool> RunWithTimeout(Task task, TimeSpan timeout)
