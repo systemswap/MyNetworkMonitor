@@ -33,6 +33,7 @@ using System.Collections.ObjectModel;
 using System.Web;
 using System.Net.NetworkInformation;
 using System.Windows.Documents;
+using System.Windows.Navigation;
 
 
 //using static System.Net.WebRequestMethods;
@@ -3773,6 +3774,13 @@ namespace MyNetworkMonitor
             await Task.Run(() => scanningMethode_ReverseLookupToHostAndAliases.GetHost_Aliases(_IPsToScan, true), _cts.Token);
             //await Task.Run(() => scanningMethode_DNS.Get_Host_and_Alias_From_IP(_IPsToRefresh));
 
+        }
+
+
+        private void Hyperlink_RequestNavigate(object sender, RequestNavigateEventArgs e)
+        {
+            Process.Start(new ProcessStartInfo(e.Uri.AbsoluteUri) { UseShellExecute = true });
+            e.Handled = true;
         }
     }
 }
