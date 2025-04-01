@@ -3,6 +3,10 @@
 ###############################################################################
 * text=auto
 *.Roff linguist-detectable=false
+*.md linguist-documentation
+*.txt linguist-documentation
+*.nroff linguist-documentation
+*.man linguist-documentation
 ###############################################################################
 # Set default behavior for command prompt diff.
 #
