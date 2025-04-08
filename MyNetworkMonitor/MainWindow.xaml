@@ -119,7 +119,8 @@
                                                                 <DockPanel>
                                                                     <TextBlock FontWeight="Bold" Margin="5,0,0,0">
                                                                         <TextBlock.Text>
-                                                                            <MultiBinding StringFormat=" IPGroupDescription: {0} with ">
+                                                                            <!--<MultiBinding StringFormat=" IPGroupDescription: {0} with ">-->
+                                                                            <MultiBinding StringFormat=" {0} with ">
                                                                                 <Binding Path="Name"/>
                                                                             </MultiBinding>
                                                                         </TextBlock.Text>
@@ -503,7 +504,8 @@
                                                         <DockPanel>
                                                             <TextBlock FontWeight="Bold" Margin="5,0,0,0">
                                                                 <TextBlock.Text>
-                                                                    <MultiBinding StringFormat=" IPGroupDescription: {0} with ">
+                                                                    <!--<MultiBinding StringFormat=" IPGroupDescription: {0} with ">-->
+                                                                    <MultiBinding StringFormat=" {0} with ">
                                                                         <Binding Path="Name"/>
                                                                     </MultiBinding>
                                                                 </TextBlock.Text>
