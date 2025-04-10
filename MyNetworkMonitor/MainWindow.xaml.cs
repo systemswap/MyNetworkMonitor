@@ -533,7 +533,7 @@ namespace MyNetworkMonitor
                 e.Column.Visibility = Visibility.Hidden;
             }
 
-            //if (e.PropertyName == "GatewayIP")
+            //if (e.PropertyName == "NMGatewayIP")
             //{
             //    e.Column.Visibility = Visibility.Hidden;                
             //}
@@ -640,17 +640,17 @@ namespace MyNetworkMonitor
                 };
             }
 
-            if (e.PropertyName == "MatchedWithInternal")
-            {
-                // replace text column with image column
-                e.Column = new DataGridTemplateColumn
-                {
-                    // searching for predefined tenplate in Resources
-                    CellTemplate = (sender as DataGrid).Resources["MatchedWithInternal"] as DataTemplate,
-                    HeaderTemplate = e.Column.HeaderTemplate,
-                    Header = e.Column.Header
-                };
-            }
+            //if (e.PropertyName == "MatchedWithInternal")
+            //{
+            //    // replace text column with image column
+            //    e.Column = new DataGridTemplateColumn
+            //    {
+            //        // searching for predefined tenplate in Resources
+            //        CellTemplate = (sender as DataGrid).Resources["MatchedWithInternal"] as DataTemplate,
+            //        HeaderTemplate = e.Column.HeaderTemplate,
+            //        Header = e.Column.Header
+            //    };
+            //}
 
             if (e.PropertyType == typeof(string))
             {
@@ -742,8 +742,8 @@ namespace MyNetworkMonitor
                     ipToScan.UDPPortsToScan = null;
                     ipToScan.DNSServerList.Add(tb_DNSServerIP.Text);
                     ipToScan.TimeOut = _TimeOut;
-                    //ipToScan.GatewayIP = row["GatewayIP"].ToString();
-                    //ipToScan.GatewayPort = row["GatewayPort"].ToString();
+                    //ipToScan.NMGatewayIP = row["NMGatewayIP"].ToString();
+                    //ipToScan.NMGatewayPort = row["NMGatewayPort"].ToString();
 
                     _IPsToScan.Add(ipToScan);
                 }
@@ -786,8 +786,8 @@ namespace MyNetworkMonitor
                             ipToScan.UDPPortsToScan = null;
                             ipToScan.DNSServerList = null;
                             ipToScan.TimeOut = _TimeOut;
-                            //ipToScan.GatewayIP = row["GatewayIP"].ToString();
-                            //ipToScan.GatewayPort = row["GatewayPort"].ToString();
+                            //ipToScan.NMGatewayIP = row["NMGatewayIP"].ToString();
+                            //ipToScan.NMGatewayPort = row["NMGatewayPort"].ToString();
 
                             _IPsToScan.Add(ipToScan);
                         }
@@ -810,8 +810,8 @@ namespace MyNetworkMonitor
                         ipToScan.UDPPortsToScan = null;
                         ipToScan.DNSServerList = row.Row["DNSServers"].ToString().Split(',').ToList();
                         ipToScan.TimeOut = _TimeOut;
-                        ipToScan.GatewayIP = row["GatewayIP"].ToString();
-                        ipToScan.GatewayPort = row["GatewayPort"].ToString();
+                        ipToScan.NMGatewayIP = row["NMGatewayIP"].ToString();
+                        ipToScan.NMGatewayPort = row["NMGatewayPort"].ToString();
 
                         _IPsToScan.Add(ipToScan);
                     }
@@ -871,8 +871,8 @@ namespace MyNetworkMonitor
                             //toRefresh.DNSServers = row["DNSServers"].ToString();
                             ipToScan.DNSServerList = row["DNSServers"].ToString().Split(',').ToList();
                             ipToScan.TimeOut = _TimeOut;
-                            ipToScan.GatewayIP = row["GatewayIP"].ToString();
-                            ipToScan.GatewayPort = row["GatewayPort"].ToString();
+                            ipToScan.NMGatewayIP = row["NMGatewayIP"].ToString();
+                            ipToScan.NMGatewayPort = row["NMGatewayPort"].ToString();
 
                             _IPsToScan.Add(ipToScan);
                         }
@@ -892,8 +892,8 @@ namespace MyNetworkMonitor
                                     ipToScan.UDPPortsToScan = null;
                                     ipToScan.DNSServerList = row["DNSServers"].ToString().Split(',').ToList();
                                     ipToScan.TimeOut = _TimeOut;
-                                    ipToScan.GatewayIP = row["GatewayIP"].ToString();
-                                    ipToScan.GatewayPort = row["GatewayPort"].ToString();
+                                    ipToScan.NMGatewayIP = row["NMGatewayIP"].ToString();
+                                    ipToScan.NMGatewayPort = row["NMGatewayPort"].ToString();
 
                                     _IPsToScan.Add(ipToScan);
                                 }
@@ -924,8 +924,8 @@ namespace MyNetworkMonitor
                             ipToScan.UDPPortsToScan = _portCollection.UDPPorts;
                             ipToScan.DNSServerList = row["DNSServers"].ToString().Split(',').ToList();
                             ipToScan.TimeOut = _TimeOut;
-                            ipToScan.GatewayIP = row["GatewayIP"].ToString();
-                            ipToScan.GatewayPort = row["GatewayPort"].ToString();
+                            ipToScan.NMGatewayIP = row["NMGatewayIP"].ToString();
+                            ipToScan.NMGatewayPort = row["NMGatewayPort"].ToString();
 
                             _IPsToScan.Add(ipToScan);
                         }
@@ -1125,8 +1125,8 @@ namespace MyNetworkMonitor
                         ipToScan.UDPPortsToScan = _portCollection.UDPPorts;
                         ipToScan.DNSServerList = row["DNSServers"].ToString().Split(',').ToList();
                         ipToScan.TimeOut = _TimeOut;
-                        ipToScan.GatewayIP = row["GatewayIP"].ToString();
-                        ipToScan.GatewayPort = row["GatewayPort"].ToString();
+                        ipToScan.NMGatewayIP = row["NMGatewayIP"].ToString();
+                        ipToScan.NMGatewayPort = row["NMGatewayPort"].ToString();
 
                         DNS_Hostname_IPsToScan.Add(ipToScan);
                     }
@@ -1176,8 +1176,8 @@ namespace MyNetworkMonitor
                             ipToScan.HostName = row["Hostname"].ToString();
                             ipToScan.Domain = row["Domain"].ToString();
                             ipToScan.DNSServerList = row["DNSServers"].ToString().Split(',').ToList();
-                            ipToScan.GatewayIP = row["GatewayIP"].ToString();
-                            ipToScan.GatewayPort = row["GatewayPort"].ToString();
+                            ipToScan.NMGatewayIP = row["NMGatewayIP"].ToString();
+                            ipToScan.NMGatewayPort = row["NMGatewayPort"].ToString();
 
                             IPsForLookUp.Add(ipToScan);
                         }
@@ -1188,7 +1188,7 @@ namespace MyNetworkMonitor
                 counted_total_Lookup_Scans = IPsForLookUp.Count;
                 Status();
 
-                Task.Run(() => scanningMethod_LookUp.LookupAsync(IPsForLookUp), _cts.Token);
+                await Task.Run(() => scanningMethod_LookUp.LookupAsync(IPsForLookUp), _cts.Token);
             }
 
             _cts.Token.ThrowIfCancellationRequested();
@@ -1350,8 +1350,8 @@ namespace MyNetworkMonitor
                         ipToScan.UDPPortsToScan = _portCollection.UDPPorts;
                         ipToScan.DNSServerList = row["DNSServers"].ToString().Split(',').ToList();
                         ipToScan.TimeOut = _TimeOut;
-                        ipToScan.GatewayIP = row["GatewayIP"].ToString();
-                        ipToScan.GatewayPort = row["GatewayPort"].ToString();
+                        ipToScan.NMGatewayIP = row["NMGatewayIP"].ToString();
+                        ipToScan.NMGatewayPort = row["NMGatewayPort"].ToString();
 
                         _IPsForTCPPortScan.Add(ipToScan);
                     }
@@ -1412,8 +1412,8 @@ namespace MyNetworkMonitor
                 }
 
                 if(ipToScan.DNSServerList != null) _scannResults.ResultTable.Rows[rowIndex]["DNSServers"] = string.Join(',', ipToScan.DNSServerList);
-                _scannResults.ResultTable.Rows[rowIndex]["GatewayIP"] = ipToScan.GatewayIP;
-                _scannResults.ResultTable.Rows[rowIndex]["GatewayPort"] = ipToScan.GatewayPort;
+                _scannResults.ResultTable.Rows[rowIndex]["NMGatewayIP"] = ipToScan.NMGatewayIP;
+                _scannResults.ResultTable.Rows[rowIndex]["NMGatewayPort"] = ipToScan.NMGatewayPort;
 
                 if (ipToScan.UsedScanMethod == ScanMethod.SSDP)
                 {
@@ -1514,22 +1514,22 @@ namespace MyNetworkMonitor
                         bool dnsMatched = false;
                         dnsMatched = InternalNames_Hostname_from_ScannedIP == resultHostname;
 
-                        if (dnsMatched && !string.IsNullOrEmpty(resultHostname))
-                        {
-                            _scannResults.ResultTable.Rows[rowIndex]["MatchedWithInternal"] = green_dot_s;
-                        }
-                        if (!dnsMatched && !string.IsNullOrEmpty(resultHostname))
-                        {
-                            _scannResults.ResultTable.Rows[rowIndex]["MatchedWithInternal"] = red_dot_s;
-                        }
-                        if (string.IsNullOrEmpty(resultHostname))
-                        {
-                            _scannResults.ResultTable.Rows[rowIndex]["MatchedWithInternal"] = null;
-                        }
+                        //if (dnsMatched && !string.IsNullOrEmpty(resultHostname))
+                        //{
+                        //    _scannResults.ResultTable.Rows[rowIndex]["MatchedWithInternal"] = green_dot_s;
+                        //}
+                        //if (!dnsMatched && !string.IsNullOrEmpty(resultHostname))
+                        //{
+                        //    _scannResults.ResultTable.Rows[rowIndex]["MatchedWithInternal"] = red_dot_s;
+                        //}
+                        //if (string.IsNullOrEmpty(resultHostname))
+                        //{
+                        //    _scannResults.ResultTable.Rows[rowIndex]["MatchedWithInternal"] = null;
+                        //}
                     }
                     catch (Exception)
                     {
-                        _scannResults.ResultTable.Rows[rowIndex]["MatchedWithInternal"] = null;
+                        //_scannResults.ResultTable.Rows[rowIndex]["MatchedWithInternal"] = null;
                     }
                 }
 
@@ -1544,10 +1544,10 @@ namespace MyNetworkMonitor
                     _scannResults.ResultTable.Rows[rowIndex]["TCP_Ports"] = string.Join("\r\n", ports);
                 }
 
-                if (ipToScan.UsedScanMethod == ScanMethod.UDPPorts)
-                {
-                    _scannResults.ResultTable.Rows[rowIndex]["OpenUDP_Ports"] = string.Join("; ", ipToScan.UDP_OpenPorts);
-                }
+                //if (ipToScan.UsedScanMethod == ScanMethod.UDPPorts)
+                //{
+                //    _scannResults.ResultTable.Rows[rowIndex]["OpenUDP_Ports"] = string.Join("; ", ipToScan.UDP_OpenPorts);
+                //}
             }
             else
             {
@@ -1564,8 +1564,8 @@ namespace MyNetworkMonitor
                 if (ipToScan.DNSServerList != null)
                 {
                     row["DNSServers"] = string.Join(',', ipToScan.DNSServerList);
-                    row["GatewayIP"] = ipToScan.GatewayIP;
-                    row["GatewayPort"] = ipToScan.GatewayPort;
+                    row["NMGatewayIP"] = ipToScan.NMGatewayIP;
+                    row["NMGatewayPort"] = ipToScan.NMGatewayPort;
                 }
 
                 if (ipToScan.UsedScanMethod == ScanMethod.SSDP)
@@ -1663,23 +1663,23 @@ namespace MyNetworkMonitor
                         bool dnsMatched = false;
                         dnsMatched = InternalNames_Hostname_from_ScannedIP == resultHostname;
 
-                        if (dnsMatched && !string.IsNullOrEmpty(resultHostname))
-                        {
-                            row["MatchedWithInternal"] = green_dot_s;
-                        }
-                        if (!dnsMatched && !string.IsNullOrEmpty(resultHostname))
-                        {
-                            row["MatchedWithInternal"] = red_dot_s;
-                        }
-                        if (string.IsNullOrEmpty(resultHostname))
-                        {
-                            row["MatchedWithInternal"] = null;
-                        }
+                        //if (dnsMatched && !string.IsNullOrEmpty(resultHostname))
+                        //{
+                        //    row["MatchedWithInternal"] = green_dot_s;
+                        //}
+                        //if (!dnsMatched && !string.IsNullOrEmpty(resultHostname))
+                        //{
+                        //    row["MatchedWithInternal"] = red_dot_s;
+                        //}
+                        //if (string.IsNullOrEmpty(resultHostname))
+                        //{
+                        //    row["MatchedWithInternal"] = null;
+                        //}
                     }
                     catch (Exception)
                     {
 
-                        row["MatchedWithInternal"] = null;
+                        //row["MatchedWithInternal"] = null;
                     }
 
                     row["Hostname"] = ipToScan.HostName;
@@ -2798,23 +2798,23 @@ namespace MyNetworkMonitor
                     bool dnsMatched = false;
                     dnsMatched = InternalNames_Hostname_from_ScannedIP == resultHostname;
 
-                    if (dnsMatched && !string.IsNullOrEmpty(resultHostname))
-                    {
-                        row["MatchedWithInternal"] = green_dot_s;
-                    }
-                    if (!dnsMatched && !string.IsNullOrEmpty(resultHostname))
-                    {
-                        row["MatchedWithInternal"] = red_dot_s;
-                    }
-                    if (string.IsNullOrEmpty(resultHostname))
-                    {
-                        row["MatchedWithInternal"] = null;
-                    }
+                    //if (dnsMatched && !string.IsNullOrEmpty(resultHostname))
+                    //{
+                    //    row["MatchedWithInternal"] = green_dot_s;
+                    //}
+                    //if (!dnsMatched && !string.IsNullOrEmpty(resultHostname))
+                    //{
+                    //    row["MatchedWithInternal"] = red_dot_s;
+                    //}
+                    //if (string.IsNullOrEmpty(resultHostname))
+                    //{
+                    //    row["MatchedWithInternal"] = null;
+                    //}
                 }
                 catch (Exception)
                 {
 
-                    row["MatchedWithInternal"] = null;
+                    //row["MatchedWithInternal"] = null;
                 }
             }
         }
