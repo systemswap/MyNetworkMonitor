@@ -3,7 +3,7 @@ name: Build & Release MyNetworkMonitor
 on:
   push:
     branches:
-      - master  # Passe das ggf. an deinen Hauptbranch an
+      - master  # Passe den Branch an, falls deiner anders heißt
 
 jobs:
   build-release:
@@ -13,7 +13,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2  # Damit der vorherige Commit zum Vergleich da ist
+          fetch-depth: 2  # Damit der vorherige Commit zum Versionsvergleich verfügbar ist
 
       - name: Compare AssemblyVersion
         id: version_check
@@ -52,8 +52,12 @@ jobs:
 
       - name: Create ZIP from Debug build
         if: steps.version_check.outputs.changed == 'true'
+        shell: pwsh
+        id: zip_step
         run: |
-          Compress-Archive -Path MyNetworkMonitor\bin\Debug\* -DestinationPath build.zip
+          $zipName = "MyNetworkMonitor_v${{ steps.version_check.outputs.version }}.zip"
+          Compress-Archive -Path MyNetworkMonitor\bin\Debug\* -DestinationPath $zipName
+          echo "zipname=$zipName" >> $env:GITHUB_OUTPUT
 
       - name: Create GitHub Release
         if: steps.version_check.outputs.changed == 'true'
@@ -62,6 +66,6 @@ jobs:
           tag_name: v${{ steps.version_check.outputs.version }}
           name: Release ${{ steps.version_check.outputs.version }}
           body: ${{ github.event.head_commit.message }}
-          files: build.zip
+          files: ${{ steps.zip_step.outputs.zipname }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
