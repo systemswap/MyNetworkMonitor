@@ -182,4 +182,8 @@
     </Content>
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include=".github\workflows\build-and-release.yml" />
+  </ItemGroup>
+
 </Project>
