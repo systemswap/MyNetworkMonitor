@@ -134,8 +134,7 @@ namespace MyNetworkMonitor
                         await _semaphore.WaitAsync(); // Warte, bis ein Platz frei wird
                         try
                         {
-                            //await LookupTask(ip);
-                            LookupTask(ip);
+                            await LookupTask(ip);                            
                         }
                         finally
                         {
