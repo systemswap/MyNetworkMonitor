@@ -13,13 +13,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2  # Damit der vorherige Commit verfügbar ist
+          fetch-depth: 2  # Damit der vorherige Commit zum Vergleich da ist
 
       - name: Compare AssemblyVersion
         id: version_check
         shell: pwsh
         run: |
-          $file = "MyNetworkMonitor/MyNetworkMonitor/AssemblyInfo.cs"
+          $file = "MyNetworkMonitor/AssemblyInfo.cs"
 
           $old = git show HEAD^:$file | Select-String "AssemblyVersion" | ForEach-Object {
               ($_ -split '"')[1]
@@ -46,14 +46,14 @@ jobs:
         if: steps.version_check.outputs.changed == 'true'
         run: nuget restore MyNetworkMonitor.sln
 
-      - name: Build solution
+      - name: Build solution (Debug)
         if: steps.version_check.outputs.changed == 'true'
         run: msbuild MyNetworkMonitor.sln /p:Configuration=Debug
 
       - name: Create ZIP from Debug build
         if: steps.version_check.outputs.changed == 'true'
         run: |
-          Compress-Archive -Path MyNetworkMonitor\MyNetworkMonitor\bin\Debug\* -DestinationPath build.zip
+          Compress-Archive -Path MyNetworkMonitor\bin\Debug\* -DestinationPath build.zip
 
       - name: Create GitHub Release
         if: steps.version_check.outputs.changed == 'true'
