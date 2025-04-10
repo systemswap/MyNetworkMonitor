@@ -479,9 +479,9 @@
                             <Image Source="{Binding LookUpStatus}" Width="16" Height="16" CacheMode="BitmapCache" SnapsToDevicePixels="True" UseLayoutRounding="True"/>
                         </DataTemplate>
 
-                        <DataTemplate x:Key="MatchedWithInternal">
+                        <!--<DataTemplate x:Key="MatchedWithInternal">
                             <Image Source="{Binding MatchedWithInternal}" Width="16" Height="16" CacheMode="BitmapCache" SnapsToDevicePixels="True" UseLayoutRounding="True"/>
-                        </DataTemplate>
+                        </DataTemplate>-->
 
                     </DataGrid.Resources>
                     <DataGrid.Background>

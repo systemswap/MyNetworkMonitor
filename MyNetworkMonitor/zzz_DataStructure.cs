@@ -481,10 +481,10 @@ namespace MyNetworkMonitor
 
 
 
-        private string _GatewayIP = string.Empty;
-        private string _GatewayPort = string.Empty;
-        public string GatewayIP { get { return _GatewayIP; } set { _GatewayIP = value; } }
-        public string GatewayPort { get { return _GatewayPort; } set { _GatewayPort = value; } }
+        private string _NMGatewayIP = string.Empty;
+        private string _NMGatewayPort = string.Empty;
+        public string NMGatewayIP { get { return _NMGatewayIP; } set { _NMGatewayIP = value; } }
+        public string NMGatewayPort { get { return _NMGatewayPort; } set { _NMGatewayPort = value; } }
     }
 
 
@@ -521,17 +521,17 @@ namespace MyNetworkMonitor
             dt_NetworkResults.Columns.Add("Domain", typeof(string));
             dt_NetworkResults.Columns.Add("Aliases", typeof(string));
             dt_NetworkResults.Columns.Add("LookUpStatus", typeof(byte[]));
-            dt_NetworkResults.Columns.Add("MatchedWithInternal", typeof(byte[]));
+            //dt_NetworkResults.Columns.Add("MatchedWithInternal", typeof(byte[]));
             dt_NetworkResults.Columns.Add("LookUpIPs", typeof(string));
             dt_NetworkResults.Columns.Add("TCP_Ports", typeof(string));
-            dt_NetworkResults.Columns.Add("OpenUDP_Ports", typeof(string));
+            //dt_NetworkResults.Columns.Add("OpenUDP_Ports", typeof(string));
             dt_NetworkResults.Columns.Add("Comment", typeof(string));
             dt_NetworkResults.Columns.Add("Mac", typeof(string));
             dt_NetworkResults.Columns.Add("Vendor", typeof(string));
             dt_NetworkResults.Columns.Add("Exception", typeof(string));
             dt_NetworkResults.Columns.Add("DNSServers", typeof(string));
-            dt_NetworkResults.Columns.Add("GatewayIP", typeof(string));
-            dt_NetworkResults.Columns.Add("GatewayPort", typeof(string));
+            dt_NetworkResults.Columns.Add("NMGatewayIP", typeof(string));
+            dt_NetworkResults.Columns.Add("NMGatewayPort", typeof(string));
             //dt_NetworkResults.Columns.Add("SendAlert", typeof(bool));
             dt_NetworkResults.Columns.Add("IPToSort", typeof(string));
         }
@@ -676,8 +676,8 @@ namespace MyNetworkMonitor
             dt.Columns.Add("LastIP", typeof(string));
             dt.Columns.Add("Domain", typeof(string));
             dt.Columns.Add("DNSServers", typeof(string));                    
-            dt.Columns.Add("GatewayIP", typeof(string));
-            dt.Columns.Add("GatewayPort", typeof(string));
+            dt.Columns.Add("NMGatewayIP", typeof(string));
+            dt.Columns.Add("NMGatewayPort", typeof(string));
             dt.Columns.Add("AutomaticScan", typeof(bool));
             dt.Columns.Add("ScanIntervalMinutes", typeof(string));
         }

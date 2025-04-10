@@ -74,8 +74,8 @@ namespace MyNetworkMonitor
                 tb_LastIP.Text = selectedRow["LastIP"].ToString();
                 tb_Domain.Text = selectedRow["Domain"].ToString();
                 tb_DNSServer.Text = selectedRow["DNSServers"].ToString();
-                tb_IPWhereNetworkMonitorRunAsGateway.Text = selectedRow["GatewayIP"].ToString();
-                tb_GatewayPort.Text = selectedRow["GatewayPort"].ToString();
+                tb_IPWhereNetworkMonitorRunAsGateway.Text = selectedRow["NMGatewayIP"].ToString();
+                tb_GatewayPort.Text = selectedRow["NMGatewayPort"].ToString();
                 chk_AutomaticScan.IsChecked = Convert.ToBoolean(selectedRow["AutomaticScan"]);
                 tb_ScanInterval.Text = selectedRow["ScanIntervalMinutes"].ToString();
           
@@ -94,8 +94,8 @@ namespace MyNetworkMonitor
                 row["LastIP"] = tb_LastIP.Text;
                 row["Domain"] = tb_Domain.Text;
                 row["DNSServers"] = tb_DNSServer.Text;
-                row["GatewayIP"] = tb_IPWhereNetworkMonitorRunAsGateway.Text;
-                row["GatewayPort"] = tb_GatewayPort.Text;
+                row["NMGatewayIP"] = tb_IPWhereNetworkMonitorRunAsGateway.Text;
+                row["NMGatewayPort"] = tb_GatewayPort.Text;
                 row["AutomaticScan"] = Convert.ToBoolean(chk_AutomaticScan.IsChecked);
                 row["ScanIntervalMinutes"] = tb_ScanInterval.Text;
 
@@ -110,8 +110,8 @@ namespace MyNetworkMonitor
                 _dt.Rows[indexOfCurrentRow]["LastIP"] = tb_LastIP.Text;
                 _dt.Rows[indexOfCurrentRow]["Domain"] = tb_Domain.Text;
                 _dt.Rows[indexOfCurrentRow]["DNSServers"] = tb_DNSServer.Text;
-                _dt.Rows[indexOfCurrentRow]["GatewayIP"] = tb_IPWhereNetworkMonitorRunAsGateway.Text;
-                _dt.Rows[indexOfCurrentRow]["GatewayPort"] = tb_GatewayPort.Text;
+                _dt.Rows[indexOfCurrentRow]["NMGatewayIP"] = tb_IPWhereNetworkMonitorRunAsGateway.Text;
+                _dt.Rows[indexOfCurrentRow]["NMGatewayPort"] = tb_GatewayPort.Text;
                 _dt.Rows[indexOfCurrentRow]["AutomaticScan"] = Convert.ToBoolean(chk_AutomaticScan.IsChecked);
                 _dt.Rows[indexOfCurrentRow]["ScanIntervalMinutes"] = tb_ScanInterval.Text;
             }
