@@ -556,8 +556,6 @@ namespace MyNetworkMonitor
                     checkBoxColumn.ElementStyle = checkBoxStyle;
                 }
             }
-
-
         }
 
         private void dgv_ScanResults_OnAutoGeneratingColumn(object sender, DataGridAutoGeneratingColumnEventArgs e)
@@ -931,7 +929,6 @@ namespace MyNetworkMonitor
             {
                 if ((bool)row["IsActive"])
                 {
-
 
                     if (string.IsNullOrEmpty(row["LastIP"].ToString()))
                     {
