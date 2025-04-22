@@ -78,8 +78,6 @@ namespace MyNetworkMonitor
                 tb_GatewayPort.Text = selectedRow["NMGatewayPort"].ToString();
                 chk_AutomaticScan.IsChecked = Convert.ToBoolean(selectedRow["AutomaticScan"]);
                 tb_ScanInterval.Text = selectedRow["ScanIntervalMinutes"].ToString();
-          
-
         }
 
         private void bt_addEntry_Click(object sender, RoutedEventArgs e)
@@ -114,7 +112,7 @@ namespace MyNetworkMonitor
                 _dt.Rows[indexOfCurrentRow]["NMGatewayPort"] = tb_GatewayPort.Text;
                 _dt.Rows[indexOfCurrentRow]["AutomaticScan"] = Convert.ToBoolean(chk_AutomaticScan.IsChecked);
                 _dt.Rows[indexOfCurrentRow]["ScanIntervalMinutes"] = tb_ScanInterval.Text;
-            }
+            }            
             indexOfCurrentRow = -1;
         }
 
@@ -139,6 +137,28 @@ namespace MyNetworkMonitor
         private void Window_Closing(object sender, CancelEventArgs e)
         {
 
+        }
+
+        private void dg_IPGroups_AutoGeneratingColumn(object sender, DataGridAutoGeneratingColumnEventArgs e)
+        {
+            if (e.PropertyName == "IsActive" || e.PropertyName == "AutomaticScan")
+            {
+                if (e.Column is DataGridCheckBoxColumn checkBoxColumn)
+                {
+                    // Setze das Binding richtig
+                    checkBoxColumn.Binding = new Binding(e.PropertyName)
+                    {
+                        Mode = BindingMode.TwoWay,
+                        UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged
+                    };
+
+                    // Setze den Style für die CheckBox (damit sie nicht fokussierbar ist)
+                    Style checkBoxStyle = new Style(typeof(CheckBox));
+                    checkBoxStyle.Setters.Add(new Setter(CheckBox.FocusableProperty, false));
+
+                    checkBoxColumn.ElementStyle = checkBoxStyle;
+                }
+            }
         }
     }
    
