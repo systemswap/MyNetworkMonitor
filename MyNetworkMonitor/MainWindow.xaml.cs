@@ -671,24 +671,101 @@ namespace MyNetworkMonitor
 
 
 
+        //public DataRow GetIPDescription(string IP)
+        //{
+        //    return ipGroupData.IPGroupsDT.AsEnumerable().FirstOrDefault(row =>
+        //    {
+        //        string[] firstIPParts = row["FirstIP"].ToString().Split('.');
+        //        string baseIP = string.Join(".", firstIPParts.Take(3));  // Grundstruktur der IP (z.B. "192.163.165")
+        //        string firstIP = row["FirstIP"].ToString();
+        //        string lastIP = $"{baseIP}.{row["LastIP"]}";
+
+        //        return IsIPInRange(IP, firstIP, lastIP);
+        //    });
+
+        //    bool IsIPInRange(string ipToCheck, string startIP, string endIP) =>
+        //        CompareIPs(ipToCheck, startIP) >= 0 && CompareIPs(ipToCheck, endIP) <= 0;
+
+        //    int CompareIPs(string ip1, string ip2) =>
+        //        BitConverter.ToInt32(IPAddress.Parse(ip1).GetAddressBytes().Reverse().ToArray(), 0)
+        //            .CompareTo(BitConverter.ToInt32(IPAddress.Parse(ip2).GetAddressBytes().Reverse().ToArray(), 0));
+        //}
+
         public DataRow GetIPDescription(string IP)
         {
-            return ipGroupData.IPGroupsDT.AsEnumerable().FirstOrDefault(row =>
+            bool changedLastIP = false;
+            foreach (DataRow row in ipGroupData.IPGroupsDT.Rows)
             {
-                string[] firstIPParts = row["FirstIP"].ToString().Split('.');
-                string baseIP = string.Join(".", firstIPParts.Take(3));  // Grundstruktur der IP (z.B. "192.163.165")
                 string firstIP = row["FirstIP"].ToString();
-                string lastIP = $"{baseIP}.{row["LastIP"]}";
+                string lastIPRaw = row["LastIP"].ToString();
 
-                return IsIPInRange(IP, firstIP, lastIP);
-            });
+                // Ergänze ggf. unvollständige LastIP basierend auf FirstIP
+                string lastIP = CompleteIP(lastIPRaw, firstIP);
 
-            bool IsIPInRange(string ipToCheck, string startIP, string endIP) =>
-                CompareIPs(ipToCheck, startIP) >= 0 && CompareIPs(ipToCheck, endIP) <= 0;
+                // Wenn verändert, speichere die vollständige IP zurück in die Tabelle
+                if (lastIP != lastIPRaw)
+                {
+                    row["LastIP"] = lastIP;
+                    changedLastIP = true;
+                    SaveIPGroups();
+                }
 
-            int CompareIPs(string ip1, string ip2) =>
-                BitConverter.ToInt32(IPAddress.Parse(ip1).GetAddressBytes().Reverse().ToArray(), 0)
-                    .CompareTo(BitConverter.ToInt32(IPAddress.Parse(ip2).GetAddressBytes().Reverse().ToArray(), 0));
+                // Bereichsprüfung
+                if (IsIPInRange(IP, firstIP, lastIP))
+                {                   
+                    return row; // Ganze DataRow zurückgeben
+                }              
+            }
+
+            bool SaveIPGroups()
+            {
+                if (!Directory.Exists(System.IO.Path.GetDirectoryName(_ipGroupsXML)))
+                {
+                    Directory.CreateDirectory(System.IO.Path.GetDirectoryName(_ipGroupsXML));
+                }
+                ipGroupData.IPGroupsDT.WriteXml(_ipGroupsXML, XmlWriteMode.WriteSchema);
+                return true;
+            }
+
+            return null; // Keine passende Zeile gefunden
+
+            // Hilfsmethoden:
+
+            string CompleteIP(string partialIP, string baseIP)
+            {
+                var baseParts = baseIP.Split('.');
+                var partialParts = partialIP.Split('.');
+
+                if (partialParts.Length == 4)
+                    return partialIP;
+
+                int missing = 4 - partialParts.Length;
+                if (missing < 1 || missing > 3)
+                    throw new FormatException("Ungültige LastIP im Datensatz.");
+
+                var fullParts = new List<string>();
+                fullParts.AddRange(baseParts.Take(missing));
+                fullParts.AddRange(partialParts);
+
+                return string.Join(".", fullParts);
+            }
+
+            bool IsIPInRange(string ip, string startIP, string endIP)
+            {
+                uint ipVal = IPToUInt(ip);
+                uint startVal = IPToUInt(startIP);
+                uint endVal = IPToUInt(endIP);
+
+                return ipVal >= Math.Min(startVal, endVal) && ipVal <= Math.Max(startVal, endVal);
+            }
+
+            uint IPToUInt(string ip)
+            {
+                byte[] bytes = IPAddress.Parse(ip).GetAddressBytes();
+                if (BitConverter.IsLittleEndian)
+                    Array.Reverse(bytes);
+                return BitConverter.ToUInt32(bytes, 0);
+            }
         }
 
 
@@ -902,13 +979,38 @@ namespace MyNetworkMonitor
                     }
                     else
                     {
-                        string[] FirstIP = row["FirstIP"].ToString().Split('.');
-                        int LastIP = Convert.ToInt16(row["LastIP"]);
+                        //string[] FirstIP = row["FirstIP"].ToString().Split('.');
+                        //int LastIP = Convert.ToInt16(row["LastIP"]);
 
-                        for (int i = Convert.ToInt16(FirstIP[3]); i <= LastIP; i++)
+                        //for (int i = Convert.ToInt16(FirstIP[3]); i <= LastIP; i++)
+                        //{
+                        //    string ip = string.Format($"{FirstIP[0]}.{FirstIP[1]}.{FirstIP[2]}.{i}");
+
+                        //    IPToScan ipToScan = new IPToScan();
+                        //    ipToScan.IPGroupDescription = row["IPGroupDescription"].ToString();
+                        //    ipToScan.DeviceDescription = row["DeviceDescription"].ToString();
+                        //    ipToScan.IPorHostname = ip;
+                        //    ipToScan.HostName = string.Empty;
+                        //    //ipToScan.NetBiosHostname = string.Empty;
+                        //    //ipToScan.destectedServices = string.Empty;
+                        //    //ipToScan.SNMPSysName = string.Empty;
+                        //    //ipToScan.SNMPSysDesc = string.Empty;
+                        //    //ipToScan.SNMPLocation = string.Empty;
+                        //    ipToScan.Domain = row["Domain"].ToString();
+                        //    ipToScan.TCPPortsToScan = _portCollection.TCPPorts;
+                        //    ipToScan.UDPPortsToScan = _portCollection.UDPPorts;
+                        //    ipToScan.DNSServerList = row["DNSServers"].ToString().Split(',').ToList();
+                        //    ipToScan.TimeOut = _TimeOut;
+                        //    ipToScan.NMGatewayIP = row["NMGatewayIP"].ToString();
+                        //    ipToScan.NMGatewayPort = row["NMGatewayPort"].ToString();
+
+                        //    _IPsToScan.Add(ipToScan);
+                        //}
+
+                        List<string> IPRanges = GetIPRange(row["FirstIP"].ToString(), row["LastIP"].ToString());
+
+                        foreach (string ip in IPRanges)
                         {
-                            string ip = string.Format($"{FirstIP[0]}.{FirstIP[1]}.{FirstIP[2]}.{i}");
-
                             IPToScan ipToScan = new IPToScan();
                             ipToScan.IPGroupDescription = row["IPGroupDescription"].ToString();
                             ipToScan.DeviceDescription = row["DeviceDescription"].ToString();
@@ -929,10 +1031,74 @@ namespace MyNetworkMonitor
 
                             _IPsToScan.Add(ipToScan);
                         }
+
                     }
                 }
             }
             DoWork(false);
+        }
+
+        public List<string> GetIPRange(string ip1, string ip2)
+        {
+            string CompleteIP(string partialIP, string baseIP)
+            {
+                var baseParts = baseIP.Split('.');
+                var partialParts = partialIP.Split('.');
+
+                int missingParts = 4 - partialParts.Length;
+
+                if (missingParts < 0 || missingParts > 3)
+                    throw new ArgumentException("Ungültige IP-Adresse oder zu viele Segmente in der zweiten IP.");
+
+                var completedParts = new string[4];
+                for (int i = 0; i < missingParts; i++)
+                {
+                    completedParts[i] = baseParts[i];
+                }
+
+                for (int i = 0; i < partialParts.Length; i++)
+                {
+                    completedParts[missingParts + i] = partialParts[i];
+                }
+
+                return string.Join(".", completedParts);
+            }
+
+            uint IPToUInt32(string ipString)
+            {
+                byte[] bytes = IPAddress.Parse(ipString).GetAddressBytes();
+                if (BitConverter.IsLittleEndian)
+                    Array.Reverse(bytes);
+                return BitConverter.ToUInt32(bytes, 0);
+            }
+
+            string UInt32ToIP(uint ip)
+            {
+                byte[] bytes = BitConverter.GetBytes(ip);
+                if (BitConverter.IsLittleEndian)
+                    Array.Reverse(bytes);
+                return new IPAddress(bytes).ToString();
+            }
+
+            // Auto-vervollständige die zweite IP, falls nötig
+            if (ip2.Split('.').Length < 4)
+            {
+                ip2 = CompleteIP(ip2, ip1);
+            }
+
+            uint ipValue1 = IPToUInt32(ip1);
+            uint ipValue2 = IPToUInt32(ip2);
+
+            uint start = Math.Min(ipValue1, ipValue2);
+            uint end = Math.Max(ipValue1, ipValue2);
+
+            var result = new List<string>();
+            for (uint ip = start; ip <= end; ip++)
+            {
+                result.Add(UInt32ToIP(ip));
+            }
+
+            return result;
         }
 
 
