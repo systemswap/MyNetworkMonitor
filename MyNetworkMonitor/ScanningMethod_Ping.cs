@@ -130,7 +130,10 @@ namespace MyNetworkMonitor
         {
             if (_cts.Token.IsCancellationRequested) return; // 🔹 Falls Scan abgebrochen, sofort raus
 
-            if (!new SupportMethods().Is_Valid_IP(ipToScan.IPorHostname)) return;
+            if (!new SupportMethods().Is_Valid_IP(ipToScan.IPorHostname)) 
+            { 
+                return; 
+            }
 
 
             try
