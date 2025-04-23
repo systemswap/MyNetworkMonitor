@@ -164,9 +164,6 @@ namespace MyNetworkMonitor
             }
 
             cvTasks_scanResults = CollectionViewSource.GetDefaultView(dgv_Results.ItemsSource);
-            
-
-            groupScanResult();
 
 
             if (File.Exists(_ipGroupsXML))
@@ -1126,7 +1123,19 @@ namespace MyNetworkMonitor
             var result = new List<string>();
             for (uint ip = start; ip <= end; ip++)
             {
-                result.Add(UInt32ToIP(ip));
+                string ipAddress = UInt32ToIP(ip);
+
+                // Netzadresse oder Broadcast-Adresse ausschließen (z.B. .0 und .255 im vierten Oktett)
+                string[] ipParts = ipAddress.Split('.');
+                int fourthOctet = int.Parse(ipParts[3]);
+
+                // Überspringe adressen wenn sie mit 0 enden
+                if (fourthOctet == 0)// || fourthOctet == 255)
+                {
+                    continue; 
+                }
+
+                result.Add(ipAddress);
             }
 
             return result;
@@ -1579,7 +1588,7 @@ namespace MyNetworkMonitor
                 Task.Run(() => scanningMethode_ARP.ARP_A(_IPsToScan), _cts.Token);
             }
 
-            await Task.Run(() => reGroupScanResult());  
+            await reGroupScanResult();
         }
 
         byte[] green_dot_s = Properties.Resources.green_dot_s;
@@ -2771,53 +2780,63 @@ namespace MyNetworkMonitor
             }
         }
 
-        private void chk_ScanResults_groupDevices_Click(object sender, RoutedEventArgs e)
+        private async void chk_ScanResults_groupDevices_Click(object sender, RoutedEventArgs e)
         {
-            groupScanResult();
+            await reGroupScanResult();
         }
 
 
-        public void groupScanResult()
+        //public void groupScanResult()
+        //{
+        //    try
+        //    {
+        //        if ((bool)chk_ScanResults_groupDevices.IsChecked)
+        //        {
+        //            string groupProperty = "IPGroupDescription";
+        //            if (!cvTasks_scanResults.GroupDescriptions.OfType<PropertyGroupDescription>().Any(g => g.PropertyName == groupProperty))
+        //            {
+        //                cvTasks_scanResults.GroupDescriptions.Add(new PropertyGroupDescription(groupProperty));
+        //            }
+
+        //            cvTasks_scanResults.GroupDescriptions.Add(new PropertyGroupDescription("DeviceDescription"));
+        //        }
+        //        else
+        //        {
+        //            var itemToRemove = cvTasks_scanResults.GroupDescriptions.OfType<PropertyGroupDescription>().FirstOrDefault(pgd => pgd.PropertyName == "DeviceDescription");
+        //            cvTasks_scanResults.GroupDescriptions.Remove(itemToRemove);
+        //        }
+        //    }
+        //    catch { }
+
+        //    Dispatcher.BeginInvoke(() => dgv_Results.Items.Refresh());
+        //}
+
+
+        public async Task reGroupScanResult()
         {
-            try
-            {
-                if ((bool)chk_ScanResults_groupDevices.IsChecked)
-                {
-                    string groupProperty = "IPGroupDescription";
-                    if (!cvTasks_scanResults.GroupDescriptions.OfType<PropertyGroupDescription>().Any(g => g.PropertyName == groupProperty))
-                    {
-                        cvTasks_scanResults.GroupDescriptions.Add(new PropertyGroupDescription(groupProperty));
-                    }
-
-                    cvTasks_scanResults.GroupDescriptions.Add(new PropertyGroupDescription("DeviceDescription"));
-                }
-                else
-                {
-                    var itemToRemove = cvTasks_scanResults.GroupDescriptions.OfType<PropertyGroupDescription>().FirstOrDefault(pgd => pgd.PropertyName == "DeviceDescription");
-                    cvTasks_scanResults.GroupDescriptions.Remove(itemToRemove);
-                }
-            }
-            catch { }
-
-            Dispatcher.BeginInvoke(() => dgv_Results.Items.Refresh());
-        }
-
-
-        public void reGroupScanResult()
-        {
-            Dispatcher.BeginInvoke(new Action(() =>
-            {
+            // Diese Operation läuft im Hintergrund
+         
                 foreach (DataRow row in _scannResults.ResultTable.Rows)
                 {
                     var descriptionRow = GetIPDescription(row["IP"].ToString());
-                    string description = descriptionRow != null ? descriptionRow["IPGroupDescription"].ToString() : string.Empty;
+                    string IPGroupDescription = descriptionRow != null ? descriptionRow["IPGroupDescription"].ToString() : string.Empty;
+                    string DeviceDescription = descriptionRow != null ? descriptionRow["DeviceDescription"].ToString() : string.Empty;
 
-                    row["IPGroupDescription"] = description;
+                    if (!string.IsNullOrEmpty(IPGroupDescription))
+                    {
+                        row["IPGroupDescription"] = IPGroupDescription;
+                    }
+
+                    if (!string.IsNullOrEmpty(DeviceDescription))
+                    {
+                        row["DeviceDescription"] = DeviceDescription;
+                    }
                 }
+           
 
-                // DataGrid aktualisieren
-                dgv_Results.Items.Refresh();
-
+            // Jetzt, wenn die Hintergrundarbeit abgeschlossen ist, die UI-Änderungen auf dem UI-Thread ausführen
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
                 // Alle aktuellen Gruppierungen entfernen
                 cvTasks_scanResults.GroupDescriptions.Clear();
 
@@ -2827,6 +2846,14 @@ namespace MyNetworkMonitor
                     cvTasks_scanResults.GroupDescriptions.Add(new PropertyGroupDescription("IPGroupDescription"));
                     cvTasks_scanResults.GroupDescriptions.Add(new PropertyGroupDescription("DeviceDescription"));
                 }
+                else
+                {
+                    cvTasks_scanResults.GroupDescriptions.Add(new PropertyGroupDescription("DeviceDescription"));
+                }
+
+                //_scannResults.ResultTable.AcceptChanges();
+                cvTasks_scanResults.Refresh();
+                dgv_Results.Items.Refresh();
             }));
         }
 
@@ -3707,9 +3734,11 @@ namespace MyNetworkMonitor
             }
         }
 
-        private void mainWindow_Loaded(object sender, RoutedEventArgs e)
+        private async void mainWindow_Loaded(object sender, RoutedEventArgs e)
         {
             //LoadServiceScanSettings();
+
+            await reGroupScanResult();
         }
 
         private void ScanSelectedIPs_Click(object sender, RoutedEventArgs e)        
