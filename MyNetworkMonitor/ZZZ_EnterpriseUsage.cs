@@ -20,6 +20,7 @@ namespace MyNetworkMonitor
     static class ZZZ_EnterpriseUsage
     {
         static int countdown = 0;
+        static bool isClosingFromButton = false;
 
         public static bool IsCompanyNetwork()
         {
@@ -144,7 +145,7 @@ namespace MyNetworkMonitor
             };
 
             // Kontakt-Link
-            TextBlock contactText = new TextBlock { Text = "If you need a licensed version, contact us: ", TextAlignment = TextAlignment.Center };
+            TextBlock contactText = new TextBlock { Text = "If you need a licensed version, contact me: ", TextAlignment = TextAlignment.Center };
 
             // Erstellen des Run-Objekts für die E-Mail-Adresse mit einer benutzerdefinierten Schriftgröße
             Run emailRun = new Run("systemswap@tuta.io")
@@ -203,16 +204,28 @@ namespace MyNetworkMonitor
             };
             timer.Start();
 
-            closeButton.Click += (s, e) => window.Close();
+            //closeButton.Click += (s, e) => window.Close();
+
+            closeButton.Click += (s, e) =>
+            {
+                isClosingFromButton = true; // Flag setzen, dass der Button geklickt wurde
+                window.Close(); // Fenster wird normal geschlossen
+            };
 
 
             // Schließen des Fensters abfangen
             window.Closing += (sender, e) =>
             {
-                // Wenn das Fenster durch das "X" geschlossen wird
-                if (!closeButton.IsEnabled)
+                //// Wenn das Fenster durch das "X" geschlossen wird
+                //if (!closeButton.IsEnabled)
+                //{
+                //    // Die gesamte Anwendung wird hier geschlossen
+                //    Application.Current.Shutdown();
+                //}
+
+                if (!isClosingFromButton)
                 {
-                    // Die gesamte Anwendung wird hier geschlossen
+                    // Wenn das Fenster durch das "X" geschlossen wird, dann die ganze Anwendung stoppen
                     Application.Current.Shutdown();
                 }
             };
