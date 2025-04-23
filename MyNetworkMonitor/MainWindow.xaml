@@ -685,7 +685,7 @@
                 <RadioButton x:Name="rb_ScanHostnames_All_IPs" Grid.Column="4" Content="all" Margin="10,0,282,0" VerticalContentAlignment="Center"/>
 
             </Grid>
-            <Button x:Name="bt_VisualizeTable" Grid.Column="1" Content="Visualize DNS &amp; Duplicate Table Information" HorizontalAlignment="Left" Margin="11,52,0,0" Grid.Row="1" VerticalAlignment="Top" Grid.RowSpan="2" Width="262" Click="bt_VisualizeTable_Click"/>
+            <Button x:Name="bt_VisualizeTable" Grid.Column="1" Content="Visualize Table Information" HorizontalAlignment="Left" Margin="10,52,0,0" Grid.Row="1" VerticalAlignment="Top" Grid.RowSpan="2" Width="260" Click="bt_VisualizeTable_Click"/>
             <Label Content="Free for personal use" VerticalAlignment="Center" Height="29" VerticalContentAlignment="Center" Foreground="#FF1196A7" HorizontalContentAlignment="Center" FontWeight="bold" Margin="64,0,65,0"/>
             <!--<Label Content="for commercial contact: systemswap@tuta.io" VerticalAlignment="Top" Height="29" VerticalContentAlignment="Center" Foreground="#FF1196A7" HorizontalContentAlignment="Center" FontWeight="Bold" Grid.Row="1" Margin="37,28,37,0"/>-->
 
