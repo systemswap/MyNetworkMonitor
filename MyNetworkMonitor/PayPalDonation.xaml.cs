@@ -54,7 +54,8 @@ namespace MyNetworkMonitor
                     string baseUrl = "https://www.paypal.com/cgi-bin/webscr";
                     var queryParameters = HttpUtility.ParseQueryString(string.Empty);
 
-                    if (SubscriptionCheckBox.IsChecked == true) // Wenn Abo ausgewählt
+                    //if (SubscriptionCheckBox.IsChecked == true) // Wenn Abo ausgewählt
+                    if(false)
                     {
                         queryParameters["cmd"] = "_xclick-subscriptions";
                         queryParameters["business"] = paypalEmail;
@@ -80,15 +81,24 @@ namespace MyNetworkMonitor
 
                     string donationUrl = $"{baseUrl}?{queryParameters}";
 
-                    // WebView2 sichtbar machen und gesamte UI ausblenden
-                    PayPalWebView.Visibility = Visibility.Collapsed;
-                PayPalWebView.Visibility = Visibility.Visible;
-                PayPalWebView.Source = new Uri(donationUrl);
+                //    // WebView2 sichtbar machen und gesamte UI ausblenden
+                //    PayPalWebView.Visibility = Visibility.Collapsed;
+                //PayPalWebView.Visibility = Visibility.Visible;
+                //PayPalWebView.Source = new Uri(donationUrl);
 
-                System.Threading.Tasks.Task.Delay(1500).Wait();
+                //System.Threading.Tasks.Task.Delay(1500).Wait();
 
-                this.Height = 780;
-                this.Width = 850;
+                //this.Height = 780;
+                //this.Width = 850;
+          
+
+                // Standardbrowser öffnen
+                ProcessStartInfo psi = new ProcessStartInfo
+                {
+                    FileName = donationUrl,
+                    UseShellExecute = true
+                };
+                Process.Start(psi);
             }
             catch (Exception ex)
             {
