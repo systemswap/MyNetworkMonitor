@@ -31,8 +31,8 @@
 
     <Grid Background="#F5F7FA">
         <!-- Hinzufügen des Bildes als Hintergrund für das Grid -->
-        <Image Source="/Images/DevDonation.jpg"
-               Stretch="UniformToFill" Opacity="0.9" HorizontalAlignment="Center" VerticalAlignment="Top" Height="706" RenderOptions.BitmapScalingMode="HighQuality"/>
+        <Image Source="/Images/DevDonationCuted.jpg"
+               Stretch="UniformToFill" Opacity="0.9" RenderOptions.BitmapScalingMode="HighQuality"/>
 
         <Border Background="White" Padding="20" CornerRadius="20" Margin="151,64,151,140">
             <Border.Effect>
@@ -41,7 +41,7 @@
 
             <StackPanel Margin="-20,0,-20,3">
 
-                
+
                 <Image Source="/Images/paypal.png"
                        Width="180" Height="80" Margin="0,20,0,10"
                        RenderOptions.BitmapScalingMode="HighQuality"
@@ -58,7 +58,7 @@
                            HorizontalAlignment="Center" Width="300" Margin="0,0,0,15"/>
 
                 <!-- Betrag + Währung in einer Zeile -->
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="5">
                     <TextBox x:Name="AmountTextBox" Width="80" FontSize="28"
                              TextAlignment="Center" Text="25" PreviewTextInput="AmountTextBox_PreviewTextInput" 
                              PreviewKeyDown="AmountTextBox_PreviewKeyDown"/>
@@ -66,15 +66,18 @@
                 </StackPanel>
 
                 <!-- Subscription Option -->
-                <CheckBox x:Name="SubscriptionCheckBox" Content="Make a yearly donation"
-                          FontSize="12" Foreground="Black" HorizontalAlignment="Center" Margin="0,5,0,20"
-                          Checked="SubscriptionCheckBox_Checked" Unchecked="SubscriptionCheckBox_Unchecked"/>
+                <!--<CheckBox x:Name="SubscriptionCheckBox" Content="Make a yearly donation"
+                          FontSize="12" Foreground="Black" HorizontalAlignment="Center" Margin="0,5,0,10"
+                          Checked="SubscriptionCheckBox_Checked" Unchecked="SubscriptionCheckBox_Unchecked"/>-->
+                <TextBlock x:Name="filler"
+           Text="feeling better when" 
+           FontSize="12" Foreground="Gray" HorizontalAlignment="Center" Margin="0,5,0,10"/>
 
                 <!-- Spenden-Button -->
                 <Button x:Name="DonatePayPalButton"
                         Content="Donate Now 🚀" 
                         Click="DonateWithPayPal_Click"
-                        Style="{StaticResource RoundedButtonStyle}" Width="250" Height="50" />
+                        Style="{StaticResource RoundedButtonStyle}" Width="250" Height="50" Margin="1"/>
 
                 <!-- Social Proof (Dynamisch aktualisieren) -->
                 <TextBlock x:Name="DonationCountTextBlock"
