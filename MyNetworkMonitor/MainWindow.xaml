@@ -735,6 +735,7 @@
                     </ControlTemplate>
                 </Button.Template>
             </Button>
+            <CheckBox Grid.Column="1" Name="chk_dg_Result_ShowEmptyColumns" Content="show empty columns" IsChecked="true" Margin="0,3,10,0" Grid.Row="2" VerticalAlignment="Top" HorizontalAlignment="Right" Width="135" Unchecked="chk_dg_Result_ShowEmptyColumns_Unchecked" Checked="chk_dg_Result_ShowEmptyColumns_Checked"/>
         </Grid>
     </Grid>
 </Window>
