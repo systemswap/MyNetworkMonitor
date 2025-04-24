@@ -14,6 +14,7 @@
 
   <ItemGroup>
     <None Remove="Images\DevDonation.jpg" />
+    <None Remove="Images\DevDonationCuted.jpg" />
     <None Remove="Images\florida.png" />
     <None Remove="Images\florida2.png" />
     <None Remove="Images\logo.png" />
@@ -46,6 +47,9 @@
 
   <ItemGroup>
     <Content Include="Images\DevDonation.jpg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\DevDonationCuted.jpg">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Images\logo.png">
