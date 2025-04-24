@@ -35,6 +35,7 @@ using System.Net.NetworkInformation;
 using System.Windows.Documents;
 using System.Windows.Navigation;
 using System.Windows.Threading;
+using System.Data.Common;
 
 
 //using static System.Net.WebRequestMethods;
@@ -164,6 +165,8 @@ namespace MyNetworkMonitor
             }
 
             cvTasks_scanResults = CollectionViewSource.GetDefaultView(dgv_Results.ItemsSource);
+
+            HideEmptyColumnsFromDataTable(dgv_Results, _scannResults.ResultTable);
 
 
             if (File.Exists(_ipGroupsXML))
@@ -1911,6 +1914,50 @@ namespace MyNetworkMonitor
                 }
 
                 _scannResults.ResultTable.Rows.Add(row);
+            }
+
+            HideEmptyColumnsFromDataTable(dgv_Results, _scannResults.ResultTable);
+        }
+
+
+
+        private void HideEmptyColumnsFromDataTable(DataGrid dataGrid, DataTable dataTable)
+        {
+            List<string> ColumnsToIgnore = new List<string>();
+            ColumnsToIgnore.Add("IPToSort");
+
+            if ((bool)chk_dg_Result_ShowEmptyColumns.IsChecked)
+            {
+                // Alle Spalten einblenden
+                foreach (var column in dataGrid.Columns)
+                {
+                    if (!ColumnsToIgnore.Contains(column.Header))
+                    {
+                        column.Visibility = Visibility.Visible;
+                    }
+                }
+            }
+            else
+            {
+                // Leere Spalten ausblenden
+                foreach (DataColumn col in dataTable.Columns)
+                {
+                    bool allEmpty = dataTable.AsEnumerable()
+                        .All(row => row.IsNull(col) || string.IsNullOrWhiteSpace(row[col].ToString()));
+
+                    var gridColumn = dataGrid.Columns
+                        .FirstOrDefault(c =>
+                            (c as DataGridBoundColumn)?.Binding is Binding b &&
+                            b.Path.Path == col.ColumnName);
+
+                    if (gridColumn != null)
+                    {
+                        if (!ColumnsToIgnore.Contains(gridColumn.Header))
+                        {
+                            gridColumn.Visibility = allEmpty ? Visibility.Collapsed : Visibility.Visible;
+                        }
+                    }
+                }
             }
         }
 
@@ -4039,6 +4086,16 @@ namespace MyNetworkMonitor
         {
             Process.Start(new ProcessStartInfo(e.Uri.AbsoluteUri) { UseShellExecute = true });
             e.Handled = true;
+        }
+
+        private void chk_dg_Result_ShowEmptyColumns_Unchecked(object sender, RoutedEventArgs e)
+        {
+            HideEmptyColumnsFromDataTable(dgv_Results, _scannResults.ResultTable);
+        }
+
+        private void chk_dg_Result_ShowEmptyColumns_Checked(object sender, RoutedEventArgs e)
+        {
+            HideEmptyColumnsFromDataTable(dgv_Results, _scannResults.ResultTable);
         }
     }
 }
