@@ -55,6 +55,17 @@ namespace MyNetworkMonitor
 
             mainWindow.Title += " - version: " + Assembly.GetExecutingAssembly().GetName().Version.ToString();
 
+
+            if (Properties.Settings.Default.MustUpgrade)
+            {
+                Properties.Settings.Default.Upgrade();
+                Properties.Settings.Default.MustUpgrade = false;
+                Properties.Settings.Default.Save();
+            }
+
+            chk_dg_Result_ShowEmptyColumns.IsChecked = Properties.Settings.Default.ShowEmptyColumns;
+
+
             if (ZZZ_EnterpriseUsage.IsCompanyNetwork())
             {
                 ZZZ_EnterpriseUsage.ShowEnterpriseMessage();
@@ -141,8 +152,8 @@ namespace MyNetworkMonitor
 
 
             dv_resultTable = new DataView(_scannResults.ResultTable);
-            dgv_Results.ItemsSource = dv_resultTable; 
-
+            dgv_Results.ItemsSource = dv_resultTable;
+            
 
             // Setze das DataGrid-ItemSource auf eine CollectionView
 
@@ -166,7 +177,6 @@ namespace MyNetworkMonitor
 
             cvTasks_scanResults = CollectionViewSource.GetDefaultView(dgv_Results.ItemsSource);
 
-            HideEmptyColumnsFromDataTable(dgv_Results, _scannResults.ResultTable);
 
 
             if (File.Exists(_ipGroupsXML))
@@ -198,7 +208,7 @@ namespace MyNetworkMonitor
             {
                 try
                 {
-                    _scannResults.ResultTable.ReadXml(_lastScanResultXML);
+                    _scannResults.ResultTable.ReadXml(_lastScanResultXML);                    
                 }
                 catch (Exception)
                 {
@@ -254,7 +264,9 @@ namespace MyNetworkMonitor
 
 
             LoadLogo();
+
             
+
         }
 
        
@@ -4088,12 +4100,14 @@ namespace MyNetworkMonitor
             e.Handled = true;
         }
 
-        private void chk_dg_Result_ShowEmptyColumns_Unchecked(object sender, RoutedEventArgs e)
+        private void chk_dg_Result_ShowEmptyColumns_Click(object sender, RoutedEventArgs e)
         {
             HideEmptyColumnsFromDataTable(dgv_Results, _scannResults.ResultTable);
+            Properties.Settings.Default.ShowEmptyColumns = (bool)chk_dg_Result_ShowEmptyColumns.IsChecked;
+            Properties.Settings.Default.Save();
         }
 
-        private void chk_dg_Result_ShowEmptyColumns_Checked(object sender, RoutedEventArgs e)
+        private void dgv_Results_Loaded(object sender, RoutedEventArgs e)
         {
             HideEmptyColumnsFromDataTable(dgv_Results, _scannResults.ResultTable);
         }
