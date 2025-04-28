@@ -2549,7 +2549,8 @@ static async Task<PortResult> SendTcpDnsQuery(string dnsServer, byte[] query, in
             ServiceType.UltraVNC => new byte[] { 0x52, 0x46, 0x42, 0x20, 0x30, 0x30, 0x33 },
             ServiceType.BigFixRemote => new byte[] { 0x14, 0x2B, 0xB4, 0x91, 0x05, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
 
-            ServiceType.RustdeskServer => new byte[] { 0x52, 0x44, 0x50 },
+            //ServiceType.RustdeskServer => new byte[] { 0x52, 0x44, 0x50 },
+            ServiceType.RustdeskServer => new byte[] { 0x14, 0xa2, 0x01, 0x02, 0x08, 0x03 },
 
             ServiceType.RustdeskClient => new byte[] 
             {
