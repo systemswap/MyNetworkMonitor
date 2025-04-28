@@ -216,12 +216,13 @@ namespace MyNetworkMonitor
             set => _cts = CancellationTokenSource.CreateLinkedTokenSource(value);
         }
 
-        public async Task ScanTCPPortsAsync(List<IPToScan> IPs, TimeSpan TimeOut)
+        public async Task ScanTCPPortsAsync(List<IPToScan> IPs, List<int> Ports, TimeSpan TimeOut)
         {
-            await ScanTCPPortsAsync(IPs, new PortCollection().TCPPorts, TimeOut);
+            //await _ScanTCPPortsAsync(IPs, new PortCollection().TCPPorts, TimeOut);
+            await _ScanTCPPortsAsync(IPs, Ports, TimeOut);
         }
 
-        public async Task ScanTCPPortsAsync(List<IPToScan> IPs, List<int> TCP_Ports, TimeSpan TimeOut)
+        private async Task _ScanTCPPortsAsync(List<IPToScan> IPs, List<int> TCP_Ports, TimeSpan TimeOut)
         {
             //var tasks = IPs
             //    .Where(ip => !string.IsNullOrEmpty(ip.IPorHostname))
