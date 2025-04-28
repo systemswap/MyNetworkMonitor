@@ -9,9 +9,12 @@
 
     xmlns:dxg="http://schemas.devexpress.com/winfx/2008/xaml/grid" xmlns:dx="http://schemas.devexpress.com/winfx/2008/xaml/core" x:Name="mainWindow" x:Class="MyNetworkMonitor.MainWindow"
         
-        mc:Ignorable="d"
-        Title="My Network Monitor" Height="845" Width="1865" MinWidth="1865" MinHeight="845" Closing="Window_Closing" Background="#FFFAFBFA" Loaded="mainWindow_Loaded">
+        mc:Ignorable="d" Title="My Network Monitor" Height="845" Width="1865" MinWidth="1865" MinHeight="845" Closing="Window_Closing" Background="#FFFAFBFA" Loaded="mainWindow_Loaded">
 
+    
+    
+    
+    
     <Grid>
         <Grid>
             <Grid.ColumnDefinitions>
@@ -26,7 +29,51 @@
                 <RowDefinition Height="30" MinHeight="44.04"/>
             </Grid.RowDefinitions>
             <TabControl Margin="10,0,10,10" Grid.Row="2">
-                <TabItem x:Name="Tab_FromNIC" Header="From NIC">
+
+
+            <TabItem x:Name="Tab_FromNIC" Header="From NIC">
+
+                    <TabItem.Style>
+                        <Style TargetType="TabItem">
+                            <!-- Standardfarbe #FF1196A7-->
+                            <Setter Property="Background" Value="#7F1196A7"/>
+                            <Setter Property="Foreground" Value="Black"/>
+                            <!--<Setter Property="BorderBrush" Value="DarkGreen"/>-->
+                            <!--<Setter Property="BorderThickness" Value="1"/>-->
+
+                            <!-- Custom Template -->
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="TabItem">
+                                        <Grid>
+                                            <Border x:Name="MainBorder" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" Background="{TemplateBinding Background}">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" ContentSource="Header" />
+                                            </Border>
+                                        </Grid>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+
+                            <!-- Triggers für den Zustand des Tabs -->
+                            <Style.Triggers>
+                                <!-- Trigger für den ausgewählten Zustand -->
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter Property="Background" Value="#FF1196A7"/>
+                                    <Setter  Property="BorderBrush" Value="gray"/>
+                                    <Setter Property="Foreground" Value="White"/>
+                                </Trigger>
+
+                                <!-- Trigger für den nicht ausgewählten Zustand -->
+                                <Trigger Property="IsSelected" Value="False">
+                                    <Setter  Property="Background" Value="#7F1196A7"/>
+                                    <!--<Setter Property="BorderBrush" Value="DarkGreen"/>-->
+                                    <Setter Property="Foreground" Value="Black"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TabItem.Style>
+
+
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="155*"/>
@@ -44,17 +91,17 @@
                             <RowDefinition Height="40"/>
                             <RowDefinition Height="40"/>
                         </Grid.RowDefinitions>
-                        <Label Content="Select Network Interface" Grid.ColumnSpan="2" Margin="10,15,10,0" VerticalContentAlignment="Bottom" Background="#FF189AB4" />
+                        <Label Content="Select Network Interface" Grid.ColumnSpan="2" Margin="10,15,10,0" VerticalContentAlignment="Bottom" Background="#991196A7" />
                         <ComboBox x:Name="cb_NetworkAdapters" Width="293" HorizontalAlignment="Left" VirtualizingStackPanel.IsVirtualizing="True" VirtualizingStackPanel.VirtualizationMode="Recycling" IsTextSearchEnabled="True" VerticalAlignment="Top" SelectionChanged="cb_NetworkAdapters_SelectionChanged" Grid.ColumnSpan="2" Margin="10,5,0,0" Grid.Row="1" Height="22"/>
                         <TextBox x:Name="tb_AdapterIP"   IsReadOnly="true" Width="135" HorizontalAlignment="Center" VerticalAlignment="Top" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Background="#FFEFEFEF" Grid.Row="3" Margin="0,1,0,0" Height="18"/>
-                        <Label Content="IP Address" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,12,0,0" Grid.Row="2" VerticalContentAlignment="Bottom" HorizontalContentAlignment="Left" Width="135" Background="#FF189AB4" Height="26"/>
-                        <Label Content="Subnetmask" HorizontalAlignment="Center" VerticalAlignment="Top" Grid.Column="1" Margin="0,12,0,0" Grid.Row="2" VerticalContentAlignment="Bottom" HorizontalContentAlignment="Left" Width="138" Background="#FF189AB4" Height="26"/>
+                        <Label Content="IP Address" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,12,0,0" Grid.Row="2" VerticalContentAlignment="Bottom" HorizontalContentAlignment="Left" Width="135" Background="#991196A7" Height="26"/>
+                        <Label Content="Subnetmask" HorizontalAlignment="Center" VerticalAlignment="Top" Grid.Column="1" Margin="0,12,0,0" Grid.Row="2" VerticalContentAlignment="Bottom" HorizontalContentAlignment="Left" Width="138" Background="#991196A7" Height="26"/>
                         <TextBox x:Name="tb_AdapterSubnetMask" IsReadOnly="True" Width="138" HorizontalAlignment="Center" VerticalAlignment="Top" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Background="#FFEFEFEF" Grid.Row="3" Grid.Column="1" Margin="0,1,0,0" Height="18"/>
-                        <Label Content="First Subnet IP" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,12,0,0" Grid.Row="4" VerticalContentAlignment="Bottom" HorizontalContentAlignment="Left" Width="135" Background="#FF189AB4" Height="26"/>
-                        <Label Content="Last Subnet IP"  HorizontalAlignment="Center" VerticalAlignment="Top" Grid.Column="1" Margin="0,12,0,0" Grid.Row="4" VerticalContentAlignment="Bottom" HorizontalContentAlignment="Left" Width="138" Background="#FF189AB4" Height="26"/>
+                        <Label Content="First Subnet IP" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,12,0,0" Grid.Row="4" VerticalContentAlignment="Bottom" HorizontalContentAlignment="Left" Width="135" Background="#991196A7" Height="26"/>
+                        <Label Content="Last Subnet IP"  HorizontalAlignment="Center" VerticalAlignment="Top" Grid.Column="1" Margin="0,12,0,0" Grid.Row="4" VerticalContentAlignment="Bottom" HorizontalContentAlignment="Left" Width="138" Background="#991196A7" Height="26"/>
                         <TextBox x:Name="tb_Adapter_FirstSubnetIP" Width="135" HorizontalAlignment="Center" VerticalAlignment="Top" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" TextChanged="tb_Adapter_FirstSubnetIP_TextChanged" Margin="0,1,0,0" Grid.Row="5" Height="18"/>
                         <TextBox x:Name="tb_Adapter_LastSubnetIP" VerticalAlignment="Top" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" TextChanged="tb_Adapter_LastSubnetIP_TextChanged" Grid.Row="5" Grid.Column="1" Margin="0,1,0,0" HorizontalAlignment="Center" Width="138" Height="18"/>
-                        <Button x:Name="bt_StopScanFromNIC" Background="#BFA4B1BF" Content="stop scan" HorizontalAlignment="Left" VerticalAlignment="Center" Width="100" Grid.Row="9" HorizontalContentAlignment="Center"  Grid.Column="0" Height="20" Margin="24,0,0,0" Click="StopScanning_Click">
+                        <Button x:Name="bt_StopScanFromNIC" Background="#BFC86C6C" Content="stop scan" HorizontalAlignment="Left" VerticalAlignment="Center" Width="100" Grid.Row="9" HorizontalContentAlignment="Center"  Grid.Column="0" Height="20" Margin="24,0,0,0" Click="StopScanning_Click">
                             <Button.Resources>
                                 <Style TargetType="{x:Type Border}">
                                     <Setter Property="CornerRadius" Value="5"/>
@@ -62,7 +109,7 @@
                             </Button.Resources>
                         </Button>
 
-                        <Button x:Name="bt_StartScanFromNIC" Background="#BFA4B1BF" Content="start scan" HorizontalAlignment="Center" VerticalAlignment="Center" Width="138" Grid.Row="9" HorizontalContentAlignment="Center" Click="bt_StartScanFromNIC_Click" Grid.Column="1" Height="20">
+                        <Button x:Name="bt_StartScanFromNIC" Background="#BF60CC76" Content="start scan" HorizontalAlignment="Center" VerticalAlignment="Center" Width="138" Grid.Row="9" HorizontalContentAlignment="Center" Click="bt_StartScanFromNIC_Click" Grid.Column="1" Height="30">
                             <Button.Resources>
                                 <Style TargetType="{x:Type Border}">
                                     <Setter Property="CornerRadius" Value="5"/>
@@ -74,8 +121,8 @@
                         <Label Content="{Binding Value, ElementName=slider_TimeOut}" HorizontalAlignment="Left" Margin="152,34,0,0" VerticalAlignment="Top" Height="25" VerticalContentAlignment="Bottom" Grid.ColumnSpan="2" Grid.Row="5" Grid.RowSpan="2"/>
                         <Slider x:Name="slider_TimeOut" HorizontalAlignment="Left" VerticalAlignment="Top" Width="286" Maximum="3000" Minimum="10" Value="1000" TickFrequency="10" SmallChange="10" LargeChange="50"  Grid.Row="6" IsSnapToTickEnabled="True" ValueChanged="slider_TimeOut_ValueChanged" Height="18" Grid.ColumnSpan="2" Margin="10,22,0,0"/>
 
-                        <Label Content="IPs to Scan:" Grid.Row="8" VerticalContentAlignment="Bottom" HorizontalContentAlignment="Left" HorizontalAlignment="Left" Width="145" Height="23" VerticalAlignment="Center" Margin="10,0,0,0" Background="#FF189AB4" />
-                        <Label x:Name="lb_IPsToScan" Content="..."  Grid.Row="8" Grid.Column="1" Height="23" VerticalAlignment="Center" HorizontalAlignment="Left" Width="148" VerticalContentAlignment="Bottom" HorizontalContentAlignment="Center" Background="#FF189AB4"/>
+                        <Label Content="IPs to Scan:" Grid.Row="8" VerticalContentAlignment="Bottom" HorizontalContentAlignment="Left" HorizontalAlignment="Left" Width="145" Height="23" VerticalAlignment="Center" Margin="10,0,0,0" Background="#991196A7" />
+                        <Label x:Name="lb_IPsToScan" Content="..."  Grid.Row="8" Grid.Column="1" Height="23" VerticalAlignment="Center" HorizontalAlignment="Left" Width="148" VerticalContentAlignment="Bottom" HorizontalContentAlignment="Center" Background="#991196A7"/>
                         <Label Content="Attention:&#x0a;all scanning methods are sent&#x0a;via the selected network interface" HorizontalAlignment="Left" Margin="10,0,0,10" Grid.Row="6" Grid.ColumnSpan="2" FontWeight="Bold" Height="58" VerticalAlignment="Bottom"/>
                         <Label Content="recognized DNS Server:" Margin="0,70,0,0" Grid.Row="6" Height="26" VerticalAlignment="Top" HorizontalAlignment="Center" Width="135"/>
                         <ListBox x:Name="lstb_DNSServers" Margin="0,93,0,0" Grid.Row="6" VerticalAlignment="Top" HorizontalAlignment="Center" Width="127" Height="85" VerticalContentAlignment="Top"/>
@@ -86,6 +133,46 @@
 
 
                 <TabItem x:Name="tab_FromIPRange" Header="From IP Ranges">
+                    <TabItem.Style>
+                        <Style TargetType="TabItem">
+                            <!-- Standardfarbe -->
+                            <Setter Property="Background" Value="#7F1196A7"/>
+                            <Setter Property="Foreground" Value="Black"/>
+                            <!--<Setter Property="BorderBrush" Value="DarkGreen"/>-->
+                            <!--<Setter Property="BorderThickness" Value="1"/>-->
+
+                            <!-- Custom Template -->
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="TabItem">
+                                        <Grid>
+                                            <Border x:Name="MainBorder" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" Background="{TemplateBinding Background}">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" ContentSource="Header" />
+                                            </Border>
+                                        </Grid>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+
+                            <!-- Triggers für den Zustand des Tabs -->
+                            <Style.Triggers>
+                                <!-- Trigger für den ausgewählten Zustand -->
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter Property="Background" Value="#FF1196A7"/>
+                                    <Setter  Property="BorderBrush" Value="gray"/>
+                                    <Setter Property="Foreground" Value="White"/>
+                                </Trigger>
+
+                                <!-- Trigger für den nicht ausgewählten Zustand -->
+                                <Trigger Property="IsSelected" Value="False">
+                                    <Setter  Property="Background" Value="#7F1196A7"/>
+                                    <!--<Setter Property="BorderBrush" Value="DarkGreen"/>-->
+                                    <Setter Property="Foreground" Value="Black"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TabItem.Style>
+
                     <Grid x:Name="SummaryGrid">
 
                         <Grid.RowDefinitions>
@@ -114,7 +201,7 @@
                                             <Setter Property="Template">
                                                 <Setter.Value>
                                                     <ControlTemplate TargetType="{x:Type GroupItem}">
-                                                        <Expander IsExpanded="True" Background="#189AB4"  Foreground="Black" BorderThickness="1,1,1,5">
+                                                        <Expander IsExpanded="True" Background="#991196A7"  Foreground="Black" BorderThickness="1,1,1,5">
                                                             <Expander.Header>
                                                                 <DockPanel>
                                                                     <TextBlock FontWeight="Bold" Margin="5,0,0,0">
@@ -185,7 +272,7 @@
                                 <ColumnDefinition/>
                             </Grid.ColumnDefinitions>
 
-                            <Button x:Name="bt_StopScanFromRange" Background="#BFA4B1BF" Content="stop scan" HorizontalAlignment="Left" VerticalAlignment="Center" Width="100" Grid.Row="9" HorizontalContentAlignment="Center"  Grid.Column="0" Height="20" Margin="24,0,0,0" Click="StopScanning_Click">
+                            <Button x:Name="bt_StopScanFromRange" Background="#BFC86C6C" Content="stop scan" HorizontalAlignment="Left" VerticalAlignment="Center" Width="100" Grid.Row="9" HorizontalContentAlignment="Center"  Grid.Column="0" Height="20" Margin="24,0,0,0" Click="StopScanning_Click">
                                 <Button.Resources>
                                     <Style TargetType="{x:Type Border}">
                                         <Setter Property="CornerRadius" Value="5"/>
@@ -193,7 +280,7 @@
                                 </Button.Resources>
                             </Button>
 
-                            <Button x:Name="bt_Scan_IP_Ranges" Content="Scan IP Ranges" Click="bt_Scan_IP_Ranges_Click" Margin="10,10,10,10" Background="#BFA4B1BF" OpacityMask="Black" Grid.Column="1">
+                            <Button x:Name="bt_Scan_IP_Ranges" Content="Scan IP Ranges" Click="bt_Scan_IP_Ranges_Click" Margin="8,5,10,5" Background="#BF60CC76" OpacityMask="Black" Grid.Column="1" Width="138">
                                 <!--Background="#BFA4B1BF"-->
                                 <Button.Resources>
                                     <Style TargetType="{x:Type Border}">
@@ -498,7 +585,7 @@
                                     <Setter Property="Template">
                                         <Setter.Value>
                                             <ControlTemplate TargetType="{x:Type GroupItem}">
-                                                <Expander IsExpanded="True" Background="#189AB4"  Foreground="Black" BorderThickness="1,1,1,5">
+                                                <Expander IsExpanded="True" Background="#991196A7"  Foreground="Black" BorderThickness="1,1,1,5">
                                                     <!--"#ABBEE0"-->
                                                     <Expander.Header>
                                                         <DockPanel>
