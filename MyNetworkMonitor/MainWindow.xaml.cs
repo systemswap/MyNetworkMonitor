@@ -1582,7 +1582,13 @@ namespace MyNetworkMonitor
                 counted_total_TCP_Port_Scans = _IPsForTCPPortScan.Count;
                 Status();
 
-                await Task.Run(() => scanningMethode_PortsTCP.ScanTCPPortsAsync(_IPsForTCPPortScan, new TimeSpan(0, 0, 0, 0, _TimeOut)), _cts.Token);
+                List<int> ports = new List<int>();
+                ports = _portCollection.TableOfPortsToScan.AsEnumerable()
+                                .Where(row => row.Field<bool>("TCPScan") == true)
+                                .Select(row => row.Field<int>("Ports"))
+                                .ToList();
+
+                await Task.Run(() => scanningMethode_PortsTCP.ScanTCPPortsAsync(_IPsForTCPPortScan, ports, new TimeSpan(0, 0, 0, 0, _TimeOut)), _cts.Token);
             }
 
 
