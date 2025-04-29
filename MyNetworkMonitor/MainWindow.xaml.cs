@@ -146,9 +146,10 @@ namespace MyNetworkMonitor
             scanningMethode_PortsUDP = new ScanningMethod_PortsUDP();
             scanningMethode_PortsUDP.UDPPortScan_Task_Finished += UDPPortScan_Task_Finished;
             scanningMethode_PortsUDP.UDPPortScan_Finished += UDPPortScan_Finished;
-            
-            
-            
+
+
+            _scannResults.ResultTable.RowChanged += UpdateRowCount;
+            _scannResults.ResultTable.RowDeleted += UpdateRowCount;
 
 
             dv_resultTable = new DataView(_scannResults.ResultTable);
@@ -269,7 +270,11 @@ namespace MyNetworkMonitor
 
         }
 
-       
+        private void UpdateRowCount(object sender, DataRowChangeEventArgs e)
+        {
+            rowCountTextBlock.Text = $"{_scannResults.ResultTable.Rows.Count} Devices, {dv_resultTable.Count} Filtered";
+        }
+
 
         private void LoadLogo()
         {
@@ -2790,6 +2795,8 @@ namespace MyNetworkMonitor
                     }
                 }, System.Windows.Threading.DispatcherPriority.Background);
             }
+
+            rowCountTextBlock.Text = $"{_scannResults.ResultTable.Rows.Count} Devices, {dv_resultTable.Count} Filtered";
         }
 
 
