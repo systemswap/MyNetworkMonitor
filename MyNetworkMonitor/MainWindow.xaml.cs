@@ -36,6 +36,7 @@ using System.Windows.Documents;
 using System.Windows.Navigation;
 using System.Windows.Threading;
 using System.Data.Common;
+using MdnsScanner;
 
 
 //using static System.Net.WebRequestMethods;
@@ -89,6 +90,8 @@ namespace MyNetworkMonitor
             scanningMethode_SSDP_UPNP.ProgressUpdated += ScanningMethode_SSDP_UPNP_ProgressUpdated;
             scanningMethode_SSDP_UPNP.SSDP_foundNewDevice += SSDP_foundNewDevice;
             scanningMethode_SSDP_UPNP.SSDP_Scan_Finished += SSDP_Scan_Finished;
+
+            scanningMethod_MDNS = new  ScanningMethod_mDNS();
             
             scanningMethode_SNMP = new ScanningMethod_SNMP();
             scanningMethode_SNMP.ProgressUpdated += ScanningMethode_SNMP_ProgressUpdated; 
@@ -417,6 +420,7 @@ namespace MyNetworkMonitor
         ScanningMethods_Ping scanningMethods_Ping;
         ScanningMethod_ONVIF_IPCam scanningMethod_Find_ONVIF_IP_Cameras;
         ScanningMethod_SSDP_UPNP scanningMethode_SSDP_UPNP;
+        ScanningMethod_mDNS scanningMethod_MDNS;
 
         ScanningMethod_NetBios scanningMethode_NetBios;
         ScanningMethod_SMBVersionCheck scanningMethod_SMB_VersionCheck;
@@ -1318,6 +1322,19 @@ namespace MyNetworkMonitor
                 counted_total_SSDPs = _IPsToScan.Count;
                 Status();
                 await Task.Run(() => scanningMethode_SSDP_UPNP.Scan_for_SSDP_devices_async(), _cts.Token);
+            }
+
+            _cts.Token.ThrowIfCancellationRequested();
+            if ((bool)chk_Methodes_mDNS.IsChecked)
+            {
+                //status_SSDP_Scan = ScanStatus.running;
+                //counted_total_SSDPs = _IPsToScan.Count;
+                //Status();
+                //var result = await scanningMethod_MDNS.DiscoverAsync(5000);
+                //foreach (var item in result)
+                //{
+                //    var bla = item;
+                //}
             }
 
             _cts.Token.ThrowIfCancellationRequested();
