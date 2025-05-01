@@ -40,6 +40,7 @@ namespace MyNetworkMonitor
         Services,
         ReverseLookup,
         Lookup,
+        mDNS,
         TCPPorts,
         UDPPorts,
     }
@@ -328,7 +329,7 @@ namespace MyNetworkMonitor
         private string _IPGroupDescription = string.Empty;
         private string _DeviceDescription = string.Empty;
         private string _IP = string.Empty;
-        
+
         public bool isStaticIP = false;
         public string IPGroupDescription { get { return _IPGroupDescription; } set { _IPGroupDescription = value; } }
         public string DeviceDescription { get { return _DeviceDescription; } set { _DeviceDescription = value; } }
@@ -338,7 +339,7 @@ namespace MyNetworkMonitor
 
         private bool _PingStatus = false;
         private string _ResponseTime = string.Empty;
-        public bool PingStatus { get { return _PingStatus; } set { _PingStatus = value; } }        
+        public bool PingStatus { get { return _PingStatus; } set { _PingStatus = value; } }
         public string ResponseTime { get { return _ResponseTime; } set { _ResponseTime = value; } }
 
 
@@ -348,7 +349,7 @@ namespace MyNetworkMonitor
         public bool IsIPCam { get { return _IsIPCam; } set { _IsIPCam = value; } }
         public string IPCamName { get { return _IPCamName; } set { _IPCamName = value; } }
         public string IPCamXAddress { get { return _IPCamXAddress; } set { _IPCamXAddress = value; } }
-       
+
 
         private string _SNMP_SysName = string.Empty;
         private string _SNMP_Serial = string.Empty;
@@ -364,32 +365,32 @@ namespace MyNetworkMonitor
         public string SNMP_Contact { get { return _SNMP_Contact; } set { _SNMP_Contact = value; } }
         public string SNMP_MAC { get { return _SNMP_MAC; } set { _SNMP_MAC = value; } }
 
-        public string SNMPInfos 
-        { 
-            get 
+        public string SNMPInfos
+        {
+            get
             {
                 return string.Join("\r\n", "Serial: ".PadRight(15) + "\t" + _SNMP_Serial, "Descr: ".PadRight(15) + "\t" + _SNMP_SysDesc, "Location: ".PadRight(15) + "\t" + _SNMP_Location, "Contact: ".PadRight(15) + "\t" + _SNMP_Contact, "MAC: ".PadRight(15) + "\t" + _SNMP_MAC);
-            } 
+            }
         }
 
 
         private bool _ARPStatus = false;
         private string _MAC = string.Empty;
         private string _Vendor = string.Empty;
-        public bool ARPStatus { get { return _ARPStatus; } set { _ARPStatus = value; } }        
+        public bool ARPStatus { get { return _ARPStatus; } set { _ARPStatus = value; } }
         public string MAC { get { return _MAC; } set { _MAC = value; } }
         public string Vendor { get { return _Vendor; } set { _Vendor = value; } }
 
 
 
-        private string _HostName = string.Empty;        
+        private string _HostName = string.Empty;
         private string _Domain = string.Empty;
         private string _Aliases = string.Empty;
         public string HostName { get { return _HostName; } set { _HostName = value; } }
         public string Domain { get { return _Domain; } set { _Domain = value; } }
-        public string HostnameWithDomain 
-        { 
-            get 
+        public string HostnameWithDomain
+        {
+            get
             {
                 List<string> list = new List<string>();
                 if (!string.IsNullOrEmpty(_HostName)) list.Add(_HostName);
@@ -399,11 +400,11 @@ namespace MyNetworkMonitor
             }
         }
         public string Aliases { get { return _Aliases; } set { _Aliases = value; } }
-       
-        private string _NetBiosHostname = string.Empty;
-        public string NetBiosHostname { get { return _NetBiosHostname; } set { _NetBiosHostname= value; } }
 
-        
+        private string _NetBiosHostname = string.Empty;
+        public string NetBiosHostname { get { return _NetBiosHostname; } set { _NetBiosHostname = value; } }
+
+
         public List<string> SMBVersions = new List<string>();
         // 🔹 Eigene ToString()-Methode für SMBVersions
         public string SMBVersionsToString()
@@ -432,19 +433,19 @@ namespace MyNetworkMonitor
 
 
 
-        private bool _LookUpStatus = false;
+        //private bool _LookUpStatus = false;
         private string _LookUpIPs = string.Empty;
         private IPHostEntry _IP_HostEntry = null;
         //private string _str_DNSServers = string.Empty;
         private List<string> _lst_DNSServers;
-        public bool LookUpStatus { get { return _LookUpStatus; } set { _LookUpStatus = value; } }
+        //public bool LookUpStatus { get { return _LookUpStatus; } set { _LookUpStatus = value; } }
         public string LookUpIPs { get { return _LookUpIPs; } set { _LookUpIPs = value; } }
         public IPHostEntry IP_HostEntry { get { return _IP_HostEntry; } set { _IP_HostEntry = value; } }
         //public string DNSServers { get { return _str_DNSServers; } set { _str_DNSServers = value; } }
-        public List<string> DNSServerList { get { return _lst_DNSServers; } set { _lst_DNSServers = value; }}
+        public List<string> DNSServerList { get { return _lst_DNSServers; } set { _lst_DNSServers = value; } }
 
-        
-        
+
+
         private bool _SSDPStatus = false;
         public bool SSDPStatus { get { return _SSDPStatus; } set { _SSDPStatus = value; } }
 
@@ -452,7 +453,7 @@ namespace MyNetworkMonitor
 
         private List<int> _TCPPortsToScan;
         private List<int> _UDPPortsToScan;
-        public List<int> TCPPortsToScan { get { return _TCPPortsToScan; } set { _TCPPortsToScan = value; } }        
+        public List<int> TCPPortsToScan { get { return _TCPPortsToScan; } set { _TCPPortsToScan = value; } }
         public List<int> UDPPortsToScan { get { return _UDPPortsToScan; } set { _UDPPortsToScan = value; } }
 
 
@@ -485,6 +486,15 @@ namespace MyNetworkMonitor
         private string _NMGatewayPort = string.Empty;
         public string NMGatewayIP { get { return _NMGatewayIP; } set { _NMGatewayIP = value; } }
         public string NMGatewayPort { get { return _NMGatewayPort; } set { _NMGatewayPort = value; } }
+
+
+        public string mDNS_Service { get; set; }
+        public string mDNS_DeviceName { get; set; }
+        public string mDNS_Hostname { get; set; }
+        public int? mDNS_Port { get; set; }
+        public string mDNS_Group { get; set; }
+        public Dictionary<string, string> mDNS_TxtRecords { get; set; } = new();
+        public string mDNS_toMultiLineString { get; set; }
     }
 
 
@@ -512,15 +522,17 @@ namespace MyNetworkMonitor
             dt_NetworkResults.Columns.Add("detectedServicePorts", typeof(string));
 
             dt_NetworkResults.Columns.Add("SNMPSysName", typeof(string));
-            dt_NetworkResults.Columns.Add("SNMPInfos", typeof(string));           
+            dt_NetworkResults.Columns.Add("SNMPInfos", typeof(string));
             //dt_NetworkResults.Columns.Add("SNMPSysDesc", typeof(string));
             //dt_NetworkResults.Columns.Add("SNMPLocation", typeof(string));
+
+            dt_NetworkResults.Columns.Add("mDNSInfos", typeof(string));
 
             dt_NetworkResults.Columns.Add("IPCamName", typeof(string));
             dt_NetworkResults.Columns.Add("IPCamXAddress", typeof(string));
             dt_NetworkResults.Columns.Add("Domain", typeof(string));
             dt_NetworkResults.Columns.Add("Aliases", typeof(string));
-            dt_NetworkResults.Columns.Add("LookUpStatus", typeof(byte[]));
+            //dt_NetworkResults.Columns.Add("LookUpStatus", typeof(byte[]));
             //dt_NetworkResults.Columns.Add("MatchedWithInternal", typeof(byte[]));
             dt_NetworkResults.Columns.Add("LookUpIPs", typeof(string));
             dt_NetworkResults.Columns.Add("TCP_Ports", typeof(string));

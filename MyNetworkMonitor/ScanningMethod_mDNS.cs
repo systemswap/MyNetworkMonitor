@@ -3,13 +3,14 @@ using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
-namespace MdnsScanner
+namespace MyNetworkMonitor
 {
     public class MdnsDeviceInfo
     {
-        public string Dienst { get; set; }
+        public string Service { get; set; }
         public string DeviceName { get; set; }
         public string Hostname { get; set; }
         public string IP { get; set; }
@@ -17,10 +18,12 @@ namespace MdnsScanner
         public string Group { get; set; }
         public Dictionary<string, string> TxtRecords { get; set; } = new();
 
+        public double LastResponse { get; set; }
         public string AsMultilineString()
         {
             var sb = new StringBuilder();
-            sb.AppendLine($"Dienst: {Dienst}");
+            sb.AppendLine($"ResponseTime: {Math.Round(LastResponse)}ms");
+            sb.AppendLine($"Dienst: {Service}");
             sb.AppendLine($"Device: {DeviceName}");
             sb.AppendLine($"Hostname: {Hostname}");
             sb.AppendLine($"IP: {IP}");
@@ -34,12 +37,32 @@ namespace MdnsScanner
 
     public class ScanningMethod_mDNS
     {
+
+        public event Action<IPToScan> found_mDNS_Device;
+
+        public event Action<ScanStatus> mDNS_ScanStatus;
+        public event Action<int, int, int, ScanStatus> ProgressUpdated;
+
+        private int current = 0;
+        private int responded = 0;
+        private int total = 0;
+
+        DateTime startTime;
+
         private const int MdnsPort = 5353;
         private const string MdnsMulticast = "224.0.0.251";
         private readonly Dictionary<string, MdnsDeviceInfo> foundDevices = new();
 
         public async Task<List<MdnsDeviceInfo>> DiscoverAsync(int listenTimeMs = 10000)
         {
+            startTime = DateTime.UtcNow;
+
+            mDNS_ScanStatus?.Invoke(ScanStatus.running);
+
+            current = 0;
+            responded = 0;
+            total = 0;
+
             using var udp = new UdpClient(AddressFamily.InterNetwork);
             udp.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             udp.ExclusiveAddressUse = false;
@@ -56,19 +79,42 @@ namespace MdnsScanner
                 if (udp.Available > 0)
                 {
                     var result = await udp.ReceiveAsync();
-                    ParseResponse(result.Buffer, result.RemoteEndPoint.Address.ToString());
+                    ParseResponse(result.Buffer, result.RemoteEndPoint.Address.ToString(), startTime);
+                    
+                    ProgressUpdated?.Invoke(current, foundDevices.Count, total, ScanStatus.running);
                 }
-                else
-                {
-                    await Task.Delay(10);
-                }
+                //else
+                //{
+                //    await Task.Delay(10);
+                //}
             }
+
+            foreach (var device in foundDevices.Values)
+            {
+                IPToScan ipToScan = new IPToScan();
+                ipToScan.UsedScanMethod = ScanMethod.mDNS;
+                ipToScan.IPorHostname = device.IP;
+                ipToScan.mDNS_Hostname = device.Hostname;
+                ipToScan.mDNS_Service = device.Service;
+                ipToScan.mDNS_Group = device.Group;
+                ipToScan.mDNS_DeviceName = device.DeviceName;
+                ipToScan.mDNS_Port = device.Port;
+                ipToScan.mDNS_TxtRecords = device.TxtRecords;
+                ipToScan.mDNS_toMultiLineString = device.AsMultilineString();
+
+                found_mDNS_Device?.Invoke(ipToScan);
+            }
+
+            mDNS_ScanStatus?.Invoke(ScanStatus.finished);
 
             return new List<MdnsDeviceInfo>(foundDevices.Values);
         }
 
-        private void ParseResponse(byte[] data, string ip)
+        private void ParseResponse(byte[] data, string ip, DateTime startTime)
         {
+            var info = GetOrCreate(ip);
+            info.LastResponse = (DateTime.UtcNow - startTime).TotalMilliseconds;
+
             int ptr = 12; // skip header
             if (data.Length < ptr) return;
 
@@ -85,46 +131,49 @@ namespace MdnsScanner
 
                 if (ptr + dataLen > data.Length) break;
 
-                if (type == 0x0010) // TXT record
+                switch (type)
                 {
-                    var info = GetOrCreate(ip);
-                    int end = ptr + dataLen;
-                    while (ptr < end)
-                    {
-                        int len = data[ptr++];
-                        if (ptr + len > end) break;
+                    case 0x0010: // TXT record
+                        {
+                            int end = ptr + dataLen;
+                            while (ptr < end)
+                            {
+                                int len = data[ptr++];
+                                if (ptr + len > end) break;
 
-                        var txt = Encoding.UTF8.GetString(data, ptr, len);
-                        var split = txt.Split('=', 2);
-                        if (split.Length == 2)
-                            info.TxtRecords[split[0]] = split[1];
+                                var txt = Encoding.UTF8.GetString(data, ptr, len);
+                                var split = txt.Split('=', 2);
+                                if (split.Length == 2)
+                                    info.TxtRecords[split[0]] = split[1];
 
-                        ptr += len;
-                    }
+                                ptr += len;
+                            }
 
-                    if (info.TxtRecords.ContainsKey("group"))
-                        info.Group = info.TxtRecords["group"];
-                }
-                else if (type == 0x000C) // PTR record
-                {
-                    var ptrName = ReadName(data, ref ptr);
-                    var info = GetOrCreate(ip);
-                    info.Dienst = name;
-                    info.DeviceName ??= ptrName;
-                }
-                else if (type == 0x0001 && dataLen == 4) // A record
-                {
-                    var ipAddress = new IPAddress(new byte[] { data[ptr], data[ptr + 1], data[ptr + 2], data[ptr + 3] });
-                    var info = GetOrCreate(ip);
-                    info.IP = ipAddress.ToString();
-                    ptr += 4;
-                }
-                else
-                {
-                    ptr += dataLen;
+                            if (info.TxtRecords.TryGetValue("group", out var group))
+                                info.Group = group;
+                            break;
+                        }
+                    case 0x000C: // PTR record
+                        {
+                            var ptrName = ReadName(data, ref ptr);
+                            info.Service = name;
+                            info.DeviceName ??= ptrName;
+                            break;
+                        }
+                    case 0x0001 when dataLen == 4: // A record
+                        {
+                            var ipAddress = new IPAddress(new byte[] { data[ptr], data[ptr + 1], data[ptr + 2], data[ptr + 3] });
+                            info.IP = ipAddress.ToString();
+                            ptr += 4;
+                            break;
+                        }
+                    default:
+                        ptr += dataLen;
+                        break;
                 }
             }
         }
+
 
         private MdnsDeviceInfo GetOrCreate(string ip)
         {
@@ -136,7 +185,7 @@ namespace MdnsScanner
             return info;
         }
 
-        private static string ReadName(byte[] data, ref int offset)
+        private string ReadName(byte[] data, ref int offset)
         {
             StringBuilder sb = new();
             int original = offset;
@@ -175,7 +224,7 @@ namespace MdnsScanner
             }
         }
 
-        private static byte[] CreateQuery(string service)
+        private byte[] CreateQuery(string service)
         {
             List<byte> query = new();
 

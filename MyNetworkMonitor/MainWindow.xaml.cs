@@ -1,21 +1,14 @@
-﻿
-
-using Microsoft.Win32;
+﻿using Microsoft.Win32;
 using System;
-
 using System.Collections.Generic;
-
 using System.ComponentModel;
 using System.Data;
 using System.Diagnostics;
-
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
-
 using System.Reflection;
-
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -23,20 +16,13 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Data;
-
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using static MyNetworkMonitor.SupportMethods;
-using SnmpSharpNet;
-using System.Collections.ObjectModel;
-using System.Web;
 using System.Net.NetworkInformation;
-using System.Windows.Documents;
 using System.Windows.Navigation;
 using System.Windows.Threading;
-using System.Data.Common;
-using MdnsScanner;
 
 
 //using static System.Net.WebRequestMethods;
@@ -92,6 +78,9 @@ namespace MyNetworkMonitor
             scanningMethode_SSDP_UPNP.SSDP_Scan_Finished += SSDP_Scan_Finished;
 
             scanningMethod_MDNS = new  ScanningMethod_mDNS();
+            scanningMethod_MDNS.ProgressUpdated += ScanningMethod_MDNS_ProgressUpdated;
+            scanningMethod_MDNS.found_mDNS_Device += ScanningMethod_MDNS_found_mDNS_Device;
+            scanningMethod_MDNS.mDNS_ScanStatus += ScanningMethod_mDNS_ScanStatus;
             
             scanningMethode_SNMP = new ScanningMethod_SNMP();
             scanningMethode_SNMP.ProgressUpdated += ScanningMethode_SNMP_ProgressUpdated; 
@@ -486,7 +475,10 @@ namespace MyNetworkMonitor
         int counted_current_Lookup_Scan = 0;
         int counted_responded_Lookup_Devices = 0;
         int counted_total_Lookup_Scans = 0;
-        
+
+
+        ScanStatus status_mDNS_Scan = ScanStatus.ignored;
+        int counted_responded_mDNS_Devices = 0;        
 
         ScanStatus status_ARP_Request_Scan = ScanStatus.ignored;
         int counted_current_ARP_Requests = 0;
@@ -520,6 +512,9 @@ namespace MyNetworkMonitor
             if (status_SSDP_Scan == ScanStatus.ignored) { lst_ignored.Add("SSDP: ignored"); } else { lst_statusUpdate.Add($"SSDP: {status_SSDP_Scan.ToString()} ... / {counted_responded_SSDP_device} / ..."); }
             if (status_ONVIF_IP_Cam_Scan == ScanStatus.ignored) { lst_ignored.Add("IP-Cam`s: ignored"); } else { lst_statusUpdate.Add($"IP-Cam`s: {status_ONVIF_IP_Cam_Scan.ToString()} {counted_current__ONVIF_IP_Cam.ToString()} / {counted_responded_ONVIF_IP_Cams} / {counted_total_ONVIF_IPs_toScan}"); }            
             if (status_DNS_HostName_Scan == ScanStatus.ignored) { lst_ignored.Add("DNS Hostnames: ignored"); } else { lst_statusUpdate.Add($"DNS Hostnames: {status_DNS_HostName_Scan.ToString()} {counted_current_DNS_HostNames} / {counted_responded_DNS_HostNames} / {counted_total_DNS_HostNames}"); }
+
+            if (status_mDNS_Scan == ScanStatus.ignored) { lst_ignored.Add("mDNS: ignored"); } else { lst_statusUpdate.Add($"mDNS: {status_mDNS_Scan.ToString()} ... / {counted_responded_mDNS_Devices} / ..."); }
+
             if (status_Lookup_Scan == ScanStatus.ignored) { lst_ignored.Add("Lookup: ignored"); } else { lst_statusUpdate.Add($"Lookup: {status_Lookup_Scan.ToString()} {counted_current_Lookup_Scan} / {counted_responded_Lookup_Devices} / {counted_total_Lookup_Scans}"); }
             if (status_SMB_VersionCheck == ScanStatus.ignored) { lst_ignored.Add("SMB Check: ignored"); } else { lst_statusUpdate.Add($"SMB Check: {status_SMB_VersionCheck.ToString()} {counted_current_SMB_VersionCheck} / {counted_responded_SMB_VersionCheck} / {counted_total_SMB_VersionCheck}"); }
             if (status_NetBios_Scan == ScanStatus.ignored) { lst_ignored.Add("NetBios: ignored"); } else { lst_statusUpdate.Add($"NetBios: {status_NetBios_Scan.ToString()} {counted_current_NetBiosScan} / {counted_responded_NetBiosInfos} / {counted_total_NetBiosInfos}"); }
@@ -1191,6 +1186,8 @@ namespace MyNetworkMonitor
             counted_responded_DNS_HostNames = 0;
             counted_total_DNS_HostNames = 0;
 
+            counted_responded_mDNS_Devices = 0;
+
             counted_current_NetBiosScan = 0;
             counted_responded_NetBiosInfos = 0;
             counted_total_NetBiosInfos = 0;
@@ -1273,6 +1270,7 @@ namespace MyNetworkMonitor
             if ((bool)chk_ARPRequest.IsChecked) status_ARP_Request_Scan = ScanStatus.waiting;
             if ((bool)chk_Methodes_Ping.IsChecked) status_Ping_Scan = ScanStatus.waiting;
             if ((bool)chk_Methodes_ScanHostnames.IsChecked) status_DNS_HostName_Scan = ScanStatus.waiting;
+            if((bool)chk_Methodes_mDNS.IsChecked) status_mDNS_Scan = ScanStatus.waiting;
             if ((bool)chk_Methodes_ScanNetBios.IsChecked) status_NetBios_Scan = ScanStatus.waiting;
             if ((bool)chk_Methodes_Scan_SMBVersions.IsChecked) status_SMB_VersionCheck = ScanStatus.waiting;
             if ((bool)chk_Methodes_Scan_Services.IsChecked) status_Services_Scan = ScanStatus.waiting; 
@@ -1327,14 +1325,9 @@ namespace MyNetworkMonitor
             _cts.Token.ThrowIfCancellationRequested();
             if ((bool)chk_Methodes_mDNS.IsChecked)
             {
-                //status_SSDP_Scan = ScanStatus.running;
-                //counted_total_SSDPs = _IPsToScan.Count;
-                //Status();
-                //var result = await scanningMethod_MDNS.DiscoverAsync(5000);
-                //foreach (var item in result)
-                //{
-                //    var bla = item;
-                //}
+                status_mDNS_Scan = ScanStatus.running;               
+                Status();
+                await Task.Run(() => scanningMethod_MDNS.DiscoverAsync()); 
             }
 
             _cts.Token.ThrowIfCancellationRequested();
@@ -1786,9 +1779,18 @@ namespace MyNetworkMonitor
 
                 if (ipToScan.UsedScanMethod == ScanMethod.Lookup)
                 {
-                    _scannResults.ResultTable.Rows[rowIndex]["LookUpStatus"] = ipToScan.LookUpStatus ? green_dot_s : red_dot_s;
+                    //_scannResults.ResultTable.Rows[rowIndex]["LookUpStatus"] = ipToScan.LookUpStatus ? green_dot_s : red_dot_s;
                     _scannResults.ResultTable.Rows[rowIndex]["LookUpIPs"] = ipToScan.LookUpIPs;
                 }
+
+
+
+                if (ipToScan.UsedScanMethod == ScanMethod.mDNS)
+                {
+                    _scannResults.ResultTable.Rows[rowIndex]["mDNSInfos"] = ipToScan.mDNS_toMultiLineString;
+                }
+
+
 
                 if (ipToScan.UsedScanMethod == ScanMethod.TCPPorts)
                 {
@@ -1939,9 +1941,17 @@ namespace MyNetworkMonitor
 
                 if (ipToScan.UsedScanMethod == ScanMethod.Lookup)
                 {
-                    row["LookUpStatus"] = ipToScan.LookUpStatus ? green_dot_s : red_dot_s;
+                    //row["LookUpStatus"] = ipToScan.LookUpStatus ? green_dot_s : red_dot_s;
                     row["LookUpIPs"] = ipToScan.LookUpIPs;
                 }
+
+
+
+                if (ipToScan.UsedScanMethod == ScanMethod.mDNS)
+                {
+                    row["mDNSInfos"] = ipToScan.mDNS_toMultiLineString;
+                }
+
 
                 if (ipToScan.UsedScanMethod == ScanMethod.TCPPorts)
                 {
@@ -2352,6 +2362,36 @@ namespace MyNetworkMonitor
                 Status();
             });
         }
+
+
+
+
+        private void ScanningMethod_mDNS_ScanStatus(ScanStatus obj)
+        {
+            Dispatcher.BeginInvoke(() =>
+            {
+                status_mDNS_Scan = obj;
+                Status();
+            });
+        }
+
+        private void ScanningMethod_MDNS_found_mDNS_Device(IPToScan obj)
+        {
+            Dispatcher.BeginInvoke(() =>
+            {
+                InsertIPToScanResult(obj);
+            });
+        }
+
+        private void ScanningMethod_MDNS_ProgressUpdated(int arg1, int arg2, int arg3, ScanStatus arg4)
+        {
+            Dispatcher.BeginInvoke(() =>
+            {
+                counted_responded_mDNS_Devices = arg2;
+                Status();
+            });
+        }
+
 
 
 
@@ -3601,20 +3641,20 @@ namespace MyNetworkMonitor
                                     newRow["isAnIPCam"] = true;
                                 }
 
-                                if (originalRow[col.ColumnName] != DBNull.Value && col.ColumnName.ToLower() == "lookupstatus")
-                                {
-                                    byte[] tada = (byte[])originalRow[col.ColumnName];
+                                //if (originalRow[col.ColumnName] != DBNull.Value && col.ColumnName.ToLower() == "lookupstatus")
+                                //{
+                                //    byte[] tada = (byte[])originalRow[col.ColumnName];
 
-                                    if (tada.SequenceEqual(green_dot_s))
-                                    {
-                                        newRow["LookupEqualReverse"] = true;
-                                    }
+                                //    if (tada.SequenceEqual(green_dot_s))
+                                //    {
+                                //        newRow["LookupEqualReverse"] = true;
+                                //    }
 
-                                    if (tada.SequenceEqual(red_dot_s))
-                                    {
-                                        newRow["LookupEqualReverse"] = false;
-                                    }
-                                }
+                                //    if (tada.SequenceEqual(red_dot_s))
+                                //    {
+                                //        newRow["LookupEqualReverse"] = false;
+                                //    }
+                                //}
                             }
                         }
 
