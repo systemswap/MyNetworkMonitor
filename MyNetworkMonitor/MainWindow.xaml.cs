@@ -25,8 +25,6 @@ using System.Windows.Navigation;
 using System.Windows.Threading;
 
 
-//using static System.Net.WebRequestMethods;
-
 namespace MyNetworkMonitor
 {
     // install as Service https://www.youtube.com/watch?v=y64L-3HKuP0
@@ -139,9 +137,11 @@ namespace MyNetworkMonitor
             scanningMethode_PortsUDP.UDPPortScan_Task_Finished += UDPPortScan_Task_Finished;
             scanningMethode_PortsUDP.UDPPortScan_Finished += UDPPortScan_Finished;
 
-
-            _scannResults.ResultTable.RowChanged += UpdateRowCount;
-            _scannResults.ResultTable.RowDeleted += UpdateRowCount;
+        // Lambda expression fügt einen s: Sender – also das Objekt, das das Event auslöst (hier: ResultTable)
+        // und                          e: EventArgs – in diesem Fall ein DataRowChangeEventArgs-Objekt mit Infos zur geänderten Zeile
+        // einer normalen Methode hinzu.
+           _scannResults.ResultTable.RowChanged += (s, e) => UpdateRowCount();
+            _scannResults.ResultTable.RowDeleted += (s, e) => UpdateRowCount();
 
 
             dv_resultTable = new DataView(_scannResults.ResultTable);
@@ -172,7 +172,7 @@ namespace MyNetworkMonitor
 
 
 
-            if (File.Exists(_ipGroupsXML))
+            if (System.IO.File.Exists(_ipGroupsXML))
             {
                 try
                 {
@@ -197,7 +197,7 @@ namespace MyNetworkMonitor
             }
 
 
-            if (File.Exists(_lastScanResultXML))
+            if (System.IO.File.Exists(_lastScanResultXML))
             {
                 try
                 {
@@ -209,7 +209,7 @@ namespace MyNetworkMonitor
                 }
             }
 
-            if (File.Exists(_portsToScanXML))
+            if (System.IO.File.Exists(_portsToScanXML))
             {
                 try
                 {
@@ -230,7 +230,7 @@ namespace MyNetworkMonitor
 
 
 
-            if (File.Exists(_InternalNamesXML))
+            if (System.IO.File.Exists(_InternalNamesXML))
             {
                 try
                 {
@@ -262,7 +262,7 @@ namespace MyNetworkMonitor
 
         }
 
-        private void UpdateRowCount(object sender, DataRowChangeEventArgs e)
+        private void UpdateRowCount()
         {
             rowCountTextBlock.Text = $"{_scannResults.ResultTable.Rows.Count} Devices, {dv_resultTable.Count} Filtered";
         }
@@ -272,7 +272,7 @@ namespace MyNetworkMonitor
         {
             string folder = "images";
             string[] extensions = { ".png", ".jpg", ".jpeg" };
-            string logoPath = Array.Find(extensions, ext => File.Exists(Path.Combine(folder, "logo" + ext)));
+            string logoPath = Array.Find(extensions, ext => System.IO.File.Exists(Path.Combine(folder, "logo" + ext)));
 
             if (logoPath != null)
             {
@@ -2474,6 +2474,7 @@ namespace MyNetworkMonitor
         private void bt_clearScanResultTable_Click(object sender, RoutedEventArgs e)
         {
             _scannResults.ResultTable.Rows.Clear();
+            UpdateRowCount();
         }
 
         private void Window_Closing(object sender, CancelEventArgs e)
