@@ -260,7 +260,7 @@ namespace MyNetworkMonitor
 
                 if (Lookup_Task_Finished != null)
                 {
-                    ipToScan.LookUpStatus = _LookUpStatus;
+                    //ipToScan.LookUpStatus = _LookUpStatus;
                     ipToScan.LookUpIPs = _LookUpIPs;
                     ipToScan.IP_HostEntry = _entry;
                     ipToScan.UsedScanMethod = ScanMethod.Lookup;
