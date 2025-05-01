@@ -478,6 +478,7 @@ namespace MyNetworkMonitor
 
 
         ScanStatus status_mDNS_Scan = ScanStatus.ignored;
+        int countdown_mDNS = 0;
         int counted_responded_mDNS_Devices = 0;        
 
         ScanStatus status_ARP_Request_Scan = ScanStatus.ignored;
@@ -513,7 +514,7 @@ namespace MyNetworkMonitor
             if (status_ONVIF_IP_Cam_Scan == ScanStatus.ignored) { lst_ignored.Add("IP-Cam`s: ignored"); } else { lst_statusUpdate.Add($"IP-Cam`s: {status_ONVIF_IP_Cam_Scan.ToString()} {counted_current__ONVIF_IP_Cam.ToString()} / {counted_responded_ONVIF_IP_Cams} / {counted_total_ONVIF_IPs_toScan}"); }            
             if (status_DNS_HostName_Scan == ScanStatus.ignored) { lst_ignored.Add("DNS Hostnames: ignored"); } else { lst_statusUpdate.Add($"DNS Hostnames: {status_DNS_HostName_Scan.ToString()} {counted_current_DNS_HostNames} / {counted_responded_DNS_HostNames} / {counted_total_DNS_HostNames}"); }
 
-            if (status_mDNS_Scan == ScanStatus.ignored) { lst_ignored.Add("mDNS: ignored"); } else { lst_statusUpdate.Add($"mDNS: {status_mDNS_Scan.ToString()} ... / {counted_responded_mDNS_Devices} / ..."); }
+            if (status_mDNS_Scan == ScanStatus.ignored) { lst_ignored.Add("mDNS: ignored"); } else { lst_statusUpdate.Add($"mDNS: {status_mDNS_Scan.ToString()} {countdown_mDNS} / {counted_responded_mDNS_Devices} / ..."); }
 
             if (status_Lookup_Scan == ScanStatus.ignored) { lst_ignored.Add("Lookup: ignored"); } else { lst_statusUpdate.Add($"Lookup: {status_Lookup_Scan.ToString()} {counted_current_Lookup_Scan} / {counted_responded_Lookup_Devices} / {counted_total_Lookup_Scans}"); }
             if (status_SMB_VersionCheck == ScanStatus.ignored) { lst_ignored.Add("SMB Check: ignored"); } else { lst_statusUpdate.Add($"SMB Check: {status_SMB_VersionCheck.ToString()} {counted_current_SMB_VersionCheck} / {counted_responded_SMB_VersionCheck} / {counted_total_SMB_VersionCheck}"); }
@@ -1186,6 +1187,7 @@ namespace MyNetworkMonitor
             counted_responded_DNS_HostNames = 0;
             counted_total_DNS_HostNames = 0;
 
+            countdown_mDNS = 0;
             counted_responded_mDNS_Devices = 0;
 
             counted_current_NetBiosScan = 0;
@@ -2387,6 +2389,7 @@ namespace MyNetworkMonitor
         {
             Dispatcher.BeginInvoke(() =>
             {
+                countdown_mDNS = arg1;
                 counted_responded_mDNS_Devices = arg2;
                 Status();
             });
