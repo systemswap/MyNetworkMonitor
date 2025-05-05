@@ -644,17 +644,17 @@ namespace MyNetworkMonitor
                 };
             }
 
-            if (e.PropertyName == "LookUpStatus")
-            {
-                // replace text column with image column
-                e.Column = new DataGridTemplateColumn
-                {
-                    // searching for predefined tenplate in Resources
-                    CellTemplate = (sender as DataGrid).Resources["LookUpStatus"] as DataTemplate,
-                    HeaderTemplate = e.Column.HeaderTemplate,
-                    Header = e.Column.Header
-                };
-            }
+            //if (e.PropertyName == "LookUpStatus")
+            //{
+            //    // replace text column with image column
+            //    e.Column = new DataGridTemplateColumn
+            //    {
+            //        // searching for predefined tenplate in Resources
+            //        CellTemplate = (sender as DataGrid).Resources["LookUpStatus"] as DataTemplate,
+            //        HeaderTemplate = e.Column.HeaderTemplate,
+            //        Header = e.Column.Header
+            //    };
+            //}
 
             //if (e.PropertyName == "MatchedWithInternal")
             //{
@@ -1654,8 +1654,17 @@ namespace MyNetworkMonitor
             if (rows.Count > 0)
             {
                 int rowIndex = _scannResults.ResultTable.Rows.IndexOf(rows[0]);
-                _scannResults.ResultTable.Rows[rowIndex]["IPGroupDescription"] = ipToScan.IPGroupDescription;
-                _scannResults.ResultTable.Rows[rowIndex]["DeviceDescription"] = ipToScan.DeviceDescription;
+
+                if (!string.IsNullOrEmpty(ipToScan.IPGroupDescription))
+                {
+                    _scannResults.ResultTable.Rows[rowIndex]["IPGroupDescription"] = ipToScan.IPGroupDescription; 
+                }
+
+                if (!string.IsNullOrEmpty(ipToScan.DeviceDescription))
+                {
+                    _scannResults.ResultTable.Rows[rowIndex]["DeviceDescription"] = ipToScan.DeviceDescription;
+                }
+
                 _scannResults.ResultTable.Rows[rowIndex]["IP"] = ipToScan.IPorHostname;
 
                 if (supportMethods.Is_Valid_IP(ipToScan.IPorHostname))
@@ -1813,8 +1822,17 @@ namespace MyNetworkMonitor
             else
             {
                 DataRow row = _scannResults.ResultTable.NewRow();
-                row["IPGroupDescription"] = ipToScan.IPGroupDescription;
-                row["DeviceDescription"] = ipToScan.DeviceDescription;
+
+                if (!string.IsNullOrEmpty(ipToScan.IPGroupDescription))
+                {
+                    row["IPGroupDescription"] = ipToScan.IPGroupDescription;
+                }
+
+                if (!string.IsNullOrEmpty(ipToScan.DeviceDescription))
+                {
+                    row["DeviceDescription"] = ipToScan.DeviceDescription;
+                }
+
                 row["IP"] = ipToScan.IPorHostname;
 
                 if (supportMethods.Is_Valid_IP(ipToScan.IPorHostname))
@@ -3594,7 +3612,7 @@ namespace MyNetworkMonitor
             expandedDataTable.Columns.Add("Status", typeof(string));
             expandedDataTable.Columns.Add("isSSDP", typeof(string));
             expandedDataTable.Columns.Add("isAnIPCam", typeof(string));
-            expandedDataTable.Columns.Add("LookupEqualReverse", typeof(string));
+            //expandedDataTable.Columns.Add("LookupEqualReverse", typeof(string));
             //expandedDataTable.Columns.Add("originRow", typeof(int)); // Hilfsspalte zur Nachverfolgung
 
             foreach (DataRow originalRow in rowsToExport)
@@ -3707,20 +3725,20 @@ namespace MyNetworkMonitor
                                 newRow["isAnIPCam"] = true;
                             }
 
-                            if (originalRow[col.ColumnName] != DBNull.Value && col.ColumnName.ToLower() == "lookupstatus")
-                            {
-                                byte[] tada = (byte[])originalRow[col.ColumnName];
+                            //if (originalRow[col.ColumnName] != DBNull.Value && col.ColumnName.ToLower() == "lookupstatus")
+                            //{
+                            //    byte[] tada = (byte[])originalRow[col.ColumnName];
 
-                                if (tada.SequenceEqual(green_dot_s))
-                                {
-                                    newRow["LookupEqualReverse"] = true;
-                                }
+                            //    if (tada.SequenceEqual(green_dot_s))
+                            //    {
+                            //        newRow["LookupEqualReverse"] = true;
+                            //    }
 
-                                if (tada.SequenceEqual(red_dot_s))
-                                {
-                                    newRow["LookupEqualReverse"] = false;
-                                }
-                            }
+                            //    if (tada.SequenceEqual(red_dot_s))
+                            //    {
+                            //        newRow["LookupEqualReverse"] = false;
+                            //    }
+                            //}
                         }
                     }
                         // Füge die Zeile zur neuen Tabelle hinzu
@@ -3730,7 +3748,7 @@ namespace MyNetworkMonitor
             expandedDataTable.Columns.Remove("ARPStatus");
             expandedDataTable.Columns.Remove("PingStatus");
             expandedDataTable.Columns.Remove("detectedServicePorts");
-            expandedDataTable.Columns.Remove("LookUpStatus");
+            //expandedDataTable.Columns.Remove("LookUpStatus");
             ExportToCSV(expandedDataTable);
         }
 
