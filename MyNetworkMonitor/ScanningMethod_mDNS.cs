@@ -37,7 +37,7 @@ namespace MyNetworkMonitor
             sb.AppendLine($"Group: {Group}");
             foreach (var kv in TxtRecords)
                 sb.AppendLine($"TXT: {kv.Key} = {kv.Value}");
-            return sb.ToString();
+            return sb.ToString().Trim();
         }
     }
 
