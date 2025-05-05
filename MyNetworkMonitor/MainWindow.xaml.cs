@@ -1256,9 +1256,13 @@ namespace MyNetworkMonitor
                         row["Aliases"] = string.Empty;
                     }
 
-                    if ((bool)chk_Methodes_LookUp.IsChecked && !string.IsNullOrEmpty(row["LookUpStatus"].ToString()))
-                    {
-                        row["LookUpStatus"] = gray_dot_s;
+                    //if ((bool)chk_Methodes_LookUp.IsChecked && !string.IsNullOrEmpty(row["LookUpStatus"].ToString()))
+                    //{
+                    //    row["LookUpStatus"] = gray_dot_s;                        
+                    //}
+
+                    if ((bool)chk_Methodes_LookUp.IsChecked)
+                    {                        
                         row["LookUpIPs"] = string.Empty;
                     }
                 }
