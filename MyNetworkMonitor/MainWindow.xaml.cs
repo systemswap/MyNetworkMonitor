@@ -1329,7 +1329,9 @@ namespace MyNetworkMonitor
             {
                 status_mDNS_Scan = ScanStatus.running;               
                 Status();
-                await Task.Run(() => scanningMethod_MDNS.DiscoverAsync()); 
+
+                string selectedInterface = Dispatcher.Invoke(() => cb_NetworkAdapters.Text);
+                await Task.Run(() => scanningMethod_MDNS.DiscoverAsync(selectedInterface));
             }
 
             _cts.Token.ThrowIfCancellationRequested();
