@@ -79,7 +79,7 @@ namespace MyNetworkMonitor
 
                 // Richtung umschalten
                 ListSortDirection direction;
-                if (_lastSortedColumn.Header == e.Column.Header)
+                if (_lastSortedColumn != null && _lastSortedColumn.Header == e.Column.Header)
                 {
                     direction = _lastDirection == ListSortDirection.Ascending
                         ? ListSortDirection.Descending
