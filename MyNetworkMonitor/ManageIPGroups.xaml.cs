@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.Data;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
@@ -30,7 +31,11 @@ namespace MyNetworkMonitor
             _ipGroupsXMLFile= IPGroupsXMLFile;
             _dt = IPGroupDT;
 
-            DataContext = _dt.DefaultView;
+            DataContext = _dt;
+            //var viewSource = new CollectionViewSource();
+            //viewSource.Source = _dt.DefaultView;
+            //dg_IPGroups.ItemsSource = viewSource.View;
+
         }
         DataTable _dt  = new DataTable();
         
@@ -43,9 +48,82 @@ namespace MyNetworkMonitor
             {
                 Directory.CreateDirectory(System.IO.Path.GetDirectoryName(_ipGroupsXMLFile));
             }
-            _dt.WriteXml(_ipGroupsXMLFile, XmlWriteMode.WriteSchema);
+
+            // Sortierte DataView speichern
+            var view = CollectionViewSource.GetDefaultView(dg_IPGroups.ItemsSource) as ICollectionView;
+
+            _dt.TableName = "IPGroups";
+
+            if (view != null && view.SourceCollection is DataView dataView)
+            {
+                dataView.ToTable().WriteXml(_ipGroupsXMLFile, XmlWriteMode.WriteSchema);
+            }
+            else
+            {
+                _dt.WriteXml(_ipGroupsXMLFile, XmlWriteMode.WriteSchema); // Fallback
+            }
+
             this.Close();
         }
+
+        private ListSortDirection _lastDirection = ListSortDirection.Ascending;
+        private DataGridColumn _lastSortedColumn = null;
+
+        private void dg_IPGroups_Sorting(object sender, DataGridSortingEventArgs e)
+        {
+            string columnName = e.Column.SortMemberPath;
+
+            if (columnName == "FirstIP" || columnName == "LastIP")
+            {
+                e.Handled = true;
+
+                // Richtung umschalten
+                ListSortDirection direction;
+                if (_lastSortedColumn.Header == e.Column.Header)
+                {
+                    direction = _lastDirection == ListSortDirection.Ascending
+                        ? ListSortDirection.Descending
+                        : ListSortDirection.Ascending;
+                }
+                else
+                {
+                    direction = ListSortDirection.Ascending;
+                }
+
+                // IP sortieren
+                var sortedRows = direction == ListSortDirection.Ascending
+                    ? _dt.AsEnumerable().OrderBy(row => ParseIp(row[columnName].ToString()))
+                    : _dt.AsEnumerable().OrderByDescending(row => ParseIp(row[columnName].ToString()));
+
+                // Statt Clear: Neue sortierte Reihenfolge in DefaultView setzen
+                var sortedTable = sortedRows.CopyToDataTable();
+                _dt = sortedTable;
+
+                // DefaultView setzen, um die Daten im DataGrid zu aktualisieren
+                //dg_IPGroups.ItemsSource = _dt.DefaultView;
+                DataContext = _dt;
+
+                // Pfeil setzen
+                foreach (var col in dg_IPGroups.Columns)
+                    col.SortDirection = null;
+                e.Column.SortDirection = direction;
+
+                // Richtung merken
+                _lastSortedColumn = e.Column;
+                _lastDirection = direction;
+            }
+        }
+
+
+
+
+
+        // Hilfsfunktion: IP als Zahl sortierbar machen
+        private long ParseIp(string ip)
+        {
+            return BitConverter.ToInt32(IPAddress.Parse(ip).GetAddressBytes().Reverse().ToArray(), 0);
+        }
+
 
 
         private void bt_EditRow_Click(object sender, RoutedEventArgs e)
@@ -59,9 +137,7 @@ namespace MyNetworkMonitor
             string selectedFirstIP = ((DataRowView)row)["FirstIP"].ToString();
 
             // Die richtige Zeile in der DataTable suchen
-            DataRow[] foundRows = _dt.Select(
-                $"IPGroupDescription = '{selectedIPGroup}' AND DeviceDescription = '{selectedDeviceDescription}' AND FirstIP = '{selectedFirstIP}'"
-            );
+            DataRow[] foundRows = _dt.Select($"IPGroupDescription = '{selectedIPGroup}' AND DeviceDescription = '{selectedDeviceDescription}' AND FirstIP = '{selectedFirstIP}'");
 
             
                 DataRow selectedRow = foundRows[0];
