@@ -33,9 +33,28 @@
             <RowDefinition Height="38*"/>
             <RowDefinition Height="5*"/>
         </Grid.RowDefinitions>
-        <DataGrid x:Name="dg_IPGroups" Grid.Row="1" Margin="10,10,10,10" ItemsSource="{Binding Source={StaticResource cvs}}" CanUserAddRows="False" CanUserDeleteRows="False" AutoGeneratingColumn="dg_IPGroups_AutoGeneratingColumn" Sorting="dg_IPGroups_Sorting">
+        <!--<DataGrid x:Name="dg_IPGroups" Grid.Row="1" Margin="10,10,10,10" ItemsSource="{Binding Source={StaticResource cvs}}" CanUserAddRows="False" CanUserDeleteRows="False" AutoGeneratingColumn="dg_IPGroups_AutoGeneratingColumn" Sorting="dg_IPGroups_Sorting">
             <DataGrid.GroupStyle>
                 <GroupStyle HeaderTemplate="{StaticResource ResourceKey=GroupingHeader}" />
+            </DataGrid.GroupStyle>
+        </DataGrid>-->
+        <DataGrid x:Name="dg_IPGroups"
+          Grid.Row="1"
+          Margin="10"
+          ItemsSource="{Binding Source={StaticResource cvs}}"
+          CanUserAddRows="False"
+          CanUserDeleteRows="False"
+          AutoGeneratingColumn="dg_IPGroups_AutoGeneratingColumn"
+          Sorting="dg_IPGroups_Sorting"
+          IsReadOnly="False"
+          EnableRowVirtualization="True"
+          EnableColumnVirtualization="True"
+          HeadersVisibility="All"
+          SelectionMode="Single"
+          SelectionUnit="FullRow">
+
+            <DataGrid.GroupStyle>
+                <GroupStyle HeaderTemplate="{StaticResource GroupingHeader}" />
             </DataGrid.GroupStyle>
         </DataGrid>
         <Grid Grid.Row="2" Margin="10,7,10,0">
