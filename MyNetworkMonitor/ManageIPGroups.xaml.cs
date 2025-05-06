@@ -31,10 +31,9 @@ namespace MyNetworkMonitor
             _ipGroupsXMLFile= IPGroupsXMLFile;
             _dt = IPGroupDT;
 
-            DataContext = _dt;
-            //var viewSource = new CollectionViewSource();
-            //viewSource.Source = _dt.DefaultView;
-            //dg_IPGroups.ItemsSource = viewSource.View;
+            //DataContext = _dt;
+            var viewSource = (CollectionViewSource)this.Resources["cvs"];
+            viewSource.Source = _dt.DefaultView;
 
         }
         DataTable _dt  = new DataTable();
@@ -100,8 +99,10 @@ namespace MyNetworkMonitor
                 _dt = sortedTable;
 
                 // DefaultView setzen, um die Daten im DataGrid zu aktualisieren
-                //dg_IPGroups.ItemsSource = _dt.DefaultView;
-                DataContext = _dt;
+                //DataContext = _dt;
+                var viewSource = (CollectionViewSource)this.Resources["cvs"];
+                viewSource.Source = _dt.DefaultView;
+                
 
                 // Pfeil setzen
                 foreach (var col in dg_IPGroups.Columns)
