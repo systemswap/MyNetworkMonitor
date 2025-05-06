@@ -33,7 +33,7 @@
             <RowDefinition Height="38*"/>
             <RowDefinition Height="5*"/>
         </Grid.RowDefinitions>
-        <DataGrid x:Name="dg_IPGroups" Grid.Row="1" Margin="10,10,10,10" ItemsSource="{Binding Source={StaticResource cvs}}" CanUserAddRows="False" CanUserDeleteRows="False" AutoGeneratingColumn="dg_IPGroups_AutoGeneratingColumn">
+        <DataGrid x:Name="dg_IPGroups" Grid.Row="1" Margin="10,10,10,10" ItemsSource="{Binding Source={StaticResource cvs}}" CanUserAddRows="False" CanUserDeleteRows="False" AutoGeneratingColumn="dg_IPGroups_AutoGeneratingColumn" Sorting="dg_IPGroups_Sorting">
             <DataGrid.GroupStyle>
                 <GroupStyle HeaderTemplate="{StaticResource ResourceKey=GroupingHeader}" />
             </DataGrid.GroupStyle>
@@ -118,7 +118,7 @@
                     <Label Content="add entry" Width="78" Height="24" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,0,0,2"/>
                 </StackPanel>
             </Button>
-            <Button x:Name="bt_EditRow" Grid.Column="0" VerticalAlignment="Center" Height="20" Click="bt_EditRow_Click" Grid.Row="2" HorizontalAlignment="Center" Width="108" Background="#BFA4B1BF" OpacityMask="Black">
+            <Button x:Name="bt_EditRow" Grid.Column="0" VerticalAlignment="Center" Height="20" Click="bt_EditRow_Click" Grid.Row="2" HorizontalAlignment="Center" Width="108" Background="#BFA4B1BF" OpacityMask="Black" IsEnabled="False">
                 <Button.Resources>
                     <Style TargetType="Border">
                         <Setter Property="CornerRadius" Value="5"/>
