@@ -23,6 +23,11 @@ using static MyNetworkMonitor.SupportMethods;
 using System.Net.NetworkInformation;
 using System.Windows.Navigation;
 using System.Windows.Threading;
+using System.Windows.Documents;
+using System.Xml;
+
+
+
 
 
 namespace MyNetworkMonitor
@@ -3549,16 +3554,7 @@ namespace MyNetworkMonitor
 
         private void bt_exportResult_Click(object sender, RoutedEventArgs e)
         {
-            // Frage den Benutzer, ob alle Zeilen oder nur die ausgewählten Zeilen exportiert werden sollen
-            MessageBoxResult result = MessageBox.Show(
-                "Export whole table? \r\n\r\nTo export only selected rows select \"No\"",
-                "Export", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
-
-            if (result == MessageBoxResult.Cancel)
-            {
-                return; // Abbrechen
-            }
-            bool exportAllRows = (result == MessageBoxResult.Yes);
+           
 
             // Neue DataTable zur unabhängigen Speicherung der Daten
             DataTable independentTable = new DataTable();
@@ -3570,7 +3566,27 @@ namespace MyNetworkMonitor
             }
             else
             {
-                MessageBox.Show("Fehler: Die DataView oder DataTable ist NULL.");
+                MessageBox.Show("Error: DataView or DataTable is NULL.");
+                return;
+            }
+
+            // Frage den Benutzer, ob alle Zeilen oder nur die ausgewählten Zeilen exportiert werden sollen
+            MessageBoxResult result = MessageBox.Show(
+                "Export whole table? \r\n\r\nTo export only selected rows select \"No\"",
+                "Export", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+
+            if (result == MessageBoxResult.Cancel)
+            {
+                return; // Abbrechen
+            }
+            bool exportAllRows = (result == MessageBoxResult.Yes);
+
+
+            MessageBoxResult result2 = MessageBox.Show("Would you split detectedServicePorts in seperate rows?", "Split Services", MessageBoxButton.YesNo);
+            if (result2 == MessageBoxResult.No)
+            {
+                //ExportToCSV(ExtractRowsFromDataGrid(dgv_Results, exportAllRows));
+                ExportDataTableToHTML(ExtractRowsFromDataGrid(dgv_Results, exportAllRows, false));
                 return;
             }
 
@@ -3599,9 +3615,10 @@ namespace MyNetworkMonitor
             // Falls keine Zeilen zum Exportieren vorhanden sind, abbrechen
             if (rowsToExport.Count == 0)
             {
-                MessageBox.Show("Keine Zeilen zum Exportieren ausgewählt.");
+                MessageBox.Show("for export select the rows at first.");
                 return;
             }
+
 
             // Neue DataTable für die erweiterten Daten mit aufgeteilten Services
             DataTable expandedDataTable = independentTable.Clone(); // Erstellt eine Kopie der Struktur
@@ -3612,6 +3629,8 @@ namespace MyNetworkMonitor
             expandedDataTable.Columns.Add("Status", typeof(string));
             expandedDataTable.Columns.Add("isSSDP", typeof(string));
             expandedDataTable.Columns.Add("isAnIPCam", typeof(string));
+            expandedDataTable.Columns.Add("ARP_Response", typeof(bool));
+            expandedDataTable.Columns.Add("PingResponse", typeof(bool));
             //expandedDataTable.Columns.Add("LookupEqualReverse", typeof(string));
             //expandedDataTable.Columns.Add("originRow", typeof(int)); // Hilfsspalte zur Nachverfolgung
 
@@ -3648,7 +3667,8 @@ namespace MyNetworkMonitor
                         // Kopiere alle Spaltenwerte außer detectedServicePorts
                         foreach (DataColumn col in independentTable.Columns)
                         {
-                            if (col.ColumnName != "detectedServicePorts" || col.ColumnName != "ARPStatus" || col.ColumnName != "PingStatus")
+                            //if (col.ColumnName != "detectedServicePorts" || col.ColumnName != "ARPStatus" || col.ColumnName != "PingStatus")
+                            if (col.ColumnName != "detectedServicePorts")
                             {
 
                                 var originalValue = originalRow[col.ColumnName];
@@ -3658,6 +3678,16 @@ namespace MyNetworkMonitor
                                 }
 
                                 newRow[col.ColumnName] = originalValue;
+
+                                if (originalRow[col.ColumnName] != DBNull.Value && col.ColumnName.ToLower() == "arpstatus")
+                                {
+                                    newRow["ARP_Response"] = true;
+                                }
+
+                                if (originalRow[col.ColumnName] != DBNull.Value && col.ColumnName.ToLower() == "pingstatus")
+                                {
+                                    newRow["PingResponse"] = true;
+                                }
 
                                 if (originalRow[col.ColumnName] != DBNull.Value && col.ColumnName.ToLower() == "ssdpstatus")
                                 {
@@ -3704,7 +3734,8 @@ namespace MyNetworkMonitor
                     // Kopiere alle Spaltenwerte außer detectedServicePorts
                     foreach (DataColumn col in independentTable.Columns)
                     {
-                        if (col.ColumnName != "detectedServicePorts" || col.ColumnName != "ARPStatus" || col.ColumnName != "PingStatus")
+                        //if (col.ColumnName != "detectedServicePorts" || col.ColumnName != "ARPStatus" || col.ColumnName != "PingStatus")
+                        if (col.ColumnName != "detectedServicePorts")
                         {
 
                             var originalValue = originalRow[col.ColumnName];
@@ -3714,6 +3745,16 @@ namespace MyNetworkMonitor
                             }
 
                             newRow[col.ColumnName] = originalValue;
+
+                            if (originalRow[col.ColumnName] != DBNull.Value && col.ColumnName.ToLower() == "arpstatus")
+                            {
+                                newRow["ARPStatus"] = true;
+                            }
+
+                            if (originalRow[col.ColumnName] != DBNull.Value && col.ColumnName.ToLower() == "pingstatus")
+                            {
+                                newRow["PingStatus"] = true;
+                            }
 
                             if (originalRow[col.ColumnName] != DBNull.Value && col.ColumnName.ToLower() == "ssdpstatus")
                             {
@@ -3745,14 +3786,213 @@ namespace MyNetworkMonitor
                         expandedDataTable.Rows.Add(newRow);                    
                 }
             }
+
+            expandedDataTable.Columns["ARP_Response"].SetOrdinal(expandedDataTable.Columns["ARPStatus"].Ordinal);
             expandedDataTable.Columns.Remove("ARPStatus");
+
+            expandedDataTable.Columns["PingResponse"].SetOrdinal(expandedDataTable.Columns["PingStatus"].Ordinal);
             expandedDataTable.Columns.Remove("PingStatus");
+
             expandedDataTable.Columns.Remove("detectedServicePorts");
             //expandedDataTable.Columns.Remove("LookUpStatus");
-            ExportToCSV(expandedDataTable);
+
+            //ExportToCSV(expandedDataTable);
+            ExportDataTableToHTML(expandedDataTable);
         }
 
-       
+        public void ExportDataTableToHTML(DataTable dt)
+        {
+            // Öffne einen Speicherdialog, um den Speicherort zu wählen
+            SaveFileDialog saveFileDialog = new SaveFileDialog
+            {
+                Filter = "html-Dateien (*html)|*.html",
+                DefaultExt = "html",
+                FileName = "Export.html",
+                InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Desktop) // Standard: Desktop
+            };
+
+            if (saveFileDialog.ShowDialog() == true)
+            {
+                string filePath = saveFileDialog.FileName;
+
+
+
+                dt.TableName = "MyNetworkMonitorExport";
+
+                var sb = new StringBuilder();
+
+                sb.AppendLine("<!DOCTYPE html>");
+                sb.AppendLine("<html>");
+                sb.AppendLine("<head>");
+                sb.AppendLine("<meta charset='UTF-8'>");
+                sb.AppendLine("<style>");
+                sb.AppendLine("table { border-collapse: collapse; width: 100%; }");
+                sb.AppendLine("th, td { border: 1px solid black; padding: 8px; text-align: left; }");
+                sb.AppendLine("th { background-color: #f2f2f2; }");
+                sb.AppendLine("</style>");
+                sb.AppendLine("</head>");
+                sb.AppendLine("<body>");
+                sb.AppendLine("<table>");
+
+                // Spaltenüberschriften
+                sb.AppendLine("<tr>");
+                foreach (DataColumn column in dt.Columns)
+                {
+                    sb.AppendLine($"<th>{column.ColumnName}</th>");
+                }
+                sb.AppendLine("</tr>");
+
+                // Datenzeilen
+                foreach (DataRow row in dt.Rows)
+                {
+                    sb.AppendLine("<tr>");
+                    //foreach (var item in row.ItemArray)
+                    //{
+                    //    sb.AppendLine($"<td>{item}</td>");
+                    //}
+
+                    //foreach (var item in row.ItemArray)
+                    //{
+                    //    string cellValue = item.ToString()
+                    //                           .Replace("\t", "    ") // Tabstop durch 4 Leerzeichen ersetzen da Tab nicht immer interpretiert oder in html sogar weg gelassen wird
+                    //                           .Replace("<", "&lt;").Replace(">", "&gt;")  // HTML-Sonderzeichen escapen
+                    //                           .Replace("\r\n", "<br>")
+                    //                           .Replace("\n", "<br>")
+                    //                           .Replace("\r", "<br>");
+                    //    sb.AppendLine($"<td>{cellValue}</td>");
+                    //}
+
+                    for (int i = 0; i < row.ItemArray.Length; i++)
+                    {
+                        var item = row.ItemArray[i];
+                        string cellValue = item.ToString().Replace("<", "&lt;").Replace(">", "&gt;").Replace("\t", "&nbsp;&nbsp;&nbsp;&nbsp;");
+
+                        if (dt.Columns[i].ColumnName == "detectedServicePorts")
+                        {
+                            sb.AppendLine($"<td><pre style='margin:0'>{cellValue}</pre></td>");
+                        }
+                        else
+                        {
+                            sb.AppendLine($"<td>{cellValue.Replace("\r\n", "<br>").Replace("\n", "<br>").Replace("\r", "<br>")}</td>");
+                        }
+                    }
+
+
+                    sb.AppendLine("</tr>");
+                }
+
+                sb.AppendLine("</table>");
+                sb.AppendLine("</body>");
+                sb.AppendLine("</html>");
+
+                File.WriteAllText(filePath, sb.ToString(), Encoding.UTF8);
+
+                MessageBox.Show("exported to: \r\n\r\n" + filePath);
+            }
+        }
+
+
+
+        public DataTable ExtractRowsFromDataGrid(DataGrid dataGrid, bool allRows, bool escapeForCsv)
+        {
+            DataTable dt = new DataTable();
+
+            List<DataRowView> items;
+
+            if (allRows)
+            {
+                items = dataGrid.ItemsSource.Cast<DataRowView>().ToList();
+            }
+            else
+            {
+                items = dataGrid.SelectedCells
+                    .Select(cell => cell.Item)
+                    .OfType<DataRowView>()
+                    .Distinct()
+                    .ToList();
+            }
+
+            if (items.Count == 0)
+                return dt;
+
+            foreach (DataColumn col in items[0].Row.Table.Columns)
+            {
+                dt.Columns.Add(col.ColumnName, typeof(string));
+            }
+
+            string EscapeValue(string s)
+            {
+                if (string.IsNullOrEmpty(s))
+                    return "";
+
+                if (escapeForCsv)
+                {
+                    if (s.Contains("\"") || s.Contains("\n") || s.Contains("\r") || s.Contains(";"))
+                    {
+                        s = s.Replace("\"", "\"\"");
+                        return $"\"{s}\"";
+                    }
+                }
+                else
+                {
+                    s = s.Replace("\"", "\"\""); // optional: nur wenn doppelte Quotes auch ohne CSV gebraucht werden
+                }
+
+                return s;
+            }
+
+            foreach (var drv in items)
+            {
+                var row = dt.NewRow();
+                foreach (DataColumn col in drv.Row.Table.Columns)
+                {
+                    string colName = col.ColumnName;
+                    string colValue = drv.Row[col].ToString();
+                    if (colName.Equals("ssdpstatus", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(colValue))
+                    {
+                        row["ssdpstatus"] = "true";
+                    }
+                    else if (colName.Equals("isipcam", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(colValue))
+                    {
+                        row["isipcam"] = "true";
+                    }
+                    else if (colName.Equals("ARPStatus", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(colValue))
+                    {
+                        row["ARPStatus"] = "true";
+                    }
+                    else if (colName.Equals("PingStatus", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(colValue))
+                    {
+                        row["PingStatus"] = "true";
+                    }
+                    else
+                    {                         
+                        row[colName] = EscapeValue(colValue?.ToString() ?? "");
+                    }
+                }
+                dt.Rows.Add(row);
+            }
+
+            if (dt.Columns.Contains("ssdpstatus"))
+                dt.Columns["ssdpstatus"].ColumnName = "supportSSDP";
+
+            if (dt.Columns.Contains("ARPStatus"))
+            {
+                //dt.Columns.Remove("ARPStatus");
+                dt.Columns["ARPStatus"].ColumnName = "ARP_Response";
+            }
+
+            if (dt.Columns.Contains("PingStatus"))
+            {
+                //dt.Columns.Remove("PingStatus");
+                dt.Columns["PingStatus"].ColumnName = "PingResponse";
+            }
+
+            return dt;
+        }
+
+
+
+
 
         private void ExportToCSV(DataTable dataTable)
         {
