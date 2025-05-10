@@ -3585,8 +3585,11 @@ namespace MyNetworkMonitor
             MessageBoxResult result2 = MessageBox.Show("Would you split detectedServicePorts in seperate rows?", "Split Services", MessageBoxButton.YesNo);
             if (result2 == MessageBoxResult.No)
             {
-                //ExportToCSV(ExtractRowsFromDataGrid(dgv_Results, exportAllRows));
-                ExportDataTableToHTML(ExtractRowsFromDataGrid(dgv_Results, exportAllRows, false));
+                
+                ExportToCSV(ExtractRowsFromDataGrid(dgv_Results, exportAllRows, true));
+
+                //ExportDataTableToExcelXml(ExtractRowsFromDataGrid(dgv_Results, exportAllRows, false));
+
                 return;
             }
 
@@ -3797,8 +3800,105 @@ namespace MyNetworkMonitor
             //expandedDataTable.Columns.Remove("LookUpStatus");
 
             //ExportToCSV(expandedDataTable);
-            ExportDataTableToHTML(expandedDataTable);
+            ExportToCSV(expandedDataTable);
         }
+
+
+
+
+        public static void ExportDataTableToExcelXml(DataTable table)
+        {
+            SaveFileDialog saveFileDialog = new SaveFileDialog
+            {
+                Filter = "Excel XML (*.xml)|*.xml",
+                DefaultExt = "xml",
+                FileName = "Export.xml",
+                InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
+                OverwritePrompt = true // 🔄 Zeigt Dialog, wenn Datei existiert
+            };
+
+            if (saveFileDialog.ShowDialog() != true)
+                return;
+
+            string filePath = saveFileDialog.FileName;
+            var sb = new StringBuilder();
+
+            sb.AppendLine("<?xml version=\"1.0\"?>");
+            sb.AppendLine("<?mso-application progid=\"Excel.Sheet\"?>");
+            sb.AppendLine("<Workbook xmlns=\"urn:schemas-microsoft-com:office:spreadsheet\"");
+            sb.AppendLine(" xmlns:o=\"urn:schemas-microsoft-com:office:office\"");
+            sb.AppendLine(" xmlns:x=\"urn:schemas-microsoft-com:office:excel\"");
+            sb.AppendLine(" xmlns:ss=\"urn:schemas-microsoft-com:office:spreadsheet\">");
+
+            // Styles
+            sb.AppendLine(" <Styles>");
+            sb.AppendLine("  <Style ss:ID=\"Default\" ss:Name=\"Normal\">");
+            sb.AppendLine("   <Alignment ss:Vertical=\"Bottom\"/>");
+            sb.AppendLine("   <Borders/><Font/><Interior/><NumberFormat/><Protection/>");
+            sb.AppendLine("  </Style>");
+            sb.AppendLine("  <Style ss:ID=\"sWrap\">");
+            sb.AppendLine("   <Alignment ss:Vertical=\"Bottom\" ss:WrapText=\"1\"/>");
+            sb.AppendLine("  </Style>");
+            sb.AppendLine(" </Styles>");
+
+            sb.AppendLine(" <Worksheet ss:Name=\"Tabelle1\">");
+            sb.AppendLine("  <Table>");
+
+            // Header
+            sb.AppendLine("   <Row>");
+            foreach (DataColumn col in table.Columns)
+            {
+                //sb.AppendLine($"    <Cell><Data ss:Type=\"String\">{EscapeXmlPreservingLineBreaks(col.ColumnName)}</Data></Cell>");
+                sb.AppendLine($"    <Cell><Data ss:Type=\"String\">{col.ColumnName}</Data></Cell>");
+            }
+            sb.AppendLine("   </Row>");
+
+            // Rows
+            foreach (DataRow row in table.Rows)
+            {
+                sb.AppendLine("   <Row>");
+                foreach (var cell in row.ItemArray)
+                {
+                    string cellValue = (cell?.ToString() ?? string.Empty)
+                        .Replace("\r\n", "&#13;&#10;")
+                        .Replace("\n", "&#13;&#10;");
+
+
+                    string escapedValue = cellValue;
+                    //string escapedValue = EscapeXmlPreservingLineBreaks(cellValue);
+                    bool hasLineBreak = cellValue.Contains("&#13;&#10;");
+                    string styleAttr = hasLineBreak ? " ss:StyleID=\"sWrap\"" : "";
+
+                    sb.AppendLine($"    <Cell{styleAttr}><Data ss:Type=\"String\">{escapedValue}</Data></Cell>");
+                }
+                sb.AppendLine("   </Row>");
+            }
+
+            sb.AppendLine("  </Table>");
+            sb.AppendLine(" </Worksheet>");
+            sb.AppendLine("</Workbook>");
+
+            File.WriteAllText(filePath, sb.ToString(), Encoding.UTF8);
+        }
+
+        private static string EscapeXmlPreservingLineBreaks(string input)
+        {
+            return input
+                .Replace("&", "&amp;")
+                .Replace("<", "&lt;")
+                .Replace(">", "&gt;");
+            // Achtung: &#13;&#10; darf **nicht** escaped werden!
+        }
+
+
+
+
+
+
+
+
+
+
 
         public void ExportDataTableToHTML(DataTable dt)
         {
