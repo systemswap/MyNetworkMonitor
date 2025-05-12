@@ -434,8 +434,8 @@ namespace MyNetworkMonitor
         }
 
 
-        //Download: https://unpkg.com/3d-force-graph/
-      
+        //Download: https://cdn.jsdelivr.net/npm/3d-force-graph@1.77.0/
+
 
         //lookup IPs will only linked to another network if they are in the IP coloumn as seperate device
         private void GenerateHTML()
