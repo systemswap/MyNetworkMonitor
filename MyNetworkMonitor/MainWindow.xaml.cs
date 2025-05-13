@@ -3192,6 +3192,53 @@ namespace MyNetworkMonitor
             }
         }
 
+        private void UpdateInternalNamesHighlighting()
+        {
+            var table = _internalNames.InternalNames;
+
+            var macs = table.AsEnumerable()
+                .GroupBy(r => r.Field<string>("MAC"))
+                .Where(g => !string.IsNullOrEmpty(g.Key) && g.Count() > 1)
+                .Select(g => g.Key)
+                .ToHashSet();
+
+            var ips = table.AsEnumerable()
+                .GroupBy(r => r.Field<string>("StaticIP"))
+                .Where(g => !string.IsNullOrEmpty(g.Key) && g.Count() > 1)
+                .Select(g => g.Key)
+                .ToHashSet();
+
+            var internalNames = table.AsEnumerable()
+                .GroupBy(r => r.Field<string>("InternalName"))
+                .Where(g => !string.IsNullOrEmpty(g.Key) && g.Count() > 1)
+                .Select(g => g.Key)
+                .ToHashSet();
+
+            var scanHostnames = _scannResults?.ResultTable?.AsEnumerable()
+                .Where(r => !r.IsNull("Hostname"))
+                .Select(r => r.Field<string>("Hostname"))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase) ?? new();
+
+            foreach (DataRow row in table.Rows)
+            {
+                string mac = row["MAC"]?.ToString();
+                string ip = row["StaticIP"]?.ToString();
+                string internalName = row["InternalName"]?.ToString();
+                string hostname = row["Hostname"]?.ToString();
+
+                row["RowColor"] = DBNull.Value;
+
+                if (!string.IsNullOrEmpty(mac) && macs.Contains(mac))
+                    row["RowColor"] = "Red";
+                else if (!string.IsNullOrEmpty(ip) && ips.Contains(ip))
+                    row["RowColor"] = "Yellow";
+                else if (!string.IsNullOrEmpty(internalName) && internalNames.Contains(internalName))
+                    row["RowColor"] = "LightGreen";
+                else if (!string.IsNullOrEmpty(hostname) && scanHostnames.Contains(hostname))
+                    row["RowColor"] = "#C5EDC9"; // Spezial-Grün
+            }
+        }
+
         private void bt_AddInternalNamesToScanResult_Click(object sender, RoutedEventArgs e)
         {
             foreach (DataRow row in _scannResults.ResultTable.Rows)
@@ -3210,24 +3257,11 @@ namespace MyNetworkMonitor
 
                 try
                 {
-                    //check if the IP in the internal names returns the same hostname like the dns server
-                    string InternalNames_Hostname_from_ScannedIP = _internalNames.InternalNames.Select("StaticIP = '" + resultIP + "'")[0]["Hostname"].ToString().ToUpper();
+                    ////check if the IP in the internal names returns the same hostname like the dns server
+                    //string InternalNames_Hostname_from_ScannedIP = _internalNames.InternalNames.Select("StaticIP = '" + resultIP + "'")[0]["Hostname"].ToString().ToUpper();
 
-                    bool dnsMatched = false;
-                    dnsMatched = InternalNames_Hostname_from_ScannedIP == resultHostname;
-
-                    //if (dnsMatched && !string.IsNullOrEmpty(resultHostname))
-                    //{
-                    //    row["MatchedWithInternal"] = green_dot_s;
-                    //}
-                    //if (!dnsMatched && !string.IsNullOrEmpty(resultHostname))
-                    //{
-                    //    row["MatchedWithInternal"] = red_dot_s;
-                    //}
-                    //if (string.IsNullOrEmpty(resultHostname))
-                    //{
-                    //    row["MatchedWithInternal"] = null;
-                    //}
+                    //bool dnsMatched = false;
+                    //dnsMatched = InternalNames_Hostname_from_ScannedIP == resultHostname;                    
                 }
                 catch (Exception)
                 {
@@ -3235,6 +3269,8 @@ namespace MyNetworkMonitor
                     //row["MatchedWithInternal"] = null;
                 }
             }
+
+            UpdateInternalNamesHighlighting();
         }
 
         private void bt_openApplicationFolder_Click(object sender, RoutedEventArgs e)
@@ -3338,57 +3374,73 @@ namespace MyNetworkMonitor
 
         private void dg_InternalNames_LoadingRow(object sender, DataGridRowEventArgs e)
         {
-            int internalNameIndex = dg_InternalNames.Columns.Single(c => c.Header.ToString() == "InternalName").DisplayIndex;
-            int hostnameIndex = dg_InternalNames.Columns.Single(c => c.Header.ToString() == "Hostname").DisplayIndex;
-            int macIndex = dg_InternalNames.Columns.Single(c => c.Header.ToString() == "MAC").DisplayIndex;
-            int staticIpIndex = dg_InternalNames.Columns.Single(c => c.Header.ToString() == "StaticIP").DisplayIndex;
+            //int internalNameIndex = dg_InternalNames.Columns.Single(c => c.Header.ToString() == "InternalName").DisplayIndex;
+            //int hostnameIndex = dg_InternalNames.Columns.Single(c => c.Header.ToString() == "Hostname").DisplayIndex;
+            //int macIndex = dg_InternalNames.Columns.Single(c => c.Header.ToString() == "MAC").DisplayIndex;
+            //int staticIpIndex = dg_InternalNames.Columns.Single(c => c.Header.ToString() == "StaticIP").DisplayIndex;
 
-            try
-            {
-                if (dg_InternalNames.Items.Count >= 0)
-                {
-                    var row = e.Row.Item as DataRowView;
+            //try
+            //{
+            //    if (dg_InternalNames.Items.Count >= 0)
+            //    {
+            //        var row = e.Row.Item as DataRowView;
 
-                    if (row == null) { return; }
+            //        if (row == null) { return; }
 
-                    string rowInternalName = row[internalNameIndex].ToString();
-                    string rowHostname = row[hostnameIndex].ToString();
-                    string rowMAC = row[macIndex].ToString();
-                    string rowStaticIP = row[staticIpIndex].ToString();
+            //        string rowInternalName = row[internalNameIndex].ToString();
+            //        string rowHostname = row[hostnameIndex].ToString();
+            //        string rowMAC = row[macIndex].ToString();
+            //        string rowStaticIP = row[staticIpIndex].ToString();
 
-                    int countedDupInternalNames = _internalNames.InternalNames.Select("InternalName = '" + rowInternalName + "'").Length;
-                    if (countedDupInternalNames > 1)
-                    {
-                        if (!string.IsNullOrEmpty(rowInternalName)) e.Row.Background = Brushes.LightGreen;
-                    }
 
-                    var bla = _internalNames.InternalNames.Select("StaticIP = '" + rowStaticIP + "'");
-                    int countedDupIPs = _internalNames.InternalNames.Select("StaticIP = '" + rowStaticIP + "'").Length;
-                    if (countedDupIPs > 1)
-                    {
-                        if (!string.IsNullOrEmpty(rowStaticIP))
-                        {
-                            e.Row.Background = Brushes.Yellow;
-                        }
-                    }
 
-                    int countedDupHostnames = _internalNames.InternalNames.Select("Hostname = '" + rowHostname + "'").Length;
-                    if (countedDupHostnames > 1)
-                    {
-                        if (!string.IsNullOrEmpty(rowHostname))
-                        {
-                            e.Row.Background = Brushes.DarkOrange;
-                        }
-                    }
+            //        if (_scannResults?.ResultTable != null)
+            //        {
+            //            bool foundInScan = _scannResults.ResultTable.AsEnumerable()
+            //                .Any(r => r.RowState != DataRowState.Deleted &&
+            //                          !r.IsNull("Hostname") &&
+            //                          string.Equals(r.Field<string>("Hostname"), rowHostname, StringComparison.OrdinalIgnoreCase));
 
-                    int countedDupMac = _internalNames.InternalNames.Select("MAC = '" + rowMAC + "'").Length;
-                    if (countedDupMac > 1)
-                    {
-                        if (!string.IsNullOrEmpty(rowMAC)) e.Row.Background = Brushes.Red;
-                    }
-                }
-            }
-            catch { }
+            //            if (foundInScan)
+            //            {
+            //                e.Row.Background = new SolidColorBrush(Color.FromRgb(197, 237, 201)); // sanftes Spezial-Grün
+            //            }
+            //        }
+
+
+            //        int countedDupInternalNames = _internalNames.InternalNames.Select("InternalName = '" + rowInternalName + "'").Length;
+            //        if (countedDupInternalNames > 1)
+            //        {
+            //            if (!string.IsNullOrEmpty(rowInternalName)) e.Row.Background = Brushes.LightGreen;
+            //        }
+
+            //        var bla = _internalNames.InternalNames.Select("StaticIP = '" + rowStaticIP + "'");
+            //        int countedDupIPs = _internalNames.InternalNames.Select("StaticIP = '" + rowStaticIP + "'").Length;
+            //        if (countedDupIPs > 1)
+            //        {
+            //            if (!string.IsNullOrEmpty(rowStaticIP))
+            //            {
+            //                e.Row.Background = Brushes.Yellow;
+            //            }
+            //        }
+
+            //        int countedDupHostnames = _internalNames.InternalNames.Select("Hostname = '" + rowHostname + "'").Length;
+            //        if (countedDupHostnames > 1)
+            //        {
+            //            if (!string.IsNullOrEmpty(rowHostname))
+            //            {
+            //                e.Row.Background = Brushes.DarkOrange;
+            //            }
+            //        }
+
+            //        int countedDupMac = _internalNames.InternalNames.Select("MAC = '" + rowMAC + "'").Length;
+            //        if (countedDupMac > 1)
+            //        {
+            //            if (!string.IsNullOrEmpty(rowMAC)) e.Row.Background = Brushes.Red;
+            //        }
+            //    }
+            //}
+            //catch { }
         }
 
         private void dgv_Results_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
@@ -3406,7 +3458,7 @@ namespace MyNetworkMonitor
                     dgv_Results.Items.Refresh();
                 }), System.Windows.Threading.DispatcherPriority.Background);
             }
-         }
+        }
 
         private void dg_InternalNames_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
         {
@@ -3457,7 +3509,13 @@ namespace MyNetworkMonitor
                 else
                 {
                     isScrolling = true;
-                    dgv_Results.Dispatcher.BeginInvoke(new Action(() => dgv_Results.Items.Refresh()), System.Windows.Threading.DispatcherPriority.Background);                    
+                    try
+                    {
+                        dgv_Results.Dispatcher.BeginInvoke(new Action(() => dgv_Results.Items.Refresh()), System.Windows.Threading.DispatcherPriority.Background);
+                    }
+                    catch 
+                    {
+                    }
                 }
             }
         }
