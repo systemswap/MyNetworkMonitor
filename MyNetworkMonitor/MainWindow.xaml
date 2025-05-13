@@ -395,6 +395,32 @@
                             </Button>
                         </Grid>
                         <DataGrid x:Name="dg_InternalNames" Grid.Row="1" Margin="10,0,10,10" CellEditEnding="dg_InternalNames_CellEditEnding" LoadingRow="dg_InternalNames_LoadingRow" ScrollBar.Scroll ="dg_InternalNames_Scroll" RowEditEnding="dg_InternalNames_RowEditEnding">
+
+                            <DataGrid.RowStyle>
+                                <Style TargetType="DataGridRow">
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding RowColor}" Value="Red">
+                                            <Setter Property="Background" Value="Red"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding RowColor}" Value="Yellow">
+                                            <Setter Property="Background" Value="Yellow"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding RowColor}" Value="LightGreen">
+                                            <Setter Property="Background" Value="LightGreen"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding RowColor}" Value="#C5EDC9">
+                                            <Setter Property="Background">
+                                                <Setter.Value>
+                                                    <SolidColorBrush Color="#C5EDC9"/>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DataGrid.RowStyle>
+
+
                             <DataGrid.ContextMenu>
                                 <ContextMenu>
                                     <MenuItem Header="Paste" Click="dg_InternalNames_ContextMenu_Click" />
@@ -403,6 +429,7 @@
                         </DataGrid>
                         <Label Content="Filter" HorizontalAlignment="Left" Margin="10,2,0,0" Grid.Row="2" VerticalAlignment="Top"/>
                         <TextBox x:Name="tb_InternalNamesFilter" HorizontalAlignment="Left" Margin="51,0,0,0" Grid.Row="2" TextWrapping="Wrap" VerticalAlignment="Center" Width="252" TextChanged="tb_InternalNamesFilter_TextChanged"/>
+                        <Label Content="this color means hostname is listed in result table" HorizontalAlignment="Center" Margin="0,9,0,0" VerticalAlignment="Center" Width="293" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Background="#FFD1F3D9"/>
 
 
 
