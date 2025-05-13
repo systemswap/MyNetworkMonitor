@@ -725,7 +725,8 @@ namespace MyNetworkMonitor
             dt.Columns.Add("InternalName", typeof(string));
             dt.Columns.Add("Hostname", typeof(string));
             dt.Columns.Add("MAC", typeof(string));
-            dt.Columns.Add("StaticIP", typeof(string));           
+            dt.Columns.Add("StaticIP", typeof(string));
+            dt.Columns.Add("RowColor", typeof(string));
         }
 
         private DataTable dt = new DataTable();
