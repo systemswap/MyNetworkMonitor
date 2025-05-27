@@ -66,7 +66,7 @@
                 <ColumnDefinition Width="109"/>
                 <ColumnDefinition Width="166"/>
             </Grid.ColumnDefinitions>
-            <Button x:Name="bt_deleteEntry" Margin="10,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Left" Width="111" Click="bt_deleteEntry_Click" Height="20" Background="#BFA4B1BF" OpacityMask="Black">
+            <Button x:Name="bt_deleteEntry" Margin="10,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Left" Width="111" Click="bt_deleteEntry_Click" Height="20" Background="#BFA4B1BF" OpacityMask="Black" TabIndex="12">
                 <Button.Resources>
                     <Style TargetType="Border">
                         <Setter Property="CornerRadius" Value="5"/>
@@ -77,7 +77,7 @@
                     <Label Content="delete entry" Width="78" Height="24" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,0,0,2"/>
                 </StackPanel>
             </Button>
-            <Button x:Name="bt_SaveChanges" Content="Save Changes" VerticalAlignment="Center" Click="bt_SaveChanges_Click" Margin="38,0,10,0" Height="20" TabIndex="10" Grid.Column="5" Background="#BFA4B1BF" OpacityMask="Black">
+            <Button x:Name="bt_SaveChanges" Content="Save Changes" VerticalAlignment="Center" Click="bt_SaveChanges_Click" Margin="38,0,10,0" Height="20" TabIndex="13" Grid.Column="5" Background="#BFA4B1BF" OpacityMask="Black">
                 <Button.Resources>
                     <Style TargetType="Border">
                         <Setter Property="CornerRadius" Value="5"/>
@@ -113,19 +113,19 @@
             <Label Grid.Column="4" Content="Last IP" Margin="10,0,10,0" VerticalAlignment="Center" Height="26"/>
             <TextBox x:Name="tb_LastIP" Grid.Column="4" Margin="10,0,10,0" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Center" Height="18" TabIndex="5"/>
             <Label Grid.Column="6" Content="DNS Server IPs (allow comma without space)" HorizontalAlignment="Center" VerticalAlignment="Center" Height="26" Width="248"/>
-            <TextBox x:Name="tb_DNSServer" Grid.Column="6" Margin="10,0,10,0" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Center" Height="18" TabIndex="6"/>
+            <TextBox x:Name="tb_DNSServer" Grid.Column="6" Margin="10,0,10,0" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Center" Height="18" TabIndex="7"/>
             <Label Grid.Column="2" Content="Device Description" VerticalAlignment="Center" Margin="10,0,10,0" Height="26"/>
             <TextBox x:Name="tb_DeviceDescription" Grid.Column="2" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Center" Margin="10,0,10,0" Height="18" TabIndex="3"/>
 
 
-            <TextBox x:Name="tb_ScanInterval" Grid.Column="9" Margin="10,0,10,0" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Center" Height="18" TabIndex="8"/>
+            <TextBox x:Name="tb_ScanInterval" Grid.Column="9" Margin="10,0,10,0" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Center" Height="18" TabIndex="10"/>
             <Label Grid.Column="5" Content="Domain" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Center" Height="26" Width="52"/>
-            <TextBox x:Name="tb_Domain" Grid.Column="5" HorizontalAlignment="Center" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Center" Width="86" Height="18"/>
+            <TextBox x:Name="tb_Domain" Grid.Column="5" HorizontalAlignment="Center" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Center" Width="86" Height="18" TabIndex="6"/>
             <CheckBox x:Name="chk_AutomaticScan" Grid.Column="9" Content="scan every xxx minutes" Margin="10,0,10,0" VerticalAlignment="Center" Height="16"/>
             <Label Grid.Column="7" Content="IP where NM run as Gateway" HorizontalAlignment="Left" VerticalAlignment="Center" Height="26" Width="162" Margin="10,0,0,0"/>
             <Label Grid.Column="8" Content="Gateway Port" HorizontalAlignment="Left" VerticalAlignment="Center" Width="82" Height="26" Margin="10,0,0,0"/>
-            <TextBox x:Name="tb_IPWhereNetworkMonitorRunAsGateway" Grid.Column="7" HorizontalAlignment="Left" Margin="10,0,0,0" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Center" Width="162" Height="18"/>
-            <TextBox x:Name="tb_GatewayPort" Grid.Column="8" HorizontalAlignment="Center" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Center" Width="108" Height="18"/>
+            <TextBox x:Name="tb_IPWhereNetworkMonitorRunAsGateway" Grid.Column="7" HorizontalAlignment="Left" Margin="10,0,0,0" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Center" Width="162" Height="18" TabIndex="8"/>
+            <TextBox x:Name="tb_GatewayPort" Grid.Column="8" HorizontalAlignment="Center" Grid.Row="1" TextWrapping="Wrap" Text="" VerticalAlignment="Center" Width="108" Height="18" TabIndex="9"/>
             <Button x:Name="bt_addEntry" Grid.Column="9" HorizontalAlignment="Center" VerticalAlignment="Center" Width="149" Height="20" Click="bt_addEntry_Click" TabIndex="9" Grid.Row="2" Background="#BFA4B1BF" OpacityMask="Black">
                 <Button.Resources>
                     <Style TargetType="Border">
@@ -134,7 +134,7 @@
                 </Button.Resources>
                 <StackPanel Orientation="Horizontal" Width="103">
                     <Image Source="/Resources/AddBlack.png" Height="14" Margin="5,0,0,0" />
-                    <Label Content="add entry" Width="78" Height="24" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,0,0,2"/>
+                    <Label Content="add entry" Width="78" Height="24" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,0,0,2" TabIndex="11"/>
                 </StackPanel>
             </Button>
             <Button x:Name="bt_EditRow" Grid.Column="0" VerticalAlignment="Center" Height="20" Click="bt_EditRow_Click" Grid.Row="2" HorizontalAlignment="Center" Width="108" Background="#BFA4B1BF" OpacityMask="Black" IsEnabled="False">
