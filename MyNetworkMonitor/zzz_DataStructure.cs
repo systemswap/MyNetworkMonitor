@@ -43,6 +43,7 @@ namespace MyNetworkMonitor
         mDNS,
         TCPPorts,
         UDPPorts,
+        dontResolvedHostname
     }
 
 

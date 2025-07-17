@@ -1,5 +1,4 @@
-﻿using Microsoft.Win32;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -8,23 +7,26 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Web;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Data;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using static MyNetworkMonitor.SupportMethods;
-using System.Net.NetworkInformation;
 using System.Windows.Navigation;
 using System.Windows.Threading;
-using System.Windows.Documents;
 using System.Xml;
+using Microsoft.Win32;
+using SnmpSharpNet;
+using static MyNetworkMonitor.SupportMethods;
 
 
 
@@ -791,6 +793,8 @@ namespace MyNetworkMonitor
 
         public DataRow GetIPDescription(string IP)
         {
+            if (string.IsNullOrEmpty(IP)) return null;
+
             foreach (DataRow row in ipGroupData.IPGroupsDT.Rows)
             {
                 string firstIP = row["FirstIP"].ToString();
@@ -814,7 +818,7 @@ namespace MyNetworkMonitor
 
                 return ipVal >= Math.Min(startVal, endVal) && ipVal <= Math.Max(startVal, endVal);
             }
-
+            
             uint IPToUInt(string ip)
             {
                 byte[] bytes = IPAddress.Parse(ip).GetAddressBytes();
@@ -824,7 +828,12 @@ namespace MyNetworkMonitor
             }
         }
 
-        private void bt_ScanIP_Click(object sender, RoutedEventArgs e)
+        private async void bt_ScanIP_Click(object sender, RoutedEventArgs e)
+        {
+           await CheckCustomHostIP();
+        }
+
+        private async Task CheckCustomHostIP()
         {
             _IPsToScan.Clear();
             List<int> TCPPorts = new List<int>();
@@ -833,10 +842,11 @@ namespace MyNetworkMonitor
             {
                 TCPPorts.AddRange(_portCollection.TCPPorts);
 
-                //Additional Ports from Customer
                 if (!string.IsNullOrEmpty(tb_TCPPorts.Text))
                 {
-                    TCPPorts.AddRange(tb_TCPPorts.Text.Split(',')?.Select(Int32.Parse)?.ToList());
+                    TCPPorts.AddRange(tb_TCPPorts.Text.Split(',')
+                        .Select(s => int.TryParse(s.Trim(), out var p) ? p : -1)
+                        .Where(p => p > 0));
                 }
             }
 
@@ -845,112 +855,121 @@ namespace MyNetworkMonitor
                 TCPPorts.AddRange(Enumerable.Range(1, 65536));
             }
 
-
             if (!string.IsNullOrEmpty(tb_IP_Address.Text))
             {
-                string IP_or_Hostname = tb_IP_Address.Text;
-                if (supportMethods.Is_Valid_IP(IP_or_Hostname))
+                List<string> IP_or_Hostname_List = tb_IP_Address.Text.Split(',').Select(s => s.Trim()).ToList();
+
+                int i = 1;
+                int totalCount = IP_or_Hostname_List.Count;
+
+                foreach (string IP_or_Hostname in IP_or_Hostname_List)
                 {
-                    DataRow groupedRow = GetIPDescription(IP_or_Hostname);
-
-                    string ipGroupDescription = string.Empty;
-                    string str_DeviceDescription = string.Empty;
-                    if (groupedRow != null)
+                    await Dispatcher.InvokeAsync(() =>
                     {
-                        ipGroupDescription = groupedRow["IPGroupDescription"].ToString();
-                        str_DeviceDescription = groupedRow["DeviceDescription"].ToString();
-                    }
+                        lbl_ScanStatus.Content = $"Resolving IP: {i} / {totalCount}";
+                    });
 
-
-                    IPToScan ipToScan = new IPToScan();
-
-                    ipToScan.IPGroupDescription = ipGroupDescription;
-                    ipToScan.DeviceDescription = str_DeviceDescription;
-
-                    ipToScan.IPorHostname = IP_or_Hostname;
-                    ipToScan.HostName = string.Empty;
-                    ipToScan.TCPPortsToScan = TCPPorts;
-                    ipToScan.UDPPortsToScan = null;
-                    ipToScan.DNSServerList.Add(tb_DNSServerIP.Text);
-                    ipToScan.TimeOut = _TimeOut;
-                    //ipToScan.NMGatewayIP = row["NMGatewayIP"].ToString();
-                    //ipToScan.NMGatewayPort = row["NMGatewayPort"].ToString();
-
-                    _IPsToScan.Add(ipToScan);
-                }
-                else
-                {
-                    IPHostEntry _entry = Task.Run(() => scanningMethod_LookUp.nsLookup(IP_or_Hostname)).Result;
-                    if (_entry != null)
+                    if (supportMethods.Is_Valid_IP(IP_or_Hostname))
                     {
-                        foreach (IPAddress address in _entry.AddressList)
+                        DataRow groupedRow = GetIPDescription(IP_or_Hostname);
+
+                        string ipGroupDescription = groupedRow?["IPGroupDescription"]?.ToString() ?? string.Empty;
+                        string str_DeviceDescription = groupedRow?["DeviceDescription"]?.ToString() ?? string.Empty;
+
+                        IPToScan ipToScan = new IPToScan
                         {
-                            DataRow groupedRow = GetIPDescription(address.ToString());
+                            IPGroupDescription = ipGroupDescription,
+                            DeviceDescription = str_DeviceDescription,
+                            IPorHostname = IP_or_Hostname,
+                            HostName = string.Empty,
+                            TCPPortsToScan = TCPPorts,
+                            UDPPortsToScan = null,
+                            DNSServerList = new List<string> { tb_DNSServerIP.Text },
+                            TimeOut = _TimeOut
+                        };
 
-                            string ipGroupDescription = string.Empty;
-                            string str_DeviceDescription = string.Empty;
-                            if (groupedRow != null)
+                        _IPsToScan.Add(ipToScan);
+                    }
+                    else
+                    {
+                        IPHostEntry _entry = await scanningMethod_LookUp.nsLookup(IP_or_Hostname);
+                        if (_entry != null)
+                        {
+                            foreach (IPAddress address in _entry.AddressList)
                             {
-                                ipGroupDescription = groupedRow["IPGroupDescription"].ToString();
-                                str_DeviceDescription = groupedRow["DeviceDescription"].ToString();
+                                DataRow groupedRow = GetIPDescription(address.ToString());
+
+                                string ipGroupDescription = groupedRow?["IPGroupDescription"]?.ToString() ?? string.Empty;
+                                string str_DeviceDescription = groupedRow?["DeviceDescription"]?.ToString() ?? string.Empty;
+
+                                IPToScan ipToScan = new IPToScan
+                                {
+                                    IPGroupDescription = ipGroupDescription,
+                                    DeviceDescription = str_DeviceDescription,
+                                    IPorHostname = address.ToString(),
+                                    TCPPortsToScan = TCPPorts,
+                                    UDPPortsToScan = null,
+                                    DNSServerList = null,
+                                    TimeOut = _TimeOut
+                                };
+
+                                if (_entry.HostName.Split('.').Length > 2)
+                                {
+                                    var parts = _entry.HostName.Split(new[] { '.' }, 2);
+                                    ipToScan.HostName = parts.Length > 0 ? parts[0] : string.Empty;
+                                    ipToScan.Domain = parts.Length > 1 ? parts[1] : string.Empty;
+                                }
+                                else
+                                {
+                                    ipToScan.HostName = _entry.HostName;
+                                }
+
+                                _IPsToScan.Add(ipToScan);
                             }
+                        }
 
-
-                            IPToScan ipToScan = new IPToScan();
-
-                            ipToScan.IPGroupDescription = ipGroupDescription;
-                            ipToScan.DeviceDescription = str_DeviceDescription;
-
-                            ipToScan.IPorHostname = address.ToString();
-                            if (_entry.HostName.Split('.').ToList().Count > 2)
-                            {
-                                List<string> HostDomainSplit = new List<string>();
-                                HostDomainSplit.AddRange(_entry.HostName.ToString().Split(".", 2, StringSplitOptions.None).ToList());
-                                ipToScan.HostName = (HostDomainSplit.Count >= 1) ? HostDomainSplit[0] : string.Empty;
-                                ipToScan.Domain = (HostDomainSplit.Count >= 2) ? HostDomainSplit[1] : string.Empty;
-                            }
-                            else
-                            {
-                                ipToScan.HostName = _entry.HostName;
-                            }
-                            ipToScan.TCPPortsToScan = TCPPorts;
-                            ipToScan.UDPPortsToScan = null;
-                            ipToScan.DNSServerList = null;
-                            ipToScan.TimeOut = _TimeOut;
-                            //ipToScan.NMGatewayIP = row["NMGatewayIP"].ToString();
-                            //ipToScan.NMGatewayPort = row["NMGatewayPort"].ToString();
-
-                            _IPsToScan.Add(ipToScan);
+                        if (_entry == null && (bool)chk_ShowNotRegisteredHostnames.IsChecked)
+                        {
+                            IPToScan ipToScan = new IPToScan
+                            {  
+                                HostName = IP_or_Hostname,
+                                UsedScanMethod = ScanMethod.dontResolvedHostname
+                            };
+                            InsertIPToScanResult(ipToScan);
                         }
                     }
+                    i++;
                 }
             }
             else
             {
                 foreach (DataRowView row in dgv_Results.SelectedItems)
                 {
-                    if (_IPsToScan.Where(i => i.IPorHostname == row.Row["IP"].ToString()).Count() == 0)
+                    var ip = row.Row["IP"].ToString();
+                    if (!_IPsToScan.Any(i => i.IPorHostname == ip))
                     {
-                        IPToScan ipToScan = new IPToScan();
-                        ipToScan.IPGroupDescription = row.Row["IPGroupDescription"].ToString();
-                        ipToScan.DeviceDescription = row.Row["DeviceDescription"].ToString();
-                        ipToScan.IPorHostname = row.Row["IP"].ToString();
-                        ipToScan.HostName = row.Row["Hostname"].ToString();
-                        ipToScan.Domain = row.Row["Domain"].ToString();
-                        ipToScan.TCPPortsToScan = TCPPorts;
-                        ipToScan.UDPPortsToScan = null;
-                        ipToScan.DNSServerList = row.Row["DNSServers"].ToString().Split(',').ToList();
-                        ipToScan.TimeOut = _TimeOut;
-                        ipToScan.NMGatewayIP = row["NMGatewayIP"].ToString();
-                        ipToScan.NMGatewayPort = row["NMGatewayPort"].ToString();
+                        IPToScan ipToScan = new IPToScan
+                        {
+                            IPGroupDescription = row.Row["IPGroupDescription"].ToString(),
+                            DeviceDescription = row.Row["DeviceDescription"].ToString(),
+                            IPorHostname = ip,
+                            HostName = row.Row["Hostname"].ToString(),
+                            Domain = row.Row["Domain"].ToString(),
+                            TCPPortsToScan = TCPPorts,
+                            UDPPortsToScan = null,
+                            DNSServerList = row.Row["DNSServers"].ToString().Split(',').Select(s => s.Trim()).ToList(),
+                            TimeOut = _TimeOut,
+                            NMGatewayIP = row.Row["NMGatewayIP"].ToString(),
+                            NMGatewayPort = row.Row["NMGatewayPort"].ToString()
+                        };
 
                         _IPsToScan.Add(ipToScan);
                     }
                 }
             }
+
             DoWork(true);
         }
-
 
         private void bt_Scan_IP_Ranges_Click(object sender, RoutedEventArgs e)
         {
@@ -1656,7 +1675,7 @@ namespace MyNetworkMonitor
             if (ipToScan.TCP_FirewallBlockedPorts.Count > 0) ports.Add(string.Format($"ACL blocked: {string.Join("; ", ipToScan.TCP_FirewallBlockedPorts)}"));
 
 
-            if (rows.Count > 0)
+            if (rows.Count > 0 && !string.IsNullOrEmpty(ipToScan.IPorHostname))
             {
                 int rowIndex = _scannResults.ResultTable.Rows.IndexOf(rows[0]);
 
@@ -1754,7 +1773,6 @@ namespace MyNetworkMonitor
 
                 if (ipToScan.UsedScanMethod == ScanMethod.ReverseLookup)
                 {
-
                     _scannResults.ResultTable.Rows[rowIndex]["Hostname"] = ipToScan.HostName;
                     _scannResults.ResultTable.Rows[rowIndex]["Domain"] = ipToScan.Domain;
                     _scannResults.ResultTable.Rows[rowIndex]["Aliases"] = string.Join("\r\n", ipToScan.Aliases);
@@ -1827,6 +1845,11 @@ namespace MyNetworkMonitor
             else
             {
                 DataRow row = _scannResults.ResultTable.NewRow();
+
+                if (ipToScan.UsedScanMethod == ScanMethod.dontResolvedHostname)
+                {
+                    row["Hostname"] = ipToScan.HostName;
+                }
 
                 if (!string.IsNullOrEmpty(ipToScan.IPGroupDescription))
                 {
