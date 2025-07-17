@@ -11,11 +11,11 @@
 		<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
 		<UseWindowsForms>False</UseWindowsForms>
 
-		<!-- Self-contained Einstellungen -->
+		<!-- Self-contained Einstellungen 
 		<RuntimeIdentifier>win-x64</RuntimeIdentifier>
 		<SelfContained>true</SelfContained>
 		<PublishSingleFile>true</PublishSingleFile>
-		<PublishTrimmed>false</PublishTrimmed>
+		<PublishTrimmed>false</PublishTrimmed>-->
 		<!-- WPF-kompatibel -->
 		<IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
 		<EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
