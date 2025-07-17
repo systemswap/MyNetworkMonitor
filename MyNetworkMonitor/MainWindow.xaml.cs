@@ -36,10 +36,8 @@ namespace MyNetworkMonitor
 {
     // install as Service https://www.youtube.com/watch?v=y64L-3HKuP0
 
-
-
     public partial class MainWindow : Window
-    {        
+    {
         public MainWindow()
         {
             InitializeComponent();
@@ -258,7 +256,14 @@ namespace MyNetworkMonitor
             //dg_Services.ItemsSource = scanningMethod_Services.Services.DefaultView;
 
             CollectionView view = (CollectionView)CollectionViewSource.GetDefaultView(scanningMethod_Services.Services.DefaultView);
-            view.GroupDescriptions.Add(new PropertyGroupDescription("ServiceGroup"));
+            try
+            {
+                view.GroupDescriptions.Add(new PropertyGroupDescription("ServiceGroup"));
+            }
+            catch (Exception)
+            {
+                // Ignore if the group description already exists
+            }
             dg_Services.ItemsSource = view;
 
 
@@ -933,6 +938,7 @@ namespace MyNetworkMonitor
                             IPToScan ipToScan = new IPToScan
                             {  
                                 HostName = IP_or_Hostname,
+                                IPorHostname = "000.000.000.000",
                                 UsedScanMethod = ScanMethod.dontResolvedHostname
                             };
                             InsertIPToScanResult(ipToScan);
@@ -1675,7 +1681,7 @@ namespace MyNetworkMonitor
             if (ipToScan.TCP_FirewallBlockedPorts.Count > 0) ports.Add(string.Format($"ACL blocked: {string.Join("; ", ipToScan.TCP_FirewallBlockedPorts)}"));
 
 
-            if (rows.Count > 0 && !string.IsNullOrEmpty(ipToScan.IPorHostname))
+            if (rows.Count > 0 && ipToScan.IPorHostname !="000.000.000.000")
             {
                 int rowIndex = _scannResults.ResultTable.Rows.IndexOf(rows[0]);
 
@@ -1696,7 +1702,16 @@ namespace MyNetworkMonitor
                     _scannResults.ResultTable.Rows[rowIndex]["IPToSort"] = string.Join('.', ipToScan.IPorHostname.Split('.').Select(o => o.PadLeft(3, '0')));
                 }
 
-                if(ipToScan.DNSServerList != null) _scannResults.ResultTable.Rows[rowIndex]["DNSServers"] = string.Join(',', ipToScan.DNSServerList);
+                //if (!string.IsNullOrEmpty(ipToScan.IPorHostname) && supportMethods.Is_Valid_IP(ipToScan.IPorHostname))
+                //{
+                //    _scannResults.ResultTable.Rows[rowIndex]["IPToSort"] = string.Join('.', ipToScan.IPorHostname.Split('.').Select(o => o.PadLeft(3, '0')));
+                //}
+                //else
+                //{
+                //    _scannResults.ResultTable.Rows[rowIndex]["IPToSort"] = "000.000.000.000";  // Standardwert für ungültige IPs
+                //}
+
+                if (ipToScan.DNSServerList != null) _scannResults.ResultTable.Rows[rowIndex]["DNSServers"] = string.Join(',', ipToScan.DNSServerList);
                 _scannResults.ResultTable.Rows[rowIndex]["NMGatewayIP"] = ipToScan.NMGatewayIP;
                 _scannResults.ResultTable.Rows[rowIndex]["NMGatewayPort"] = ipToScan.NMGatewayPort;
 
