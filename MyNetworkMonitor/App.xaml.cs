@@ -2,9 +2,11 @@
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Threading;
 
 namespace MyNetworkMonitor
 {
@@ -13,5 +15,49 @@ namespace MyNetworkMonitor
     /// </summary>
     public partial class App : Application
     {
+        //protected override void OnStartup(StartupEventArgs e)
+        //{
+        //    // Global Exception Handling registrieren
+        //    AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
+        //    DispatcherUnhandledException += App_DispatcherUnhandledException;
+        //    TaskScheduler.UnobservedTaskException += TaskScheduler_UnobservedTaskException;
+
+        //    base.OnStartup(e);
+        //}
+
+        //private void App_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
+        //{
+        //    MessageBox.Show("UI-Fehler:\n" + e.Exception.Message, "Fehler", MessageBoxButton.OK, MessageBoxImage.Error);
+        //    LogException(e.Exception);
+        //    e.Handled = true; // verhindert Crash
+        //}
+
+        //private void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
+        //{
+        //    if (e.ExceptionObject is Exception ex)
+        //    {
+        //        MessageBox.Show("Allgemeiner Fehler:\n" + ex.Message, "Fehler", MessageBoxButton.OK, MessageBoxImage.Error);
+        //        LogException(ex);
+        //    }
+        //}
+
+        //private void TaskScheduler_UnobservedTaskException(object sender, UnobservedTaskExceptionEventArgs e)
+        //{
+        //    MessageBox.Show("Async-Fehler:\n" + e.Exception.Message, "Fehler", MessageBoxButton.OK, MessageBoxImage.Error);
+        //    LogException(e.Exception);
+        //    e.SetObserved(); // verhindert Crash
+        //}
+
+        //private void LogException(Exception ex)
+        //{
+        //    try
+        //    {
+        //        File.AppendAllText("errorlog.txt", DateTime.Now + "\n" + ex.ToString() + "\n\n");
+        //    }
+        //    catch
+        //    {
+        //        // Wenn Logging selbst fehlschlägt, ignorieren
+        //    }
+        //}
     }
 }
