@@ -364,7 +364,7 @@
 
                 </TabItem>
 
-                <TabItem x:Name="tab_InternalNames" Header="Internal Names">
+                <TabItem x:Name="tab_InternalNames" Header="Hostname Mapping">
 
 
                     <Grid>
@@ -548,6 +548,8 @@
 
                 <CheckBox x:Name="chk_Methodes_LookUp" Content="do Lookup scan" Grid.Row="1" Grid.Column="3" Margin="10,2,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" Height="15" Width="104"/>
                 <CheckBox x:Name="chk_allTCPPorts" Grid.Row="1" Grid.Column="7" Content="all Ports" VerticalAlignment="Center" Height="23" HorizontalAlignment="Center" Width="66"/>
+
+
 
             </Grid>
             <Label x:Name="lbl_ScanStatus" Content="..." Grid.Row="3" VerticalAlignment="Center" Height="26" Grid.ColumnSpan="2" HorizontalContentAlignment="Center" Margin="18,0,2,0"/>
@@ -800,7 +802,7 @@
                     <ColumnDefinition Width="125"/>
                     <ColumnDefinition Width="235"/>
                     <ColumnDefinition Width="126"/>
-                    <ColumnDefinition Width="333"/>
+                    <ColumnDefinition Width="113"/>
                     <ColumnDefinition/>
                     <ColumnDefinition Width="100"/>
                     <ColumnDefinition Width="146"/>
@@ -813,7 +815,8 @@
                 <Label Grid.Column="9" Content="Diff. DNS Server" Margin="10,0,11,0"/>
                 <Label Grid.Column="2" Content="Methodes to collect Device Information:" Margin="4,0,0,0" VerticalContentAlignment="Center"/>
                 <RadioButton x:Name="rb_ScanHostnames_onlyIPsInTable" Grid.Column="3" Content="only IPs in Table" IsChecked="True" Margin="10,0,0,0" VerticalContentAlignment="Center"/>
-                <RadioButton x:Name="rb_ScanHostnames_All_IPs" Grid.Column="4" Content="all" Margin="10,0,282,0" VerticalContentAlignment="Center"/>
+                <RadioButton x:Name="rb_ScanHostnames_All_IPs" Grid.Column="4" Content="all" Margin="10,0,0,0" VerticalContentAlignment="Center" HorizontalAlignment="Left" Width="31"/>
+                <CheckBox x:Name="chk_ShowNotRegisteredHostnames" Grid.Column="5" Content="show not registered hostnames" IsChecked="True" HorizontalAlignment="Left"  VerticalAlignment="Center" Margin="10,0,0,0" Height="15" Width="185" />
 
             </Grid>
             <Button x:Name="bt_VisualizeTable" Grid.Column="1" Content="Visualize Table Information" HorizontalAlignment="Left" Margin="10,52,0,0" Grid.Row="1" VerticalAlignment="Top" Grid.RowSpan="2" Width="260" Click="bt_VisualizeTable_Click"/>
