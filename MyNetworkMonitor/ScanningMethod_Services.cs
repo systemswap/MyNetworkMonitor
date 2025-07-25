@@ -78,28 +78,6 @@ public enum ServiceType
 
 
 
-
-
-
-//public class PortResult
-//{
-//    public int Port { get; set; }
-//    public PortStatus Status { get; set; }
-//    public string PortLog { get; set; }
-//}
-
-//public class ServiceResult
-//{
-//    public ServiceType Service { get; set; }
-//    public List<PortResult> Ports { get; set; } = new List<PortResult>();
-//}
-
-//public class ServiceScanResult
-//{
-//    public string IP { get; set; }
-//    public List<ServiceResult> Services { get; set; } = new List<ServiceResult>();
-//}
-
 public class ScanningMethod_Services
 {
     public ScanningMethod_Services(string ServiceXMLPath)
@@ -112,15 +90,7 @@ public class ScanningMethod_Services
     private int responded = 0;
     private int total = 0;
 
-    private CancellationTokenSource _cts = new CancellationTokenSource(); // 🔹 Ermöglicht das Abbrechen
-
-    //int currentValue = Interlocked.Increment(ref current);
-    //ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
-
-    //int respondedValue = Interlocked.Increment(ref responded);
-    //ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running);
-
-    //ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished);
+    private CancellationTokenSource _cts = new CancellationTokenSource();
 
     public void StopScan()
     {
@@ -193,7 +163,7 @@ public class ScanningMethod_Services
             await semaphore.WaitAsync(_cts.Token);
 
             if (_cts.Token.IsCancellationRequested)
-                return; // Vorzeitig abbrechen
+                return; 
 
             try
             {
@@ -213,202 +183,7 @@ public class ScanningMethod_Services
     }
 
 
-    //public async Task ScanIPsAsync(List<IPToScan> IPsToScan, List<ServiceType> services, Dictionary<ServiceType, List<int>> extraPorts = null)
-    //{
-    //    bool scanDHCP = true;
-    //    DHCP_Server_IPs.Clear();
-
-    //    current = 0;
-    //    responded = 0;
-    //    total = IPsToScan.Count;
-
-    //    var semaphore = new SemaphoreSlim(MaxParallelIPs);
-    //    var tasks = new List<Task>();
-
-    //    foreach (var ipToScan in IPsToScan)
-    //    {
-    //        await semaphore.WaitAsync(); // ? Wartet, bis ein neuer Slot frei ist
-    //        tasks.Add(Task.Run(async () =>
-    //        {
-    //            try
-    //            {
-    //                int currentValue = Interlocked.Increment(ref current);
-
-    //                // ?? Sicherstellen, dass UI-Updates nicht blockieren
-    //                await Application.Current.Dispatcher.InvokeAsync(() =>
-    //                {
-    //                    Task.Run(() => ProgressUpdated?.Invoke(current, responded, total));
-    //                });
-
-    //                await ScanIPAsync(ipToScan, services, extraPorts);
-    //            }
-    //            catch (Exception ex)
-    //            {
-    //                Console.WriteLine($"?? Fehler beim Scannen von {ipToScan.IPorHostname}: {ex.Message}");
-    //            }
-    //            finally
-    //            {
-    //                semaphore.Release(); // ? Stellt sicher, dass das Semaphore freigegeben wird
-    //            }
-    //        }));
-    //    }
-
-    //    // ? Prüft regelmäßig den Fortschritt, um Hänger zu vermeiden
-    //    while (tasks.Any())
-    //    {
-    //        Task finishedTask = await Task.WhenAny(tasks);
-    //        tasks.Remove(finishedTask);
-    //    }
-
-    //    // ? Stellt sicher, dass das Event ausgelöst wird, selbst wenn einige Tasks fehlschlagen
-    //    await Application.Current.Dispatcher.InvokeAsync(() =>
-    //    {
-    //        ServiceScanFinished?.Invoke();
-    //    });
-    //}
-
-
-
-
-
-
-
-
-
-
-
-
-    //private async Task ScanIPAsync(IPToScan ipToScan, List<ServiceType> services, Dictionary<ServiceType, List<int>> extraPorts)
-    //  {
-    //      //var result = new ServiceScanResult { IP = ipToScan.IPorHostname };
-
-
-    //      foreach (ServiceType service in services)
-    //      {
-    //          var serviceResult = new ServiceResult { Service = service };
-    //          var ports = GetServicePorts(service);
-
-    //          if (extraPorts != null && extraPorts.ContainsKey(service))
-    //          {
-    //              ports.AddRange(extraPorts[service]);
-    //          }
-
-    //          var detectionPacket = GetDetectionPacket(service);
-
-
-
-    //          var semaphore = new SemaphoreSlim(50); // Maximale gleichzeitige Scans begrenzen
-    //          var tasks = new List<Task>();
-
-    //          foreach (var port in ports.Distinct())
-    //          {
-    //              await semaphore.WaitAsync();
-    //              tasks.Add(Task.Run(async () =>
-    //              {
-    //                  try
-    //                  {
-    //                      var portResult = new PortResult();
-    //                      switch (service)
-    //                      {
-    //                          case ServiceType.RDP:
-    //                              portResult = await ScanPortAsync(IPAddress.Parse(ipToScan.IPorHostname).ToString(), port, detectionPacket);
-    //                              break;
-    //                          case ServiceType.UltraVNC:
-    //                              portResult = await ScanPortAsync(IPAddress.Parse(ipToScan.IPorHostname).ToString(), port, detectionPacket);
-    //                              break;
-    //                          case ServiceType.BigFixRemote:
-    //                              portResult = await ScanPortAsync(IPAddress.Parse(ipToScan.IPorHostname).ToString(), port, detectionPacket);
-    //                              break;
-    //                          case ServiceType.Rustdesk:
-    //                              portResult = await ScanPortAsync(IPAddress.Parse(ipToScan.IPorHostname).ToString(), port, detectionPacket);
-    //                              break;
-    //                          case ServiceType.Teamviewer:
-    //                              portResult = await ScanPortAsync(IPAddress.Parse(ipToScan.IPorHostname).ToString(), port, detectionPacket);
-    //                              break;
-    //                          case ServiceType.Anydesk:
-    //                              portResult = await ScanPortAsync(IPAddress.Parse(ipToScan.IPorHostname).ToString(), port, detectionPacket);
-    //                              break;
-    //                          case ServiceType.MSSQLServer:
-    //                              portResult = await ScanPortAsync(IPAddress.Parse(ipToScan.IPorHostname).ToString(), port, detectionPacket);
-
-
-    //                              //scan for dynamic sql ports
-    //                              if (portResult.Status != PortStatus.IsRunning)
-    //                              {
-    //                                  try
-    //                                  {
-    //                                      int? dynamicPort = await GetMSSQLDynamicPortAsync(IPAddress.Parse(ipToScan.IPorHostname).ToString());
-    //                                      if (dynamicPort != null)
-    //                                      {
-    //                                          portResult.Port = (int)dynamicPort;
-    //                                          portResult.Status = PortStatus.IsRunning;
-    //                                      }
-    //                                  }
-    //                                  catch (Exception)
-    //                                  {
-    //                                      throw;
-    //                                  }
-    //                              }
-
-    //                              break;
-    //                          case ServiceType.PostgreSQL:
-    //                              break;
-    //                          case ServiceType.MariaDB:
-    //                              break;
-    //                          case ServiceType.OracleDB:
-    //                              break;
-    //                          case ServiceType.OPCDA:
-    //                              break;
-    //                          case ServiceType.OPCUA:
-    //                              portResult = await ScanPortAsync(IPAddress.Parse(ipToScan.IPorHostname).ToString(), port, detectionPacket);
-    //                              break;
-    //                          case ServiceType.ModBus:
-    //                              portResult = await ScanPortAsync(IPAddress.Parse(ipToScan.IPorHostname).ToString(), port, detectionPacket);
-    //                              break;
-    //                          case ServiceType.FTP:
-    //                              portResult = await ScanPortAsync(IPAddress.Parse(ipToScan.IPorHostname).ToString(), port, detectionPacket);
-    //                              break;
-    //                          case ServiceType.WebServices:
-    //                              var serviceResult = new ServiceResult { Service = service };
-    //                              portResult = await CheckWebServicePortAsync(IPAddress.Parse(ipToScan.IPorHostname).ToString(), port);
-    //                              break;
-    //                          default:
-    //                              portResult = await ScanPortAsync(IPAddress.Parse(ipToScan.IPorHostname).ToString(), port, detectionPacket);
-    //                              break;
-    //                      }
-
-
-    //                      lock (serviceResult.Ports) // Schutz vor parallelen Schreibzugriffen
-    //                      {
-    //                          serviceResult.Ports.Add(portResult);
-    //                      }
-    //                  }
-    //                  finally
-    //                  {
-    //                      semaphore.Release();
-    //                  }
-    //              }));
-    //          }
-
-    //          // **Parallel ausführen & warten**
-    //          await Task.WhenAll(tasks);
-
-    //          ipToScan.Services.Services.Add(serviceResult);
-    //      }
-
-    //      if (ipToScan.Services.Services.Count > 0)
-    //      {
-    //          int respondedValue = Interlocked.Increment(ref responded);
-    //          Task.Run(() => ProgressUpdated?.Invoke(current, responded, total));
-
-    //          ipToScan.UsedScanMethod = ScanMethod.Services;
-
-    //          Task.Run(() => ServiceIPScanFinished?.Invoke(ipToScan)); // Event auslösen
-    //      }
-    //  }
-
-
-
+   
 
 
     private async Task ScanIPAsync(IPToScan ipToScan, List<ServiceType> services, Dictionary<ServiceType, List<int>> extraPorts)
@@ -427,12 +202,7 @@ public class ScanningMethod_Services
             if (_cts.Token.IsCancellationRequested) return; // Direkt abbrechen, falls nötig
 
             var serviceResult = new ServiceResult { Service = service };
-            //var ports = GetDefaultServicePorts(service);
-
-            //if (extraPorts != null && extraPorts.TryGetValue(service, out var additionalPorts))
-            //{
-            //    ports.AddRange(additionalPorts);
-            //}
+            
 
             extraPorts.TryGetValue(service, out var ports);
 
@@ -449,31 +219,6 @@ public class ScanningMethod_Services
 
                 tasks.Add(ScanServicePortAsync(service, ipAddress, port, detectionPacket, serviceResult, semaphore));
             }
-
-
-            //foreach (var port in ports.Distinct())
-            //{
-            //    await semaphore.WaitAsync(_cts.Token);
-
-            //    if (_cts.Token.IsCancellationRequested)
-            //    {
-            //        semaphore.Release(); // ✅ Stelle sicher, dass der Slot freigegeben wird!
-            //        return;
-            //    }
-
-            //    tasks.Add(Task.Run(async () =>
-            //    {
-            //        try
-            //        {
-            //            await ScanServicePortAsync(service, ipAddress, port, detectionPacket, serviceResult, semaphore);
-            //        }
-            //        finally
-            //        {
-            //            semaphore.Release(); // ✅ Immer freigeben, selbst bei Fehlern oder Abbruch
-            //        }
-            //    }, _cts.Token));
-            //}
-
 
 
             // Parallel ausführen und warten
@@ -534,7 +279,7 @@ public class ScanningMethod_Services
                     break;
                 case ServiceType.DHCP:
 
-                    portResult.Port = 67;
+                    portResult.Ports = new List<int> { 67 };
 
                     if (scanDHCP)
                     {
@@ -592,7 +337,8 @@ public class ScanningMethod_Services
                             if (dynamicPort.Count > 0)
                             {
                                 //only the first instance
-                                portResult.Port = dynamicPort[0];
+                                //portResult.Port = dynamicPort[0];
+                                portResult.Ports = dynamicPort;
                                 portResult.Status = PortStatus.IsRunning;
                             }
                         }
@@ -652,169 +398,6 @@ public class ScanningMethod_Services
             semaphore.Release();
         }
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    //public async Task<IPToScan> FindServicePortAsync(IPToScan ipToScan, ServiceType service)
-    //{
-    //    current = 0;
-    //    responded = 0;
-    //    total = 65536;
-
-    //    ipToScan.UsedScanMethod = ScanMethod.Services;
-
-    //    ServiceResult serviceResult = new ServiceResult { Service = service };
-    //    ipToScan.Services.Services.Add(serviceResult);
-
-    //    //PortResult defaultPortResult = new PortResult { Port = -1, Status = PortStatus.NoResponse };
-    //    //ipToScan.Services.Services[0].Ports.Add(defaultPortResult);
-
-    //    var semaphore = new SemaphoreSlim(100);
-    //    var cts = new CancellationTokenSource(); // Abbruch-Token
-
-    //    List<int> ports = Enumerable.Range(0, 65536).ToList(); // Alle Ports (0 bis 65535)
-    //    //ports.Clear();
-    //    //ports.Add(1880);
-
-
-
-    //    foreach (int port in ports)
-    //    {
-    //        int currentValue = Interlocked.Increment(ref current);
-    //        Task.Run(() => FindServicePortProgressUpdated?.Invoke(current, responded, total));
-
-    //        try
-    //        {
-    //            await semaphore.WaitAsync(cts.Token); // Warten auf freien Slot
-    //        }
-    //        catch (OperationCanceledException)
-    //        {
-    //            break; // Abbruch bei Token-Auslösung
-    //        }
-
-
-    //        List<Task> portCheckTasks = new List<Task>();
-
-
-    //        if (service == ServiceType.WebServices)
-    //        {
-    //            // Füge jede Aufgabe zur Liste hinzu
-    //            portCheckTasks.Add(Task.Run(async () =>
-    //            {
-    //                PortResult portResult = await CheckWebServicePortAsync(ipToScan.IPorHostname, port);
-
-    //                if (portResult.Status == PortStatus.IsRunning)
-    //                {
-    //                    int responsedValue = Interlocked.Increment(ref responded);
-    //                    Task.Run(() => FindServicePortProgressUpdated?.Invoke(current, responded, total));
-
-    //                    lock (serviceResult.Ports)
-    //                    {
-    //                        serviceResult.Ports.Add(portResult);  // Thread-sicher hinzufügen
-    //                    }
-    //                }
-    //            }));
-    //        }
-    //        else
-    //        {              
-
-    //            _ = Task.Run(async () =>
-    //            {
-    //                try
-    //                {
-    //                    using TcpClient client = new TcpClient();
-    //                    var connectTask = client.ConnectAsync(IPAddress.Parse(ipToScan.IPorHostname), port);
-    //                    var delayTask = Task.Delay(1000); // Timeout auf 1 Sekunde
-
-    //                    if (await Task.WhenAny(connectTask, delayTask) == connectTask && client.Connected)
-    //                    {
-    //                        using NetworkStream stream = client.GetStream();
-    //                        await stream.WriteAsync(GetDetectionPacket(service), 0, GetDetectionPacket(service).Length);
-
-    //                        // ?? Direkte Paket-Sammlung im Code:
-    //                        using MemoryStream memoryStream = new MemoryStream();
-    //                        byte[] buffer = new byte[1024];
-    //                        DateTime startTime = DateTime.Now;
-
-    //                        while ((DateTime.Now - startTime).TotalMilliseconds < 2000) // 2 Sekunden Daten sammeln
-    //                        {
-    //                            if (stream.DataAvailable)
-    //                            {
-    //                                int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
-    //                                if (bytesRead > 0)
-    //                                {
-    //                                    memoryStream.Write(buffer, 0, bytesRead);
-    //                                    startTime = DateTime.Now; // Timeout zurücksetzen
-    //                                }
-    //                                else
-    //                                {
-    //                                    break; // Keine weiteren Daten verfügbar
-    //                                }
-    //                            }
-    //                            else
-    //                            {
-    //                                await Task.Delay(50); // Kurze Pause zur Entlastung der CPU
-    //                            }
-    //                        }
-
-    //                        // die anzeige des bytes in visual studio ist in dezimal, verarbeitet wird sie aber als hex, wenn der erste Hex wert 17 ist steht im 1. byte 23   
-    //                        byte[] response = memoryStream.ToArray(); // Gesamte gesammelte Antwort in ein Array konvertieren
-    //                                                                  //zur überprüfung
-    //                                                                  //Debug.WriteLine(BitConverter.ToString(response));
-    //                        string hexBytes = BitConverter.ToString(response);
-
-    //                        // **Service-Erkennung durchführen**
-    //                        if (response.Length > 0)
-    //                        {
-    //                            bool serviceMatched = IdentifyServices(response, service);
-
-    //                            int responsedValue = Interlocked.Increment(ref responded);
-    //                            Task.Run(() => FindServicePortProgressUpdated?.Invoke(current, responded, total));
-
-    //                            if (serviceMatched)
-    //                            {
-    //                                lock (ipToScan.Services.Services[0].Ports)
-    //                                {
-    //                                    ipToScan.Services.Services[0].Ports[0].Status = PortStatus.IsRunning;
-    //                                    ipToScan.Services.Services[0].Ports[0].Port = port;
-    //                                }
-
-    //                                //Task.Run(() => FindServicePortFinished?.Invoke(ipToScan));
-    //                                cts.Cancel(); // Abbruch, wenn der Service erkannt wurde
-    //                            }
-    //                        }
-    //                    }
-    //                }
-    //                catch (Exception ex)
-    //                {
-    //                    Console.WriteLine($"Fehler beim Scannen von Port {port}: {ex.Message}");
-    //                }
-    //                finally
-    //                {
-    //                    semaphore.Release();
-    //                }
-    //            });                
-    //        }            
-    //    }
-
-    //    await Task.WhenAll(Enumerable.Range(0, semaphore.CurrentCount).Select(_ => semaphore.WaitAsync()).ToArray());
-
-    //    Task.Run(() => FindServicePortFinished?.Invoke(ipToScan));
-    //    return ipToScan;
-    //}
 
 
     public async Task<IPToScan> FindServicePortAsync(IPToScan ipToScan, ServiceType service)
@@ -921,7 +504,7 @@ public class ScanningMethod_Services
 
                                 lock (ipToScan.Services.Services[0].Ports)
                                 {
-                                    ipToScan.Services.Services[0].Ports.Add(new PortResult { Port = port, Status = PortStatus.IsRunning });
+                                    ipToScan.Services.Services[0].Ports.Add(new PortResult { Ports = new List<int> { port }, Status = PortStatus.IsRunning });
                                 }
 
                                 _cts.Cancel(); // Abbruch, wenn der 1. [erste] Service erkannt wurde
@@ -957,17 +540,6 @@ public class ScanningMethod_Services
         }
         return ipToScan;
     }
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -1199,7 +771,7 @@ public class ScanningMethod_Services
 
     private async Task<PortResult> ScanPortAsync(string ip, int port, byte[] detectionPacket)
     {
-        var portResult = new PortResult { Port = port };
+        var portResult = new PortResult { Ports = new List<int>{ port } };
         var logBuilder = new StringBuilder();
 
         for (int attempt = 1; attempt <= RetryCount; attempt++)
@@ -1462,98 +1034,11 @@ public class ScanningMethod_Services
         return foundPorts; // ? Leere Liste, falls nichts gefunden wurde
     }
 
-    //private async Task<PortResult> CheckWebServicePortAsync(string ipAddress, int port)
-    //{
-    //    PortResult portResult = new PortResult { Port = port, PortLog = "" };
-
-    //    using (var tcpClient = new TcpClient())
-    //    {
-    //        try
-    //        {
-    //            // ?? Versuche, eine Verbindung herzustellen
-    //            var connectTask = tcpClient.ConnectAsync(ipAddress, port);
-    //            var delayTask = Task.Delay(500); // Timeout nach 2 Sekunden
-
-    //            if (await Task.WhenAny(connectTask, delayTask) != connectTask)
-    //            {
-    //                // ? Verbindung hat zu lange gedauert ? Port ist gefiltert
-    //                portResult.Status = PortStatus.Filtered;
-    //                return portResult;
-    //            }
-
-    //            if (!tcpClient.Connected)
-    //            {
-    //                // ? Verbindung fehlgeschlagen
-    //                portResult.Status = PortStatus.NoResponse;
-    //                return portResult;
-    //            }
-
-    //            // ? Verbindung erfolgreich ? Stream verwenden
-    //            using (NetworkStream stream = tcpClient.GetStream())
-    //            {
-    //                byte[] requestBytes = Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: " + ipAddress + "\r\n\r\n");
-    //                await stream.WriteAsync(requestBytes, 0, requestBytes.Length);
-
-    //                // ?? Antwort empfangen
-    //                byte[] buffer = new byte[1024];
-
-    //                try
-    //                {
-    //                    int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
-    //                    if (bytesRead > 0)
-    //                    {
-    //                        string response = Encoding.ASCII.GetString(buffer, 0, bytesRead);
-    //                        portResult.PortLog += response;
-
-    //                        //if (!string.IsNullOrEmpty(response))
-    //                        //    portResult.Status = PortStatus.IsRunning;
-
-    //                        if (response.Contains("HTTP/1.1") && (response.Contains("200 OK") || response.Contains("301") || response.Contains("302")))
-    //                        {
-    //                            portResult.Status = PortStatus.IsRunning;
-    //                        }
-    //                        else if (response.Contains("<html") || response.Contains("<body") || response.Contains("<head"))
-    //                        {
-    //                            portResult.Status = PortStatus.IsRunning;
-    //                        }                            
-    //                    }
-    //                }
-    //                catch (IOException ex)
-    //                {
-    //                    portResult.Status = PortStatus.Closed;
-    //                    portResult.PortLog += "? Verbindung wurde vom Remotehost geschlossen: " + ex.Message;
-    //                }
-    //                catch (ObjectDisposedException)
-    //                {
-    //                    portResult.Status = PortStatus.Closed;
-    //                    portResult.PortLog += "?? Die Verbindung wurde unerwartet beendet.";
-    //                }
-    //            }
-    //        }
-    //        catch (SocketException ex)
-    //        {
-    //            switch (ex.SocketErrorCode)
-    //            {
-    //                case SocketError.ConnectionRefused:
-    //                    portResult.Status = PortStatus.Closed;
-    //                    break;
-    //                case SocketError.TimedOut:
-    //                    portResult.Status = PortStatus.Filtered;
-    //                    break;
-    //                default:
-    //                    portResult.Status = PortStatus.UnknownResponse;
-    //                    break;
-    //            }
-    //        }
-    //    }
-    //    return portResult;
-    //}
-
-
+   
 
     private async Task<PortResult> CheckWebServicePortAsync(string ipAddress, int port)
     {
-        PortResult portResult = new PortResult { Port = port, Status = PortStatus.NoResponse };
+        PortResult portResult = new PortResult { Ports = new List<int> { port }, Status = PortStatus.NoResponse };
 
         // **1?? Temporäre Status-Werte für HTTP & HTTPS**
         PortStatus httpStatus = PortStatus.NoResponse;
@@ -1592,148 +1077,7 @@ public class ScanningMethod_Services
         return portResult;
     }
 
-    //private async Task<bool> CheckHttpAsync(string ipAddress, int port, PortResult portResult)
-    //{
-    //    using (var tcpClient = new TcpClient())
-    //    using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(1))) // Timeout von 1 Sekunde
-    //    {
-    //        try
-    //        {
-    //            Task connectTask = tcpClient.ConnectAsync(ipAddress, port);
-    //            if (await Task.WhenAny(connectTask, Task.Delay(1000, cts.Token)) != connectTask)
-    //            {
-    //                portResult.Status = PortStatus.NoResponse; // Keine Antwort vom Port (Timeout).
-    //                return false;
-    //            }
-
-    //            if (!tcpClient.Connected)
-    //            {
-    //                portResult.Status = PortStatus.Filtered; // Verbindung verweigert (z. B. durch Firewall).
-    //                return false;
-    //            }
-
-    //            using (NetworkStream stream = tcpClient.GetStream())
-    //            {
-    //                byte[] requestBytes = Encoding.UTF8.GetBytes("GET / HTTP/1.1\r\nHost: " + ipAddress + "\r\nConnection: close\r\n\r\n");
-    //                await stream.WriteAsync(requestBytes, 0, requestBytes.Length, cts.Token);
-
-    //                byte[] buffer = new byte[4096];
-    //                var readTask = stream.ReadAsync(buffer, 0, buffer.Length, cts.Token);
-    //                if (await Task.WhenAny(readTask, Task.Delay(1000, cts.Token)) != readTask)
-    //                {
-    //                    portResult.Status = PortStatus.NoResponse; // Antwort kam nicht rechtzeitig.
-    //                    return false;
-    //                }
-
-    //                int bytesRead = await readTask;
-    //                if (bytesRead > 0)
-    //                {
-    //                    string response = Encoding.ASCII.GetString(buffer, 0, bytesRead);
-
-    //                    if (response.Contains("HTTP/1.1") && (response.Contains("200 OK") || response.Contains("<html")))
-    //                    {
-    //                        portResult.Status = PortStatus.IsRunning; // Webseite erkannt.
-    //                        return true;
-    //                    }
-
-    //                    portResult.Status = PortStatus.Open; // Verbindung offen, aber keine Webseite.
-    //                    return false;
-    //                }
-    //            }
-    //        }
-    //        catch (SocketException ex)
-    //        {
-    //            if (ex.SocketErrorCode == SocketError.ConnectionRefused)
-    //            {
-    //                portResult.Status = PortStatus.Filtered; // Verbindung aktiv verweigert ? Firewall?
-    //            }
-    //            else
-    //            {
-    //                portResult.Status = PortStatus.Error; // Sonstiger Netzwerkfehler.
-    //            }
-    //        }
-    //    }
-    //    return false;
-    //}
-
-    //private async Task<bool> CheckHttpAsync(string ipAddress, int port, PortResult portResult)
-    //{
-    //    using (var tcpClient = new TcpClient())
-    //    using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2))) // 2 Sekunden Timeout
-    //    {
-    //        try
-    //        {
-    //            // Starte Verbindungsversuch
-    //            Task connectTask = tcpClient.ConnectAsync(ipAddress, port);
-    //            if (await Task.WhenAny(connectTask, Task.Delay(2000, cts.Token)) != connectTask)
-    //            {
-    //                portResult.Status = PortStatus.NoResponse; // Timeout erreicht
-    //                return false;
-    //            }
-
-    //            if (!tcpClient.Connected)
-    //            {
-    //                portResult.Status = PortStatus.Filtered; // Verbindung verweigert (z. B. durch Firewall)
-    //                return false;
-    //            }
-
-    //            using (NetworkStream stream = tcpClient.GetStream())
-    //            using (var writer = new StreamWriter(stream, Encoding.ASCII, leaveOpen: true))
-    //            using (var reader = new StreamReader(stream, Encoding.UTF8, leaveOpen: true))
-    //            {
-    //                writer.NewLine = "\r\n"; // HTTP erfordert CRLF
-    //                writer.AutoFlush = true;
-
-    //                // **HTTP-Header mit User-Agent senden (verhindert Blockierung)**
-    //                await writer.WriteLineAsync($"GET / HTTP/1.1");
-    //                await writer.WriteLineAsync($"Host: {ipAddress}");
-    //                await writer.WriteLineAsync("Connection: close");
-    //                await writer.WriteLineAsync("User-Agent: Mozilla/5.0 (compatible; MyScanner/1.0)");
-    //                await writer.WriteLineAsync(""); // Leere Zeile, um Header zu beenden
-
-    //                // **Lese Antwort mit Timeout**
-    //                Task<string> readTask = reader.ReadToEndAsync();
-    //                if (await Task.WhenAny(readTask, Task.Delay(2000, cts.Token)) != readTask)
-    //                {
-    //                    portResult.Status = PortStatus.NoResponse; // Antwort zu lange gebraucht
-    //                    return false;
-    //                }
-
-    //                string response = await readTask;
-
-    //                // **Überprüfe, ob Server antwortet**
-    //                if (response.Contains("HTTP/1.1") && (response.Contains("200 OK") || response.Contains("<html")))
-    //                {
-    //                    portResult.Status = PortStatus.IsRunning; // Webseite erkannt
-    //                    return true;
-    //                }
-
-    //                portResult.Status = PortStatus.Open; // Verbindung offen, aber kein Webserver erkannt
-    //                return false;
-    //            }
-    //        }
-    //        catch (SocketException ex)
-    //        {
-    //            if (ex.SocketErrorCode == SocketError.ConnectionRefused)
-    //            {
-    //                portResult.Status = PortStatus.Filtered; // Firewall oder kein Service aktiv
-    //            }
-    //            else
-    //            {
-    //                portResult.Status = PortStatus.Error; // Allgemeiner Netzwerkfehler
-    //            }
-    //        }
-    //        catch (IOException ex)
-    //        {
-    //            portResult.Status = PortStatus.Error; // Verbindung wurde unerwartet geschlossen
-    //        }
-    //        catch (OperationCanceledException)
-    //        {
-    //            portResult.Status = PortStatus.NoResponse; // Timeout erreicht
-    //        }
-    //    }
-    //    return false;
-    //}
+   
 
     private async Task<bool> CheckHttpAsync(string ipAddress, int port, PortResult portResult)
     {
@@ -1928,7 +1272,7 @@ public class ScanningMethod_Services
     private async Task<PortResult> GetBacNetInfos(string targetIP, int targetPort, byte[] bacnetRequestPacket)
     {
 
-        PortResult portResult = new PortResult { Port = targetPort, Status = PortStatus.NoResponse };
+        PortResult portResult = new PortResult { Ports = new List<int> { targetPort }, Status = PortStatus.NoResponse };
         Dictionary<string, string> collectedData = new Dictionary<string, string>();
 
         try
@@ -2125,7 +1469,7 @@ public class ScanningMethod_Services
 
 static async Task<PortResult> SendTcpDnsQuery(string dnsServer, byte[] query, int port)
     {
-        PortResult portResult = new PortResult { Port = port, Status = PortStatus.NoResponse };
+        PortResult portResult = new PortResult { Ports = new List<int> { port }, Status = PortStatus.NoResponse };
 
         for (int attempt = 1; attempt <= 3; attempt++) // Maximal 3 Wiederholungen
         {
@@ -2201,7 +1545,7 @@ static async Task<PortResult> SendTcpDnsQuery(string dnsServer, byte[] query, in
    
     static async Task<PortResult> SendUdpDnsQuery(string dnsServer, byte[] query, int port = 53)
     {
-        PortResult portResult = new PortResult { Port = port, Status = PortStatus.NoResponse };
+        PortResult portResult = new PortResult { Ports = new List<int> { port }, Status = PortStatus.NoResponse };
 
         using UdpClient udpClient = new UdpClient();
         udpClient.Connect(dnsServer, port);       
