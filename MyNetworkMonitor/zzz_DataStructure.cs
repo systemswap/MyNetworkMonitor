@@ -51,7 +51,7 @@ namespace MyNetworkMonitor
     {
         public class PortResult
         {
-            public int Port { get; set; }
+            public List<int> Ports { get; set; }
             public PortStatus Status { get; set; }
             public string PortLog { get; set; }
         }
@@ -68,123 +68,7 @@ namespace MyNetworkMonitor
             public List<ServiceResult> Services { get; set; } = new List<ServiceResult>();
 
             public bool ShowOnlyIsRunningServices = false;
-
-            //public override string ToString()
-            //{
-            //    if (Services == null || Services.Count == 0)
-            //        return "Keine Services gefunden.";
-
-            //    StringBuilder sb = new StringBuilder();
-
-            //    foreach (var service in Services)
-            //    {
-            //        //if if there is no service running continue
-            //        if (ShowOnlyIsRunningServices && service.Ports.Count(p => p.Status == PortStatus.IsRunning) == 0) continue;                    
-
-            //        string serviceWithIcon = string.Empty;
-
-            //        switch (service.Service)
-            //        {
-            //            case ServiceType.WebServices:
-            //                serviceWithIcon = "🌐 " + service.Service.ToString();
-            //                break;
-            //            case ServiceType.DNS_TCP:
-            //                serviceWithIcon = "🌐 " + service.Service.ToString();
-            //                break;
-            //            case ServiceType.DNS_UDP:
-            //                serviceWithIcon = "🌐 " + service.Service.ToString();
-            //                break;
-            //            case ServiceType.DHCP:
-            //                serviceWithIcon = "🌐 " + service.Service.ToString();
-            //                break;
-            //            case ServiceType.SSH:
-            //                serviceWithIcon = "🔐 " + service.Service.ToString();
-            //                break;
-            //            case ServiceType.FTP:
-            //                serviceWithIcon = "📡 " + service.Service.ToString();
-            //                break;
-            //            case ServiceType.RDP:
-            //                serviceWithIcon = "🖥️ " + service.Service.ToString();
-            //                break;
-            //            case ServiceType.UltraVNC:
-            //                serviceWithIcon = "🖥️ " + service.Service.ToString();
-            //                break;
-            //            case ServiceType.BigFixRemote:
-            //                serviceWithIcon = "🖥️ " + service.Service.ToString();
-            //                break;
-            //            case ServiceType.RustdeskServer:
-            //                serviceWithIcon = "🖥️ " + service.Service.ToString();
-            //                break;
-            //            case ServiceType.RustdeskClient:
-            //                serviceWithIcon = "🖥️ " + service.Service.ToString();
-            //                break;
-            //            case ServiceType.TeamViewer:
-            //                serviceWithIcon = "🖥️ " + service.Service.ToString();
-            //                break;
-            //            case ServiceType.Anydesk:
-            //                serviceWithIcon = "🖥️ " + service.Service.ToString();
-            //                break;
-            //            case ServiceType.MSSQLServer:
-            //                serviceWithIcon = "🗄️ " + service.Service.ToString();
-            //                break;
-            //            case ServiceType.PostgreSQL:
-            //                serviceWithIcon = "🗄️ " + service.Service.ToString();
-            //                break;                        
-            //            case ServiceType.MariaDB:
-            //                serviceWithIcon = "🗄️ " + service.Service.ToString();
-            //                break;
-            //            case ServiceType.MySQL:
-            //                serviceWithIcon = "🗄️ " + service.Service.ToString();
-            //                break;
-            //            case ServiceType.OracleDB:
-            //                serviceWithIcon = "🗄️ " + service.Service.ToString();
-            //                break;
-            //            case ServiceType.MongoDB:
-            //                serviceWithIcon = "🛢️ " + service.Service.ToString();
-            //                break;
-            //            case ServiceType.InfluxDB2:
-            //                serviceWithIcon = "🛢️ " + service.Service.ToString();
-            //                break;
-            //            case ServiceType.OPCUA:
-            //                serviceWithIcon = "⚙️ " + service.Service.ToString();
-            //                break;
-            //            case ServiceType.ModBus:
-            //                serviceWithIcon = "🔌 " + service.Service.ToString();
-            //                break;
-            //            case ServiceType.S7:
-            //                serviceWithIcon = "📟 " + service.Service.ToString();
-            //                break;
-            //            default:
-            //                break;
-            //        }
-
-
-
-            //        sb.Append((serviceWithIcon + ":").ToString().PadRight(25, ' ')); // Service-Name (UltraVNC, RDP, etc.)   
-
-            //        int portcounter = 0;
-            //        List<PortResult> sortedPorts = service.Ports.OrderBy(x => x.Port).ToList();
-            //        foreach (var port in sortedPorts)
-            //        {
-            //            // if the port is not running, skip it
-            //            if (ShowOnlyIsRunningServices && port.Status != PortStatus.IsRunning) continue;
-
-            //            if (portcounter++ == 0)
-            //            {
-            //                sb.Append($"\t{port.Port.ToString().PadRight(6)}\t({port.Status})");
-            //            }
-            //            else
-            //            {
-            //                sb.Append(" ".ToString().PadRight(35, ' ') + $"\t{port.Port}\t({port.Status})");
-            //            }
-            //            if(port != sortedPorts.Last()) sb.AppendLine();
-            //        }
-            //        if (service != Services.Last()) sb.AppendLine();
-            //    }
-            //    string tmp = sb.ToString().Replace(", ", string.Empty);
-            //    return tmp.TrimEnd();
-            //}
-
+                
 
             public override string ToString()
             {
@@ -196,10 +80,16 @@ namespace MyNetworkMonitor
                 foreach (var service in Services)
                 {
                     // Filtere die Ports nach dem gewünschten Status
+                    //List<PortResult> filteredPorts = service.Ports
+                    //    .Where(p => !ShowOnlyIsRunningServices || p.Status == PortStatus.IsRunning || p.Status == PortStatus.Error)
+                    //    .OrderBy(x => x.Ports)
+                    //    .ToList();
+
                     List<PortResult> filteredPorts = service.Ports
                         .Where(p => !ShowOnlyIsRunningServices || p.Status == PortStatus.IsRunning || p.Status == PortStatus.Error)
-                        .OrderBy(x => x.Port)
+                        .OrderBy(x => x.Ports != null && x.Ports.Any() ? x.Ports.Min() : int.MaxValue)
                         .ToList();
+
 
                     // Wenn nach dem Filtern keine Ports übrig bleiben, den Service nicht anzeigen
                     if (filteredPorts.Count == 0) continue;
@@ -285,13 +175,64 @@ namespace MyNetworkMonitor
                     sb.Append(serviceWithIcon.PadRight(25, ' '));
 
                     int portCounter = 0;
-                    foreach (var port in filteredPorts)
+
+                    //foreach (var port in filteredPorts)
+                    //{
+                    //    if (portCounter++ == 0)
+                    //        sb.Append($"\t{port.Ports.ToString().PadRight(6)}\t({port.Status})");
+                    //    else
+                    //        sb.Append("\n" + "".PadRight(35, ' ') + $"\t{port.Ports}\t({port.Status})");
+                    //}
+
+                    //foreach (var port in filteredPorts)
+                    //{
+                    //    //string portsString = string.Join(", ", port.Ports);
+                    //    string portsString = port.Ports != null ? string.Join(", ", port.Ports) : "keine Ports";
+
+                    //    if (portCounter++ == 0)
+                    //    {                            
+                    //        sb.Append($"\t{portsString.PadRight(10)}\t({port.Status})");
+
+                    //    }
+                    //    else
+                    //    {
+                    //        sb.Append("\n" + "".PadRight(35, ' ') + $"\t{portsString}\t({port.Status})");
+                    //    }
+                    //}
+
+
+                    bool firstLine = true;
+                    foreach (var portResult in filteredPorts)
                     {
-                        if (portCounter++ == 0)
-                            sb.Append($"\t{port.Port.ToString().PadRight(6)}\t({port.Status})");
-                        else
-                            sb.Append("\n" + "".PadRight(35, ' ') + $"\t{port.Port}\t({port.Status})");
+                        if (portResult.Ports == null || portResult.Ports.Count == 0)
+                        {
+                            // Optional: leere Ports behandeln
+                            if (firstLine)
+                            {
+                                sb.Append($"\t[no port]\t({portResult.Status})");
+                                firstLine = false;
+                            }
+                            else
+                            {
+                                sb.Append("\n" + "".PadRight(35, ' ') + $"\t[no port]\t({portResult.Status})");
+                            }
+                            continue;
+                        }
+
+                        foreach (var singlePort in portResult.Ports)
+                        {
+                            if (firstLine)
+                            {
+                                sb.Append($"\t{singlePort.ToString().PadRight(6)}\t({portResult.Status})");
+                                firstLine = false;
+                            }
+                            else
+                            {
+                                sb.Append("\n" + "".PadRight(35, ' ') + $"\t{singlePort.ToString().PadRight(6)}\t({portResult.Status})");
+                            }
+                        }
                     }
+
 
                     sb.AppendLine(); // Nur eine Zeile nach einem kompletten Service-Block einfügen
                 }
