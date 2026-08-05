@@ -211,6 +211,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\MyNetworkMonitor.Core\MyNetworkMonitor.Core.csproj" />
+    <ProjectReference Include="..\MyNetworkMonitor.Platform.Windows\MyNetworkMonitor.Platform.Windows.csproj" />
   </ItemGroup>
 
 </Project>
