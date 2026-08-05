@@ -9,7 +9,8 @@ using Newtonsoft.Json;
 using System.Threading;
 using System.Collections.Generic;
 using System.Windows;
-using Microsoft.Web.WebView2.Core;
+using MyNetworkMonitor.Core.Services;
+using MyNetworkMonitor.Platform;
 using System.Xml.Linq;
 using static System.Net.WebRequestMethods;
 using System.Reflection;
@@ -35,9 +36,13 @@ namespace MyNetworkMonitor
         // Statische Variable, damit der Webserver nur einmal gestartet wird.
         private static bool _serverStarted = false;
 
+        // Web-Hosting hinter Interface: WPF = WebView2, spaeter Avalonia = CEF.
+        private readonly IWebViewHost _webViewHost;
+
         public VisualizeTopologieWindow(string GraphPath, DataTable resultTable, bool use_online_version = false)
         {
             InitializeComponent();
+            _webViewHost = new WebView2WebViewHost(webView);
             dt_NetworkResults = resultTable ?? throw new ArgumentNullException(nameof(resultTable));
 
             useOnlineVersion = use_online_version;
@@ -600,8 +605,8 @@ namespace MyNetworkMonitor
 
         private async void InitializeWebView2()
         {
-            await webView.EnsureCoreWebView2Async(null);
-            webView.CoreWebView2.Navigate("http://localhost:8080/" + htmlFilePath);
+            await _webViewHost.EnsureInitializedAsync();
+            _webViewHost.Navigate("http://localhost:8080/" + htmlFilePath);
         }
     }
 }
