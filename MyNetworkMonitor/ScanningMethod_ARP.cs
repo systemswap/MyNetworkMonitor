@@ -10,7 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Lextm.SharpSnmpLib;
 using MyNetworkMonitor.Core.Services;
-using MyNetworkMonitor.Platform;
+using MyNetworkMonitor.Platform.Windows;
 namespace MyNetworkMonitor
 {
     internal class ScanningMethod_ARP
