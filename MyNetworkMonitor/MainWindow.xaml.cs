@@ -1214,6 +1214,13 @@ namespace MyNetworkMonitor
 
             _cts = new CancellationTokenSource();
 
+            // Die gesamte Scan-Kette laeuft in einem try/catch: wird ueber Stop
+            // abgebrochen (_cts.Cancel in StopScanning), wirft der naechste
+            // ThrowIfCancellationRequested()-Checkpoint und die folgenden Scans
+            // starten nicht mehr. Die OperationCanceledException ist regulaer.
+            try
+            {
+
             counted_current_Ping_Scan = 0;
             counted_responded_Ping_Scan = 0;
             counted_total_Ping_Scan = 0;
@@ -1675,6 +1682,11 @@ namespace MyNetworkMonitor
             }
 
             await reGroupScanResult();
+            }
+            catch (OperationCanceledException)
+            {
+                // Scan wurde ueber Stop abgebrochen - regulaerer Fall, kein Fehler.
+            }
         }
 
         byte[] green_dot_s = Properties.Resources.green_dot_s;
@@ -4556,28 +4568,52 @@ namespace MyNetworkMonitor
         {
             if (_cts != null && !_cts.IsCancellationRequested)
             {
-                _cts.Cancel(); // 🔹 Scan abbrechen
-                //_cts.Dispose();
-                //_cts = new CancellationTokenSource();
+                _cts.Cancel(); // 🔹 laufende Scans abbrechen
             }
 
-            if (scanningMethode_SSDP_UPNP != null && (status_SSDP_Scan == ScanStatus.running || status_SSDP_Scan == ScanStatus.waiting)) scanningMethode_SSDP_UPNP.StopScan();
+            // Alle Scanner mit eigener Stop-Logik anhalten - null-sicher und
+            // unabhaengig vom aktuellen Status. Zuvor fehlten hier ONVIF und die
+            // TCP-Ports, wodurch deren Status auf running/waiting haengen blieb.
+            scanningMethode_SSDP_UPNP?.StopScan();
+            scanningMethode_SNMP?.StopScan();
+            scanningMethode_NetBios?.StopScan();
+            scanningMethod_SMB_VersionCheck?.StopScan();
+            scanningMethod_Services?.StopScan();
+            scanningMethode_ARP?.StopScan();
+            scanningMethods_Ping?.StopScan();
+            scanningMethod_LookUp?.StopScan();
+            scanningMethode_ReverseLookupToHostAndAliases?.StopScan();
+            scanningMethod_Find_ONVIF_IP_Cameras?.StopScan();
+            scanningMethode_PortsTCP?.StopScan();
 
-            if (scanningMethode_SNMP != null && (status_SNMP_Scan == ScanStatus.running || status_SNMP_Scan == ScanStatus.waiting)) scanningMethode_SNMP.StopScan();
+            // Status ALLER Methoden zuruecksetzen, damit ScannerCanStart() wieder
+            // true liefert und ein neuer Scan gestartet werden kann.
+            ResetAllScanStatuses();
 
-            if (scanningMethode_NetBios != null && ( status_NetBios_Scan == ScanStatus.running || status_NetBios_Scan == ScanStatus.waiting)) scanningMethode_NetBios.StopScan();
+            // WICHTIG: _cts hier NICHT neu anlegen. Die sequentielle Scan-Kette in
+            // DoWork prueft zwischen den Schritten _cts.Token.ThrowIfCancellationRequested().
+            // Bliebe _cts nicht abgebrochen, wuerden die folgenden Scans (z.B. Ping)
+            // einfach weiterlaufen. Der frische Token wird in DoWork beim Start erzeugt.
+        }
 
-            if (scanningMethod_SMB_VersionCheck != null && ( status_SMB_VersionCheck == ScanStatus.running || status_SMB_VersionCheck == ScanStatus.waiting)) scanningMethod_SMB_VersionCheck.StopScan();
+        private void ResetAllScanStatuses()
+        {
+            status_ARP_A_Scan = ScanStatus.stopped;
+            status_ARP_Request_Scan = ScanStatus.stopped;
+            status_Ping_Scan = ScanStatus.stopped;
+            status_SSDP_Scan = ScanStatus.stopped;
+            status_ONVIF_IP_Cam_Scan = ScanStatus.stopped;
+            status_DNS_HostName_Scan = ScanStatus.stopped;
+            status_NetBios_Scan = ScanStatus.stopped;
+            status_SMB_VersionCheck = ScanStatus.stopped;
+            status_Services_Scan = ScanStatus.stopped;
+            status_SNMP_Scan = ScanStatus.stopped;
+            status_Lookup_Scan = ScanStatus.stopped;
+            status_mDNS_Scan = ScanStatus.stopped;
+            status_TCP_Port_Scan = ScanStatus.stopped;
+            status_UDP_Port_Scan = ScanStatus.stopped;
 
-            if (scanningMethod_Services != null && ( status_Services_Scan == ScanStatus.running || status_Services_Scan == ScanStatus.waiting)) scanningMethod_Services.StopScan();
-
-            if (scanningMethode_ARP != null && ( status_ARP_Request_Scan == ScanStatus.running || status_ARP_Request_Scan == ScanStatus.waiting)) scanningMethode_ARP.StopScan();
-
-            if (scanningMethods_Ping != null && ( status_Ping_Scan == ScanStatus.running || status_Ping_Scan == ScanStatus.waiting)) scanningMethods_Ping.StopScan();
-
-            if (scanningMethod_LookUp != null && ( status_Lookup_Scan == ScanStatus.running || status_Lookup_Scan == ScanStatus.waiting)) scanningMethod_LookUp.StopScan();
-
-            if (scanningMethode_ReverseLookupToHostAndAliases != null && ( status_DNS_HostName_Scan == ScanStatus.running || status_DNS_HostName_Scan == ScanStatus.waiting)) scanningMethode_ReverseLookupToHostAndAliases.StopScan();
+            Status();
         }
 
         public bool ScannerCanStart()
