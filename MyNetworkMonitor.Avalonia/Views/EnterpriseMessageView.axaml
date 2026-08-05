@@ -1,0 +1,57 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="MyNetworkMonitor.Avalonia.Views.EnterpriseMessageView"
+        Title="Notice: Enterprise Network detected."
+        Width="500" Height="350"
+        CanResize="False"
+        WindowStartupLocation="CenterScreen"
+        Background="#F5F7FA">
+
+    <!--
+        Originalgetreue Portierung von ZZZ_EnterpriseUsage.ShowEnterpriseMessage()
+        (WPF, programmatisch gebaut). Design und Verhalten 1:1: weisser Container
+        mit Schatten, Headline, Lizenz-/Support-Text, Kontakt-Link und OK-Button
+        mit Countdown (erst nach Ablauf klickbar). X schliesst die Anwendung.
+    -->
+    <Border Background="White" Padding="20" CornerRadius="10" BoxShadow="3 3 10 0 #33000000">
+        <!-- Wie im WPF-Original: nur horizontal zentriert, vertikal oben-ausgerichtet
+             (StackPanel-Default = Stretch, Inhalt fliesst von oben). -->
+        <StackPanel HorizontalAlignment="Center">
+
+            <!-- Ueberschrift -->
+            <TextBlock Text="Make a Difference Today ❤️"
+                       FontSize="18" FontWeight="Bold" Foreground="#0070BA"
+                       TextAlignment="Center" HorizontalAlignment="Center" Margin="0,5,0,10"/>
+
+            <!-- Hauptnachricht -->
+            <TextBlock Text="This software is free for private use only.&#10;For companies and commercial usage, a license is required."
+                       FontSize="14" Foreground="Black"
+                       TextAlignment="Center" HorizontalAlignment="Center" Margin="0,5,0,15"/>
+
+            <!-- Entwickler-Unterstuetzung -->
+            <TextBlock Text="This project has taken around 500 hours to develop until this version,&#10;and even Open-Source developers need coffee ☕."
+                       FontSize="13" Foreground="Gray"
+                       TextAlignment="Center" HorizontalAlignment="Center" Margin="0,5,0,15"/>
+
+            <!-- Kontakt-Link -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <TextBlock Text="If you need a licensed version, contact me: " VerticalAlignment="Center"/>
+                <HyperlinkButton x:Name="EmailLink"
+                                 Content="systemswap@tuta.io"
+                                 NavigateUri="mailto:systemswap@tuta.io"
+                                 Foreground="#0070BA" FontSize="14" FontWeight="Bold"
+                                 Padding="0" VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <!-- OK-Button mit Countdown -->
+            <Button x:Name="CloseButton"
+                    Content="You can click OK in: 0 seconds"
+                    Width="250" Height="50"
+                    Background="#0070BA" Foreground="#A9A9A9" FontWeight="Bold"
+                    Margin="0,20,0,0" Cursor="Hand" IsEnabled="False"
+                    HorizontalAlignment="Center"
+                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                    Click="CloseButton_Click"/>
+        </StackPanel>
+    </Border>
+</Window>
