@@ -7,10 +7,13 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Diagnostics;
 using System.Net.NetworkInformation;
+using MyNetworkMonitor.Core.Models;
+using MyNetworkMonitor.Core.Services;
 //Signal
 namespace MyNetworkMonitor
 {
-    internal class ScanningMethod_WiFi
+    /// <summary>Windows-Implementierung von <see cref="IWifiProvider"/> (native wlanapi.dll).</summary>
+    internal class ScanningMethod_WiFi : IWifiProvider
     {
         public event EventHandler<WiFiSignalResult> WiFiSignalStrengthUpdated;
         private CancellationTokenSource _cts;
@@ -63,14 +66,6 @@ namespace MyNetworkMonitor
             uint dwFlags,
             IntPtr pReserved,
             out IntPtr ppAvailableNetworkList);
-
-        public class WiFiSignalResult
-        {
-            public string SSID { get; set; }
-            public int SignalStrength { get; set; }
-            public int SignalStrengthDbm { get; set; }
-            public DateTime Timestamp { get; set; }
-        }
 
         public async Task StartScanningAsync(int intervalMs = 2000)
         {
