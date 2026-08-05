@@ -6,7 +6,6 @@ using System.Text.RegularExpressions;
 using System.Web;
 using System.Windows;
 using System.Windows.Input;
-using Microsoft.Web.WebView2.Core;
 
 namespace MyNetworkMonitor
 {
@@ -80,17 +79,6 @@ namespace MyNetworkMonitor
                     }
 
                     string donationUrl = $"{baseUrl}?{queryParameters}";
-
-                //    // WebView2 sichtbar machen und gesamte UI ausblenden
-                //    PayPalWebView.Visibility = Visibility.Collapsed;
-                //PayPalWebView.Visibility = Visibility.Visible;
-                //PayPalWebView.Source = new Uri(donationUrl);
-
-                //System.Threading.Tasks.Task.Delay(1500).Wait();
-
-                //this.Height = 780;
-                //this.Width = 850;
-          
 
                 // Standardbrowser öffnen
                 ProcessStartInfo psi = new ProcessStartInfo
