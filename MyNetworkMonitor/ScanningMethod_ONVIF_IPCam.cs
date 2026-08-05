@@ -9,7 +9,6 @@ using System.Xml.Linq;
 using System.Xml;
 using System.Xml.XPath;
 using System.Threading;
-using System.Windows;
 using System.Net.Http;
 using System.Net.NetworkInformation;
 
@@ -205,10 +204,9 @@ namespace MyNetworkMonitor
                                     ipToScan = ipToScan
                                 };
 
-                                Application.Current.Dispatcher.Invoke(() =>
-                                {
-                                    Task.Run(() => new_ONVIF_IP_Camera_Found_Task_Finished?.Invoke(this, scanTask_Finished));
-                                });
+                                // Event vom Hintergrund-Thread feuern; der UI-Subscriber (MainWindow)
+                                // marshalt selbst via Dispatcher – daher hier keine WPF-Abhängigkeit nötig.
+                                new_ONVIF_IP_Camera_Found_Task_Finished?.Invoke(this, scanTask_Finished);
 
                                 int respondedValue = Interlocked.Increment(ref responded);
                                 ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running);
@@ -233,10 +231,7 @@ namespace MyNetworkMonitor
             //responded = 0;
 
 
-            Application.Current.Dispatcher.Invoke(() =>
-            {
-                ONVIF_IP_Camera_Scan_Finished?.Invoke(ScanStatus.finished);
-            });
+            ONVIF_IP_Camera_Scan_Finished?.Invoke(ScanStatus.finished);
         }
 
 
