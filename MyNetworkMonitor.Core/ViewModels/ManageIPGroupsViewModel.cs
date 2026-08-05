@@ -92,7 +92,7 @@ namespace MyNetworkMonitor.Core.ViewModels
 
         /// <summary>Löscht den ausgewählten Eintrag nach Rückfrage.</summary>
         [RelayCommand]
-        private void DeleteEntry()
+        private async Task DeleteEntryAsync()
         {
             if (SelectedGroup is null) return;
 
@@ -102,7 +102,7 @@ namespace MyNetworkMonitor.Core.ViewModels
                 SelectedGroup.NmGatewayIP, SelectedGroup.NmGatewayPort, SelectedGroup.AutomaticScan,
                 SelectedGroup.ScanIntervalMinutes);
 
-            if (_dialog.Confirm($"Delete the entry: {rowContent}", "Delete row"))
+            if (await _dialog.ConfirmAsync($"Delete the entry: {rowContent}", "Delete row"))
             {
                 Groups.Remove(SelectedGroup);
             }
