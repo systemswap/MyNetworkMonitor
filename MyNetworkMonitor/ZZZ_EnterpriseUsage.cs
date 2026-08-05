@@ -1,9 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.DirectoryServices.ActiveDirectory;
 using System.Linq;
-using System.Net.NetworkInformation;
-using System.Security.Principal;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Controls;
@@ -23,75 +20,12 @@ namespace MyNetworkMonitor
         static int countdown = 0;
         static bool isClosingFromButton = false;
 
-        // Registry-Zugriff hinter Interface gekapselt. Default: Windows-Implementierung.
-        // Fuer Linux kann hier ein anderer IRegistryReader gesetzt werden.
-        public static IRegistryReader RegistryReader { get; set; } = new WindowsRegistryReader();
+        // Unternehmens-Erkennung hinter Interface gekapselt. Default: Windows-Impl.
+        // Fuer Linux kann hier ein anderer IEnterpriseEnvironment gesetzt werden.
+        public static IEnterpriseEnvironment EnterpriseEnvironment { get; set; } = new WindowsEnterpriseEnvironment();
 
-        public static bool IsCompanyNetwork()
-        {
-            return IsDomainJoined() || IsAzureADUser() || IsAzureADJoined() || IsDomainUser() || IsCompanyIP();
-        }
+        public static bool IsCompanyNetwork() => EnterpriseEnvironment.IsCompanyNetwork();
 
-        static bool IsDomainJoined()
-        {
-            try
-            {
-                Domain domain = Domain.GetComputerDomain();
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        static bool IsDomainUser()
-        {
-            string userDomain = Environment.UserDomainName;
-            string computerName = Environment.MachineName;
-            return !string.IsNullOrEmpty(userDomain) && userDomain != computerName;
-        }
-
-        static bool IsAzureADUser()
-        {
-            WindowsIdentity identity = WindowsIdentity.GetCurrent();
-            return identity.User.Value.StartsWith("S-1-12-1-"); // Azure AD SID beginnt mit S-1-12-1
-        }
-
-        static bool IsAzureADJoined()
-        {
-            try
-            {
-                return RegistryReader.KeyExists(RegistryHiveKind.LocalMachine,
-                    @"SOFTWARE\Microsoft\Windows\CurrentVersion\CDJ\AAD");
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        static bool IsCompanyIP()
-        {
-            string[] knownCompanyNetworks = { "10.", "172." };
-
-            foreach (var netInterface in NetworkInterface.GetAllNetworkInterfaces())
-            {
-                foreach (var unicast in netInterface.GetIPProperties().UnicastAddresses)
-                {
-                    string ip = unicast.Address.ToString();
-                    foreach (var companyNetwork in knownCompanyNetworks)
-                    {
-                        if (ip.StartsWith(companyNetwork))
-                        {
-                            return true;
-                        }
-                    }
-                }
-            }
-            return false;
-        }
-        
         public static void ShowEnterpriseMessage()
         {
             // Fenster erstellen
