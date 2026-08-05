@@ -4,7 +4,7 @@ using System.Net.NetworkInformation;
 using System.Security.Principal;
 using MyNetworkMonitor.Core.Services;
 
-namespace MyNetworkMonitor.Platform
+namespace MyNetworkMonitor.Platform.Windows
 {
     /// <summary>
     /// Windows-Implementierung von <see cref="IEnterpriseEnvironment"/>.
