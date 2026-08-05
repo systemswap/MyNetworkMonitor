@@ -20,7 +20,6 @@ using System.Reflection.Metadata;
 using System.Diagnostics;
 using System.Net.NetworkInformation;
 using System.Xml.Serialization;
-using SnmpSharpNet;
 using System.Text.RegularExpressions;
 using System.Collections;
 using System.Collections.Specialized;

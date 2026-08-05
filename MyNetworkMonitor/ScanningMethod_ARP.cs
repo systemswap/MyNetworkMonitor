@@ -10,7 +10,7 @@ using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using SnmpSharpNet;
+using Lextm.SharpSnmpLib;
 namespace MyNetworkMonitor
 {
     internal class ScanningMethod_ARP
@@ -445,10 +445,8 @@ namespace MyNetworkMonitor
 
             try
             {
-                SimpleSnmp snmp = new SimpleSnmp(gatewayIp) { Timeout = 2000 };
-
                 // SNMP OID für Subnetzmaske
-                var result = snmp.Walk(SnmpVersion.Ver2, "1.3.6.1.2.1.4.20.1.3");
+                var result = SnmpHelper.Walk(gatewayIp, VersionCode.V2, community, "1.3.6.1.2.1.4.20.1.3");
 
                 if (result == null || result.Count == 0)
                 {
