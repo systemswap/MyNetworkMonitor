@@ -817,19 +817,32 @@ namespace MyNetworkMonitor
 
             bool IsIPInRange(string ip, string startIP, string endIP)
             {
-                uint ipVal = IPToUInt(ip);
-                uint startVal = IPToUInt(startIP);
-                uint endVal = IPToUInt(endIP);
+                // Ungültige oder leere Werte (z.B. Hostnamen ohne IP) überspringen,
+                // statt beim Parsen abzustürzen.
+                if (!TryIPToUInt(ip, out uint ipVal)) return false;
+                if (!TryIPToUInt(startIP, out uint startVal)) return false;
+                if (!TryIPToUInt(endIP, out uint endVal)) return false;
 
                 return ipVal >= Math.Min(startVal, endVal) && ipVal <= Math.Max(startVal, endVal);
             }
-            
-            uint IPToUInt(string ip)
+
+            bool TryIPToUInt(string ip, out uint value)
             {
-                byte[] bytes = IPAddress.Parse(ip).GetAddressBytes();
+                value = 0;
+                if (string.IsNullOrWhiteSpace(ip)) return false;
+
+                // Nur IPv4 kann sinnvoll in ein UInt32 abgebildet werden.
+                if (!IPAddress.TryParse(ip.Trim(), out IPAddress? address) ||
+                    address.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork)
+                {
+                    return false;
+                }
+
+                byte[] bytes = address.GetAddressBytes();
                 if (BitConverter.IsLittleEndian)
                     Array.Reverse(bytes);
-                return BitConverter.ToUInt32(bytes, 0);
+                value = BitConverter.ToUInt32(bytes, 0);
+                return true;
             }
         }
 
