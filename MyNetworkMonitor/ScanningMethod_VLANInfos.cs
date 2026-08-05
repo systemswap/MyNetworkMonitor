@@ -4,7 +4,7 @@ using System.Linq;
 using System.Net.NetworkInformation;
 using System.Text;
 using System.Threading.Tasks;
-using SnmpSharpNet;
+using Lextm.SharpSnmpLib;
 
 namespace MyNetworkMonitor
 {
@@ -51,15 +51,14 @@ namespace MyNetworkMonitor
             }
 
             // SNMP-Anfrage starten
-            SimpleSnmp snmp = new SimpleSnmp(switchIP, community);
-            if (!snmp.Valid)
+            if (!SnmpHelper.TryGetEndpoint(switchIP, out _))
             {
                 Console.WriteLine("SNMP-Verbindung fehlgeschlagen!");
                 return;
             }
 
             // VLAN-IDs abrufen
-            Dictionary<Oid, AsnType> vlanResult = snmp.Walk(SnmpVersion.Ver2, vlanOid);
+            Dictionary<string, string> vlanResult = SnmpHelper.Walk(switchIP, VersionCode.V2, community, vlanOid);
             if (vlanResult != null && vlanResult.Count > 0)
             {
                 Console.WriteLine("Gefundene VLANs:");
@@ -74,7 +73,7 @@ namespace MyNetworkMonitor
             }
 
             // VLAN-Namen abrufen (falls unterstützt)
-            Dictionary<Oid, AsnType> vlanNameResult = snmp.Walk(SnmpVersion.Ver2, vlanNameOid);
+            Dictionary<string, string> vlanNameResult = SnmpHelper.Walk(switchIP, VersionCode.V2, community, vlanNameOid);
             if (vlanNameResult != null && vlanNameResult.Count > 0)
             {
                 Console.WriteLine("\nVLAN-Namen:");
@@ -85,7 +84,7 @@ namespace MyNetworkMonitor
             }
 
             // VLAN-Port-Zuordnung abrufen
-            Dictionary<Oid, AsnType> vlanPortResult = snmp.Walk(SnmpVersion.Ver2, vlanPortOid);
+            Dictionary<string, string> vlanPortResult = SnmpHelper.Walk(switchIP, VersionCode.V2, community, vlanPortOid);
             if (vlanPortResult != null && vlanPortResult.Count > 0)
             {
                 Console.WriteLine("\nPort-Zuordnungen:");
@@ -116,8 +115,7 @@ namespace MyNetworkMonitor
         private static string DetectSwitchType(string switchIP, string community)
         {
             string sysObjectIdOid = "1.3.6.1.2.1.1.2.0"; // OID für Herstellerkennung
-            SimpleSnmp snmp = new SimpleSnmp(switchIP, community);
-            Dictionary<Oid, AsnType> result = snmp.Get(SnmpVersion.Ver2, new string[] { sysObjectIdOid });
+            Dictionary<string, string> result = SnmpHelper.Get(switchIP, VersionCode.V2, community, new string[] { sysObjectIdOid });
 
             if (result != null && result.Count > 0)
             {
