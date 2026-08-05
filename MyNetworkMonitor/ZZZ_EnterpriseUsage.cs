@@ -8,7 +8,7 @@ using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows;
 using MyNetworkMonitor.Core.Services;
-using MyNetworkMonitor.Platform;
+using MyNetworkMonitor.Platform.Windows;
 using System.Diagnostics;
 using System.Windows.Media.Effects;
 using System.Windows.Threading;

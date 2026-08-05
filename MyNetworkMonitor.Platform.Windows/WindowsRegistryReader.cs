@@ -1,7 +1,7 @@
 using Microsoft.Win32;
 using MyNetworkMonitor.Core.Services;
 
-namespace MyNetworkMonitor.Platform
+namespace MyNetworkMonitor.Platform.Windows
 {
     /// <summary>Windows-Implementierung von <see cref="IRegistryReader"/> (Microsoft.Win32.Registry).</summary>
     public sealed class WindowsRegistryReader : IRegistryReader

@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MyNetworkMonitor.Core", "My
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MyNetworkMonitor.Avalonia", "MyNetworkMonitor.Avalonia\MyNetworkMonitor.Avalonia.csproj", "{01F9A54D-2BCB-45CE-A3A1-463378E24363}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MyNetworkMonitor.Platform.Windows", "MyNetworkMonitor.Platform.Windows\MyNetworkMonitor.Platform.Windows.csproj", "{8EB3E499-3EE8-4015-AFA5-E8E6EE9DD57D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -55,6 +57,18 @@ Global
 		{01F9A54D-2BCB-45CE-A3A1-463378E24363}.Release|x64.Build.0 = Release|Any CPU
 		{01F9A54D-2BCB-45CE-A3A1-463378E24363}.Release|x86.ActiveCfg = Release|Any CPU
 		{01F9A54D-2BCB-45CE-A3A1-463378E24363}.Release|x86.Build.0 = Release|Any CPU
+		{8EB3E499-3EE8-4015-AFA5-E8E6EE9DD57D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8EB3E499-3EE8-4015-AFA5-E8E6EE9DD57D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8EB3E499-3EE8-4015-AFA5-E8E6EE9DD57D}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{8EB3E499-3EE8-4015-AFA5-E8E6EE9DD57D}.Debug|x64.Build.0 = Debug|Any CPU
+		{8EB3E499-3EE8-4015-AFA5-E8E6EE9DD57D}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{8EB3E499-3EE8-4015-AFA5-E8E6EE9DD57D}.Debug|x86.Build.0 = Debug|Any CPU
+		{8EB3E499-3EE8-4015-AFA5-E8E6EE9DD57D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8EB3E499-3EE8-4015-AFA5-E8E6EE9DD57D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8EB3E499-3EE8-4015-AFA5-E8E6EE9DD57D}.Release|x64.ActiveCfg = Release|Any CPU
+		{8EB3E499-3EE8-4015-AFA5-E8E6EE9DD57D}.Release|x64.Build.0 = Release|Any CPU
+		{8EB3E499-3EE8-4015-AFA5-E8E6EE9DD57D}.Release|x86.ActiveCfg = Release|Any CPU
+		{8EB3E499-3EE8-4015-AFA5-E8E6EE9DD57D}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
