@@ -22,4 +22,10 @@
   <ItemGroup>
     <ProjectReference Include="..\MyNetworkMonitor.Core\MyNetworkMonitor.Core.csproj" />
   </ItemGroup>
+
+  <!-- Bilder aus dem WPF-Projekt verlinken (keine Kopie), als Avalonia-Ressource -->
+  <ItemGroup>
+    <AvaloniaResource Include="..\MyNetworkMonitor\Images\DevDonationCuted.jpg" Link="Images\DevDonationCuted.jpg" />
+    <AvaloniaResource Include="..\MyNetworkMonitor\Images\PayPal.png" Link="Images\PayPal.png" />
+  </ItemGroup>
 </Project>
