@@ -218,8 +218,23 @@ namespace MyNetworkMonitor
 
         public async Task ScanTCPPortsAsync(List<IPToScan> IPs, List<int> Ports, TimeSpan TimeOut)
         {
+            // Frischer Token je Scan, damit nach einem vorherigen StopScan wieder
+            // sauber gescannt werden kann.
+            _cts = new CancellationTokenSource();
+
             //await _ScanTCPPortsAsync(IPs, new PortCollection().TCPPorts, TimeOut);
             await _ScanTCPPortsAsync(IPs, Ports, TimeOut);
+        }
+
+        public void StopScan()
+        {
+            // Der interne Token wird von den Scan-Tasks geprueft (siehe
+            // ScanTCPPorts_Task) - Cancel beendet den laufenden Scan.
+            if (_cts != null && !_cts.IsCancellationRequested)
+            {
+                _cts.Cancel();
+            }
+            TcpPortScan_Finished?.Invoke(ScanStatus.stopped);
         }
 
         private async Task _ScanTCPPortsAsync(List<IPToScan> IPs, List<int> TCP_Ports, TimeSpan TimeOut)
