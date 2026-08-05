@@ -6,7 +6,6 @@ using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Lextm.SharpSnmpLib;
@@ -17,12 +16,14 @@ namespace MyNetworkMonitor
     internal class ScanningMethod_ARP
     {
         private readonly IArpProvider _arp;
+        private readonly IRoutingProvider _routing;
 
-        public ScanningMethod_ARP(IArpProvider? arpProvider = null)
+        public ScanningMethod_ARP(IArpProvider? arpProvider = null, IRoutingProvider? routingProvider = null)
         {
-            // Default: Windows-Implementierung. Fuer Linux spaeter einen anderen
-            // IArpProvider injizieren – die Scan-Logik hier bleibt unveraendert.
+            // Default: Windows-Implementierungen. Fuer Linux spaeter andere Provider
+            // injizieren – die Scan-Logik hier bleibt unveraendert.
             _arp = arpProvider ?? new WindowsArpProvider();
+            _routing = routingProvider ?? new WindowsRoutingProvider();
         }
         
         
@@ -280,13 +281,13 @@ namespace MyNetworkMonitor
         {
             var knownIpsTask = GetLocalArpTableAsync(); // 1️⃣ ARP-Tabelle abrufen (asynchron)
             var gatewayTask = Task.Run(() => GetDefaultGateway()); // 2️⃣ Standard-Gateway bestimmen (asynchron)
-            var routingTableTask = Task.Run(() => GetRoutingTable()); // 3️⃣ Routing-Tabelle abrufen (asynchron)
+            var routingTableTask = _routing.GetRouteNetworkIpsAsync(); // 3️⃣ Routing-Tabelle abrufen (asynchron)
 
             await Task.WhenAll(knownIpsTask, gatewayTask, routingTableTask);
 
             List<string> knownIps = await knownIpsTask;
             string gateway = await gatewayTask;
-            List<string> routingTable = await routingTableTask;
+            IReadOnlyList<string> routingTable = await routingTableTask;
             string subnetMask = await Task.Run(() => GetSubnetMaskViaSnmp(gateway)); // 4️⃣ SNMP-Subnetzmaske abrufen (asynchron)
 
             return ipsToRefresh.Where(ip =>
@@ -315,30 +316,6 @@ namespace MyNetworkMonitor
                 .FirstOrDefault() ?? string.Empty; // Falls kein IPv4-Gateway gefunden wird, gib einen leeren String zurück
         }
 
-
-        // TODO(Linux): "route print" ist Windows-spezifisch. Analog zu IArpProvider
-        // spaeter hinter ein IRoutingProvider auslagern (Linux: "ip route").
-        private static List<string> GetRoutingTable()
-        {
-            var process = new Process
-            {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = "route",
-                    Arguments = "print",
-                    RedirectStandardOutput = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                }
-            };
-
-            process.Start();
-            string output = process.StandardOutput.ReadToEnd();
-            process.WaitForExit();
-
-            var matches = Regex.Matches(output, @"(\d+\.\d+\.\d+\.\d+)\s+255");
-            return matches.Cast<Match>().Select(m => m.Groups[1].Value).ToList();
-        }
 
         private static string GetSubnetMaskViaSnmp(string gatewayIp, string community = "public")
         {
