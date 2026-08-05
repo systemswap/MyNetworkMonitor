@@ -1,0 +1,63 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="MyNetworkMonitor.Avalonia.Views.PayPalDonationView"
+        Title="Thanks to support this project"
+        Width="801" Height="628" MinWidth="500" MinHeight="500"
+        WindowStartupLocation="CenterOwner">
+
+    <!-- Originalgetreue Portierung von PayPalDonation.xaml (WPF). -->
+    <Grid Background="#F5F7FA">
+        <!-- Hintergrundbild -->
+        <Image Source="avares://MyNetworkMonitor.Avalonia/Images/DevDonationCuted.jpg"
+               Stretch="UniformToFill" Opacity="0.9"
+               RenderOptions.BitmapInterpolationMode="HighQuality"/>
+
+        <Border Background="White" Padding="20" CornerRadius="20" Margin="151,64,151,140"
+                BoxShadow="3 3 10 0 #33000000">
+
+            <StackPanel Margin="-20,0,-20,3">
+
+                <Image Source="avares://MyNetworkMonitor.Avalonia/Images/PayPal.png"
+                       Width="180" Height="80" Margin="0,20,0,10"
+                       RenderOptions.BitmapInterpolationMode="HighQuality"/>
+
+                <!-- Emotionale Headline -->
+                <TextBlock Text="Make a Difference Today ❤️" FontSize="18" FontWeight="Bold" Foreground="Black"
+                           HorizontalAlignment="Center" Margin="0,5,0,10"/>
+
+                <!-- Kurzer Erklärtext -->
+                <TextBlock Text="Your support keeps such projects alive."
+                           FontSize="14" Foreground="Gray" TextAlignment="Center"
+                           HorizontalAlignment="Center" Width="300" Margin="0,0,0,15"/>
+
+                <!-- Betrag + Währung in einer Zeile -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="5">
+                    <TextBox x:Name="AmountTextBox" Width="80" FontSize="28"
+                             TextAlignment="Center" Text="25"/>
+                    <TextBlock x:Name="CurrencyTextBlock" Text="USD" FontSize="24" Foreground="Gray"
+                               Margin="5,0,0,0" Height="29"/>
+                </StackPanel>
+
+                <!-- Filler -->
+                <TextBlock x:Name="filler"
+                           Text="feeling better when"
+                           FontSize="12" Foreground="Gray" HorizontalAlignment="Center" Margin="0,5,0,10"/>
+
+                <!-- Spenden-Button -->
+                <Button x:Name="DonatePayPalButton"
+                        Content="Donate Now 🚀"
+                        Click="DonateWithPayPal_Click"
+                        Background="#0070BA" Foreground="White" FontSize="16" Padding="12"
+                        Cursor="Hand" CornerRadius="2"
+                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                        Width="250" Height="50" Margin="1"/>
+
+                <!-- Social Proof -->
+                <TextBlock x:Name="DonationCountTextBlock"
+                           Text="Even a small donation helps!"
+                           FontSize="12" Foreground="Gray" HorizontalAlignment="Center" Margin="0,10,0,0"/>
+            </StackPanel>
+
+        </Border>
+    </Grid>
+</Window>
