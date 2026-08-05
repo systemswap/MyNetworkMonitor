@@ -10,7 +10,8 @@ using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows;
-using Microsoft.Win32;
+using MyNetworkMonitor.Core.Services;
+using MyNetworkMonitor.Platform;
 using System.Diagnostics;
 using System.Windows.Media.Effects;
 using System.Windows.Threading;
@@ -21,6 +22,10 @@ namespace MyNetworkMonitor
     {
         static int countdown = 0;
         static bool isClosingFromButton = false;
+
+        // Registry-Zugriff hinter Interface gekapselt. Default: Windows-Implementierung.
+        // Fuer Linux kann hier ein anderer IRegistryReader gesetzt werden.
+        public static IRegistryReader RegistryReader { get; set; } = new WindowsRegistryReader();
 
         public static bool IsCompanyNetwork()
         {
@@ -57,10 +62,8 @@ namespace MyNetworkMonitor
         {
             try
             {
-                using (RegistryKey key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\CDJ\AAD"))
-                {
-                    return key != null;
-                }
+                return RegistryReader.KeyExists(RegistryHiveKind.LocalMachine,
+                    @"SOFTWARE\Microsoft\Windows\CurrentVersion\CDJ\AAD");
             }
             catch
             {
