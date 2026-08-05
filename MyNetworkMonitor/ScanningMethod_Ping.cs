@@ -3,7 +3,6 @@ using System.Buffers.Text;
 using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
-using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -13,9 +12,6 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Media;
 
 namespace MyNetworkMonitor
 {

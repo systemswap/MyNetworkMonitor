@@ -9,7 +9,6 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using System.Threading;
-using System.Windows;
 using System.Net.NetworkInformation;
 
 namespace MyNetworkMonitor
@@ -194,11 +193,9 @@ namespace MyNetworkMonitor
 
                                 if (!_cts.Token.IsCancellationRequested)
                                 {
-                                    // Event im UI-Thread aufrufen
-                                    Application.Current.Dispatcher.Invoke(() =>
-                                    {
-                                        Task.Run(() => SSDP_foundNewDevice?.Invoke(this, scanTask_Finished));
-                                    });
+                                    // Event vom Hintergrund-Thread feuern; der UI-Subscriber (MainWindow)
+                                    // marshalt selbst via Dispatcher – daher hier keine WPF-Abhängigkeit nötig.
+                                    SSDP_foundNewDevice?.Invoke(this, scanTask_Finished);
 
                                     int respondedValue = Interlocked.Increment(ref responded);
                                     ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running);
@@ -215,12 +212,7 @@ namespace MyNetworkMonitor
                 {
                     //Console.WriteLine("✅ SSDP-Scan abgeschlossen.");
 
-                    // Sicherstellen, dass das Event auf dem UI-Thread aufgerufen wird
-
-                    Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        SSDP_Scan_Finished?.Invoke(ScanStatus.finished);
-                    });
+                    SSDP_Scan_Finished?.Invoke(ScanStatus.finished);
 
                 }
             }
