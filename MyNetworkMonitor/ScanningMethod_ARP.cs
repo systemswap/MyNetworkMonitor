@@ -6,18 +6,23 @@ using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
-using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Lextm.SharpSnmpLib;
+using MyNetworkMonitor.Core.Services;
+using MyNetworkMonitor.Platform;
 namespace MyNetworkMonitor
 {
     internal class ScanningMethod_ARP
     {
-        public ScanningMethod_ARP()
-        {
+        private readonly IArpProvider _arp;
 
+        public ScanningMethod_ARP(IArpProvider? arpProvider = null)
+        {
+            // Default: Windows-Implementierung. Fuer Linux spaeter einen anderen
+            // IArpProvider injizieren – die Scan-Logik hier bleibt unveraendert.
+            _arp = arpProvider ?? new WindowsArpProvider();
         }
         
         
@@ -81,9 +86,6 @@ namespace MyNetworkMonitor
         
 
 
-        [DllImport("iphlpapi.dll", ExactSpelling = true)]
-        private static extern int SendARP(int DestIP, int SrcIP, byte[] pMacAddr, ref uint PhyAddrLen);
-
         public async Task SendARPRequestAsync(List<IPToScan> ipsToRefresh)
         {
             StartNewScan();
@@ -142,18 +144,12 @@ namespace MyNetworkMonitor
             if (_cts.Token.IsCancellationRequested) return;
 
             IPAddress ipAddress = IPAddress.Parse(ipToScan.IPorHostname);
-            byte[] macAddr = new byte[6];
-            uint macAddrLen = (uint)macAddr.Length;
 
-            int arp_response = await Task.Run(() =>
-            {
-                _cts.Token.ThrowIfCancellationRequested(); // 🔹 Falls abgebrochen, sofort raus
-                return SendARP(BitConverter.ToInt32(ipAddress.GetAddressBytes(), 0), 0, macAddr, ref macAddrLen);
-            }, _cts.Token);
+            string? mac = await _arp.ResolveMacAsync(ipAddress, _cts.Token);
 
-            if (_cts.Token.IsCancellationRequested || arp_response == -1) return;
+            if (_cts.Token.IsCancellationRequested) return;
 
-            if (arp_response != 0)
+            if (mac == null)
             {
                 ARP_Request_Task_Finished?.Invoke(this, new ScanTask_Finished_EventArgs()
                 {
@@ -162,8 +158,6 @@ namespace MyNetworkMonitor
             }
             else
             {
-                string mac = string.Join("-", macAddr.Take((int)macAddrLen).Select(b => b.ToString("x2")));
-
                 if (ARP_Request_Task_Finished != null)
                 {
                     ipToScan.ARPStatus = true;
@@ -213,56 +207,44 @@ namespace MyNetworkMonitor
 
             try
             {
-                string str_arpResult = await GetARPResult().WaitAsync(_cts.Token);
-                string[] arpResult = str_arpResult.Split(new char[] { '\n', '\r' });
+                var arpTable = await _arp.GetArpTableAsync(_cts.Token);
 
-                foreach (var arp in arpResult)
+                foreach (var entry in arpTable)
                 {
                     if (_cts.Token.IsCancellationRequested) break;
 
-                    // Parse out all the MAC / IP Address combinations
-                    if (!string.IsNullOrEmpty(arp))
+                    string ip = entry.IpAddress;
+                    string mac = entry.MacAddress;
+                    var vendor = support.GetVendorFromMac(mac);
+
+                    if (ARP_A_newDevice != null)
                     {
-                        var pieces = (from piece in arp.Split(new char[] { ' ', '\t' })
-                                      where !string.IsNullOrEmpty(piece)
-                                      select piece).ToArray();
-                        if (pieces.Length == 3)
+                        IPToScan ipToScan;
+
+                        try
                         {
-
-                            string ip = pieces[0];
-                            string mac = pieces[1];
-                            var vendor = support.GetVendorFromMac(mac);
-
-                            if (ARP_A_newDevice != null)
-                            {
-                                IPToScan ipToScan;
-
-                                try
-                                {
-                                    ipToScan = IPs.Where(i => string.Equals(i.IPorHostname, ip)).ToList()[0];
-                                    ipToScan.ARPStatus = true;
-                                    ipToScan.MAC = mac;
-                                    ipToScan.Vendor = vendor[0];
-                                }
-                                catch (Exception)
-                                {
-                                    ipToScan = new IPToScan();
-                                    ipToScan.ARPStatus = true;
-                                    ipToScan.IPorHostname = ip;
-                                    ipToScan.MAC = mac;
-                                    ipToScan.Vendor = vendor[0];
-                                    ipToScan.IPGroupDescription = "not specified";
-                                    ipToScan.DeviceDescription = "not specified";
-                                }
-
-                                ipToScan.UsedScanMethod = ScanMethod.ARP_A;
-
-                                ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
-                                scanTask_Finished.ipToScan = ipToScan;
-
-                                Task.Run(() => ARP_A_newDevice(this, scanTask_Finished));
-                            }
+                            ipToScan = IPs.Where(i => string.Equals(i.IPorHostname, ip)).ToList()[0];
+                            ipToScan.ARPStatus = true;
+                            ipToScan.MAC = mac;
+                            ipToScan.Vendor = vendor[0];
                         }
+                        catch (Exception)
+                        {
+                            ipToScan = new IPToScan();
+                            ipToScan.ARPStatus = true;
+                            ipToScan.IPorHostname = ip;
+                            ipToScan.MAC = mac;
+                            ipToScan.Vendor = vendor[0];
+                            ipToScan.IPGroupDescription = "not specified";
+                            ipToScan.DeviceDescription = "not specified";
+                        }
+
+                        ipToScan.UsedScanMethod = ScanMethod.ARP_A;
+
+                        ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
+                        scanTask_Finished.ipToScan = ipToScan;
+
+                        Task.Run(() => ARP_A_newDevice(this, scanTask_Finished));
                     }
                 }
             }
@@ -272,70 +254,9 @@ namespace MyNetworkMonitor
             }
         }
 
-        /// <summary>
-        /// This runs the "arp" utility in Windows to retrieve all the MAC / IP Address entries.
-        /// </summary>
-        /// <returns></returns>
-        private async Task<string> GetARPResult()
-        {
-            Process p = null;
-            string output = string.Empty;
-
-            try
-            {
-                p = Process.Start(new ProcessStartInfo("arp", "-a")
-                {
-                    CreateNoWindow = true,
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true
-                });
-
-                output = await p.StandardOutput.ReadToEndAsync();
-
-                p.Close();
-            }
-            catch (Exception ex)
-            {
-                throw new Exception("IPInfo: Error Retrieving 'arp -a' Results", ex);
-            }
-            finally
-            {
-                if (p != null)
-                {
-                    p.Close();
-                }
-            }
-            return output;
-        }
-
         public bool DeleteARPCache()
         {
-            Process p = null;
-            string output = string.Empty;
-
-            try
-            {
-                p = Process.Start(new ProcessStartInfo("arp", "-d")
-                {
-                    CreateNoWindow = true,
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true
-                });
-
-                p.Close();
-            }
-            catch (Exception ex)
-            {
-                //throw new Exception("IPInfo: Error Retrieving 'arp -a' Results", ex);
-            }
-            finally
-            {
-                if (p != null)
-                {
-                    p.Close();
-                }
-            }
-            return true;
+            return _arp.FlushArpCache();
         }
 
 
@@ -355,9 +276,9 @@ namespace MyNetworkMonitor
 
 
 
-        public static async Task<List<IPToScan>> GetIPsInSameVLANAsync(List<IPToScan> ipsToRefresh)
+        public async Task<List<IPToScan>> GetIPsInSameVLANAsync(List<IPToScan> ipsToRefresh)
         {
-            var knownIpsTask = Task.Run(() => GetLocalArpTable()); // 1️⃣ ARP-Tabelle abrufen (asynchron)
+            var knownIpsTask = GetLocalArpTableAsync(); // 1️⃣ ARP-Tabelle abrufen (asynchron)
             var gatewayTask = Task.Run(() => GetDefaultGateway()); // 2️⃣ Standard-Gateway bestimmen (asynchron)
             var routingTableTask = Task.Run(() => GetRoutingTable()); // 3️⃣ Routing-Tabelle abrufen (asynchron)
 
@@ -377,32 +298,10 @@ namespace MyNetworkMonitor
         }
 
 
-        private static List<string> GetLocalArpTable()
+        private async Task<List<string>> GetLocalArpTableAsync()
         {
-            var ipList = new List<string>();
-            var process = new Process
-            {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = "arp",
-                    Arguments = "-a",
-                    RedirectStandardOutput = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                }
-            };
-
-            process.Start();
-            string output = process.StandardOutput.ReadToEnd();
-            process.WaitForExit();
-
-            var matches = Regex.Matches(output, @"(\d+\.\d+\.\d+\.\d+)\s+");
-            foreach (Match match in matches)
-            {
-                ipList.Add(match.Groups[1].Value);
-            }
-
-            return ipList;
+            var table = await _arp.GetArpTableAsync();
+            return table.Select(e => e.IpAddress).ToList();
         }
 
 
@@ -417,6 +316,8 @@ namespace MyNetworkMonitor
         }
 
 
+        // TODO(Linux): "route print" ist Windows-spezifisch. Analog zu IArpProvider
+        // spaeter hinter ein IRoutingProvider auslagern (Linux: "ip route").
         private static List<string> GetRoutingTable()
         {
             var process = new Process
