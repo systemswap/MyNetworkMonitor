@@ -44,6 +44,28 @@ namespace MyNetworkMonitor.Core.ViewModels
         // Index der aktuell in der Maske bearbeiteten Zeile (-1 = neuer Eintrag)
         private int _indexOfCurrentRow = -1;
 
+        /// <summary>
+        /// Wenn gesetzt, übernimmt die Auswahl in der Liste den Eintrag sofort in
+        /// die Maske – der separate Schritt „Edit entry“ entfällt. Die
+        /// Avalonia-View schaltet das ein; die ältere WPF-View behält ihren
+        /// bisherigen Ablauf (erst auswählen, dann „Edit entry“).
+        /// </summary>
+        public bool AutoLoadSelectionIntoForm { get; set; }
+
+        /// <summary>Beschriftet die Maske: neuer oder bestehender Eintrag.</summary>
+        public string EditorCaption => _indexOfCurrentRow == -1
+            ? "New entry"
+            : $"Editing entry #{_indexOfCurrentRow + 1}";
+
+        public bool IsEditingExistingEntry => _indexOfCurrentRow != -1;
+
+        /// <summary>Hinweis auf unplausible Eingaben; leer = alles in Ordnung.</summary>
+        [ObservableProperty] private string _validationMessage = string.Empty;
+
+        public bool HasValidationMessage => ValidationMessage.Length > 0;
+
+        partial void OnValidationMessageChanged(string value) => OnPropertyChanged(nameof(HasValidationMessage));
+
         public ManageIPGroupsViewModel(DataTable sharedTable, string xmlPath, IDialogService dialog)
         {
             _sharedTable = sharedTable;
@@ -52,6 +74,33 @@ namespace MyNetworkMonitor.Core.ViewModels
 
             foreach (var g in IpGroupTable.ReadRows(sharedTable))
                 Groups.Add(g);
+
+            Renumber();
+        }
+
+        partial void OnSelectedGroupChanged(IpGroup? value)
+        {
+            MoveUpCommand.NotifyCanExecuteChanged();
+            MoveDownCommand.NotifyCanExecuteChanged();
+            DeleteEntryCommand.NotifyCanExecuteChanged();
+            DuplicateEntryCommand.NotifyCanExecuteChanged();
+
+            if (!AutoLoadSelectionIntoForm) return;
+
+            if (value == null) BeginNewEntry();
+            else LoadIntoForm(value);
+        }
+
+        /// <summary>Vergibt die Anzeige-Indizes nach der aktuellen Reihenfolge neu.</summary>
+        private void Renumber()
+        {
+            for (int i = 0; i < Groups.Count; i++) Groups[i].Index = i + 1;
+        }
+
+        private void RaiseEditorState()
+        {
+            OnPropertyChanged(nameof(EditorCaption));
+            OnPropertyChanged(nameof(IsEditingExistingEntry));
         }
 
         /// <summary>Übernimmt die ausgewählte Zeile in die Eingabemaske.</summary>
@@ -59,54 +108,210 @@ namespace MyNetworkMonitor.Core.ViewModels
         private void EditRow()
         {
             if (SelectedGroup is null) return;
-
-            EditIsActive = SelectedGroup.IsActive;
-            EditIpGroupDescription = SelectedGroup.IpGroupDescription;
-            EditDeviceDescription = SelectedGroup.DeviceDescription;
-            EditFirstIP = SelectedGroup.FirstIP;
-            EditLastIP = SelectedGroup.LastIP;
-            EditDomain = SelectedGroup.Domain;
-            EditDnsServers = SelectedGroup.DnsServers;
-            EditNmGatewayIP = SelectedGroup.NmGatewayIP;
-            EditNmGatewayPort = SelectedGroup.NmGatewayPort;
-            EditAutomaticScan = SelectedGroup.AutomaticScan;
-            EditScanIntervalMinutes = SelectedGroup.ScanIntervalMinutes;
-
-            _indexOfCurrentRow = Groups.IndexOf(SelectedGroup);
+            LoadIntoForm(SelectedGroup);
         }
 
-        /// <summary>Fügt einen neuen Eintrag hinzu oder aktualisiert den bearbeiteten.</summary>
-        [RelayCommand]
-        private void AddEntry()
+        private void LoadIntoForm(IpGroup group)
         {
+            EditIsActive = group.IsActive;
+            EditIpGroupDescription = group.IpGroupDescription;
+            EditDeviceDescription = group.DeviceDescription;
+            EditFirstIP = group.FirstIP;
+            EditLastIP = group.LastIP;
+            EditDomain = group.Domain;
+            EditDnsServers = group.DnsServers;
+            EditNmGatewayIP = group.NmGatewayIP;
+            EditNmGatewayPort = group.NmGatewayPort;
+            EditAutomaticScan = group.AutomaticScan;
+            EditScanIntervalMinutes = group.ScanIntervalMinutes;
+
+            _indexOfCurrentRow = Groups.IndexOf(group);
+            ValidationMessage = string.Empty;
+            RaiseEditorState();
+        }
+
+        /// <summary>Leert die Maske für einen neuen Eintrag.</summary>
+        [RelayCommand]
+        private void BeginNewEntry()
+        {
+            EditIsActive = true;
+            EditIpGroupDescription = string.Empty;
+            EditDeviceDescription = string.Empty;
+            EditFirstIP = string.Empty;
+            EditLastIP = string.Empty;
+            EditDomain = string.Empty;
+            EditDnsServers = string.Empty;
+            EditNmGatewayIP = string.Empty;
+            EditNmGatewayPort = string.Empty;
+            EditAutomaticScan = false;
+            EditScanIntervalMinutes = string.Empty;
+
+            _indexOfCurrentRow = -1;
+            ValidationMessage = string.Empty;
+            RaiseEditorState();
+        }
+
+        /// <summary>
+        /// Übernimmt die Maske: legt einen neuen Eintrag an oder aktualisiert den
+        /// gerade bearbeiteten. Der neue Eintrag bleibt ausgewählt, damit sich
+        /// direkt weiterarbeiten lässt.
+        /// </summary>
+        [RelayCommand]
+        private void ApplyEntry()
+        {
+            if (!Validate()) return;
+
             if (_indexOfCurrentRow == -1)
             {
-                Groups.Add(BuildFromEditFields());
+                var group = BuildFromEditFields();
+                Groups.Add(group);
+                Renumber();
+                _indexOfCurrentRow = Groups.Count - 1;
+                SelectedGroup = group;
             }
             else
             {
                 ApplyEditFieldsTo(Groups[_indexOfCurrentRow]);
             }
+
+            RaiseEditorState();
+        }
+
+        /// <summary>
+        /// Prüft die Eingaben so weit, dass offensichtliche Fehler auffallen,
+        /// ohne die Eingabe zu blockieren (First IP darf auch ein Hostname sein).
+        /// </summary>
+        private bool Validate()
+        {
+            if (string.IsNullOrWhiteSpace(EditIpGroupDescription) && string.IsNullOrWhiteSpace(EditDeviceDescription))
+            {
+                ValidationMessage = "Please enter at least a group or device description.";
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(EditFirstIP))
+            {
+                ValidationMessage = "First IP / hostname is required.";
+                return false;
+            }
+
+            if (!string.IsNullOrWhiteSpace(EditLastIP)
+                && IPAddress.TryParse(EditFirstIP.Trim(), out IPAddress? first)
+                && IPAddress.TryParse(EditLastIP.Trim(), out IPAddress? last)
+                && IpToSortKey(first.ToString()) > IpToSortKey(last.ToString()))
+            {
+                ValidationMessage = "Last IP is lower than first IP.";
+                return false;
+            }
+
+            if (!string.IsNullOrWhiteSpace(EditScanIntervalMinutes)
+                && !int.TryParse(EditScanIntervalMinutes.Trim(), out _))
+            {
+                ValidationMessage = "Scan interval must be a number of minutes.";
+                return false;
+            }
+
+            ValidationMessage = string.Empty;
+            return true;
+        }
+
+        /// <summary>
+        /// Fügt einen neuen Eintrag hinzu oder aktualisiert den bearbeiteten.
+        /// Bleibt für die ältere WPF-View erhalten, deren Maske genau diesen
+        /// einen Knopf kennt; die Avalonia-View nutzt <see cref="ApplyEntryCommand"/>.
+        /// </summary>
+        [RelayCommand]
+        private void AddEntry()
+        {
+            ApplyEntry();
             _indexOfCurrentRow = -1;
+            RaiseEditorState();
+        }
+
+        /// <summary>Legt eine Kopie des ausgewählten Eintrags direkt darunter an.</summary>
+        [RelayCommand(CanExecute = nameof(HasSelection))]
+        private void DuplicateEntry()
+        {
+            if (SelectedGroup is null) return;
+
+            var copy = new IpGroup
+            {
+                IsActive = SelectedGroup.IsActive,
+                IpGroupDescription = SelectedGroup.IpGroupDescription,
+                DeviceDescription = SelectedGroup.DeviceDescription,
+                FirstIP = SelectedGroup.FirstIP,
+                LastIP = SelectedGroup.LastIP,
+                Domain = SelectedGroup.Domain,
+                DnsServers = SelectedGroup.DnsServers,
+                NmGatewayIP = SelectedGroup.NmGatewayIP,
+                NmGatewayPort = SelectedGroup.NmGatewayPort,
+                AutomaticScan = SelectedGroup.AutomaticScan,
+                ScanIntervalMinutes = SelectedGroup.ScanIntervalMinutes
+            };
+
+            Groups.Insert(Groups.IndexOf(SelectedGroup) + 1, copy);
+            Renumber();
+            SelectedGroup = copy;
+        }
+
+        private bool HasSelection() => SelectedGroup is not null;
+
+        /// <summary>Verschiebt den ausgewählten Eintrag eine Position nach oben.</summary>
+        [RelayCommand(CanExecute = nameof(CanMoveUp))]
+        private void MoveUp() => Move(-1);
+
+        /// <summary>Verschiebt den ausgewählten Eintrag eine Position nach unten.</summary>
+        [RelayCommand(CanExecute = nameof(CanMoveDown))]
+        private void MoveDown() => Move(1);
+
+        private bool CanMoveUp() => SelectedGroup is not null && Groups.IndexOf(SelectedGroup) > 0;
+
+        private bool CanMoveDown() => SelectedGroup is not null && Groups.IndexOf(SelectedGroup) < Groups.Count - 1;
+
+        private void Move(int offset)
+        {
+            if (SelectedGroup is null) return;
+
+            int from = Groups.IndexOf(SelectedGroup);
+            int to = from + offset;
+            if (to < 0 || to >= Groups.Count) return;
+
+            Groups.Move(from, to);
+            Renumber();
+
+            // Auswahl folgt dem Eintrag, damit sich mehrfach verschieben lässt
+            SelectedGroup = Groups[to];
+            _indexOfCurrentRow = to;
+            RaiseEditorState();
         }
 
         /// <summary>Löscht den ausgewählten Eintrag nach Rückfrage.</summary>
-        [RelayCommand]
+        [RelayCommand(CanExecute = nameof(HasSelection))]
         private async Task DeleteEntryAsync()
         {
             if (SelectedGroup is null) return;
 
-            string rowContent = string.Join(" // ",
-                SelectedGroup.IsActive, SelectedGroup.IpGroupDescription, SelectedGroup.DeviceDescription,
-                SelectedGroup.FirstIP, SelectedGroup.LastIP, SelectedGroup.Domain, SelectedGroup.DnsServers,
-                SelectedGroup.NmGatewayIP, SelectedGroup.NmGatewayPort, SelectedGroup.AutomaticScan,
-                SelectedGroup.ScanIntervalMinutes);
+            string label = string.IsNullOrWhiteSpace(SelectedGroup.DeviceDescription)
+                ? SelectedGroup.IpGroupDescription
+                : $"{SelectedGroup.IpGroupDescription} / {SelectedGroup.DeviceDescription}";
 
-            if (await _dialog.ConfirmAsync($"Delete the entry: {rowContent}", "Delete row"))
-            {
-                Groups.Remove(SelectedGroup);
-            }
+            string range = string.IsNullOrWhiteSpace(SelectedGroup.LastIP)
+                ? SelectedGroup.FirstIP
+                : $"{SelectedGroup.FirstIP} - {SelectedGroup.LastIP}";
+
+            if (!await _dialog.ConfirmAsync($"Delete entry #{SelectedGroup.Index}?\n\n{label}\n{range}", "Delete entry"))
+                return;
+
+            Groups.Remove(SelectedGroup);
+            Renumber();
+
+            SelectedGroup = null;
+            BeginNewEntry();
         }
+
+        /// <summary>Schließt ohne zu speichern.</summary>
+        [RelayCommand]
+        private void Cancel() => CloseRequested?.Invoke();
 
         /// <summary>Schreibt die Änderungen in die geteilte DataTable + XML und schließt.</summary>
         [RelayCommand]
@@ -143,6 +348,7 @@ namespace MyNetworkMonitor.Core.ViewModels
 
             Groups.Clear();
             foreach (var g in sorted) Groups.Add(g);
+            Renumber();
 
             _lastSortedColumn = columnName;
             _lastAscending = ascending;

@@ -10,7 +10,7 @@ using System.Threading.Tasks.Dataflow;
 
 namespace MyNetworkMonitor
 {
-    internal class ScanningMethod_ReverseLookupToHostAndAlieases
+    public class ScanningMethod_ReverseLookupToHostAndAlieases
     {
         public ScanningMethod_ReverseLookupToHostAndAlieases()
         {

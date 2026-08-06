@@ -12,7 +12,7 @@ using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace MyNetworkMonitor
 {
-    class ScanningMethod_PortsUDP
+    public class ScanningMethod_PortsUDP
     {
         public ScanningMethod_PortsUDP()
         {

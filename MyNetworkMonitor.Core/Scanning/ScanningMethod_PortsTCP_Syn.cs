@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 namespace MyNetworkMonitor
 {
     //https://github.com/BenDerPan/AoeScanner
-    class ScanningMethod_PortsTCP_Syn
+    public class ScanningMethod_PortsTCP_Syn
     {
     }
 }

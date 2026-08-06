@@ -1,8 +1,10 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="MyNetworkMonitor.Avalonia.App"
-             RequestedThemeVariant="Default">
-             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+             RequestedThemeVariant="Light">
+             <!-- Fix auf "Light": das WPF-Original ist ein helles Design (WhiteSmoke,
+                  schwarze Schrift). Mit "Default" wuerde bei dunklem System-Theme
+                  weisse Schrift auf hellem Hintergrund gerendert. -->
 
     <Application.Styles>
         <FluentTheme />

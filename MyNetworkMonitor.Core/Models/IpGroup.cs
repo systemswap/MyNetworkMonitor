@@ -11,6 +11,14 @@ namespace MyNetworkMonitor.Core.Models
     /// </summary>
     public partial class IpGroup : ObservableObject
     {
+        /// <summary>
+        /// Laufende Nummer in der Liste (1-basiert). Reine Anzeige- und
+        /// Ordnungshilfe: sie wird nicht gespeichert, sondern nach jeder
+        /// Aenderung aus der Position neu vergeben. Ueber sie laesst sich ein
+        /// Eintrag in der Verwaltung gezielt ansprechen und verschieben.
+        /// </summary>
+        [ObservableProperty] private int _index;
+
         [ObservableProperty] private bool _isActive;
         [ObservableProperty] private string _ipGroupDescription = string.Empty;
         [ObservableProperty] private string _deviceDescription = string.Empty;
