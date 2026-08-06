@@ -3,92 +3,264 @@
         xmlns:vm="clr-namespace:MyNetworkMonitor.Core.ViewModels;assembly=MyNetworkMonitor.Core"
         x:Class="MyNetworkMonitor.Avalonia.Views.ManageIPGroupsView"
         x:DataType="vm:ManageIPGroupsViewModel"
-        Title="Manage IP Groups" Width="1200" Height="600">
+        Title="Manage IP Groups" Width="1240" Height="720"
+        MinWidth="980" MinHeight="560"
+        WindowStartupLocation="CenterOwner"
+        Background="#FFF4F6F7">
 
     <!--
         Avalonia-View für die IP-Gruppen-Verwaltung. Bindet an dasselbe
         plattformneutrale ManageIPGroupsViewModel (MyNetworkMonitor.Core) wie die
         WPF-View. Kein Logik-Code-behind – nur Bindings und Commands.
+
+        Aufbau: links die Liste, rechts die Maske. Ein Klick in der Liste lädt den
+        Eintrag sofort in die Maske (ViewModel.AutoLoadSelectionIntoForm), der
+        frühere Zwischenschritt "Edit entry" entfällt. Die Spalte "#" zeigt die
+        laufende Nummer, über die sich Einträge einordnen und verschieben lassen.
     -->
-    <DockPanel Margin="10">
 
-        <!-- Eingabemaske oben -->
-        <Border DockPanel.Dock="Top" Padding="10" Margin="0,0,0,10"
-                BorderBrush="#3F000000" BorderThickness="1" CornerRadius="6">
-            <StackPanel Spacing="8">
-                <WrapPanel>
-                    <CheckBox Content="is active" IsChecked="{Binding EditIsActive}" Margin="0,0,16,0" VerticalAlignment="Center"/>
-                    <StackPanel Margin="0,0,12,0">
-                        <TextBlock Text="Group Description"/>
-                        <TextBox Width="180" Text="{Binding EditIpGroupDescription}"/>
-                    </StackPanel>
-                    <StackPanel Margin="0,0,12,0">
-                        <TextBlock Text="Device Description"/>
-                        <TextBox Width="180" Text="{Binding EditDeviceDescription}"/>
-                    </StackPanel>
-                    <StackPanel Margin="0,0,12,0">
-                        <TextBlock Text="First IP / Hostname"/>
-                        <TextBox Width="130" Text="{Binding EditFirstIP}"/>
-                    </StackPanel>
-                    <StackPanel Margin="0,0,12,0">
-                        <TextBlock Text="Last IP"/>
-                        <TextBox Width="130" Text="{Binding EditLastIP}"/>
-                    </StackPanel>
-                    <StackPanel Margin="0,0,12,0">
-                        <TextBlock Text="Domain"/>
-                        <TextBox Width="110" Text="{Binding EditDomain}"/>
-                    </StackPanel>
-                    <StackPanel Margin="0,0,12,0">
-                        <TextBlock Text="DNS Servers"/>
-                        <TextBox Width="180" Text="{Binding EditDnsServers}"/>
-                    </StackPanel>
-                    <StackPanel Margin="0,0,12,0">
-                        <TextBlock Text="NM Gateway IP"/>
-                        <TextBox Width="140" Text="{Binding EditNmGatewayIP}"/>
-                    </StackPanel>
-                    <StackPanel Margin="0,0,12,0">
-                        <TextBlock Text="Gateway Port"/>
-                        <TextBox Width="90" Text="{Binding EditNmGatewayPort}"/>
-                    </StackPanel>
-                    <StackPanel Margin="0,0,12,0">
-                        <TextBlock Text="Scan Interval (min)"/>
-                        <TextBox Width="110" Text="{Binding EditScanIntervalMinutes}"/>
-                    </StackPanel>
-                    <CheckBox Content="auto scan" IsChecked="{Binding EditAutomaticScan}" VerticalAlignment="Center"/>
-                </WrapPanel>
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Button Content="Add entry" Command="{Binding AddEntryCommand}"/>
-                    <Button Content="Edit entry" Command="{Binding EditRowCommand}"/>
-                </StackPanel>
-            </StackPanel>
-        </Border>
+    <Window.Styles>
+        <!-- Akzentfarbe der Anwendung -->
+        <Style Selector="TextBlock.sectionHeader">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="#FF1196A7"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+        </Style>
 
-        <!-- Aktionen unten -->
-        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="8" Margin="0,10,0,0">
-            <Button Content="Delete entry" Command="{Binding DeleteEntryCommand}"/>
-            <Button Content="Save Changes" Command="{Binding SaveChangesCommand}"/>
+        <Style Selector="TextBlock.fieldLabel">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="#FF5A6670"/>
+            <Setter Property="Margin" Value="0,0,0,2"/>
+        </Style>
+
+        <Style Selector="TextBox">
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="MinHeight" Value="28"/>
+            <Setter Property="Padding" Value="7,3"/>
+            <Setter Property="BorderBrush" Value="#FFCBD4DA"/>
+        </Style>
+        <Style Selector="TextBox:focus">
+            <Setter Property="BorderBrush" Value="#FF1196A7"/>
+        </Style>
+
+        <Style Selector="Button">
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="MinHeight" Value="30"/>
+            <Setter Property="Padding" Value="14,4"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#FFCBD4DA"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style Selector="Button:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#FFE3EDEF"/>
+            <Setter Property="BorderBrush" Value="#FF1196A7"/>
+        </Style>
+
+        <!-- Hauptaktion -->
+        <Style Selector="Button.accent">
+            <Setter Property="Background" Value="#FF1196A7"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#FF0E8393"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="Button.accent:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#FF0E8393"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+
+        <Style Selector="Button.danger">
+            <Setter Property="Foreground" Value="#FFB3261E"/>
+        </Style>
+        <Style Selector="Button.danger:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#FFFBE9E7"/>
+            <Setter Property="BorderBrush" Value="#FFB3261E"/>
+        </Style>
+
+        <!-- Schmale, quadratische Knöpfe zum Verschieben -->
+        <Style Selector="Button.icon">
+            <Setter Property="Width" Value="30"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="FontSize" Value="13"/>
+        </Style>
+
+        <!-- Karte: heller Block mit weichem Rand -->
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#FFDCE3E8"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+        </Style>
+
+        <Style Selector="DataGrid">
+            <Setter Property="GridLinesVisibility" Value="Horizontal"/>
+            <Setter Property="HorizontalGridLinesBrush" Value="#FFEDF1F3"/>
+            <Setter Property="RowBackground" Value="White"/>
+            <Setter Property="Background" Value="White"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid Margin="14" RowDefinitions="Auto,*,Auto" ColumnDefinitions="*,16,410">
+
+        <!-- ======================= Kopfzeile ======================= -->
+        <StackPanel Grid.Row="0" Grid.ColumnSpan="3" Margin="0,0,0,12">
+            <TextBlock Text="Manage IP Groups" FontSize="19" FontWeight="SemiBold" Foreground="#FF243238"/>
+            <TextBlock Text="Select an entry to edit it, or start a new one. Changes are kept in memory until you save."
+                       FontSize="11" Foreground="#FF7A868F" Margin="0,2,0,0"/>
         </StackPanel>
 
-        <!-- Datengitter -->
-        <DataGrid ItemsSource="{Binding Groups}"
-                  SelectedItem="{Binding SelectedGroup}"
-                  AutoGenerateColumns="False"
-                  CanUserResizeColumns="True"
-                  GridLinesVisibility="All"
-                  IsReadOnly="False">
-            <DataGrid.Columns>
-                <DataGridCheckBoxColumn Header="active" Binding="{Binding IsActive}"/>
-                <DataGridTextColumn Header="Group Description" Binding="{Binding IpGroupDescription}" Width="180"/>
-                <DataGridTextColumn Header="Device Description" Binding="{Binding DeviceDescription}" Width="180"/>
-                <DataGridTextColumn Header="First IP" Binding="{Binding FirstIP}" Width="130"/>
-                <DataGridTextColumn Header="Last IP" Binding="{Binding LastIP}" Width="130"/>
-                <DataGridTextColumn Header="Domain" Binding="{Binding Domain}" Width="110"/>
-                <DataGridTextColumn Header="DNS Servers" Binding="{Binding DnsServers}" Width="160"/>
-                <DataGridTextColumn Header="NM Gateway IP" Binding="{Binding NmGatewayIP}" Width="140"/>
-                <DataGridTextColumn Header="Gateway Port" Binding="{Binding NmGatewayPort}" Width="100"/>
-                <DataGridCheckBoxColumn Header="auto" Binding="{Binding AutomaticScan}"/>
-                <DataGridTextColumn Header="Interval (min)" Binding="{Binding ScanIntervalMinutes}" Width="110"/>
-            </DataGrid.Columns>
-        </DataGrid>
-    </DockPanel>
+        <!-- ======================= Liste ======================= -->
+        <Border Grid.Row="1" Grid.Column="0" Classes="card">
+            <Grid RowDefinitions="Auto,*">
+
+                <!-- Werkzeugleiste der Liste -->
+                <Border Grid.Row="0" Background="#FFFAFBFC" CornerRadius="6,6,0,0"
+                        BorderBrush="#FFDCE3E8" BorderThickness="0,0,0,1" Padding="10,7">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                        <TextBlock Grid.Column="0" Text="Entries" FontWeight="SemiBold"
+                                   VerticalAlignment="Center" Foreground="#FF243238"/>
+
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
+                            <Button Classes="icon" Content="&#x25B2;" Command="{Binding MoveUpCommand}"
+                                    ToolTip.Tip="Move entry up (changes its #)"/>
+                            <Button Classes="icon" Content="&#x25BC;" Command="{Binding MoveDownCommand}"
+                                    ToolTip.Tip="Move entry down (changes its #)"/>
+                            <Button Content="Duplicate" Command="{Binding DuplicateEntryCommand}"
+                                    ToolTip.Tip="Copy the selected entry"/>
+                            <Button Classes="danger" Content="Delete" Command="{Binding DeleteEntryCommand}"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- Width="Auto": jede Spalte so breit wie Kopfzeile bzw. Inhalt -->
+                <DataGrid Grid.Row="1"
+                          ItemsSource="{Binding Groups}"
+                          SelectedItem="{Binding SelectedGroup}"
+                          AutoGenerateColumns="False"
+                          CanUserResizeColumns="True"
+                          IsReadOnly="True"
+                          SelectionMode="Single"
+                          ColumnWidth="Auto">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="#" Binding="{Binding Index}" Width="Auto" IsReadOnly="True"/>
+                        <DataGridCheckBoxColumn Header="Active" Binding="{Binding IsActive}" Width="Auto"/>
+                        <DataGridTextColumn Header="Group" Binding="{Binding IpGroupDescription}" Width="Auto"/>
+                        <DataGridTextColumn Header="Device" Binding="{Binding DeviceDescription}" Width="Auto"/>
+                        <DataGridTextColumn Header="First IP" Binding="{Binding FirstIP}" Width="Auto"/>
+                        <DataGridTextColumn Header="Last IP" Binding="{Binding LastIP}" Width="Auto"/>
+                        <DataGridTextColumn Header="Domain" Binding="{Binding Domain}" Width="Auto"/>
+                        <DataGridCheckBoxColumn Header="Auto" Binding="{Binding AutomaticScan}" Width="Auto"/>
+                        <DataGridTextColumn Header="Interval" Binding="{Binding ScanIntervalMinutes}" Width="Auto"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </Border>
+
+        <!-- ======================= Maske ======================= -->
+        <Border Grid.Row="1" Grid.Column="2" Classes="card">
+            <Grid RowDefinitions="Auto,*,Auto">
+
+                <Border Grid.Row="0" Background="#FFFAFBFC" CornerRadius="6,6,0,0"
+                        BorderBrush="#FFDCE3E8" BorderThickness="0,0,0,1" Padding="12,8">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Grid.Column="0" Text="{Binding EditorCaption}" FontWeight="SemiBold"
+                                   VerticalAlignment="Center" Foreground="#FF243238"/>
+                        <Button Grid.Column="1" Content="New" Command="{Binding BeginNewEntryCommand}"
+                                ToolTip.Tip="Clear the form for a new entry"/>
+                    </Grid>
+                </Border>
+
+                <ScrollViewer Grid.Row="1" Padding="12,10">
+                    <StackPanel Spacing="10">
+
+                        <TextBlock Classes="sectionHeader" Text="IDENTIFICATION"/>
+
+                        <StackPanel>
+                            <TextBlock Classes="fieldLabel" Text="Group description"/>
+                            <TextBox Text="{Binding EditIpGroupDescription}" Watermark="e.g. Office Floor 1"/>
+                        </StackPanel>
+
+                        <StackPanel>
+                            <TextBlock Classes="fieldLabel" Text="Device description"/>
+                            <TextBox Text="{Binding EditDeviceDescription}" Watermark="e.g. Printers"/>
+                        </StackPanel>
+
+                        <TextBlock Classes="sectionHeader" Text="ADDRESS RANGE" Margin="0,6,0,6"/>
+
+                        <Grid ColumnDefinitions="*,10,*">
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Classes="fieldLabel" Text="First IP / hostname"/>
+                                <TextBox Text="{Binding EditFirstIP}" Watermark="192.168.1.1"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Classes="fieldLabel" Text="Last IP"/>
+                                <TextBox Text="{Binding EditLastIP}" Watermark="192.168.1.254"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <StackPanel>
+                            <TextBlock Classes="fieldLabel" Text="Domain"/>
+                            <TextBox Text="{Binding EditDomain}" Watermark="company.local"/>
+                        </StackPanel>
+
+                        <StackPanel>
+                            <TextBlock Classes="fieldLabel" Text="DNS servers (comma separated)"/>
+                            <TextBox Text="{Binding EditDnsServers}" Watermark="10.0.0.1, 10.0.0.2"/>
+                        </StackPanel>
+
+                        <TextBlock Classes="sectionHeader" Text="NETWORK MONITOR GATEWAY" Margin="0,6,0,6"/>
+
+                        <Grid ColumnDefinitions="*,10,110">
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Classes="fieldLabel" Text="Gateway IP"/>
+                                <TextBox Text="{Binding EditNmGatewayIP}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Classes="fieldLabel" Text="Port"/>
+                                <TextBox Text="{Binding EditNmGatewayPort}"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <TextBlock Classes="sectionHeader" Text="SCANNING" Margin="0,6,0,6"/>
+
+                        <CheckBox Content="Entry is active" IsChecked="{Binding EditIsActive}"/>
+                        <CheckBox Content="Scan automatically" IsChecked="{Binding EditAutomaticScan}"/>
+
+                        <StackPanel Width="150" HorizontalAlignment="Left">
+                            <TextBlock Classes="fieldLabel" Text="Scan interval (minutes)"/>
+                            <TextBox Text="{Binding EditScanIntervalMinutes}" Watermark="60"/>
+                        </StackPanel>
+
+                        <!-- Hinweis auf unplausible Eingaben -->
+                        <Border Background="#FFFDF2F1" BorderBrush="#FFE7B9B4" BorderThickness="1"
+                                CornerRadius="4" Padding="9,6" Margin="0,4,0,0"
+                                IsVisible="{Binding HasValidationMessage}">
+                            <TextBlock Text="{Binding ValidationMessage}" Foreground="#FFB3261E"
+                                       FontSize="11" TextWrapping="Wrap"/>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <Border Grid.Row="2" Background="#FFFAFBFC" CornerRadius="0,0,6,6"
+                        BorderBrush="#FFDCE3E8" BorderThickness="0,1,0,0" Padding="12,9">
+                    <Button Classes="accent" Content="Apply to list" HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Center"
+                            Command="{Binding ApplyEntryCommand}"/>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- ======================= Fensteraktionen ======================= -->
+        <Grid Grid.Row="2" Grid.ColumnSpan="3" Margin="0,12,0,0" ColumnDefinitions="*,Auto">
+            <TextBlock Grid.Column="0" VerticalAlignment="Center" FontSize="11" Foreground="#FF7A868F"
+                       Text="&#x25B2;/&#x25BC; reorders entries – the # column reflects the scan order."/>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                <Button Content="Cancel" Command="{Binding CancelCommand}" MinWidth="100"
+                        HorizontalContentAlignment="Center"/>
+                <Button Classes="accent" Content="Save and close" Command="{Binding SaveChangesCommand}"
+                        MinWidth="140" HorizontalContentAlignment="Center"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
 </Window>

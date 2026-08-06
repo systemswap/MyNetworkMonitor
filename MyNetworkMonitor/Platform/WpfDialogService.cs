@@ -24,5 +24,17 @@ namespace MyNetworkMonitor.Platform
             bool result = MessageBox.Show(message, title, MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes;
             return Task.FromResult(result);
         }
+
+        public Task<YesNoCancel> AskYesNoCancelAsync(string message, string title = "Frage")
+        {
+            MessageBoxResult result = MessageBox.Show(message, title, MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+
+            return Task.FromResult(result switch
+            {
+                MessageBoxResult.Yes => YesNoCancel.Yes,
+                MessageBoxResult.No => YesNoCancel.No,
+                _ => YesNoCancel.Cancel
+            });
+        }
     }
 }

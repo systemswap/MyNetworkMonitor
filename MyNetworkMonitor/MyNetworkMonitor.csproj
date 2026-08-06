@@ -142,10 +142,15 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="3dForceGraphLib\3d-force-graph.min.js">
+    <!--
+      Grosse Laufzeitdateien liegen im gemeinsamen Ordner ..\Assets und werden von
+      beiden UI-Projekten verlinkt statt kopiert - Link haelt den Ausgabepfad
+      unveraendert (3dForceGraphLib\ bzw. MacVendors\).
+    -->
+    <None Include="..\Assets\3dForceGraphLib\3d-force-graph.min.js" Link="3dForceGraphLib\3d-force-graph.min.js">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="MacVendors\mac_vendors.csv">
+    <None Include="..\Assets\MacVendors\mac_vendors.csv" Link="MacVendors\mac_vendors.csv">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="Properties\Settings.settings">

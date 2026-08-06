@@ -8,7 +8,7 @@ using Lextm.SharpSnmpLib;
 
 namespace MyNetworkMonitor
 {
-    internal class ScanningMethod_VLANInfos
+    public class ScanningMethod_VLANInfos
     {
         public static void DiscoverVLANs()
         {

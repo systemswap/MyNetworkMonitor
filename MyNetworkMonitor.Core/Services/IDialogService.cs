@@ -15,5 +15,18 @@ namespace MyNetworkMonitor.Core.Services
 
         /// <summary>Ja/Nein-Rückfrage. true = bestätigt.</summary>
         Task<bool> ConfirmAsync(string message, string title = "Bestätigen");
+
+        /// <summary>
+        /// Ja/Nein/Abbrechen-Rückfrage – gebraucht vom Export, der zwischen
+        /// „ganze Tabelle“, „nur Auswahl“ und „doch nicht“ unterscheidet.
+        /// </summary>
+        Task<YesNoCancel> AskYesNoCancelAsync(string message, string title = "Frage");
+    }
+
+    public enum YesNoCancel
+    {
+        Yes,
+        No,
+        Cancel
     }
 }
