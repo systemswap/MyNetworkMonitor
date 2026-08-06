@@ -87,6 +87,11 @@ namespace MyNetworkMonitor.Core.Model
             Apply(device, observation);
             Reindex(device);
 
+            // Die Anzeigeeigenschaften sind berechnet und haengen an Adressen
+            // und Diensten - deren Aenderungen bemerkt die Bindung nicht von
+            // allein.
+            device.NotifyDisplayChanged();
+
             if (isNew) DeviceAdded?.Invoke(device);
             DeviceChanged?.Invoke(device);
 
