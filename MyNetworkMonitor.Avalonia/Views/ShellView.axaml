@@ -1,0 +1,822 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:MyNetworkMonitor.Core.ViewModels;assembly=MyNetworkMonitor.Core"
+        xmlns:model="clr-namespace:MyNetworkMonitor.Core.Model;assembly=MyNetworkMonitor.Core"
+        xmlns:conv="clr-namespace:MyNetworkMonitor.Avalonia.Views"
+        x:Class="MyNetworkMonitor.Avalonia.Views.ShellView"
+        x:DataType="vm:ShellViewModel"
+        x:CompileBindings="False"
+        Title="My Network Monitor"
+        Width="1480" Height="880" MinWidth="1180" MinHeight="700"
+        FontFamily="Segoe UI" FontSize="12">
+
+  <!--
+      Die neue Oberflaeche nach dem abgestimmten Entwurf.
+
+      Aufbau: Kommandobalken oben ueber allem, Navigationsleiste links,
+      Arbeitsbereich aus Tabelle und Detailpanel, Statusleiste unten. Die
+      Verfahren-Schublade klappt unter dem Kommandobalken auf, statt eine
+      eigene Seite zu sein - so bleibt der haeufigste Ablauf ein Klick.
+
+      Farbe traegt Bedeutung: Tuerkis steht fuer IPv4 und ist zugleich die
+      Produktfarbe, Indigo durchgehend fuer IPv6. Man erkennt am Farbton,
+      welche Protokollwelt man ansieht, ohne ein Label zu lesen.
+
+      Die kompakten Steuerelementmasse aus dem bisherigen Fenster bleiben:
+      Fluent dimensioniert deutlich groesser (MinHeight 32, FontSize 14), was
+      hier ueberall zurueckgesetzt wird.
+  -->
+
+  <Window.Resources>
+    <!-- Grundfarben -->
+    <SolidColorBrush x:Key="Chrome"      Color="#17272B"/>
+    <SolidColorBrush x:Key="Chrome2"     Color="#1F343A"/>
+    <SolidColorBrush x:Key="Rail"        Color="#121E21"/>
+    <SolidColorBrush x:Key="RailActive"  Color="#1B2F34"/>
+    <SolidColorBrush x:Key="Workspace"   Color="#EEF3F3"/>
+    <SolidColorBrush x:Key="Panel"       Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="PanelAlt"    Color="#F7FAFA"/>
+    <SolidColorBrush x:Key="Line"        Color="#D3DFE0"/>
+    <SolidColorBrush x:Key="LineSoft"    Color="#EDF2F3"/>
+    <SolidColorBrush x:Key="Ink"         Color="#142326"/>
+    <SolidColorBrush x:Key="Dim"         Color="#6C8085"/>
+    <SolidColorBrush x:Key="Dimmer"      Color="#93A5A9"/>
+
+    <!-- Bedeutungstragende Farben -->
+    <SolidColorBrush x:Key="Teal"        Color="#0B7C8B"/>
+    <SolidColorBrush x:Key="TealSoft"    Color="#DDEFF1"/>
+    <SolidColorBrush x:Key="V6"          Color="#5A4FCF"/>
+    <SolidColorBrush x:Key="V6Soft"      Color="#E9E6FA"/>
+    <SolidColorBrush x:Key="Go"          Color="#17A38A"/>
+    <SolidColorBrush x:Key="Ok"          Color="#2C7F51"/>
+    <SolidColorBrush x:Key="Warn"        Color="#A66A12"/>
+    <SolidColorBrush x:Key="Crit"        Color="#AF382F"/>
+    <SolidColorBrush x:Key="CritSoft"    Color="#FADEDB"/>
+
+    <!-- Konverter: sie tragen die Farbregel des Entwurfs -->
+    <conv:OnlineBrushConverter x:Key="OnlineBrush"/>
+    <conv:Ipv4BrushConverter x:Key="V4Brush"/>
+    <conv:Ipv6BrushConverter x:Key="V6Brush"/>
+    <conv:MissingStyleConverter x:Key="MissingStyle"/>
+    <conv:FamilyBrushConverter x:Key="FamilyBrush"/>
+    <conv:IidVisibleConverter x:Key="IidVisible"/>
+    <conv:PortStatusTextConverter x:Key="StatusText"/>
+    <conv:PortStatusBackgroundConverter x:Key="StatusBg"/>
+    <conv:PortStatusForegroundConverter x:Key="StatusFg"/>
+  </Window.Resources>
+
+  <Window.Styles>
+    <!-- Kompakte Masse: Fluent klemmt sonst alles auf MinHeight 32 hoch. -->
+    <Style Selector="TextBox">
+      <Setter Property="MinHeight" Value="0"/>
+      <Setter Property="Padding" Value="6,2"/>
+      <Setter Property="CornerRadius" Value="3"/>
+      <Setter Property="Height" Value="22"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+
+    <Style Selector="Button">
+      <Setter Property="MinHeight" Value="0"/>
+      <Setter Property="MinWidth" Value="0"/>
+      <Setter Property="Padding" Value="10,3"/>
+      <Setter Property="CornerRadius" Value="3"/>
+      <Setter Property="Height" Value="22"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+    </Style>
+
+    <Style Selector="ComboBox">
+      <Setter Property="MinHeight" Value="0"/>
+      <Setter Property="Height" Value="22"/>
+      <Setter Property="Padding" Value="8,0"/>
+      <Setter Property="CornerRadius" Value="3"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="ComboBoxItem">
+      <Setter Property="MinHeight" Value="0"/>
+      <Setter Property="Padding" Value="8,3"/>
+    </Style>
+
+    <Style Selector="CheckBox">
+      <Setter Property="MinHeight" Value="0"/>
+      <Setter Property="Padding" Value="6,0,0,0"/>
+    </Style>
+
+    <Style Selector="ToggleButton">
+      <Setter Property="MinHeight" Value="0"/>
+      <Setter Property="Height" Value="22"/>
+      <Setter Property="Padding" Value="10,3"/>
+      <Setter Property="CornerRadius" Value="3"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+
+    <!-- Kommandobalken: dunkle Schaltflaechen -->
+    <Style Selector="Button.cmd">
+      <Setter Property="Background" Value="#29424A"/>
+      <Setter Property="Foreground" Value="#DCE9EB"/>
+      <Setter Property="BorderBrush" Value="#3A5860"/>
+      <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+    <Style Selector="Button.cmd:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#33505A"/>
+      <Setter Property="BorderBrush" Value="#4A6B75"/>
+    </Style>
+
+    <Style Selector="Button.go">
+      <Setter Property="Background" Value="#17A38A"/>
+      <Setter Property="Foreground" Value="#04231D"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="BorderThickness" Value="0"/>
+    </Style>
+    <Style Selector="Button.go:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#1DBB9E"/>
+    </Style>
+    <Style Selector="Button.go:disabled /template/ ContentPresenter">
+      <Setter Property="Background" Value="#2B4149"/>
+      <Setter Property="Foreground" Value="#6C8085"/>
+    </Style>
+
+    <Style Selector="ToggleButton.cmd">
+      <Setter Property="Background" Value="#29424A"/>
+      <Setter Property="Foreground" Value="#DCE9EB"/>
+      <Setter Property="BorderBrush" Value="#3A5860"/>
+      <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+    <Style Selector="ToggleButton.cmd:checked /template/ ContentPresenter">
+      <Setter Property="Background" Value="#0B7C8B"/>
+      <Setter Property="Foreground" Value="White"/>
+    </Style>
+
+    <!-- Beschriftungen im Kommandobalken -->
+    <Style Selector="TextBlock.cmdLabel">
+      <Setter Property="Foreground" Value="#7E979C"/>
+      <Setter Property="FontSize" Value="10"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="Margin" Value="6,0,2,0"/>
+    </Style>
+
+    <!-- Navigationsleiste -->
+    <Style Selector="RadioButton.nav">
+      <Setter Property="Foreground" Value="#8DA5AA"/>
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="MinHeight" Value="0"/>
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border x:Name="NavBorder" Background="Transparent"
+                  BorderBrush="Transparent" BorderThickness="2,0,0,0"
+                  Padding="10,6">
+            <ContentPresenter Content="{TemplateBinding Content}"
+                              VerticalAlignment="Center"/>
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="RadioButton.nav:pointerover /template/ Border#NavBorder">
+      <Setter Property="Background" Value="#182A2E"/>
+    </Style>
+    <Style Selector="RadioButton.nav:checked /template/ Border#NavBorder">
+      <Setter Property="Background" Value="#1B2F34"/>
+      <Setter Property="BorderBrush" Value="#17A38A"/>
+    </Style>
+    <Style Selector="RadioButton.nav:checked">
+      <Setter Property="Foreground" Value="#E6F2F3"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+
+    <Style Selector="TextBlock.navGroup">
+      <Setter Property="Foreground" Value="#4C6469"/>
+      <Setter Property="FontSize" Value="9"/>
+      <Setter Property="Margin" Value="12,10,0,3"/>
+    </Style>
+
+    <!-- Ergebnistabelle: WPF-nahe Zeilenhoehe statt Fluent-Grosszuegigkeit -->
+    <Style Selector="DataGrid">
+      <Setter Property="Background" Value="White"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="GridLinesVisibility" Value="Horizontal"/>
+      <Setter Property="HorizontalGridLinesBrush" Value="#EDF2F3"/>
+      <Setter Property="RowBackground" Value="White"/>
+    </Style>
+    <Style Selector="DataGridRow">
+      <Setter Property="MinHeight" Value="0"/>
+      <Setter Property="Height" Value="30"/>
+    </Style>
+    <Style Selector="DataGridCell">
+      <Setter Property="MinHeight" Value="0"/>
+      <Setter Property="Padding" Value="8,0"/>
+      <Setter Property="FontSize" Value="11.5"/>
+    </Style>
+    <Style Selector="DataGridColumnHeader">
+      <Setter Property="MinHeight" Value="0"/>
+      <Setter Property="Height" Value="26"/>
+      <Setter Property="Padding" Value="8,0"/>
+      <Setter Property="Background" Value="#E6EDEE"/>
+      <Setter Property="Foreground" Value="#55696D"/>
+      <Setter Property="FontSize" Value="10"/>
+      <Setter Property="SeparatorBrush" Value="#D3DFE0"/>
+    </Style>
+
+    <!-- Abschnittsueberschrift im Detailpanel -->
+    <Style Selector="TextBlock.sectionHead">
+      <Setter Property="FontSize" Value="9.5"/>
+      <Setter Property="Foreground" Value="#7E9095"/>
+      <Setter Property="Margin" Value="0,0,0,6"/>
+    </Style>
+
+    <Style Selector="TextBlock.kvKey">
+      <Setter Property="FontSize" Value="10.5"/>
+      <Setter Property="Foreground" Value="#7E9095"/>
+    </Style>
+    <Style Selector="TextBlock.kvValue">
+      <Setter Property="FontSize" Value="10.5"/>
+      <Setter Property="Foreground" Value="#223438"/>
+      <Setter Property="FontFamily" Value="Cascadia Mono,Consolas,monospace"/>
+      <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+    </Style>
+
+    <Style Selector="TextBlock.mono">
+      <Setter Property="FontFamily" Value="Cascadia Mono,Consolas,monospace"/>
+    </Style>
+  </Window.Styles>
+
+  <DockPanel LastChildFill="True">
+
+    <!-- ================= KOMMANDOBALKEN ================= -->
+    <Border DockPanel.Dock="Top" Background="{StaticResource Chrome2}"
+            BorderBrush="#0F1C1F" BorderThickness="0,0,0,1">
+      <StackPanel>
+
+        <!-- Zeile: Quelle, Umfang, Start, Fortschritt -->
+        <Grid Margin="10,7" ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,*,Auto">
+
+          <TextBlock Grid.Column="0" Classes="cmdLabel" Text="QUELLE" Margin="0,0,4,0"/>
+
+          <!-- Mehrfachauswahl mit Kaestchen, an der Stelle der frueheren
+               Einzel-IP. Das Flyout haelt die Bereiche. -->
+          <Button Grid.Column="1" x:Name="bt_Scopes" Classes="cmd" MinWidth="190"
+                  HorizontalContentAlignment="Left">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Grid.Column="0" Text="{Binding ScopeSummary}" VerticalAlignment="Center"/>
+              <TextBlock Grid.Column="1" Text="▾" FontSize="8" Foreground="#7A959B"
+                         VerticalAlignment="Center" Margin="8,0,0,0"/>
+            </Grid>
+            <Button.Flyout>
+              <Flyout Placement="BottomEdgeAlignedLeft">
+                <Border Width="440" Background="{StaticResource Panel}" CornerRadius="4">
+                  <DockPanel LastChildFill="True">
+
+                    <Border DockPanel.Dock="Top" Background="#F6F9F9"
+                            BorderBrush="{StaticResource LineSoft}" BorderThickness="0,0,0,1"
+                            Padding="11,7">
+                      <Grid ColumnDefinitions="Auto,*,Auto">
+                        <TextBlock Grid.Column="0" Text="ZU SCANNENDE BEREICHE"
+                                   FontSize="9" Foreground="{StaticResource Dim}"
+                                   VerticalAlignment="Center"/>
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10">
+                          <Button x:Name="bt_ScopesAll" Content="Alle" Background="Transparent"
+                                  BorderThickness="0" Foreground="{StaticResource Teal}"
+                                  FontSize="10.5" Padding="2,0" Click="bt_ScopesAll_Click"/>
+                          <Button x:Name="bt_ScopesNone" Content="Keine" Background="Transparent"
+                                  BorderThickness="0" Foreground="{StaticResource Teal}"
+                                  FontSize="10.5" Padding="2,0" Click="bt_ScopesNone_Click"/>
+                          <Button x:Name="bt_ManageScopes" Content="Verwalten →" Background="Transparent"
+                                  BorderThickness="0" Foreground="{StaticResource Teal}"
+                                  FontSize="10.5" Padding="2,0" Click="bt_ManageScopes_Click"/>
+                        </StackPanel>
+                      </Grid>
+                    </Border>
+
+                    <Border DockPanel.Dock="Bottom" Background="#F6F9F9"
+                            BorderBrush="{StaticResource LineSoft}" BorderThickness="0,1,0,0"
+                            Padding="11,7">
+                      <TextBlock x:Name="tb_ScopeFooter" FontSize="10"
+                                 Foreground="{StaticResource Dim}" Classes="mono"/>
+                    </Border>
+
+                    <ItemsControl x:Name="ic_Scopes" MaxHeight="320" Margin="0,2">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="model:ScanScope">
+                          <Border BorderBrush="#F1F5F6" BorderThickness="0,0,0,1" Padding="11,5">
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                              <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}"
+                                        VerticalAlignment="Center" Margin="0,0,8,0"
+                                        IsCheckedChanged="Scope_IsCheckedChanged"/>
+                              <StackPanel Grid.Column="1">
+                                <TextBlock Text="{Binding GroupDescription}" FontSize="11.5"
+                                           FontWeight="SemiBold" Foreground="{StaticResource Ink}"/>
+                                <TextBlock Text="{Binding DeviceDescription}" FontSize="9.5"
+                                           Foreground="{StaticResource Dimmer}"
+                                           IsVisible="{Binding DeviceDescription, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                              </StackPanel>
+                              <TextBlock Grid.Column="2" Classes="mono" FontSize="9.5"
+                                         Foreground="{StaticResource Dim}" VerticalAlignment="Center"
+                                         Text="{Binding Kind}"/>
+                            </Grid>
+                          </Border>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </DockPanel>
+                </Border>
+              </Flyout>
+            </Button.Flyout>
+          </Button>
+
+          <TextBlock Grid.Column="2" Classes="cmdLabel" Text="UMFANG"/>
+
+          <ComboBox Grid.Column="3" x:Name="cb_Profile" MinWidth="120"
+                    ItemsSource="{Binding Profiles}"
+                    SelectedItem="{Binding SelectedProfile}"
+                    SelectionChanged="cb_Profile_SelectionChanged">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:ScanProfile">
+                <TextBlock Text="{Binding Name}"/>
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+
+          <ToggleButton Grid.Column="4" x:Name="tg_Drawer" Classes="cmd" Margin="6,0,0,0"
+                        IsChecked="{Binding IsDrawerOpen}">
+            <TextBlock>
+              <Run Text="Verfahren"/>
+              <Run Text="{Binding SelectedMethodCount, StringFormat=({0})}"/>
+            </TextBlock>
+          </ToggleButton>
+
+          <Button Grid.Column="5" x:Name="bt_Start" Classes="go" Margin="10,0,0,0"
+                  Content="▶  Scan starten"
+                  Command="{Binding StartCommand}"
+                  IsEnabled="{Binding CanStart}"/>
+
+          <Button Grid.Column="6" x:Name="bt_Stop" Classes="cmd" Margin="4,0,0,0"
+                  Content="■" Width="28"
+                  Command="{Binding StopCommand}"
+                  IsEnabled="{Binding IsRunning}"/>
+
+          <!-- Fortschritt: nur waehrend eines Laufs sichtbar -->
+          <Grid Grid.Column="7" Margin="14,0" ColumnDefinitions="Auto,*,Auto"
+                IsVisible="{Binding IsRunning}" VerticalAlignment="Center">
+            <TextBlock Grid.Column="0" Text="{Binding CurrentMethodName}"
+                       Foreground="#9CD9C9" FontSize="10.5" VerticalAlignment="Center"
+                       Margin="0,0,8,0"/>
+            <ProgressBar Grid.Column="1" Minimum="0" Maximum="1"
+                         Value="{Binding ProgressFraction}" Height="4"
+                         Background="#2A4048" Foreground="#17A38A"
+                         VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="2" Classes="mono" FontSize="10" Foreground="#93ADB2"
+                       VerticalAlignment="Center" Margin="8,0,0,0">
+              <Run Text="{Binding ProgressCurrent}"/><Run Text=" / "/><Run Text="{Binding ProgressTotal}"/>
+            </TextBlock>
+          </Grid>
+
+          <!-- Platz fuer den kuenftigen Dauerbetrieb (RA-/MLD-Listener) -->
+          <Border Grid.Column="8" Background="#243940" BorderBrush="#33505A" BorderThickness="1"
+                  CornerRadius="3" Padding="9,0" Height="22" VerticalAlignment="Center">
+            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+              <Ellipse Width="6" Height="6" Fill="#4C6469"/>
+              <TextBlock Text="Beobachten aus" Foreground="#7E979C" FontSize="10.5"
+                         VerticalAlignment="Center"/>
+            </StackPanel>
+          </Border>
+        </Grid>
+
+        <!-- ================= VERFAHREN-SCHUBLADE ================= -->
+        <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
+                BorderThickness="0,1,0,0" Padding="12,9"
+                IsVisible="{Binding IsDrawerOpen}">
+          <Grid ColumnDefinitions="*,*,*,*">
+
+            <StackPanel Grid.Column="0" Margin="0,0,12,0">
+              <TextBlock Text="GERAETE FINDEN" Classes="sectionHead"/>
+              <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,0,0,6"/>
+              <ItemsControl x:Name="ic_Discovery"/>
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Margin="0,0,12,0">
+              <TextBlock Text="GERAET BESTIMMEN" Classes="sectionHead"/>
+              <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,0,0,6"/>
+              <ItemsControl x:Name="ic_Identification"/>
+            </StackPanel>
+
+            <StackPanel Grid.Column="2" Margin="0,0,12,0">
+              <TextBlock Text="DIENSTE PRUEFEN" Classes="sectionHead"/>
+              <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,0,0,6"/>
+              <ItemsControl x:Name="ic_Services"/>
+            </StackPanel>
+
+            <StackPanel Grid.Column="3">
+              <TextBlock Text="IPV6" Classes="sectionHead" Foreground="{StaticResource V6}"/>
+              <Border Height="1" Background="#D6D0F5" Margin="0,0,0,6"/>
+              <ItemsControl x:Name="ic_Ipv6"/>
+              <TextBlock x:Name="tb_Ipv6Hint" FontSize="10" Foreground="{StaticResource Dimmer}"
+                         TextWrapping="Wrap" Margin="0,4,0,0"/>
+            </StackPanel>
+          </Grid>
+        </Border>
+      </StackPanel>
+    </Border>
+
+    <!-- ================= STATUSLEISTE ================= -->
+    <Border DockPanel.Dock="Bottom" Background="{StaticResource Chrome2}"
+            BorderBrush="#0F1C1F" BorderThickness="0,1,0,0" Height="26">
+      <Grid Margin="10,0" ColumnDefinitions="Auto,*,Auto">
+        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+          <TextBlock Classes="mono" FontSize="10.5" Foreground="#93ADB2">
+            <Run Text="{Binding Devices.TotalCount}" Foreground="#D3E4E6"/><Run Text=" Geraete"/>
+          </TextBlock>
+          <TextBlock Classes="mono" FontSize="10.5" Foreground="#93ADB2">
+            <Run Text="{Binding Devices.FilteredOutCount}" Foreground="#D3E4E6"/><Run Text=" gefiltert"/>
+          </TextBlock>
+          <TextBlock Classes="mono" FontSize="10.5" Foreground="#93ADB2">
+            <Run Text="IPv6-faehig "/><Run Text="{Binding Devices.Ipv6CapableCount}" Foreground="#9186F5"/>
+          </TextBlock>
+          <TextBlock Classes="mono" FontSize="10.5" Foreground="#93ADB2">
+            <Run Text="erreichbar "/><Run Text="{Binding Devices.OnlineCount}" Foreground="#D3E4E6"/>
+          </TextBlock>
+        </StackPanel>
+
+        <TextBlock Grid.Column="1" Text="{Binding StatusText}" FontSize="10.5"
+                   Foreground="#93ADB2" VerticalAlignment="Center"
+                   HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+          <Button x:Name="bt_Export" Classes="cmd" Content="Exportieren" Height="19" FontSize="10"
+                  Click="bt_Export_Click"/>
+          <Button x:Name="bt_Clear" Classes="cmd" Content="Leeren" Height="19" FontSize="10"
+                  Command="{Binding ClearResultsCommand}"/>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- ================= RAIL + ARBEITSBEREICH ================= -->
+    <Grid ColumnDefinitions="136,*">
+
+      <Border Grid.Column="0" Background="{StaticResource Rail}">
+        <StackPanel Margin="0,8">
+          <RadioButton x:Name="nav_Devices" Classes="nav" GroupName="nav" IsChecked="True"
+                       Content="▤   Geraete" IsCheckedChanged="Nav_Checked" Tag="Devices"/>
+          <RadioButton x:Name="nav_Network" Classes="nav" GroupName="nav"
+                       Content="◈   Netz" IsCheckedChanged="Nav_Checked" Tag="Network"/>
+          <RadioButton x:Name="nav_Findings" Classes="nav" GroupName="nav"
+                       Content="⚠   Befunde" IsCheckedChanged="Nav_Checked" Tag="Findings"/>
+          <RadioButton x:Name="nav_Topology" Classes="nav" GroupName="nav"
+                       Content="⬡   Topologie" IsCheckedChanged="Nav_Checked" Tag="Topology"/>
+
+          <Border Height="1" Background="#1E2E32" Margin="12,8"/>
+          <TextBlock Text="VERWALTUNG" Classes="navGroup"/>
+
+          <RadioButton x:Name="nav_Scopes" Classes="nav" GroupName="nav"
+                       Content="≡   Bereiche" IsCheckedChanged="Nav_Checked" Tag="Scopes"/>
+          <RadioButton x:Name="nav_Ports" Classes="nav" GroupName="nav"
+                       Content="⋮   Ports" IsCheckedChanged="Nav_Checked" Tag="Ports"/>
+          <RadioButton x:Name="nav_Services" Classes="nav" GroupName="nav"
+                       Content="◇   Dienste" IsCheckedChanged="Nav_Checked" Tag="Services"/>
+          <RadioButton x:Name="nav_Names" Classes="nav" GroupName="nav"
+                       Content="✎   Namen" IsCheckedChanged="Nav_Checked" Tag="Names"/>
+
+          <Border Height="1" Background="#1E2E32" Margin="12,8"/>
+          <RadioButton x:Name="nav_Settings" Classes="nav" GroupName="nav"
+                       Content="⚙   Einstellungen" IsCheckedChanged="Nav_Checked" Tag="Settings"/>
+        </StackPanel>
+      </Border>
+
+      <!-- Arbeitsbereich -->
+      <Grid Grid.Column="1" Background="{StaticResource Workspace}">
+
+        <!-- ========== Ansicht: Geraete ========== -->
+        <DockPanel x:Name="view_Devices" LastChildFill="True">
+
+          <!-- Filterzeile -->
+          <Border DockPanel.Dock="Top" Background="{StaticResource Panel}"
+                  BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1" Padding="8,6">
+            <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,*,Auto">
+
+              <TextBox Grid.Column="0" x:Name="tb_Search" Width="190" Watermark="Suche ueber alle Spalten"
+                       Text="{Binding Devices.Filter.Text1}"/>
+
+              <TextBox Grid.Column="1" x:Name="tb_Search2" Width="120" Margin="4,0,0,0"
+                       Watermark="und ..." Text="{Binding Devices.Filter.Text2}"/>
+
+              <!-- Dienstauswahl: entsteht aus den tatsaechlichen Funden -->
+              <Button Grid.Column="2" x:Name="bt_ServiceFilter" Margin="8,0,0,0" MinWidth="106"
+                      HorizontalContentAlignment="Left"
+                      Background="White" BorderBrush="#C3D2D4" BorderThickness="1">
+                <TextBlock x:Name="tb_ServiceFilterLabel" Text="Dienst  ▾" FontSize="10.5"
+                           Foreground="#47595D"/>
+                <Button.Flyout>
+                  <Flyout Placement="BottomEdgeAlignedLeft">
+                    <Border Width="270" Background="{StaticResource Panel}">
+                      <DockPanel LastChildFill="True">
+                        <Border DockPanel.Dock="Top" Padding="10,6" Background="#F6F9F9"
+                                BorderBrush="{StaticResource LineSoft}" BorderThickness="0,0,0,1">
+                          <Grid ColumnDefinitions="*,Auto">
+                            <CheckBox Grid.Column="0" Content="nur laufende" FontSize="10.5"
+                                      IsChecked="{Binding Devices.Filter.OnlyRunningServices}"/>
+                            <Button Grid.Column="1" x:Name="bt_ServicesNone" Content="Keine"
+                                    Background="Transparent" BorderThickness="0"
+                                    Foreground="{StaticResource Teal}" FontSize="10.5"
+                                    Click="bt_ServicesNone_Click"/>
+                          </Grid>
+                        </Border>
+                        <ItemsControl x:Name="ic_ServiceFacets" MaxHeight="300" Margin="0,3"/>
+                      </DockPanel>
+                    </Border>
+                  </Flyout>
+                </Button.Flyout>
+              </Button>
+
+              <TextBox Grid.Column="3" x:Name="tb_PortFilter" Width="96" Margin="4,0,0,0"
+                       Watermark="Port" ToolTip.Tip="445 · 80,443 · 5000-5100"
+                       Text="{Binding Devices.Filter.Ports}"/>
+
+              <!-- Familienschalter: Tuerkis fuer v4, Indigo fuer v6 -->
+              <ToggleButton Grid.Column="4" x:Name="tg_V4" Margin="8,0,0,0"
+                            IsChecked="{Binding Devices.Filter.ShowIPv4}"
+                            Background="{StaticResource TealSoft}" BorderBrush="#77BAC3"
+                            BorderThickness="1" Foreground="#08606C" FontSize="10.5"
+                            Content="IPv4"/>
+
+              <ToggleButton Grid.Column="5" x:Name="tg_V6" Margin="4,0,0,0"
+                            IsChecked="{Binding Devices.Filter.ShowIPv6}"
+                            Background="{StaticResource V6Soft}" BorderBrush="#A79FEA"
+                            BorderThickness="1" Foreground="#4A3FC0" FontSize="10.5"
+                            Content="IPv6"/>
+
+              <StackPanel Grid.Column="6" Orientation="Horizontal" Spacing="10" Margin="12,0,0,0"
+                          VerticalAlignment="Center">
+                <CheckBox Content="nur erreichbar" FontSize="10.5"
+                          IsChecked="{Binding Devices.Filter.OnlyOnline}"/>
+                <CheckBox Content="global erreichbar" FontSize="10.5"
+                          Foreground="{StaticResource V6}"
+                          ToolTip.Tip="Nur Geraete mit globaler IPv6-Adresse - ohne NAT direkt aus dem Internet ansprechbar"
+                          IsChecked="{Binding Devices.Filter.OnlyGloballyReachable}"/>
+              </StackPanel>
+
+              <StackPanel Grid.Column="8" Orientation="Horizontal" Spacing="6">
+                <Button x:Name="bt_ResetFilter" Content="Filter zuruecksetzen" FontSize="10.5"
+                        Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
+                        Click="bt_ResetFilter_Click"/>
+              </StackPanel>
+            </Grid>
+          </Border>
+
+          <!-- Tabelle und Detailpanel -->
+          <Grid ColumnDefinitions="*,4,340">
+
+            <DataGrid Grid.Column="0" x:Name="dg_Devices"
+                      ItemsSource="{Binding Devices.Visible}"
+                      SelectedItem="{Binding Devices.Selected}"
+                      AutoGenerateColumns="False" IsReadOnly="True"
+                      CanUserResizeColumns="True" SelectionMode="Single">
+              <DataGrid.Columns>
+
+                <DataGridTemplateColumn Header="" Width="26">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="model:Device">
+                      <Ellipse Width="7" Height="7" VerticalAlignment="Center"
+                               HorizontalAlignment="Center"
+                               Fill="{Binding IsOnline, Converter={StaticResource OnlineBrush}}"/>
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <DataGridTemplateColumn Header="GERAET" Width="1.15*">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="model:Device">
+                      <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold"
+                                   FontSize="11.5" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding GroupDescription}" FontSize="9.5"
+                                   Foreground="{StaticResource Dimmer}"
+                                   TextTrimming="CharacterEllipsis"/>
+                      </StackPanel>
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <DataGridTemplateColumn Header="IPV4" Width="0.95*">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="model:Device">
+                      <TextBlock Classes="mono" FontSize="10.5" VerticalAlignment="Center"
+                                 Text="{Binding Ipv4Text}"
+                                 Foreground="{Binding HasIpv4, Converter={StaticResource V4Brush}}"
+                                 FontStyle="{Binding HasIpv4, Converter={StaticResource MissingStyle}}"/>
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <DataGridTemplateColumn Header="IPV6" Width="1.35*">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="model:Device">
+                      <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="4">
+                        <TextBlock Classes="mono" FontSize="10.5"
+                                   Text="{Binding Ipv6Text}"
+                                   TextTrimming="CharacterEllipsis"
+                                   Foreground="{Binding HasIpv6, Converter={StaticResource V6Brush}}"
+                                   FontStyle="{Binding HasIpv6, Converter={StaticResource MissingStyle}}"/>
+                        <Border Background="{StaticResource V6Soft}" CornerRadius="3" Padding="4,0"
+                                IsVisible="{Binding Ipv6ExtraText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                          <TextBlock Text="{Binding Ipv6ExtraText}" Classes="mono" FontSize="9"
+                                     Foreground="#4A3FC0"/>
+                        </Border>
+                      </StackPanel>
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <DataGridTextColumn Header="HERSTELLER" Binding="{Binding Vendor}" Width="0.8*"/>
+
+                <DataGridTextColumn Header="LAUFENDE DIENSTE" Binding="{Binding RunningServicesText}"
+                                    Width="1.3*"/>
+
+                <DataGridTextColumn Header="PORTS" Binding="{Binding OpenPortCount}" Width="56"/>
+
+                <DataGridTextColumn Header="GESEHEN" Binding="{Binding LastSeenText}" Width="72"/>
+              </DataGrid.Columns>
+            </DataGrid>
+
+            <GridSplitter Grid.Column="1" Background="{StaticResource Line}" Width="4"
+                          ResizeDirection="Columns"/>
+
+            <!-- ========== Detailpanel ========== -->
+            <Border Grid.Column="2" Background="{StaticResource PanelAlt}"
+                    BorderBrush="{StaticResource Line}" BorderThickness="1,0,0,0">
+
+              <!-- Ohne Auswahl ein Hinweis statt eines leeren Kastens -->
+              <Panel>
+                <TextBlock Text="Zeile waehlen, um Einzelheiten zu sehen"
+                           Foreground="{StaticResource Dimmer}" FontSize="11"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           IsVisible="{Binding Devices.Selected, Converter={x:Static ObjectConverters.IsNull}}"/>
+
+                <!--
+                    Sichtbarkeit und DataContext duerfen nicht am selben
+                    Element haengen: sobald der DataContext auf die Auswahl
+                    (und damit auf null) zeigt, laesst sich der Pfad
+                    Devices.Selected der Sichtbarkeitsbindung nicht mehr
+                    aufloesen - die Bindung scheitert still und der Abschnitt
+                    bleibt sichtbar. Darum die Sichtbarkeit eine Ebene hoeher.
+                -->
+                <Border IsVisible="{Binding Devices.Selected, Converter={x:Static ObjectConverters.IsNotNull}}">
+                <ScrollViewer DataContext="{Binding Devices.Selected}">
+                  <StackPanel>
+
+                    <!-- Kopf -->
+                    <Border Background="{StaticResource Panel}" Padding="12,10"
+                            BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1">
+                      <StackPanel Spacing="2">
+                        <StackPanel Orientation="Horizontal" Spacing="7">
+                          <Ellipse Width="7" Height="7" VerticalAlignment="Center"
+                                   Fill="{Binding IsOnline, Converter={StaticResource OnlineBrush}}"/>
+                          <TextBlock Text="{Binding DisplayName}" FontSize="13.5"
+                                     FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                        </StackPanel>
+                        <TextBlock Classes="mono" FontSize="10" Foreground="{StaticResource Dim}"
+                                   TextTrimming="CharacterEllipsis">
+                          <Run Text="{Binding Vendor}"/><Run Text=" · "/><Run Text="{Binding MacText}"/>
+                        </TextBlock>
+                      </StackPanel>
+                    </Border>
+
+                    <!-- Identitaet -->
+                    <Border Padding="12,9" BorderBrush="#E3EBEC" BorderThickness="0,0,0,1">
+                      <StackPanel>
+                        <TextBlock Text="IDENTITAET" Classes="sectionHead"/>
+                        <Grid ColumnDefinitions="78,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+                          <TextBlock Grid.Row="0" Grid.Column="0" Text="Hostname" Classes="kvKey"/>
+                          <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding HostName}" Classes="kvValue"/>
+                          <TextBlock Grid.Row="1" Grid.Column="0" Text="MAC" Classes="kvKey"/>
+                          <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding MacText}" Classes="kvValue"/>
+                          <TextBlock Grid.Row="2" Grid.Column="0" Text="Erkannt ueber" Classes="kvKey"/>
+                          <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding IdentityKey}" Classes="kvValue"/>
+                          <TextBlock Grid.Row="3" Grid.Column="0" Text="Erstmals" Classes="kvKey"/>
+                          <TextBlock Grid.Row="3" Grid.Column="1" Classes="kvValue"
+                                     Text="{Binding FirstSeen, StringFormat={}{0:dd.MM.yyyy HH:mm}}"/>
+                          <TextBlock Grid.Row="4" Grid.Column="0" Text="Zuletzt" Classes="kvKey"/>
+                          <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding LastSeenText}" Classes="kvValue"/>
+                        </Grid>
+                      </StackPanel>
+                    </Border>
+
+                    <!-- Adressen: der Grund, warum es das Panel gibt -->
+                    <Border Padding="12,9" BorderBrush="#E3EBEC" BorderThickness="0,0,0,1">
+                      <StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                          <TextBlock Text="ADRESSEN" Classes="sectionHead"/>
+                          <Border Background="#E1E9EA" CornerRadius="7" Padding="5,0" Height="13"
+                                  VerticalAlignment="Top">
+                            <TextBlock Text="{Binding Addresses.Count}" FontSize="8.5"
+                                       Foreground="#5C6F73" VerticalAlignment="Center"/>
+                          </Border>
+                        </StackPanel>
+
+                        <ItemsControl ItemsSource="{Binding Addresses}">
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="model:DeviceAddress">
+                              <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,4">
+                                <TextBlock Grid.Column="0" Classes="mono" FontSize="10"
+                                           Text="{Binding Info.Canonical}"
+                                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                           Foreground="{Binding Info.Family, Converter={StaticResource FamilyBrush}}"/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="3">
+                                  <Border Background="#EDF1F2" CornerRadius="3" Padding="4,0">
+                                    <TextBlock Text="{Binding Info.Scope}" FontSize="8.5"
+                                               Foreground="#56696D"/>
+                                  </Border>
+                                  <Border Background="#EDF1F2" CornerRadius="3" Padding="4,0"
+                                          IsVisible="{Binding Info.InterfaceIdKind, Converter={StaticResource IidVisible}}">
+                                    <TextBlock Text="{Binding Info.InterfaceIdKind}" FontSize="8.5"
+                                               Foreground="#56696D"/>
+                                  </Border>
+                                </StackPanel>
+                              </Grid>
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                      </StackPanel>
+                    </Border>
+
+                    <!-- Dienste mit v4/v6 nebeneinander -->
+                    <Border Padding="12,9" BorderBrush="#E3EBEC" BorderThickness="0,0,0,1"
+                            IsVisible="{Binding HasServices}">
+                      <StackPanel>
+                        <TextBlock Text="DIENSTE &amp; PORTS" Classes="sectionHead"/>
+
+                        <Grid ColumnDefinitions="*,44,44" Margin="0,0,0,3">
+                          <TextBlock Grid.Column="0" Text="Dienst" FontSize="8.5"
+                                     Foreground="{StaticResource Dimmer}"/>
+                          <TextBlock Grid.Column="1" Text="v4" FontSize="8.5" TextAlignment="Center"
+                                     Foreground="{StaticResource Teal}"/>
+                          <TextBlock Grid.Column="2" Text="v6" FontSize="8.5" TextAlignment="Center"
+                                     Foreground="{StaticResource V6}"/>
+                        </Grid>
+
+                        <ItemsControl ItemsSource="{Binding Services}">
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="model:DeviceServiceResult">
+                              <Grid ColumnDefinitions="*,44,44" Margin="0,0,0,3">
+                                <TextBlock Grid.Column="0" Classes="mono" FontSize="10"
+                                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center">
+                                  <Run Text="{Binding ServiceName}"/>
+                                  <Run Text="{Binding PortsText}" Foreground="#93A5A9"/>
+                                </TextBlock>
+                                <Border Grid.Column="1" CornerRadius="3" Margin="2,0" Padding="0,1"
+                                        Background="{Binding StatusIPv4, Converter={StaticResource StatusBg}}">
+                                  <TextBlock Text="{Binding StatusIPv4, Converter={StaticResource StatusText}}"
+                                             FontSize="8.5" TextAlignment="Center"
+                                             Foreground="{Binding StatusIPv4, Converter={StaticResource StatusFg}}"/>
+                                </Border>
+                                <Border Grid.Column="2" CornerRadius="3" Margin="2,0" Padding="0,1"
+                                        Background="{Binding StatusIPv6, Converter={StaticResource StatusBg}}">
+                                  <TextBlock Text="{Binding StatusIPv6, Converter={StaticResource StatusText}}"
+                                             FontSize="8.5" TextAlignment="Center"
+                                             Foreground="{Binding StatusIPv6, Converter={StaticResource StatusFg}}"/>
+                                </Border>
+                              </Grid>
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                      </StackPanel>
+                    </Border>
+
+                    <!-- Freitext der Module -->
+                    <Border Padding="12,9" IsVisible="{Binding HasDetails}">
+                      <StackPanel>
+                        <TextBlock Text="WEITERE ANGABEN" Classes="sectionHead"/>
+                        <ItemsControl ItemsSource="{Binding Details}">
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                              <StackPanel Margin="0,0,0,5">
+                                <TextBlock Text="{Binding Key}" Classes="kvKey"/>
+                                <TextBlock Text="{Binding Value}" Classes="kvValue"
+                                           TextWrapping="Wrap" TextTrimming="None"/>
+                              </StackPanel>
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                      </StackPanel>
+                    </Border>
+                  </StackPanel>
+                </ScrollViewer>
+                </Border>
+              </Panel>
+            </Border>
+          </Grid>
+        </DockPanel>
+
+        <!-- ========== Noch nicht gebaute Ansichten ========== -->
+        <Border x:Name="view_Placeholder" IsVisible="False"
+                Background="{StaticResource Workspace}">
+          <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6">
+            <TextBlock x:Name="tb_PlaceholderTitle" FontSize="15" FontWeight="SemiBold"
+                       Foreground="{StaticResource Dim}" HorizontalAlignment="Center"/>
+            <TextBlock x:Name="tb_PlaceholderText" FontSize="11.5" Foreground="{StaticResource Dimmer}"
+                       HorizontalAlignment="Center" TextAlignment="Center" MaxWidth="420"
+                       TextWrapping="Wrap"/>
+          </StackPanel>
+        </Border>
+      </Grid>
+    </Grid>
+  </DockPanel>
+</Window>

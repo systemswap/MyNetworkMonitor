@@ -107,6 +107,54 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
         }
 
         /// <summary>
+        /// Wie viele Ziele ein Bereich umfasst - ohne sie aufzuzaehlen.
+        /// <para>
+        /// Der Adapter-Bereich kennt seine Groesse erst zur Laufzeit, aus
+        /// Adresse und Maske. Sie wird gerechnet und nicht durchlaufen, weil
+        /// die Oberflaeche diese Zahl bei jedem Haken neu braucht und ein /16
+        /// sonst 65.000 Objekte je Klick erzeugen wuerde.
+        /// </para>
+        /// </summary>
+        public static long CountTargets(ScopeRuntime runtime, out bool isEstimate)
+        {
+            ArgumentNullException.ThrowIfNull(runtime);
+
+            if (runtime.Scope.Kind != ScanScopeKind.NetworkInterface)
+            {
+                return runtime.Scope.CountTargets(out isEstimate);
+            }
+
+            isEstimate = false;
+
+            if (runtime.Interface is null) return 0;
+
+            long total = 0;
+
+            try
+            {
+                foreach (UnicastIPAddressInformation unicast in runtime.Interface.GetIPProperties().UnicastAddresses)
+                {
+                    if (unicast.Address.AddressFamily != AddressFamily.InterNetwork) continue;
+                    if (unicast.IPv4Mask is null) continue;
+
+                    uint mask = ToUInt32(unicast.IPv4Mask);
+                    if (mask == 0) continue;
+
+                    // Anzahl der Hostbits, abzueglich Netz- und Broadcastadresse
+                    long hosts = (long)(~mask) - 1;
+                    if (hosts > 0) total += hosts;
+                }
+            }
+            catch (NetworkInformationException)
+            {
+                isEstimate = true;
+                return 0;
+            }
+
+            return total;
+        }
+
+        /// <summary>
         /// Ein bis zwei Beispielziele je Bereich - genug, damit ein Verfahren
         /// erkennt, welche Adressfamilien vorkommen. Fuer die
         /// Verfuegbarkeitsanzeige der Oberflaeche, die bei jedem Haken neu
