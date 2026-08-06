@@ -14,6 +14,14 @@
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Resources\NetworkScanner.ico</ApplicationIcon>
+
+    <!--
+      Anwendungsversion. Wird bei jeder Veroeffentlichung (Push) in der letzten
+      Stelle hochgezaehlt. Das Hauptfenster zeigt sie im Titel an.
+    -->
+    <Version>2.0.3</Version>
+    <AssemblyVersion>2.0.3.0</AssemblyVersion>
+    <FileVersion>2.0.3.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
