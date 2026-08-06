@@ -106,10 +106,10 @@ namespace MyNetworkMonitor.Avalonia.Views
         {
             InitializeComponent();
 
-            // Dreistellig ausgeben (2.0.3), die vierte Stelle der AssemblyVersion
-            // ist immer 0 und traegt keine Information.
+            // Vierstellig ausgeben (5.1.0.3): die letzte Stelle wird bei jeder
+            // Veroeffentlichung hochgezaehlt und gehoert deshalb in den Titel.
             Version? version = Assembly.GetExecutingAssembly().GetName().Version;
-            Title += " - version: " + (version?.ToString(3) ?? string.Empty);
+            Title += " - version: " + (version?.ToString() ?? string.Empty);
 
             if (!Directory.Exists(_settingsFolder)) Directory.CreateDirectory(_settingsFolder);
 
