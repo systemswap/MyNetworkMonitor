@@ -147,7 +147,10 @@ namespace MyNetworkMonitor
 
 
 
-        public async void Discover(List<IPToScan> IPs)
+        // Rueckgabe Task statt void - siehe Begruendung in
+        // ScanningMethod_SSDP_UPNP.Scan_for_SSDP_devices_async. Nur die
+        // Signatur geaendert, der Ablauf ist unveraendert.
+        public async Task Discover(List<IPToScan> IPs)
         {
             StartNewScan();
 
