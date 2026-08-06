@@ -151,12 +151,32 @@ namespace MyNetworkMonitor.Core.ViewModels
 
         public int SelectedMethodCount => Methods.Count(m => m.IsSelected);
 
+        /// <summary>
+        /// Zaehler und Schaetzung werden gemeinsam berechnet, weil beide
+        /// dieselbe Aufloesung der Bereiche brauchen. Wird bei jeder Aenderung
+        /// der Auswahl neu bestimmt, darum ohne Aufzaehlung der Adressen.
+        /// </summary>
+        private (long Count, bool IsEstimate) CountTargets()
+        {
+            long total = 0;
+            bool estimate = false;
+
+            foreach (ScopeRuntime runtime in _lastRuntimes)
+            {
+                total += ScopeRuntimeFactory.CountTargets(runtime, out bool est);
+                if (est) estimate = true;
+            }
+
+            return (total, estimate);
+        }
+
+        private List<ScopeRuntime> _lastRuntimes = [];
+
         /// <summary>Summe der Ziele ueber alle gewaehlten Bereiche.</summary>
-        public long TargetCount => SelectedScopes.Sum(s => s.CountTargets(out _));
+        public long TargetCount => CountTargets().Count;
 
         /// <summary>Mindestens ein Bereich liefert nur eine Schaetzung.</summary>
-        public bool TargetCountIsEstimate =>
-            SelectedScopes.Any(s => { s.CountTargets(out bool est); return est; });
+        public bool TargetCountIsEstimate => CountTargets().IsEstimate;
 
         /// <summary>
         /// Grobe Dauerschaetzung fuer den Kommandobalken. Bewusst einfach
@@ -187,6 +207,8 @@ namespace MyNetworkMonitor.Core.ViewModels
         /// </summary>
         public void RefreshAvailability()
         {
+            _lastRuntimes = ScopeRuntimeFactory.Build([.. SelectedScopes]);
+
             ScanContext probe = BuildProbeContext();
 
             foreach (ScanMethodChoice choice in Methods)
@@ -336,12 +358,10 @@ namespace MyNetworkMonitor.Core.ViewModels
         /// </summary>
         private ScanContext BuildProbeContext()
         {
-            List<ScanScope> scopes = [.. SelectedScopes];
-
             // Ein einzelnes Ziel je Bereich genuegt, damit die Verfahren die
             // vorhandenen Adressfamilien erkennen.
             List<ScanTargetEntry> sample = [];
-            List<ScopeRuntime> runtimes = ScopeRuntimeFactory.Build(scopes);
+            List<ScopeRuntime> runtimes = _lastRuntimes;
 
             foreach (ScopeRuntime runtime in runtimes)
             {

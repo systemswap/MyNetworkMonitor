@@ -170,6 +170,126 @@ namespace MyNetworkMonitor.Core.Model
         /// <summary>Freitextangaben der Module: SNMP, mDNS, SSDP, SMB, ONVIF.</summary>
         public Dictionary<string, string> Details { get; } = new(StringComparer.OrdinalIgnoreCase);
 
+        // ------------------------------------------------------- Fuer die Anzeige
+
+        /// <summary>
+        /// Die IPv4-Adresse fuer die Tabellenspalte, oder ein Hinweis, dass es
+        /// keine gibt. Ein Geraet ohne IPv4 ist unter IPv6 keine Ausnahme,
+        /// sondern der interessante Fall.
+        /// </summary>
+        public string Ipv4Text =>
+            Ipv4Addresses.FirstOrDefault()?.Info.Canonical ?? "keine";
+
+        public bool HasIpv4 => Ipv4Addresses.Any();
+
+        /// <summary>
+        /// Die aussagekraeftigste IPv6-Adresse. Statt "keine" wird gesagt,
+        /// <em>warum</em> nichts steht - nur Link-Local, abgelaufen oder gar
+        /// nichts. Das ist ein Unterschied, der zaehlt.
+        /// </summary>
+        public string Ipv6Text
+        {
+            get
+            {
+                DeviceAddress? best = BestIpv6Address;
+                if (best is not null) return best.Info.Canonical;
+
+                if (!Ipv6Addresses.Any()) return "keine";
+
+                return Ipv6Addresses.All(a => a.IsExpired) ? "abgelaufen" : "nur Link-Local";
+            }
+        }
+
+        public bool HasIpv6 => BestIpv6Address is not null;
+
+        /// <summary>Wie viele weitere IPv6-Adressen es ausser der angezeigten gibt.</summary>
+        public int Ipv6ExtraCount => Math.Max(0, Ipv6Addresses.Count() - 1);
+
+        public string Ipv6ExtraText => Ipv6ExtraCount > 0 ? $"+{Ipv6ExtraCount}" : string.Empty;
+
+        public string MacText =>
+            Mac is null ? string.Empty : string.Join(":", Mac.GetAddressBytes().Select(b => b.ToString("x2")));
+
+        /// <summary>
+        /// Die laufenden Dienste als Kurztext. Unterscheidet "nicht geprueft"
+        /// von "nichts gefunden" - beides waere sonst eine leere Zelle.
+        /// </summary>
+        public string RunningServicesText
+        {
+            get
+            {
+                if (Services.Count == 0) return "nicht geprueft";
+
+                List<string> running = [.. Services.Where(s => s.IsRunning).Select(s => s.ServiceName)];
+                if (running.Count == 0) return "keine erkannt";
+
+                return running.Count <= 3
+                    ? string.Join(", ", running)
+                    : $"{string.Join(", ", running.Take(3))} +{running.Count - 3}";
+            }
+        }
+
+        public int OpenPortCount =>
+            Services.Where(s => s.StatusIPv4 is PortStatus.Open or PortStatus.IsRunning
+                             || s.StatusIPv6 is PortStatus.Open or PortStatus.IsRunning)
+                    .SelectMany(s => s.Ports)
+                    .Distinct()
+                    .Count();
+
+        /// <summary>Fuer Abschnitte, die ohne Inhalt gar nicht erst erscheinen sollen.</summary>
+        public bool HasServices => Services.Count > 0;
+
+        public bool HasDetails => Details.Count > 0;
+
+        /// <summary>Wann das Geraet zuletzt gesehen wurde, in Worten.</summary>
+        public string LastSeenText
+        {
+            get
+            {
+                if (LastSeen == default) return "-";
+
+                TimeSpan ago = DateTimeOffset.Now - LastSeen;
+
+                return ago.TotalSeconds switch
+                {
+                    < 30 => "jetzt",
+                    < 90 => "vor 1 m",
+                    < 3600 => $"vor {ago.TotalMinutes:F0} m",
+                    < 86400 => $"vor {ago.TotalHours:F0} h",
+                    _ => $"vor {ago.TotalDays:F0} T"
+                };
+            }
+        }
+
+        /// <summary>
+        /// Meldet den berechneten Anzeigeeigenschaften, dass sich etwas
+        /// geaendert hat. Sie haengen an Adressen und Diensten, deren
+        /// Aenderungen die Bindung sonst nicht mitbekommt.
+        /// </summary>
+        public void NotifyDisplayChanged()
+        {
+            OnPropertyChanged(nameof(DisplayName));
+            OnPropertyChanged(nameof(IdentityKey));
+            OnPropertyChanged(nameof(Ipv4Text));
+            OnPropertyChanged(nameof(HasIpv4));
+            OnPropertyChanged(nameof(Ipv6Text));
+            OnPropertyChanged(nameof(HasIpv6));
+            OnPropertyChanged(nameof(Ipv6ExtraCount));
+            OnPropertyChanged(nameof(Ipv6ExtraText));
+            OnPropertyChanged(nameof(MacText));
+            OnPropertyChanged(nameof(RunningServicesText));
+            OnPropertyChanged(nameof(OpenPortCount));
+            OnPropertyChanged(nameof(HasServices));
+            OnPropertyChanged(nameof(HasDetails));
+            OnPropertyChanged(nameof(LastSeenText));
+            OnPropertyChanged(nameof(IsOnline));
+            OnPropertyChanged(nameof(IsIpv6Capable));
+            OnPropertyChanged(nameof(IsIpv6Only));
+            OnPropertyChanged(nameof(HasGloballyRoutableAddress));
+            OnPropertyChanged(nameof(PrimaryAddress));
+            OnPropertyChanged(nameof(BestIpv6Address));
+        }
+
         public override string ToString() =>
             $"{DisplayName} [{IdentityKey}] {Addresses.Count} Adresse(n)";
     }
@@ -205,6 +325,9 @@ namespace MyNetworkMonitor.Core.Model
 
         public bool IsRunning =>
             StatusIPv4 == PortStatus.IsRunning || StatusIPv6 == PortStatus.IsRunning;
+
+        /// <summary>Die Ports als Kurztext hinter dem Dienstnamen, etwa "80, 443".</summary>
+        public string PortsText => Ports.Count == 0 ? string.Empty : string.Join(", ", Ports);
 
         public override string ToString() =>
             $"{ServiceName} [{string.Join(",", Ports)}] v4={StatusIPv4?.ToString() ?? "-"} v6={StatusIPv6?.ToString() ?? "-"}";

@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
@@ -39,11 +40,24 @@ public partial class App : Application
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+            // Die neue Oberflaeche entsteht neben der bisherigen. Mit --shell
+            // laesst sie sich schon jetzt starten und ausprobieren, ohne dass
+            // am gewohnten Weg etwas anders waere. Sobald sie vollstaendig ist,
+            // tauschen die beiden die Rollen.
+            UseNewShell = desktop.Args?.Any(a =>
+                string.Equals(a, "--shell", StringComparison.OrdinalIgnoreCase)) == true;
+
             desktop.MainWindow = CreateStartWindow(desktop);
         }
 
         base.OnFrameworkInitializationCompleted();
     }
+
+    /// <summary>Die neue Oberflaeche wurde ueber --shell angefordert.</summary>
+    private static bool UseNewShell { get; set; }
+
+    private static global::Avalonia.Controls.Window CreateMainWindow() =>
+        UseNewShell ? new ShellView() : new MainWindowView();
 
     /// <summary>
     /// Im Firmennetz steht der Lizenzhinweis vor dem Hauptfenster: erst ein Klick
@@ -69,13 +83,13 @@ public partial class App : Application
             isCompanyNetwork = false;
         }
 
-        if (!isCompanyNetwork) return new MainWindowView();
+        if (!isCompanyNetwork) return CreateMainWindow();
 
         var notice = new EnterpriseMessageView();
 
         notice.Accepted += () =>
         {
-            var mainWindow = new MainWindowView();
+            var mainWindow = CreateMainWindow();
 
             // MainWindow umhaengen, damit spaetere Dialoge das richtige
             // Besitzerfenster finden (AvaloniaDialogService liest es aus).
