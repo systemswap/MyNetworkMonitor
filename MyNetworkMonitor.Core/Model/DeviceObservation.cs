@@ -1,0 +1,55 @@
+using System.Net.NetworkInformation;
+using MyNetworkMonitor.Core.Network;
+
+namespace MyNetworkMonitor.Core.Model
+{
+    /// <summary>
+    /// Eine einzelne Sichtung: was ein Verfahren zu einem Zeitpunkt ueber ein
+    /// Geraet erfahren hat. Bewusst schmal - ein Verfahren meldet, was es
+    /// weiss, und laesst den Rest leer.
+    /// <para>
+    /// Erst der <see cref="DeviceStore"/> entscheidet, zu welchem Geraet die
+    /// Sichtung gehoert. Die Verfahren selbst muessen davon nichts wissen -
+    /// genau das macht es moeglich, passive Quellen wie den RA-Mitschnitt und
+    /// aktive Scans gleich zu behandeln.
+    /// </para>
+    /// </summary>
+    public sealed class DeviceObservation
+    {
+        /// <summary>Welches Verfahren die Sichtung gemeldet hat.</summary>
+        public required string Source { get; init; }
+
+        public DateTimeOffset Timestamp { get; init; } = DateTimeOffset.Now;
+
+        public IpAddressInfo? Address { get; init; }
+
+        public PhysicalAddress? Mac { get; init; }
+
+        /// <summary>DHCPv6-DUID in Hex-Schreibweise.</summary>
+        public string? Duid { get; init; }
+
+        public string? HostName { get; init; }
+        public string? Domain { get; init; }
+        public string? NetBiosName { get; init; }
+        public string? Vendor { get; init; }
+
+        /// <summary>Aus welchem Bereich die Sichtung stammt.</summary>
+        public string? GroupDescription { get; init; }
+
+        // --- Angaben zur Adresse, soweit das Verfahren sie kennt -------------
+
+        public AddressOrigin Origin { get; init; } = AddressOrigin.Unknown;
+        public AddressState State { get; init; } = AddressState.Unknown;
+        public DateTimeOffset? ValidUntil { get; init; }
+        public DateTimeOffset? PreferredUntil { get; init; }
+
+        /// <summary>Das Ziel hat auf diese Sichtung hin geantwortet.</summary>
+        public bool IsResponding { get; init; }
+
+        /// <summary>Freitext des Verfahrens, etwa SNMP- oder mDNS-Angaben.</summary>
+        public Dictionary<string, string>? Details { get; init; }
+
+        public override string ToString() =>
+            $"{Source}: {Address?.Canonical ?? HostName ?? Mac?.ToString() ?? "?"}";
+    }
+}
