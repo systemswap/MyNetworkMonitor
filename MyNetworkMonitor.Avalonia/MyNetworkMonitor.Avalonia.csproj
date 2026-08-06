@@ -1,15 +1,25 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0</TargetFramework>
+    <!--
+      Unter Windows wird gegen net10.0-windows gebaut, damit die vorhandenen
+      Windows-Provider (MyNetworkMonitor.Platform.Windows, TFM net10.0-windows)
+      referenziert werden koennen; unter Linux bleibt es beim neutralen net10.0
+      mit den Linux-Providern. Das SDK definiert bei net*-windows automatisch
+      das Symbol WINDOWS, ueber das App.axaml.cs die Registrierung auswaehlt.
+    -->
+    <TargetFramework Condition="$([MSBuild]::IsOSPlatform('Windows'))">net10.0-windows</TargetFramework>
+    <TargetFramework Condition="!$([MSBuild]::IsOSPlatform('Windows'))">net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Resources\NetworkScanner.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="12.1.1" />
     <PackageReference Include="Avalonia.Controls.DataGrid" Version="12.1.1" />
+    <PackageReference Include="Avalonia.Controls.WebView" Version="12.0.1" />
     <PackageReference Include="Avalonia.Desktop" Version="12.1.1" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.1" />
     <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.1" />
@@ -23,9 +33,37 @@
     <ProjectReference Include="..\MyNetworkMonitor.Core\MyNetworkMonitor.Core.csproj" />
   </ItemGroup>
 
-  <!-- Bilder aus dem WPF-Projekt verlinken (keine Kopie), als Avalonia-Ressource -->
+  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+    <ProjectReference Include="..\MyNetworkMonitor.Platform.Windows\MyNetworkMonitor.Platform.Windows.csproj" />
+  </ItemGroup>
+
+  <!--
+    Dateien, die zur Laufzeit aus dem Ausgabeverzeichnis gelesen werden:
+    die MAC-Hersteller-Liste (SupportMethods) und die 3d-force-graph-Bibliothek,
+    die TopologyGraph.EnsureLocalLibrary in den Graph-Ordner kopiert.
+  -->
   <ItemGroup>
-    <AvaloniaResource Include="..\MyNetworkMonitor\Images\DevDonationCuted.jpg" Link="Images\DevDonationCuted.jpg" />
-    <AvaloniaResource Include="..\MyNetworkMonitor\Images\PayPal.png" Link="Images\PayPal.png" />
+    <!--
+      Die beiden grossen Dateien liegen im gemeinsamen Ordner ..\Assets, damit sie
+      nicht je UI-Projekt doppelt im Repository stehen. Link setzt den Pfad im
+      Ausgabeverzeichnis, den die Laufzeit erwartet.
+    -->
+    <None Include="..\Assets\MacVendors\mac_vendors.csv" Link="MacVendors\mac_vendors.csv"
+          CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\Assets\3dForceGraphLib\3d-force-graph.min.js" Link="3dForceGraphLib\3d-force-graph.min.js"
+          CopyToOutputDirectory="PreserveNewest" />
+    <!-- LoadLogo sucht das Logo relativ zum Arbeitsverzeichnis unter images/ -->
+    <None Include="Images\logo.png" Link="images\logo.png" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- In die Assembly eingebettete Bilder (avares://) -->
+  <ItemGroup>
+    <AvaloniaResource Include="Images\DevDonationCuted.jpg" />
+    <AvaloniaResource Include="Images\PayPal.png" />
+    <AvaloniaResource Include="Resources\paypalDonate.png" />
+    <!-- Status-Punkte der Ergebnistabelle (in WPF ueber Properties.Resources) -->
+    <AvaloniaResource Include="Resources\green_dot_s.png" />
+    <AvaloniaResource Include="Resources\red_dot_s.png" />
+    <AvaloniaResource Include="Resources\gray_dot_s.png" />
   </ItemGroup>
 </Project>

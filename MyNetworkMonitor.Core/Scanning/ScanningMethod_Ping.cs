@@ -15,7 +15,7 @@ using System.Threading.Tasks;
 
 namespace MyNetworkMonitor
 {
-    internal class ScanningMethods_Ping
+    public class ScanningMethods_Ping
     {
         public ScanningMethods_Ping() { }
 

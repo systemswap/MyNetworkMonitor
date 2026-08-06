@@ -17,6 +17,13 @@ namespace MyNetworkMonitor
     {
         protected override void OnStartup(StartupEventArgs e)
         {
+            // Windows-Implementierungen fuer die plattformneutrale Scan-Engine in Core
+            Core.Services.PlatformServices.RegisterArp(new Platform.Windows.WindowsArpProvider());
+            Core.Services.PlatformServices.RegisterRouting(new Platform.Windows.WindowsRoutingProvider());
+            Core.Services.PlatformServices.RegisterRegistry(new Platform.Windows.WindowsRegistryReader());
+            Core.Services.PlatformServices.RegisterEnterprise(new Platform.Windows.WindowsEnterpriseEnvironment());
+            Core.Services.PlatformServices.RegisterWifi(new ScanningMethod_WiFi());
+
             // Global Exception Handling registrieren
             AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
             DispatcherUnhandledException += App_DispatcherUnhandledException;
