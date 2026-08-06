@@ -49,6 +49,14 @@ namespace MyNetworkMonitor.Core.Model
         /// <summary>Freitext des Verfahrens, etwa SNMP- oder mDNS-Angaben.</summary>
         public Dictionary<string, string>? Details { get; init; }
 
+        /// <summary>
+        /// Erkannte Dienste. Der Zustand wird je Adressfamilie gefuehrt - das
+        /// meldende Verfahren traegt nur die Seite ein, die es geprueft hat,
+        /// die andere bleibt <c>null</c>. Aus dem spaeteren Vergleich beider
+        /// Seiten entsteht der Befund "unter IPv4 hinter NAT, unter IPv6 offen".
+        /// </summary>
+        public List<DeviceServiceResult>? Services { get; init; }
+
         public override string ToString() =>
             $"{Source}: {Address?.Canonical ?? HostName ?? Mac?.ToString() ?? "?"}";
     }
