@@ -27,6 +27,11 @@ namespace MyNetworkMonitor.Core.Services
         public static IWifiProvider Wifi => Require(_wifi, nameof(IWifiProvider));
         public static IEnterpriseEnvironment Enterprise => Require(_enterprise, nameof(IEnterpriseEnvironment));
 
+        // Fuer Aufrufer, die eine fehlende Registrierung selbst behandeln
+        // wollen, statt eine Ausnahme zu bekommen - etwa die Scan-Verfahren,
+        // die daraus eine Meldung an den Nutzer machen.
+        public static IArpProvider? ArpOrNull => _arp;
+        public static IRoutingProvider? RoutingOrNull => _routing;
         public static IRegistryReader? RegistryOrNull => _registry;
         public static IWifiProvider? WifiOrNull => _wifi;
         public static IEnterpriseEnvironment? EnterpriseOrNull => _enterprise;

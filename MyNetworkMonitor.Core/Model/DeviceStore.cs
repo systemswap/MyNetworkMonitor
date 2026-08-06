@@ -176,6 +176,37 @@ namespace MyNetworkMonitor.Core.Model
             }
 
             if (o.Address is not null) ApplyAddress(device, o);
+            if (o.Services is not null) ApplyServices(device, o);
+        }
+
+        /// <summary>
+        /// Traegt Dienstbefunde ein. Ein Verfahren prueft immer nur eine
+        /// Adressfamilie, darum wird je Seite gesetzt und die andere nicht
+        /// angetastet - sonst wuerde der IPv4-Lauf den IPv6-Befund loeschen
+        /// und die Gegenueberstellung ginge verloren.
+        /// </summary>
+        private static void ApplyServices(Device device, DeviceObservation o)
+        {
+            foreach (DeviceServiceResult incoming in o.Services!)
+            {
+                DeviceServiceResult? existing = device.Services.FirstOrDefault(s =>
+                    string.Equals(s.ServiceName, incoming.ServiceName, StringComparison.OrdinalIgnoreCase));
+
+                if (existing is null)
+                {
+                    device.Services.Add(incoming);
+                    continue;
+                }
+
+                if (incoming.StatusIPv4 is not null) existing.StatusIPv4 = incoming.StatusIPv4;
+                if (incoming.StatusIPv6 is not null) existing.StatusIPv6 = incoming.StatusIPv6;
+                if (!string.IsNullOrEmpty(incoming.PortLog)) existing.PortLog = incoming.PortLog;
+
+                foreach (int port in incoming.Ports.Where(p => !existing.Ports.Contains(p)))
+                {
+                    existing.Ports.Add(port);
+                }
+            }
         }
 
         private static void ApplyAddress(Device device, DeviceObservation o)
