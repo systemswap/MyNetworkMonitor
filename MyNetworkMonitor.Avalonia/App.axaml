@@ -9,5 +9,16 @@
     <Application.Styles>
         <FluentTheme />
         <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
+
+        <!--
+            Projektweit: Spalten richten sich nach Kopfzeile und Zellinhalt.
+            DataGridLength.Auto ist das Maximum aus beidem, damit weder die
+            Ueberschrift noch ein Wert abgeschnitten wird. Gilt fuer jedes
+            DataGrid der Anwendung - auch fuer Spalten, die spaeter im AXAML
+            ergaenzt werden, solange sie keine eigene Breite setzen.
+        -->
+        <Style Selector="DataGrid">
+            <Setter Property="ColumnWidth" Value="Auto"/>
+        </Style>
     </Application.Styles>
 </Application>

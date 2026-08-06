@@ -45,7 +45,7 @@
 
             <!-- OK-Button mit Countdown -->
             <Button x:Name="CloseButton"
-                    Content="You can click OK in: 0 seconds"
+                    Content="You can click OK in: 3 seconds"
                     Width="250" Height="50"
                     Background="#0070BA" Foreground="#A9A9A9" FontWeight="Bold"
                     Margin="0,20,0,0" Cursor="Hand" IsEnabled="False"

@@ -23,19 +23,28 @@ namespace MyNetworkMonitor
 
         public double LastResponse { get; set; }
 
+        /// <summary>
+        /// Beschriftung und Wert werden durch einen Tabulator getrennt - wie bei
+        /// SNMPInfos und den erkannten Diensten. Die Ergebnistabelle stellt solche
+        /// Werte spaltenweise ausgerichtet dar, statt sie als Fliesstext zu zeigen.
+        /// </summary>
         public string AsMultilineString()
         {
             var sb = new StringBuilder();
-            sb.AppendLine($"ResponseTime: {Math.Round(LastResponse)}ms");
-            sb.AppendLine($"Dienst: {Service}");
-            sb.AppendLine($"Device: {DeviceName}");
-            //sb.AppendLine($"Hostname: {Hostname}");
-            sb.AppendLine($"TargetHost: {TargetHost}");
-            sb.AppendLine($"IP: {IP}");
-            //sb.AppendLine($"Port: {Port}");
-            sb.AppendLine($"Group: {Group}");
+            sb.AppendLine($"ResponseTime:\t{Math.Round(LastResponse)}ms");
+            sb.AppendLine($"Dienst:\t{Service}");
+            sb.AppendLine($"Device:\t{DeviceName}");
+            //sb.AppendLine($"Hostname:\t{Hostname}");
+            sb.AppendLine($"TargetHost:\t{TargetHost}");
+            sb.AppendLine($"IP:\t{IP}");
+            //sb.AppendLine($"Port:\t{Port}");
+            sb.AppendLine($"Group:\t{Group}");
+
+            // Der TXT-Schluessel gehoert zur Beschriftung, damit alle Werte in
+            // derselben zweiten Spalte stehen.
             foreach (var kv in TxtRecords)
-                sb.AppendLine($"TXT: {kv.Key} = {kv.Value}");
+                sb.AppendLine($"TXT {kv.Key}:\t{kv.Value}");
+
             return sb.ToString().Trim();
         }
     }
