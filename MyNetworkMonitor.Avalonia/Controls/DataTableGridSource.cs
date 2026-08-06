@@ -69,6 +69,11 @@ namespace MyNetworkMonitor.Avalonia.Controls
             grid.AutoGenerateColumns = false;
             grid.Columns.Clear();
 
+            // Bezugspunkt fuer die gemeinsamen Spaltenbreiten der Zellen aus
+            // CreateTabularColumn - ohne einen solchen Bereich im Vorfahrenbaum
+            // wirkt SharedSizeGroup nicht.
+            if (tabular.Count > 0) grid.SetValue(Grid.IsSharedSizeScopeProperty, true);
+
             foreach (DataColumn column in view.Table!.Columns)
             {
                 DataGridColumn gridColumn = tabular.Contains(column.ColumnName)
@@ -191,6 +196,10 @@ namespace MyNetworkMonitor.Avalonia.Controls
                     new TabularTextPresenter
                     {
                         Margin = new Thickness(4, 2, 4, 2),
+                        // Alle Zellen dieser Spalte teilen sich ihre Breiten,
+                        // damit z.B. die Ports der Dienste ueber alle Zeilen
+                        // hinweg untereinander stehen.
+                        SharedSizeGroupName = columnName,
                         [!TabularTextPresenter.TextProperty] = new Binding($"[{columnName}]")
                     },
                     supportsRecycling: true)
