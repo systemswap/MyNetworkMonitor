@@ -418,6 +418,28 @@ public partial class ShellView : Window
         };
     }
 
+    /// <summary>
+    /// Oeffnet die bisherige Oberflaeche als zweites Fenster. Sie haelt noch
+    /// die Ansichten, die hier erst Platzhalter sind - bis sie umgezogen sind,
+    /// ist ein Klick besser als ein Neustart mit --classic.
+    /// </summary>
+    private MainWindowView? _classicWindow;
+
+    private void bt_OpenClassic_Click(object? sender, RoutedEventArgs e)
+    {
+        // Ein bereits offenes Fenster nur nach vorn holen, nicht doppelt
+        // erzeugen - zwei Instanzen wuerden auf denselben Dateien arbeiten.
+        if (_classicWindow is not null)
+        {
+            _classicWindow.Activate();
+            return;
+        }
+
+        _classicWindow = new MainWindowView();
+        _classicWindow.Closed += (_, _) => _classicWindow = null;
+        _classicWindow.Show();
+    }
+
     // ---------------------------------------------------------- Export
 
     private async void bt_Export_Click(object? sender, RoutedEventArgs e)

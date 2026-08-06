@@ -40,12 +40,13 @@ public partial class App : Application
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            // Die neue Oberflaeche entsteht neben der bisherigen. Mit --shell
-            // laesst sie sich schon jetzt starten und ausprobieren, ohne dass
-            // am gewohnten Weg etwas anders waere. Sobald sie vollstaendig ist,
-            // tauschen die beiden die Rollen.
-            UseNewShell = desktop.Args?.Any(a =>
-                string.Equals(a, "--shell", StringComparison.OrdinalIgnoreCase)) == true;
+            // Ab jetzt startet die neue Oberflaeche. Die bisherige bleibt
+            // vollstaendig erhalten und laesst sich mit --classic oeffnen -
+            // sie haelt noch die Ansichten, die im neuen Fenster erst
+            // Platzhalter sind: Topologie, Portsammlungen, Dienstdefinitionen,
+            // Namenszuordnung und die Verwaltung der IP-Gruppen.
+            UseClassicShell = desktop.Args?.Any(a =>
+                string.Equals(a, "--classic", StringComparison.OrdinalIgnoreCase)) == true;
 
             desktop.MainWindow = CreateStartWindow(desktop);
         }
@@ -53,11 +54,11 @@ public partial class App : Application
         base.OnFrameworkInitializationCompleted();
     }
 
-    /// <summary>Die neue Oberflaeche wurde ueber --shell angefordert.</summary>
-    private static bool UseNewShell { get; set; }
+    /// <summary>Die bisherige Oberflaeche wurde ueber --classic angefordert.</summary>
+    private static bool UseClassicShell { get; set; }
 
     private static global::Avalonia.Controls.Window CreateMainWindow() =>
-        UseNewShell ? new ShellView() : new MainWindowView();
+        UseClassicShell ? new MainWindowView() : new ShellView();
 
     /// <summary>
     /// Im Firmennetz steht der Lizenzhinweis vor dem Hauptfenster: erst ein Klick
