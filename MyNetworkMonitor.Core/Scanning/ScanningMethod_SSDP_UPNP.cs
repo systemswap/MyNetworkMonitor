@@ -113,7 +113,14 @@ namespace MyNetworkMonitor
         /// Führt einen SSDP-Scan durch, empfängt Antworten und extrahiert Geräteinformationen.
         /// </summary>
         /// <param name="scanDuration">in milliseconds</param>
-        public async void Scan_for_SSDP_devices_async(int scanDuration = 5000)
+        // Rueckgabe Task statt void: bei "async void" landet eine Ausnahme
+        // unbehandelt im Threadpool und beendet den Prozess - kein try/catch
+        // am Aufrufer kann das verhindern. Genau das passiert hier, wenn noch
+        // kein Netzwerkadapter gewaehlt wurde und
+        // SelectedNetworkInterfaceInfos.IPv4 null ist. Nur die Signatur
+        // geaendert, der Ablauf ist unveraendert; die bestehenden Aufrufer
+        // (Task.Run(() => ...)) binden dadurch sogar sauber ein.
+        public async Task Scan_for_SSDP_devices_async(int scanDuration = 5000)
         {
             StartNewScan();
 
