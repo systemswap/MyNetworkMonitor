@@ -1,5 +1,6 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:MyNetworkMonitor.Avalonia.Controls"
              x:Class="MyNetworkMonitor.Avalonia.App"
              RequestedThemeVariant="Light">
              <!-- Fix auf "Light": das WPF-Original ist ein helles Design (WhiteSmoke,
@@ -19,6 +20,13 @@
         -->
         <Style Selector="DataGrid">
             <Setter Property="ColumnWidth" Value="Auto"/>
+
+            <!--
+                Die horizontale Bildlaufleiste liegt im DataGrid-Template ueber
+                dem Zeilenbereich und verdeckt sonst die letzte Zeile - man
+                scrollt ans Ende und sieht sie trotzdem nicht.
+            -->
+            <Setter Property="controls:DataGridBehaviors.ReserveHorizontalScrollBarSpace" Value="True"/>
         </Style>
     </Application.Styles>
 </Application>
