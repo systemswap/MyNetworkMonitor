@@ -1,3 +1,4 @@
+using System;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
@@ -38,12 +39,50 @@ public partial class App : Application
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            // TEMPORAER waehrend der Migration: es wird jeweils die aktuell
-            // portierte Form als Startfenster gezeigt. Am Ende uebernimmt das
-            // portierte MainWindow die Navigation zu den Dialogen.
-            desktop.MainWindow = new MainWindowView();
+            desktop.MainWindow = CreateStartWindow(desktop);
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    /// <summary>
+    /// Im Firmennetz steht der Lizenzhinweis vor dem Hauptfenster: erst ein Klick
+    /// auf OK gibt es frei, jeder andere Weg (X, Alt+F4) beendet die Anwendung.
+    ///
+    /// WPF erreicht das mit ShowDialog() im Konstruktor des MainWindow, wo das
+    /// Hauptfenster noch nicht existiert. In Avalonia gibt es diesen Moment nicht
+    /// - ein modaler Dialog braucht ein Besitzerfenster. Deshalb ist der Hinweis
+    /// hier selbst das Startfenster und erzeugt das Hauptfenster erst, wenn er
+    /// bestaetigt wurde.
+    /// </summary>
+    private static global::Avalonia.Controls.Window CreateStartWindow(IClassicDesktopStyleApplicationLifetime desktop)
+    {
+        bool isCompanyNetwork;
+
+        try
+        {
+            isCompanyNetwork = PlatformServices.EnterpriseOrNull?.IsCompanyNetwork() == true;
+        }
+        catch (Exception)
+        {
+            // Eine fehlgeschlagene Erkennung darf den Start nie verhindern
+            isCompanyNetwork = false;
+        }
+
+        if (!isCompanyNetwork) return new MainWindowView();
+
+        var notice = new EnterpriseMessageView();
+
+        notice.Accepted += () =>
+        {
+            var mainWindow = new MainWindowView();
+
+            // MainWindow umhaengen, damit spaetere Dialoge das richtige
+            // Besitzerfenster finden (AvaloniaDialogService liest es aus).
+            desktop.MainWindow = mainWindow;
+            mainWindow.Show();
+        };
+
+        return notice;
     }
 }

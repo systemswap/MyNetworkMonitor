@@ -6,6 +6,46 @@
         WindowStartupLocation="CenterOwner">
 
     <!-- Originalgetreue Portierung von PayPalDonation.xaml (WPF). -->
+
+    <Window.Resources>
+        <!--
+            Entspricht dem RoundedButtonStyle des WPF-Fensters: dort ersetzt ein
+            ControlTemplate den Button vollstaendig durch einen Border mit
+            CornerRadius 2 und mittig sitzendem Inhalt.
+
+            Avalonias Fluent-Theme braucht dieselbe Behandlung, sonst legt es
+            eigene Raender, Innenabstaende und - vor allem - eigene Hintergruende
+            fuer PointerOver/Pressed darueber. Das Blau verschwindet dann beim
+            Ueberfahren, und Padding plus feste Groesse verschieben die Beschriftung.
+        -->
+        <ControlTheme x:Key="RoundedButtonTheme" TargetType="Button">
+            <Setter Property="Background" Value="#0070BA"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="{TemplateBinding Background}" CornerRadius="2">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+
+            <!-- Dezente Abstufung statt der Fluent-Graustufen -->
+            <Style Selector="^:pointerover">
+                <Setter Property="Background" Value="#0086DE"/>
+            </Style>
+            <Style Selector="^:pressed">
+                <Setter Property="Background" Value="#005B96"/>
+            </Style>
+        </ControlTheme>
+    </Window.Resources>
     <Grid Background="#F5F7FA">
         <!-- Hintergrundbild -->
         <Image Source="avares://MyNetworkMonitor.Avalonia/Images/DevDonationCuted.jpg"
@@ -47,9 +87,7 @@
                 <Button x:Name="DonatePayPalButton"
                         Content="Donate Now 🚀"
                         Click="DonateWithPayPal_Click"
-                        Background="#0070BA" Foreground="White" FontSize="16" Padding="12"
-                        Cursor="Hand" CornerRadius="2"
-                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                        Theme="{StaticResource RoundedButtonTheme}"
                         Width="250" Height="50" Margin="1"/>
 
                 <!-- Social Proof -->
