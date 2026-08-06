@@ -32,15 +32,35 @@ namespace MyNetworkMonitor.Avalonia.Controls
         public static readonly StyledProperty<string?> TextProperty =
             AvaloniaProperty.Register<TabularTextPresenter, string?>(nameof(Text));
 
+        /// <summary>
+        /// Name der Spaltengruppe. Alle Zellen mit demselben Namen teilen sich
+        /// ihre Spaltenbreiten, sodass etwa die Ports der erkannten Dienste ueber
+        /// alle Tabellenzeilen hinweg an derselben Stelle stehen - auch wenn in
+        /// einer Zeile nur "SSH" und in der naechsten "RustdeskServer" steht.
+        ///
+        /// Ohne das rechnet jede Zelle ihre Breiten fuer sich, weil sie ein
+        /// eigenes Grid ist. Voraussetzung: ein Vorfahr traegt
+        /// Grid.IsSharedSizeScope (setzt DataTableGridSource am DataGrid).
+        /// </summary>
+        public static readonly StyledProperty<string?> SharedSizeGroupNameProperty =
+            AvaloniaProperty.Register<TabularTextPresenter, string?>(nameof(SharedSizeGroupName));
+
         public string? Text
         {
             get => GetValue(TextProperty);
             set => SetValue(TextProperty, value);
         }
 
+        public string? SharedSizeGroupName
+        {
+            get => GetValue(SharedSizeGroupNameProperty);
+            set => SetValue(SharedSizeGroupNameProperty, value);
+        }
+
         static TabularTextPresenter()
         {
             TextProperty.Changed.AddClassHandler<TabularTextPresenter>((presenter, _) => presenter.Rebuild());
+            SharedSizeGroupNameProperty.Changed.AddClassHandler<TabularTextPresenter>((presenter, _) => presenter.Rebuild());
         }
 
         private void Rebuild()
@@ -72,9 +92,21 @@ namespace MyNetworkMonitor.Avalonia.Controls
 
             var grid = new Grid { VerticalAlignment = VerticalAlignment.Center };
 
+            string? groupName = SharedSizeGroupName;
+
             for (int c = 0; c < columnCount; c++)
             {
-                grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+                var definition = new ColumnDefinition(GridLength.Auto);
+
+                // Letzte Spalte bewusst ausgenommen: sie enthaelt den Rest der
+                // Zeile und soll nicht alle Zellen auf ihre groesste Breite
+                // aufblaehen. Ausgerichtet werden die Spalten davor.
+                if (!string.IsNullOrEmpty(groupName) && c < columnCount - 1)
+                {
+                    definition.SharedSizeGroup = $"{groupName}__{c}";
+                }
+
+                grid.ColumnDefinitions.Add(definition);
             }
 
             for (int r = 0; r < rows.Count; r++)
