@@ -18,10 +18,12 @@
     <!--
       Anwendungsversion. Wird bei jeder Veroeffentlichung (Push) in der letzten
       Stelle hochgezaehlt. Das Hauptfenster zeigt sie im Titel an.
+      Setzt die Zaehlung des bisherigen WPF-Projekts fort (dort zuletzt 4.6.3.12),
+      damit die veroeffentlichten Versionen aufsteigend bleiben.
     -->
-    <Version>2.0.3</Version>
-    <AssemblyVersion>2.0.3.0</AssemblyVersion>
-    <FileVersion>2.0.3.0</FileVersion>
+    <Version>5.1.0.3</Version>
+    <AssemblyVersion>5.1.0.3</AssemblyVersion>
+    <FileVersion>5.1.0.3</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
