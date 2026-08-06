@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace MyNetworkMonitor
 {
-    internal class ScanningMethod_LookUp
+    public class ScanningMethod_LookUp
     {
         public ScanningMethod_LookUp()
         {

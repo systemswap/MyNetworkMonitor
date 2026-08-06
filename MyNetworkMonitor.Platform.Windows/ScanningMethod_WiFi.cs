@@ -13,7 +13,7 @@ using MyNetworkMonitor.Core.Services;
 namespace MyNetworkMonitor
 {
     /// <summary>Windows-Implementierung von <see cref="IWifiProvider"/> (native wlanapi.dll).</summary>
-    internal class ScanningMethod_WiFi : IWifiProvider
+    public class ScanningMethod_WiFi : IWifiProvider
     {
         public event EventHandler<WiFiSignalResult> WiFiSignalStrengthUpdated;
         private CancellationTokenSource _cts;

@@ -17,7 +17,7 @@ using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace MyNetworkMonitor
 {
-    internal class SupportMethods
+    public class SupportMethods
     {
         public bool IsAdministrator()
         {
@@ -34,8 +34,23 @@ namespace MyNetworkMonitor
 
         private void LoadMacVendors()
         {
-            string csvPath = Directory.GetFiles(@".\MacVendors", "mac_vendors.csv").First();
-            if (!File.Exists(csvPath))
+            // Zuerst neben der Anwendung suchen, dann im Arbeitsverzeichnis:
+            // wird die App aus einem anderen Verzeichnis gestartet, existiert
+            // ".\MacVendors" nicht und Directory.GetFiles wirft - der Scan
+            // (ARP-Request ruft GetVendorFromMac) wuerde die App beenden.
+            string csvPath = string.Empty;
+
+            foreach (string root in new[] { AppContext.BaseDirectory, Directory.GetCurrentDirectory() })
+            {
+                string candidate = Path.Combine(root, "MacVendors", "mac_vendors.csv");
+                if (File.Exists(candidate))
+                {
+                    csvPath = candidate;
+                    break;
+                }
+            }
+
+            if (string.IsNullOrEmpty(csvPath))
             {
                 header = Array.Empty<string>();
                 fields = Array.Empty<string[]>();

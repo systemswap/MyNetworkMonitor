@@ -9,7 +9,7 @@ using System.Diagnostics;
 
 namespace MyNetworkMonitor
 {
-    internal class SendReceiveDataUDP
+    public class SendReceiveDataUDP
     {
         //https://gist.github.com/louis-e/888d5031190408775ad130dde353e0fd
 

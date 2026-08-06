@@ -17,6 +17,10 @@ namespace MyNetworkMonitor.Avalonia.Views
 
         public ManageIPGroupsView(ManageIPGroupsViewModel viewModel) : this()
         {
+            // Ein Klick in der Liste soll den Eintrag sofort in die Maske holen;
+            // der frühere Zwischenschritt "Edit entry" entfällt damit.
+            viewModel.AutoLoadSelectionIntoForm = true;
+
             DataContext = viewModel;
             viewModel.CloseRequested += Close;
         }

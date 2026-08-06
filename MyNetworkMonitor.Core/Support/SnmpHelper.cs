@@ -14,7 +14,7 @@ namespace MyNetworkMonitor
     ///  - Binäre OctetStrings (z.B. MAC-Adressen) werden als Hex-String mit Leerzeichen
     ///    ausgegeben (z.B. "00 1a 2b 3c 4d 5e"), druckbare als Text.
     /// </summary>
-    internal static class SnmpHelper
+    public static class SnmpHelper
     {
         public const int DefaultTimeout = 2000;
 

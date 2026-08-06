@@ -10,20 +10,19 @@ using System.Threading;
 using System.Threading.Tasks;
 using Lextm.SharpSnmpLib;
 using MyNetworkMonitor.Core.Services;
-using MyNetworkMonitor.Platform.Windows;
 namespace MyNetworkMonitor
 {
-    internal class ScanningMethod_ARP
+    public class ScanningMethod_ARP
     {
         private readonly IArpProvider _arp;
         private readonly IRoutingProvider _routing;
 
         public ScanningMethod_ARP(IArpProvider? arpProvider = null, IRoutingProvider? routingProvider = null)
         {
-            // Default: Windows-Implementierungen. Fuer Linux spaeter andere Provider
-            // injizieren – die Scan-Logik hier bleibt unveraendert.
-            _arp = arpProvider ?? new WindowsArpProvider();
-            _routing = routingProvider ?? new WindowsRoutingProvider();
+            // Ohne Injection kommen die vom Startprojekt registrierten
+            // Plattform-Provider zum Einsatz – die Scan-Logik bleibt unveraendert.
+            _arp = arpProvider ?? PlatformServices.Arp;
+            _routing = routingProvider ?? PlatformServices.Routing;
         }
         
         

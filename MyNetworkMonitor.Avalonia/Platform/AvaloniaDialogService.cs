@@ -21,11 +21,15 @@ namespace MyNetworkMonitor.Avalonia.Platform
             => ShowMessageAsync(message, title, confirm: false);
 
         public async Task<bool> ConfirmAsync(string message, string title = "Bestätigen")
-            => await ShowMessageAsync(message, title, confirm: true);
+            => await ShowMessageAsync(message, title, confirm: true) == YesNoCancel.Yes;
 
-        private static async Task<bool> ShowMessageAsync(string message, string title, bool confirm)
+        public Task<YesNoCancel> AskYesNoCancelAsync(string message, string title = "Frage")
+            => ShowMessageAsync(message, title, confirm: true, withCancel: true);
+
+        private static async Task<YesNoCancel> ShowMessageAsync(string message, string title, bool confirm,
+                                                                bool withCancel = false)
         {
-            var result = false;
+            var result = YesNoCancel.Cancel;
 
             var buttons = new StackPanel
             {
@@ -47,16 +51,23 @@ namespace MyNetworkMonitor.Avalonia.Platform
             if (confirm)
             {
                 var yes = new Button { Content = "Ja", MinWidth = 80, IsDefault = true };
-                var no = new Button { Content = "Nein", MinWidth = 80, IsCancel = true };
-                yes.Click += (_, _) => { result = true; dialog.Close(); };
-                no.Click += (_, _) => { result = false; dialog.Close(); };
+                var no = new Button { Content = "Nein", MinWidth = 80, IsCancel = !withCancel };
+                yes.Click += (_, _) => { result = YesNoCancel.Yes; dialog.Close(); };
+                no.Click += (_, _) => { result = YesNoCancel.No; dialog.Close(); };
                 buttons.Children.Add(yes);
                 buttons.Children.Add(no);
+
+                if (withCancel)
+                {
+                    var cancel = new Button { Content = "Abbrechen", MinWidth = 80, IsCancel = true };
+                    cancel.Click += (_, _) => { result = YesNoCancel.Cancel; dialog.Close(); };
+                    buttons.Children.Add(cancel);
+                }
             }
             else
             {
                 var ok = new Button { Content = "OK", MinWidth = 80, IsDefault = true, IsCancel = true };
-                ok.Click += (_, _) => dialog.Close();
+                ok.Click += (_, _) => { result = YesNoCancel.Yes; dialog.Close(); };
                 buttons.Children.Add(ok);
             }
 

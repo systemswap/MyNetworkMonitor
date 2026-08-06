@@ -13,7 +13,7 @@ using System.Net.NetworkInformation;
 
 namespace MyNetworkMonitor
 {
-    internal class ScanningMethod_SSDP_UPNP
+    public class ScanningMethod_SSDP_UPNP
     {
 
        

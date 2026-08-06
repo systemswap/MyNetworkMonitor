@@ -14,7 +14,7 @@ using System.Net.NetworkInformation;
 
 namespace MyNetworkMonitor
 {
-    internal class ScanningMethod_ONVIF_IPCam
+    public class ScanningMethod_ONVIF_IPCam
     {
         private readonly string ONVIF_MULTICAST_IP = "239.255.255.250";
         private readonly int ONVIF_PORT = 3702;
