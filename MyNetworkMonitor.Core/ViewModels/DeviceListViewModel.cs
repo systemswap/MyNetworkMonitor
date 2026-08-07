@@ -104,6 +104,23 @@ namespace MyNetworkMonitor.Core.ViewModels
 
         [ObservableProperty] private Device? _selected;
 
+        /// <summary>
+        /// Alle markierten Zeilen, nicht nur die zuletzt angeklickte. Die
+        /// Tabelle traegt sie bei jeder Aenderung der Markierung ein - daran
+        /// haengt das erneute Scannen ausgewaehlter Geraete, das mit einer
+        /// einzelnen Zeile wenig wert waere.
+        /// </summary>
+        public ObservableCollection<Device> SelectedDevices { get; } = [];
+
+        /// <summary>
+        /// Die Geraete, auf die sich eine Aktion aus dem Kontextmenue bezieht:
+        /// die Markierung, und falls es keine gibt, die angeklickte Zeile.
+        /// </summary>
+        public IReadOnlyList<Device> ActionTargets =>
+            SelectedDevices.Count > 0 ? [.. SelectedDevices] :
+            Selected is not null ? [Selected] :
+            [];
+
         /// <summary>Wie viele Geraete der Filter gerade ausblendet.</summary>
         public int FilteredOutCount => TotalCount - VisibleCount;
 
