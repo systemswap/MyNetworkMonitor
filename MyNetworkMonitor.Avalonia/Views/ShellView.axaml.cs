@@ -503,10 +503,16 @@ public partial class ShellView : Window
         view_Ports.IsVisible = section == ShellSection.Ports;
         view_Services.IsVisible = section == ShellSection.Services;
         view_Settings.IsVisible = section == ShellSection.Settings;
+        view_Network.IsVisible = section == ShellSection.Network;
+
+        // Adapter kommen und gehen - ein VPN-Client, ein Dock, ein Stick.
+        // Beim Aufschlagen der Ansicht neu lesen ist billiger als der
+        // Versuch, das mitzubekommen.
+        if (section == ShellSection.Network) _shell.NetworkView.Refresh();
 
         bool built = section is ShellSection.Devices or ShellSection.Scopes
                              or ShellSection.Ports or ShellSection.Services
-                             or ShellSection.Settings;
+                             or ShellSection.Settings or ShellSection.Network;
 
         view_Placeholder.IsVisible = !built;
 
@@ -514,10 +520,6 @@ public partial class ShellView : Window
 
         (tb_PlaceholderTitle.Text, tb_PlaceholderText.Text) = section switch
         {
-            ShellSection.Network => ("Network",
-                "Prefixes, routers and multicast groups. Grows out of the passive " +
-                "IPv6 methods - before those, there is nothing here to show."),
-
             ShellSection.Findings => ("Findings",
                 "Rogue router advertisements, globally open ports, protocol divergence. " +
                 "The rule set needs data from every earlier step and comes last."),

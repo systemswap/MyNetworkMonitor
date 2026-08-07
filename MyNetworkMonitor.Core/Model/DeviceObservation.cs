@@ -50,6 +50,24 @@ namespace MyNetworkMonitor.Core.Model
         public Dictionary<string, string>? Details { get; init; }
 
         /// <summary>
+        /// Auf welche Adressen der Hostname im DNS zeigt - das Ergebnis des
+        /// Vorwaertslookups.
+        /// <para>
+        /// Ohne DNS ist eine mehrfach vergebene Adresse gar nicht zu sehen:
+        /// zwei Geraete, die sich unter demselben Namen eintragen, antworten
+        /// jedes fuer sich unauffaellig. Erst der Lookup zeigt, dass hinter
+        /// einem Namen mehrere Adressen stehen, und der Rueckwaertslookup, dass
+        /// hinter einer Adresse mehrere Namen stehen. Darum sind das eigene
+        /// Angaben und kein Freitext in <see cref="Details"/> - nur so laesst
+        /// sich danach faerben, filtern und sortieren.
+        /// </para>
+        /// </summary>
+        public List<string>? LookupAddresses { get; init; }
+
+        /// <summary>Weitere Namen zur Adresse, aus dem Rueckwaertslookup.</summary>
+        public List<string>? Aliases { get; init; }
+
+        /// <summary>
         /// Erkannte Dienste. Der Zustand wird je Adressfamilie gefuehrt - das
         /// meldende Verfahren traegt nur die Seite ein, die es geprueft hat,
         /// die andere bleibt <c>null</c>. Aus dem spaeteren Vergleich beider
