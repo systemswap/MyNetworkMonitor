@@ -52,6 +52,42 @@ namespace MyNetworkMonitor.Core.ViewModels
         /// <summary>Kann beide Familien - selten, aber sichtbar zu machen.</summary>
         public bool IsDualStack => Families == FamilySupport.Both;
 
+        // ------------------------------------------------------- Fortschritt
+
+        /// <summary>Wie viele Anfragen dieses Verfahren abgeschickt hat.</summary>
+        [ObservableProperty] private int _sent;
+
+        /// <summary>Wie viele Ziele geantwortet haben.</summary>
+        [ObservableProperty] private int _responded;
+
+        /// <summary>Wie viele Ziele es insgesamt sind.</summary>
+        [ObservableProperty] private int _total;
+
+        /// <summary>Das Verfahren hat in diesem Lauf schon gemeldet.</summary>
+        [ObservableProperty] private bool _hasProgress;
+
+        /// <summary>
+        /// Die drei Zahlen nebeneinander: gesendet, geantwortet, gesamt.
+        /// <para>
+        /// Zwei Zahlen genuegen nicht. "254 / 254" liest sich wie "fertig",
+        /// waehrend in Wahrheit alles abgeschickt ist und noch auf Antworten
+        /// gewartet wird; erst die mittlere Zahl sagt, was dabei herauskam.
+        /// </para>
+        /// </summary>
+        public string ProgressText => HasProgress ? $"{Sent} / {Responded} / {Total}" : string.Empty;
+
+        partial void OnSentChanged(int value) => OnPropertyChanged(nameof(ProgressText));
+        partial void OnRespondedChanged(int value) => OnPropertyChanged(nameof(ProgressText));
+        partial void OnTotalChanged(int value) => OnPropertyChanged(nameof(ProgressText));
+        partial void OnHasProgressChanged(bool value) => OnPropertyChanged(nameof(ProgressText));
+
+        /// <summary>Setzt die Zaehler vor einem neuen Lauf zurueck.</summary>
+        public void ResetProgress()
+        {
+            Sent = Responded = Total = 0;
+            HasProgress = false;
+        }
+
         partial void OnAvailabilityChanged(ScanMethodAvailability value)
         {
             OnPropertyChanged(nameof(IsEnabled));

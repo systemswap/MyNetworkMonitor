@@ -513,6 +513,20 @@ namespace MyNetworkMonitor.Core.ViewModels
             ProgressTotal = progress.Total;
             ProgressResponded = progress.Responded;
             OnPropertyChanged(nameof(ProgressFraction));
+
+            // Zusaetzlich am Verfahren selbst festhalten. Der Kommandobalken
+            // zeigt nur das laufende; die Zahlen der schon gelaufenen sind
+            // aber genau das, was man am Ende vergleichen will - welches
+            // Verfahren hat wie viel gebracht.
+            ScanMethodChoice? choice = Methods.FirstOrDefault(m =>
+                string.Equals(m.Id, progress.MethodId, StringComparison.OrdinalIgnoreCase));
+
+            if (choice is null) return;
+
+            choice.Sent = progress.Current;
+            choice.Responded = progress.Responded;
+            choice.Total = progress.Total;
+            choice.HasProgress = true;
         }
 
         private void OnMethodFinished(ScanMethodOutcome outcome)
@@ -537,6 +551,10 @@ namespace MyNetworkMonitor.Core.ViewModels
             OnPropertyChanged(nameof(CanStart));
             LastSkipped.Clear();
             StatusText = "Scan running...";
+
+            // Sonst stehen an den nicht gewaehlten Verfahren noch die Zahlen
+            // des vorherigen Laufs, als haetten sie gerade gearbeitet.
+            foreach (ScanMethodChoice method in Methods) method.ResetProgress();
 
             List<ScanScope> scopes = [.. SelectedScopes];
             List<ScanMethodChoice> chosen = [.. Methods.Where(m => m.IsSelected)];
