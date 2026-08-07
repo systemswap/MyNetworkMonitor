@@ -221,9 +221,6 @@ namespace MyNetworkMonitor
         {
             if (_cts.IsCancellationRequested) return;
 
-            int currentValue = Interlocked.Increment(ref current);
-            ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
-
             IPHostEntry _entry;
             try
             {
@@ -279,6 +276,14 @@ namespace MyNetworkMonitor
             catch (Exception)
             {
                 // 🔹 Andere Fehler abfangen
+            }
+            finally
+            {
+                // Erst zaehlen, wenn die Abfrage beantwortet oder abgelaufen
+                // ist. Beim Absenden zu zaehlen liesse den Balken lange vor
+                // dem eigentlichen Ende am Anschlag stehen.
+                int currentValue = Interlocked.Increment(ref current);
+                ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
             }
         }
 

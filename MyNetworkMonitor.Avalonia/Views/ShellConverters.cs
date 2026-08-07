@@ -109,13 +109,13 @@ public sealed class PortStatusTextConverter : IValueConverter
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         value as PortStatus? switch
         {
-            PortStatus.IsRunning => "laeuft",
-            PortStatus.Error => "fremd",
-            PortStatus.Open => "offen",
-            PortStatus.Closed => "zu",
-            PortStatus.Filtered => "gefiltert",
+            PortStatus.IsRunning => "running",
+            PortStatus.Error => "other",
+            PortStatus.Open => "open",
+            PortStatus.Closed => "closed",
+            PortStatus.Filtered => "filtered",
             PortStatus.NoResponse => "-",
-            PortStatus.UnknownResponse => "unklar",
+            PortStatus.UnknownResponse => "unclear",
             _ => string.Empty
         };
 

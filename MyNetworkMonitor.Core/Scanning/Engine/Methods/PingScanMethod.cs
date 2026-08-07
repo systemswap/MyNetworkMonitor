@@ -32,7 +32,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             if (!context.HasTargetsOf(IpFamily.IPv4))
             {
                 return ScanMethodAvailability.NotApplicable(
-                    "Keine IPv4-Ziele ausgewaehlt. Fuer IPv6 arbeitet stattdessen der Multicast-Ping an ff02::1.");
+                    "No IPv4 targets selected. For IPv6 the multicast ping to ff02::1 does this instead.");
             }
 
             return ScanMethodAvailability.Available;
@@ -77,7 +77,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                 Dictionary<string, string>? details = null;
                 if (!string.IsNullOrWhiteSpace(result.ResponseTime))
                 {
-                    details = new Dictionary<string, string> { ["Antwortzeit"] = $"{result.ResponseTime} ms" };
+                    details = new Dictionary<string, string> { ["Response time"] = $"{result.ResponseTime} ms" };
                 }
 
                 context.Report(new DeviceObservation

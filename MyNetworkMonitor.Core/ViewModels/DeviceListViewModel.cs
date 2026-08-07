@@ -32,17 +32,44 @@ namespace MyNetworkMonitor.Core.ViewModels
     public partial class DeviceListViewModel : ObservableObject
     {
         private readonly DeviceStore _store;
-        private bool _suspended;
+
+        /// <summary>
+        /// Der Oberflaechen-Thread, auf dem die Liste gebaut werden muss.
+        /// Waehrend eines Scans melden die Module aus beliebigen Aufgaben - ohne
+        /// diesen Rueckweg wuerde <see cref="Visible"/> aus einem
+        /// Hintergrund-Thread veraendert, was Avalonia wie WPF ablehnen.
+        /// </summary>
+        private readonly SynchronizationContext? _uiContext = SynchronizationContext.Current;
+
+        private Timer? _liveTimer;
+        private int _pending;
+
+        /// <summary>
+        /// Geraete, deren Anzeigeeigenschaften waehrend eines Laufs neu
+        /// berechnet werden muessen. Gesammelt, weil die Meldung selbst auf
+        /// den Oberflaechen-Thread gehoert.
+        /// </summary>
+        private readonly HashSet<Device> _dirty = [];
 
         public DeviceListViewModel(DeviceStore store)
         {
             _store = store ?? throw new ArgumentNullException(nameof(store));
 
             Filter.Changed += Refresh;
-            ((INotifyCollectionChanged)_store.Devices).CollectionChanged += (_, _) => Refresh();
-            _store.DeviceChanged += _ => Refresh();
+            ((INotifyCollectionChanged)_store.Devices).CollectionChanged += (_, _) => RequestRefresh();
+            _store.DeviceChanged += OnDeviceChanged;
 
             Refresh();
+        }
+
+        private void OnDeviceChanged(Device device)
+        {
+            if (_liveTimer is not null)
+            {
+                lock (_dirty) _dirty.Add(device);
+            }
+
+            RequestRefresh();
         }
 
         public DeviceFilter Filter { get; } = new();
@@ -67,33 +94,90 @@ namespace MyNetworkMonitor.Core.ViewModels
         public int FilteredOutCount => TotalCount - VisibleCount;
 
         /// <summary>
-        /// Waehrend eines Scans laufen viele Meldungen ein. Der Aufrufer kann
-        /// die Neuberechnung so lange aussetzen und einmal am Ende nachziehen,
-        /// statt sie je Geraet anzustossen.
+        /// Wie oft die Liste waehrend eines Laufs hoechstens neu gebaut wird.
+        /// Ein Scan ueber 254 Adressen meldet mehrere hundert Mal; jede Meldung
+        /// einzeln zu verarbeiten wuerde die Oberflaeche lahmlegen, einmal am
+        /// Ende laesst die Tabelle minutenlang leer aussehen.
         /// </summary>
-        public IDisposable SuspendRefresh()
+        private static readonly TimeSpan LiveInterval = TimeSpan.FromMilliseconds(400);
+
+        /// <summary>
+        /// Schaltet die laufende Aktualisierung waehrend eines Scans ein: die
+        /// Tabelle fuellt sich, waehrend gescannt wird, statt am Ende auf
+        /// einen Schlag. Beim Freigeben wird ein letztes Mal nachgezogen.
+        /// </summary>
+        public IDisposable BeginLiveUpdates()
         {
-            _suspended = true;
-            return new Resumer(this);
+            _liveTimer?.Dispose();
+
+            // Der Store meldet ab jetzt nicht mehr selbst - die Meldungen kaemen
+            // sonst aus den Scan-Threads an bereits sichtbare Zeilen.
+            _store.DeferDisplayNotifications = true;
+
+            _liveTimer = new Timer(_ => Flush(), null, LiveInterval, LiveInterval);
+            return new LiveSession(this);
+        }
+
+        /// <summary>
+        /// Merkt eine Aenderung vor. Ausserhalb eines Laufs wird sofort
+        /// aktualisiert - dort kommen die Meldungen einzeln und vom
+        /// Oberflaechen-Thread.
+        /// </summary>
+        private void RequestRefresh()
+        {
+            Interlocked.Exchange(ref _pending, 1);
+
+            // Ausserhalb eines Laufs sofort nachziehen; waehrend eines Laufs
+            // uebernimmt das der Zeitgeber. Der Weg ueber Flush ist auch hier
+            // richtig - ein Modul kann nach dem Ende des Laufs noch eine
+            // verspaetete Meldung nachreichen, und die darf die Liste nicht
+            // aus ihrem eigenen Thread heraus umbauen.
+            if (_liveTimer is null) Flush();
+        }
+
+        /// <summary>Zieht eine vorgemerkte Aenderung auf dem Oberflaechen-Thread nach.</summary>
+        private void Flush()
+        {
+            if (Interlocked.Exchange(ref _pending, 0) == 0) return;
+
+            if (_uiContext is null) Refresh();
+            else _uiContext.Post(_ => Refresh(), null);
         }
 
         public void Refresh()
         {
-            if (_suspended) return;
+            // Erst die aufgelaufenen Anzeigemeldungen nachholen - hier, auf dem
+            // Oberflaechen-Thread, statt dort, wo sie entstanden sind.
+            NotifyDirtyDevices();
 
-            List<Device> matching = [.. _store.Devices.Where(Filter.Matches).OrderBy(SortKeyOf, ByteArrayComparer.Instance)];
+            // Auswerten unter der Sperre des Bestands, anwenden ausserhalb:
+            // waehrend eines Laufs schreiben die Scan-Threads weiter, und die
+            // Oberflaeche darf sie nicht laenger aufhalten als noetig.
+            List<Device> matching;
+            List<ServiceFacet> facets;
+            int total, capable, online;
+
+            lock (_store.SyncRoot)
+            {
+                matching = [.. _store.Devices.Where(Filter.Matches).OrderBy(SortKeyOf, ByteArrayComparer.Instance)];
+                facets = BuildServiceFacets();
+
+                total = _store.Devices.Count;
+                capable = _store.Devices.Count(d => d.IsIpv6Capable);
+                online = _store.Devices.Count(d => d.IsOnline);
+            }
 
             // Gezielt abgleichen statt neu befuellen, damit die Auswahl des
             // Nutzers und die Bildlaufposition erhalten bleiben.
             SyncInto(Visible, matching);
 
-            TotalCount = _store.Devices.Count;
+            TotalCount = total;
             VisibleCount = Visible.Count;
-            Ipv6CapableCount = _store.Devices.Count(d => d.IsIpv6Capable);
-            OnlineCount = _store.Devices.Count(d => d.IsOnline);
+            Ipv6CapableCount = capable;
+            OnlineCount = online;
             OnPropertyChanged(nameof(FilteredOutCount));
 
-            RebuildServiceFacets();
+            ApplyServiceFacets(facets);
         }
 
         /// <summary>
@@ -124,14 +208,19 @@ namespace MyNetworkMonitor.Core.ViewModels
         /// Baut die Dienstauswahl neu auf. Bewusst ueber alle Geraete, nicht
         /// nur die sichtbaren - sonst verschwaende die eigene Auswahl die
         /// Eintraege, mit denen man sie wieder aufheben will.
+        /// <para>
+        /// Gezaehlt wird nur, was geantwortet hat. Gescannt wird gegen alle
+        /// Dienstdefinitionen; stuenden die geschlossenen mit darin, meldete
+        /// die Auswahl dreihundert Dienste, von denen vier existieren.
+        /// </para>
         /// </summary>
-        private void RebuildServiceFacets()
+        private List<ServiceFacet> BuildServiceFacets()
         {
             Dictionary<string, ServiceFacet> facets = new(StringComparer.OrdinalIgnoreCase);
 
             foreach (Device device in _store.Devices)
             {
-                foreach (DeviceServiceResult service in device.Services)
+                foreach (DeviceServiceResult service in device.OpenServices)
                 {
                     if (!facets.TryGetValue(service.ServiceName, out ServiceFacet? facet))
                     {
@@ -144,14 +233,33 @@ namespace MyNetworkMonitor.Core.ViewModels
                 }
             }
 
-            AvailableServices.Clear();
+            return
+            [
+                .. facets.Values
+                    .OrderBy(f => f.Category, StringComparer.CurrentCulture)
+                    .ThenBy(f => f.Name, StringComparer.CurrentCulture)
+            ];
+        }
 
-            foreach (ServiceFacet facet in facets.Values
-                         .OrderBy(f => f.Category, StringComparer.CurrentCulture)
-                         .ThenBy(f => f.Name, StringComparer.CurrentCulture))
-            {
-                AvailableServices.Add(facet);
-            }
+        /// <summary>
+        /// Uebernimmt die Facetten nur, wenn sich etwas geaendert hat. Die
+        /// Dienstauswahl wird aus dieser Liste aufgebaut; sie waehrend eines
+        /// Laufs alle 400 ms zu leeren und neu zu fuellen liesse ein
+        /// geoeffnetes Ausklappmenue unter der Hand des Nutzers springen.
+        /// </summary>
+        private void ApplyServiceFacets(List<ServiceFacet> facets)
+        {
+            bool same =
+                facets.Count == AvailableServices.Count &&
+                facets.Zip(AvailableServices).All(pair =>
+                    string.Equals(pair.First.Name, pair.Second.Name, StringComparison.OrdinalIgnoreCase) &&
+                    pair.First.DeviceCount == pair.Second.DeviceCount &&
+                    pair.First.RunningCount == pair.Second.RunningCount);
+
+            if (same) return;
+
+            AvailableServices.Clear();
+            foreach (ServiceFacet facet in facets) AvailableServices.Add(facet);
         }
 
         /// <summary>Schaltet einen Dienst im Filter um.</summary>
@@ -164,11 +272,34 @@ namespace MyNetworkMonitor.Core.ViewModels
             Filter.NotifyServicesChanged();
         }
 
-        private sealed class Resumer(DeviceListViewModel owner) : IDisposable
+        /// <summary>
+        /// Loest die gesammelten Anzeigemeldungen aus. Muss auf dem
+        /// Oberflaechen-Thread laufen - genau dafuer wurden sie gesammelt.
+        /// </summary>
+        private void NotifyDirtyDevices()
+        {
+            List<Device> devices;
+
+            lock (_dirty)
+            {
+                if (_dirty.Count == 0) return;
+
+                devices = [.. _dirty];
+                _dirty.Clear();
+            }
+
+            foreach (Device device in devices) device.NotifyDisplayChanged();
+        }
+
+        private sealed class LiveSession(DeviceListViewModel owner) : IDisposable
         {
             public void Dispose()
             {
-                owner._suspended = false;
+                Timer? timer = owner._liveTimer;
+                owner._liveTimer = null;
+                timer?.Dispose();
+
+                owner._store.DeferDisplayNotifications = false;
                 owner.Refresh();
             }
         }
