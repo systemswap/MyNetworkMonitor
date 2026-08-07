@@ -71,7 +71,17 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             ScanningMethod_ReverseLookupToHostAndAlieases reverse = new();
 
             void OnProgress(int c, int r, int t, ScanStatus s) => context.ReportProgress(c, r, t);
-            void OnFound(object? _, ScanTask_Finished_EventArgs e) => ReportResult(context, e.ipToScan, targets);
+
+            // Das Modul meldet einen Fehlschlag, indem es die Ereignisdaten
+            // selbst auf null setzt - eine Adresse ohne PTR-Eintrag ist der
+            // Normalfall, nicht die Ausnahme. Ungeprueft zugegriffen, reisst
+            // das den Task mit und der Rest des Laufs bleibt liegen.
+            void OnFound(object? _, ScanTask_Finished_EventArgs? e)
+            {
+                if (e?.ipToScan is null) return;
+
+                ReportResult(context, e.ipToScan, targets);
+            }
 
             reverse.ProgressUpdated += OnProgress;
             reverse.GetHostAliases_Task_Finished += OnFound;
