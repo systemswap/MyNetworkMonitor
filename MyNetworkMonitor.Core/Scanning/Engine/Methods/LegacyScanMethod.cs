@@ -219,6 +219,9 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         /// gepruefte Adressfamilie gesetzt; die andere Seite bleibt offen,
         /// damit ein spaeterer Lauf sie ergaenzen kann.
         /// </summary>
+        /// <summary>Der Port, auf dem die SMB-Pruefung arbeitet.</summary>
+        private const int SmbPort = 445;
+
         private static List<DeviceServiceResult>? BuildServices(IPToScan r, IpFamily family)
         {
             List<DeviceServiceResult> services = [];
@@ -240,6 +243,27 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 
                     services.Add(entry);
                 }
+            }
+
+            // SMB kommt aus einem eigenen Modul und nicht aus der
+            // Diensterkennung - ein Dienst ist es trotzdem, und in der Spalte
+            // "Running services" gehoert er neben die anderen. Die Versionen
+            // stehen im Protokoll: dass ein Ziel noch SMB 1.0 spricht, ist die
+            // eigentliche Nachricht.
+            if (r.SMBVersions.Count > 0)
+            {
+                DeviceServiceResult smb = new()
+                {
+                    ServiceName = "SMB",
+                    Category = "File services",
+                    Ports = [SmbPort],
+                    PortLog = "SMB versions: " + string.Join(", ", r.SMBVersions)
+                };
+
+                if (family == IpFamily.IPv6) smb.StatusIPv6 = PortStatus.IsRunning;
+                else smb.StatusIPv4 = PortStatus.IsRunning;
+
+                services.Add(smb);
             }
 
             // Offene Ports ohne erkannten Dienst gehen nicht verloren - sie
