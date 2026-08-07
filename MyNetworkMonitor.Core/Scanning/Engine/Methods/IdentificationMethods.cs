@@ -16,7 +16,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         public override ScanMethodAvailability CheckAvailability(ScanContext context) =>
             context.Targets.Count > 0
                 ? ScanMethodAvailability.Available
-                : ScanMethodAvailability.NotApplicable("Keine Ziele ausgewaehlt.");
+                : ScanMethodAvailability.NotApplicable("No targets selected.");
 
         public override async Task ExecuteAsync(ScanContext context, CancellationToken cancellationToken)
         {
@@ -54,14 +54,14 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         public bool DeepScan { get; set; }
 
         public override string Id => "dns.reverse";
-        public override string DisplayName => "Reverse-Lookup";
+        public override string DisplayName => "Reverse lookup";
         public override ScanPhase Phase => ScanPhase.Identification;
         public override FamilySupport Families => FamilySupport.Both;
 
         public override ScanMethodAvailability CheckAvailability(ScanContext context) =>
             context.Targets.Count > 0
                 ? ScanMethodAvailability.Available
-                : ScanMethodAvailability.NotApplicable("Keine Ziele ausgewaehlt.");
+                : ScanMethodAvailability.NotApplicable("No targets selected.");
 
         public override async Task ExecuteAsync(ScanContext context, CancellationToken cancellationToken)
         {
@@ -103,7 +103,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             context.HasTargetsOf(IpFamily.IPv4)
                 ? ScanMethodAvailability.Available
                 : ScanMethodAvailability.NotApplicable(
-                    "Keine IPv4-Ziele. NetBIOS ueber TCP/IP gibt es fuer IPv6 nicht.");
+                    "No IPv4 targets. NetBIOS over TCP/IP does not exist for IPv6.");
 
         public override async Task ExecuteAsync(ScanContext context, CancellationToken cancellationToken)
         {

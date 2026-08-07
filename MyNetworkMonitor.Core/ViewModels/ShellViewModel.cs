@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MyNetworkMonitor.Core.Model;
+using MyNetworkMonitor.Core.Persistence;
 using MyNetworkMonitor.Core.Scanning.Engine;
 
 namespace MyNetworkMonitor.Core.ViewModels
@@ -56,6 +57,13 @@ namespace MyNetworkMonitor.Core.ViewModels
             _store = store ?? throw new ArgumentNullException(nameof(store));
 
             Devices = new DeviceListViewModel(store);
+            ScopeEditor = new ScopeEditorViewModel(Scopes);
+            PortEditor = new PortEditorViewModel(Settings);
+            ServiceEditor = new ServiceEditorViewModel();
+
+            // Ein Haken im Kommandobalken und eine Aenderung in der Verwaltung
+            // treffen dieselbe Liste - die Zaehler muessen in beiden Faellen neu.
+            ScopeEditor.SelectionChanged += RefreshAvailability;
 
             foreach (IScanMethod method in _engine.Methods)
             {
@@ -70,6 +78,15 @@ namespace MyNetworkMonitor.Core.ViewModels
 
         public DeviceListViewModel Devices { get; }
 
+        /// <summary>Die Verwaltung der Bereiche - arbeitet auf <see cref="Scopes"/>.</summary>
+        public ScopeEditorViewModel ScopeEditor { get; }
+
+        /// <summary>Die Portsammlung. Traegt ihre Auswahl in <see cref="Settings"/> ein.</summary>
+        public PortEditorViewModel PortEditor { get; }
+
+        /// <summary>Welcher Dienst auf welchen Ports gesucht wird.</summary>
+        public ServiceEditorViewModel ServiceEditor { get; }
+
         public ObservableCollection<ScanScope> Scopes { get; } = [];
 
         public ObservableCollection<ScanMethodChoice> Methods { get; } = [];
@@ -78,6 +95,61 @@ namespace MyNetworkMonitor.Core.ViewModels
         public ObservableCollection<ScanMethodOutcome> LastSkipped { get; } = [];
 
         public ScanSettings Settings { get; } = new();
+
+        // ------------------------------------------------------ Einstellungen
+
+        private UserSettings? _userSettings;
+
+        /// <summary>Wo die Einstellungsdateien liegen - fuer die Anzeige und den Ordnerknopf.</summary>
+        [ObservableProperty] private string _settingsFolder = string.Empty;
+
+        /// <summary>Wo die Anwendung selbst liegt.</summary>
+        public string ApplicationFolder => AppContext.BaseDirectory;
+
+        /// <summary>
+        /// Bindet die Einstellungen an die Ablage: liest den gespeicherten
+        /// Stand und schreibt jede Aenderung sofort zurueck.
+        /// <para>
+        /// Sofort statt beim Schliessen, weil die Anwendung auch abstuerzen
+        /// oder abgeschossen werden kann - ein Schieberegler, den man dreimal
+        /// nachstellt, weil er sich nichts merkt, ist aergerlicher als ein
+        /// Dateizugriff je Klick auf eine Datei mit sechs Zeilen.
+        /// </para>
+        /// </summary>
+        public void AttachSettings(string settingsFolder)
+        {
+            SettingsFolder = settingsFolder;
+            _userSettings = new UserSettings(settingsFolder);
+
+            Settings.PortTimeoutMs = _userSettings.GetInt("PortTimeoutMs", Settings.PortTimeoutMs);
+            Settings.ScanAllPorts = _userSettings.GetBool("ScanAllPorts", Settings.ScanAllPorts);
+            Settings.OnlyKnownTargets = _userSettings.GetBool("OnlyKnownTargets", Settings.OnlyKnownTargets);
+            Settings.ClearArpCacheFirst = _userSettings.GetBool("ClearArpCacheFirst", Settings.ClearArpCacheFirst);
+            Settings.OverrideDnsServer = _userSettings.GetString("OverrideDnsServer");
+
+            Settings.PropertyChanged += (_, e) =>
+            {
+                switch (e.PropertyName)
+                {
+                    case nameof(ScanSettings.PortTimeoutMs):
+                        _userSettings.SetInt("PortTimeoutMs", Settings.PortTimeoutMs);
+                        break;
+                    case nameof(ScanSettings.ScanAllPorts):
+                        _userSettings.SetBool("ScanAllPorts", Settings.ScanAllPorts);
+                        RefreshAvailability(); // schaltet "TCP-Ports" frei bzw. sperrt es
+                        break;
+                    case nameof(ScanSettings.OnlyKnownTargets):
+                        _userSettings.SetBool("OnlyKnownTargets", Settings.OnlyKnownTargets);
+                        break;
+                    case nameof(ScanSettings.ClearArpCacheFirst):
+                        _userSettings.SetBool("ClearArpCacheFirst", Settings.ClearArpCacheFirst);
+                        break;
+                    case nameof(ScanSettings.OverrideDnsServer):
+                        _userSettings.SetString("OverrideDnsServer", Settings.OverrideDnsServer);
+                        break;
+                }
+            };
+        }
 
         [ObservableProperty] private ShellSection _section = ShellSection.Devices;
 
@@ -89,14 +161,14 @@ namespace MyNetworkMonitor.Core.ViewModels
         [
             new ScanProfile
             {
-                Name = "Schnell",
-                Description = "Nur finden - wer ist da?",
+                Name = "Quick",
+                Description = "Discovery only - who is there?",
                 MethodIds = ["ping", "arp.request", "arp.cache"]
             },
             new ScanProfile
             {
                 Name = "Standard",
-                Description = "Finden und bestimmen, mit den ueblichen Diensten",
+                Description = "Discover and identify, with the usual services",
                 MethodIds =
                 [
                     "ping", "arp.request", "arp.cache", "ssdp", "mdns",
@@ -105,8 +177,8 @@ namespace MyNetworkMonitor.Core.ViewModels
             },
             new ScanProfile
             {
-                Name = "Gruendlich",
-                Description = "Alles, was verfuegbar ist - dauert entsprechend",
+                Name = "Thorough",
+                Description = "Everything available - takes accordingly long",
                 MethodIds =
                 [
                     "ping", "arp.request", "arp.cache", "ssdp", "mdns",
@@ -116,8 +188,8 @@ namespace MyNetworkMonitor.Core.ViewModels
             },
             new ScanProfile
             {
-                Name = "Angepasst",
-                Description = "Die Auswahl in der Schublade gilt"
+                Name = "Custom",
+                Description = "Whatever is ticked in the drawer"
             }
         ];
 
@@ -145,7 +217,49 @@ namespace MyNetworkMonitor.Core.ViewModels
 
         // ------------------------------------------------------- Bereiche
 
-        public IEnumerable<ScanScope> SelectedScopes => Scopes.Where(s => s.IsSelected);
+        /// <summary>
+        /// Von Hand eingetragene Ziele. Damit laesst sich etwas nachsehen, ohne
+        /// erst einen Bereich anzulegen - der haeufigste Grund, die Verwaltung
+        /// ueberhaupt zu oeffnen. Wirkt zusaetzlich zu den angehakten
+        /// Bereichen; ist keiner angehakt, ist das hier die ganze Auswahl.
+        /// </summary>
+        [ObservableProperty] private string _customTargets = string.Empty;
+
+        /// <summary>Der aus <see cref="CustomTargets"/> gelesene Bereich, falls gueltig.</summary>
+        public ScanScope? CustomScope { get; private set; }
+
+        /// <summary>Was an der Eingabe nicht stimmt - leer, wenn sie taugt.</summary>
+        [ObservableProperty] private string _customTargetsProblem = string.Empty;
+
+        partial void OnCustomTargetsChanged(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                CustomScope = null;
+                CustomTargetsProblem = string.Empty;
+            }
+            else if (ScanScope.TryParseCustom(value, out ScanScope? parsed, out string? problem))
+            {
+                CustomScope = parsed;
+                CustomTargetsProblem = string.Empty;
+            }
+            else
+            {
+                CustomScope = null;
+                CustomTargetsProblem = problem ?? "Entry not understood.";
+            }
+
+            RefreshAvailability();
+        }
+
+        public IEnumerable<ScanScope> SelectedScopes
+        {
+            get
+            {
+                foreach (ScanScope scope in Scopes.Where(s => s.IsSelected)) yield return scope;
+                if (CustomScope is not null) yield return CustomScope;
+            }
+        }
 
         public int SelectedScopeCount => SelectedScopes.Count();
 
@@ -231,13 +345,13 @@ namespace MyNetworkMonitor.Core.ViewModels
             get
             {
                 int count = SelectedScopeCount;
-                if (count == 0) return "Kein Bereich";
+                if (count == 0) return "No range selected";
 
-                string targets = TargetCountIsEstimate ? $"ca. {TargetCount}" : TargetCount.ToString();
+                string targets = TargetCountIsEstimate ? $"~{TargetCount}" : TargetCount.ToString();
 
                 return count == 1
-                    ? $"{SelectedScopes.First().GroupDescription} · {targets} Ziele"
-                    : $"{count} Bereiche · {targets} Ziele";
+                    ? $"{SelectedScopes.First().GroupDescription} · {targets} targets"
+                    : $"{count} ranges · {targets} targets";
             }
         }
 
@@ -248,10 +362,45 @@ namespace MyNetworkMonitor.Core.ViewModels
         [ObservableProperty] private int _progressCurrent;
         [ObservableProperty] private int _progressTotal;
         [ObservableProperty] private int _progressResponded;
-        [ObservableProperty] private string _statusText = "Bereit.";
+        [ObservableProperty] private string _statusText = "Ready.";
 
         public double ProgressFraction =>
             ProgressTotal <= 0 ? 0 : Math.Clamp((double)ProgressCurrent / ProgressTotal, 0, 1);
+
+        // ------------------------------------------------- Ablauf des Laufs
+
+        /// <summary>
+        /// Die Verfahren dieses Laufs in Ausfuehrungsfolge und was aus jedem
+        /// geworden ist. Daraus entsteht die Anzeige "fertig: Ping, ARP -
+        /// offen: SMB, Dienste, SNMP": ein Lauf besteht aus mehreren
+        /// Verfahren, und ohne diese Liste sieht man nur das gerade laufende
+        /// und weiss nicht, wie viel noch kommt.
+        /// </summary>
+        private readonly List<string> _planned = [];
+        private readonly List<string> _done = [];
+
+        /// <summary>Die abgeschlossenen Verfahren, in der Reihenfolge ihres Endes.</summary>
+        public string CompletedScansText => _done.Count == 0 ? "-" : string.Join(", ", _done);
+
+        /// <summary>Was noch aussteht - das laufende Verfahren zuerst.</summary>
+        public string PendingScansText
+        {
+            get
+            {
+                List<string> open = [.. _planned.Where(name => !_done.Contains(name))];
+                return open.Count == 0 ? "-" : string.Join(", ", open);
+            }
+        }
+
+        /// <summary>Die Zeile hat nur waehrend und nach einem Lauf etwas zu sagen.</summary>
+        public bool HasScanPlan => _planned.Count > 0;
+
+        private void NotifyPlanChanged()
+        {
+            OnPropertyChanged(nameof(CompletedScansText));
+            OnPropertyChanged(nameof(PendingScansText));
+            OnPropertyChanged(nameof(HasScanPlan));
+        }
 
         private void OnProgress(ScanProgress progress)
         {
@@ -268,6 +417,9 @@ namespace MyNetworkMonitor.Core.ViewModels
             {
                 LastSkipped.Add(outcome);
             }
+
+            if (!_done.Contains(outcome.MethodName)) _done.Add(outcome.MethodName);
+            NotifyPlanChanged();
         }
 
         // -------------------------------------------------------------- Start
@@ -280,16 +432,25 @@ namespace MyNetworkMonitor.Core.ViewModels
             IsRunning = true;
             OnPropertyChanged(nameof(CanStart));
             LastSkipped.Clear();
-            StatusText = "Scan laeuft...";
+            StatusText = "Scan running...";
 
             List<ScanScope> scopes = [.. SelectedScopes];
-            List<string> methods = [.. Methods.Where(m => m.IsSelected).Select(m => m.Id)];
+            List<ScanMethodChoice> chosen = [.. Methods.Where(m => m.IsSelected)];
+            List<string> methods = [.. chosen.Select(m => m.Id)];
+
+            // Der Ablaufplan steht vor dem Start fest - die Statuszeile kann
+            // damit von Anfang an sagen, was noch kommt.
+            _planned.Clear();
+            _done.Clear();
+            _planned.AddRange(chosen.Select(m => m.DisplayName));
+            NotifyPlanChanged();
 
             try
             {
-                // Waehrend des Laufs die Neuberechnung der Liste aussetzen -
-                // sonst wird sie bei jeder einzelnen Meldung neu sortiert.
-                using (Devices.SuspendRefresh())
+                // Waehrend des Laufs sammelt die Liste die Meldungen und zieht
+                // in kurzen Abstaenden nach - die Tabelle fuellt sich also,
+                // waehrend gescannt wird, statt erst am Ende auf einen Schlag.
+                using (Devices.BeginLiveUpdates())
                 {
                     ScanRunResult result = await _engine.RunAsync(scopes, methods, Settings, _store);
                     StatusText = Describe(result);
@@ -297,7 +458,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             }
             catch (Exception ex)
             {
-                StatusText = $"Scan fehlgeschlagen: {ex.Message}";
+                StatusText = $"Scan failed: {ex.Message}";
             }
             finally
             {
@@ -313,7 +474,7 @@ namespace MyNetworkMonitor.Core.ViewModels
         private void Stop()
         {
             _engine.Stop();
-            StatusText = "Wird abgebrochen...";
+            StatusText = "Cancelling...";
         }
 
         [RelayCommand]
@@ -321,7 +482,12 @@ namespace MyNetworkMonitor.Core.ViewModels
         {
             _store.Clear();
             Devices.Refresh();
-            StatusText = "Tabelle geleert.";
+
+            _planned.Clear();
+            _done.Clear();
+            NotifyPlanChanged();
+
+            StatusText = "Table cleared.";
         }
 
         /// <summary>
@@ -333,19 +499,19 @@ namespace MyNetworkMonitor.Core.ViewModels
         {
             if (result.WasCancelled)
             {
-                return $"Abgebrochen nach {result.Duration.TotalSeconds:F0} s. " +
-                       $"{_store.Devices.Count} Geraete bis dahin gefunden.";
+                return $"Cancelled after {result.Duration.TotalSeconds:F0} s. " +
+                       $"{_store.Devices.Count} devices found so far.";
             }
 
             string summary =
-                $"{_store.Devices.Count} Geraete in {result.Duration.TotalSeconds:F0} s " +
-                $"({result.TargetCount} Ziele).";
+                $"{_store.Devices.Count} devices in {result.Duration.TotalSeconds:F0} s " +
+                $"({result.TargetCount} targets).";
 
             int skipped = result.Skipped.Count();
-            if (skipped > 0) summary += $" {skipped} Verfahren uebersprungen.";
+            if (skipped > 0) summary += $" {skipped} method(s) skipped.";
 
             int failed = result.Failed.Count();
-            if (failed > 0) summary += $" {failed} fehlgeschlagen.";
+            if (failed > 0) summary += $" {failed} failed.";
 
             return summary;
         }

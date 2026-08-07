@@ -168,6 +168,13 @@ public class ScanningMethod_Services
             }
             finally
             {
+                // Der Fortschritt zaehlt hoch, wenn das Ziel fertig geprueft
+                // ist - nicht beim Anstossen. Sonst stuende der Balken lange
+                // auf dem Endwert, waehrend noch auf Antworten und Timeouts
+                // gewartet wird.
+                int currentValue = Interlocked.Increment(ref current);
+                ProgressUpdated?.Invoke(currentValue, responded, total);
+
                 semaphore.Release();
             }
         }).ToArray();
@@ -190,9 +197,6 @@ public class ScanningMethod_Services
         string ipAddress = IPAddress.Parse(ipToScan.IPorHostname).ToString(); // Einmal parsen        
 
         _cts.Token.ThrowIfCancellationRequested();
-
-        int currentValue = Interlocked.Increment(ref current);
-        if (!_cts.Token.IsCancellationRequested) ProgressUpdated?.Invoke(current, responded, total);
 
         foreach (ServiceType service in services)
         {

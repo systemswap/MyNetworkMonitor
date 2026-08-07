@@ -57,11 +57,33 @@ public partial class ShellView : Window
         _shell = new ShellViewModel(_engine, _store);
         DataContext = _shell;
 
+        // Die gespeicherten Einstellungen zuerst - Zeitlimit und Portschalter
+        // gehen in die Verfuegbarkeitspruefung der Verfahren ein.
+        _shell.AttachSettings(SettingsFolder());
+
         LoadScopes();
+
+        _shell.PortEditor.Load(System.IO.Path.Combine(SettingsFolder(), "portsToScan.xml"));
+        _shell.ServiceEditor.Load(ServiceXmlPath());
+
         BuildMethodDrawer();
 
         _shell.Devices.AvailableServices.CollectionChanged += (_, _) => BuildServiceFacets();
         _shell.Devices.Filter.Changed += UpdateServiceFilterLabel;
+
+        // Die eigene Eingabe aendert die Zielzahl genauso wie ein Haken -
+        // die Fusszeile der Auswahl muss beides mitbekommen.
+        _shell.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(ShellViewModel.CustomTargets)) UpdateScopeFooter();
+        };
+
+        // Die Auswahl misst sich beim Oeffnen an ihrem Inhalt - die Bereiche
+        // koennen sich zwischen zwei Klicks geaendert haben.
+        if (bt_Scopes.Flyout is FlyoutBase scopeFlyout)
+        {
+            scopeFlyout.Opened += (_, _) => BuildScopeRows();
+        }
 
         BuildServiceFacets();
         UpdateServiceFilterLabel();
@@ -99,8 +121,14 @@ public partial class ShellView : Window
         engine.Register(new ServiceDetectionScanMethod(ServiceXmlPath()));
     }
 
+    /// <summary>
+    /// Dieselbe Datei, die das bisherige Fenster benutzt - eigene Portlisten
+    /// und Dienstauswahl gelten damit in beiden Oberflaechen. Die Datei muss
+    /// nicht vorhanden sein; das Modul legt jeden Dienst mit Standardports an
+    /// und liest sie nur als Ueberlagerung darueber.
+    /// </summary>
     private static string ServiceXmlPath() =>
-        System.IO.Path.Combine(AppContext.BaseDirectory, "Services.xml");
+        System.IO.Path.Combine(SettingsFolder(), "services.xml");
 
     /// <summary>
     /// Derselbe Ordner, den das bisherige Fenster benutzt - damit beide
@@ -119,44 +147,15 @@ public partial class ShellView : Window
     // ------------------------------------------------------------- Bereiche
 
     /// <summary>
-    /// Uebernimmt die gespeicherten IP-Gruppen und stellt den lokalen Adapter
-    /// als eigenen Bereich voran, damit ohne jede Einrichtung sofort etwas da
-    /// ist.
+    /// Uebernimmt die gespeicherten Bereiche. Dieselbe Datei, die das bisherige
+    /// Fenster liest - beide Oberflaechen arbeiten waehrend des Umbaus auf
+    /// demselben Bestand. Laden und Speichern liegen im
+    /// <see cref="ScopeEditorViewModel"/>, damit sie sich nicht auseinander
+    /// entwickeln.
     /// </summary>
     private void LoadScopes()
     {
-        _shell.Scopes.Add(new ScanScope
-        {
-            Index = 0,
-            Kind = ScanScopeKind.NetworkInterface,
-            GroupDescription = "Lokales Netz",
-            DeviceDescription = "vom aktiven Adapter",
-            IsSelected = true
-        });
-
-        // Dieselbe Datei, die das bisherige Fenster liest - beide Oberflaechen
-        // arbeiten waehrend des Umbaus auf demselben Bestand.
-        string xml = System.IO.Path.Combine(SettingsFolder(), "ipGroups.xml");
-
-        if (!System.IO.File.Exists(xml)) return;
-
-        try
-        {
-            IPGroupData data = new();
-            data.IPGroupsDT.ReadXml(xml);
-
-            foreach (IpGroup group in IpGroupTable.ReadRows(data.IPGroupsDT))
-            {
-                _shell.Scopes.Add(ScanScope.FromIpGroup(group));
-            }
-        }
-        catch (Exception ex)
-        {
-            // Eine fehlende oder beschaedigte Gruppendatei darf den Start nicht
-            // verhindern - der lokale Adapter genuegt zum Arbeiten.
-            _shell.StatusText = $"IP-Gruppen konnten nicht geladen werden: {ex.Message}";
-        }
-
+        _shell.ScopeEditor.Load(System.IO.Path.Combine(SettingsFolder(), "ipGroups.xml"));
         _shell.RefreshAvailability();
     }
 
@@ -167,6 +166,125 @@ public partial class ShellView : Window
         _shell.RefreshAvailability();
         UpdateScopeFooter();
         UpdateIpv6Hint();
+    }
+
+    /// <summary>
+    /// Baut die Zeilen der Bereichsauswahl auf.
+    /// <para>
+    /// Von Hand statt ueber ein DataGrid, und das ist hier der Kern der Sache:
+    /// ein Grid mit Auto-Spalten misst sich an seinem Inhalt, ein DataGrid
+    /// nicht. Letzteres nimmt den angebotenen Platz und scrollt intern, wenn
+    /// er nicht reicht - das umgebende Menue erfaehrt dadurch nie, dass es zu
+    /// schmal ist, und man sieht eine abgeschnittene Tabelle mit
+    /// Bildlaufbalken. Mit dem Grid waechst der Rahmen von selbst mit.
+    /// </para>
+    /// <para>
+    /// Wird bei jedem Oeffnen neu gebaut: die Bereiche koennen sich
+    /// zwischendurch geaendert haben, und es sind eine Handvoll Zeilen.
+    /// </para>
+    /// </summary>
+    private void BuildScopeRows()
+    {
+        // Nicht ueber das Fenster hinaus. Als Bindung ginge das nicht - das
+        // Popup hat einen eigenen Namensraum, in dem #ShellRoot nicht auflöst.
+        bd_ScopeFlyout.MaxWidth = Math.Max(620, Bounds.Width - 120);
+
+        grd_Scopes.Children.Clear();
+        grd_Scopes.RowDefinitions.Clear();
+        grd_Scopes.ColumnDefinitions.Clear();
+
+        foreach (string _ in new[] { "check", "name", "range", "description" })
+        {
+            grd_Scopes.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+        }
+
+        grd_Scopes.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+
+        AddHeader(0, "ACTIVE");
+        AddHeader(1, "RANGE");
+        AddHeader(2, "FROM - TO");
+        AddHeader(3, "DESCRIPTION");
+
+        int row = 1;
+
+        foreach (ScanScope scope in _shell.Scopes)
+        {
+            grd_Scopes.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+
+            CheckBox box = new()
+            {
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new global::Avalonia.Thickness(11, 5, 6, 5),
+                Padding = new global::Avalonia.Thickness(0)
+            };
+
+            box.Bind(ToggleButton.IsCheckedProperty,
+                new global::Avalonia.Data.Binding(nameof(ScanScope.IsSelected))
+                {
+                    Source = scope,
+                    Mode = global::Avalonia.Data.BindingMode.TwoWay
+                });
+
+            box.IsCheckedChanged += Scope_IsCheckedChanged;
+            ToolTip.SetTip(box, "Include this range in the next scan");
+
+            Place(box, row, 0);
+
+            Place(Cell(scope, nameof(ScanScope.GroupDescription), 11.5, FontWeight.SemiBold,
+                       ShellPalette.Ink, mono: false), row, 1);
+
+            Place(Cell(scope, nameof(ScanScope.RangeText), 11, FontWeight.Normal,
+                       ShellPalette.Teal, mono: true), row, 2);
+
+            Place(Cell(scope, nameof(ScanScope.DeviceDescription), 10.5, FontWeight.Normal,
+                       ShellPalette.Dimmer, mono: false), row, 3);
+
+            row++;
+        }
+
+        void AddHeader(int column, string text)
+        {
+            TextBlock header = new()
+            {
+                Text = text,
+                FontSize = 8.5,
+                Foreground = ShellPalette.Dimmer,
+                Margin = new global::Avalonia.Thickness(11, 4, 12, 4),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            Place(header, 0, column);
+        }
+
+        void Place(Control control, int r, int c)
+        {
+            control[Grid.RowProperty] = r;
+            control[Grid.ColumnProperty] = c;
+            grd_Scopes.Children.Add(control);
+        }
+
+        // Eine Zelle bindet gegen den Bereich, statt den Text zu kopieren -
+        // eine Umbenennung in der Verwaltung schlaegt so sofort durch.
+        static TextBlock Cell(ScanScope scope, string property, double size,
+                              FontWeight weight, IBrush brush, bool mono)
+        {
+            TextBlock cell = new()
+            {
+                FontSize = size,
+                FontWeight = weight,
+                Foreground = brush,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new global::Avalonia.Thickness(0, 5, 12, 5)
+            };
+
+            if (mono) cell.FontFamily = new FontFamily("Cascadia Mono,Consolas,monospace");
+
+            cell.Bind(TextBlock.TextProperty,
+                new global::Avalonia.Data.Binding(property) { Source = scope });
+
+            return cell;
+        }
     }
 
     private void bt_ScopesAll_Click(object? sender, RoutedEventArgs e) => SetAllScopes(true);
@@ -194,7 +312,7 @@ public partial class ShellView : Window
     private void UpdateScopeFooter()
     {
         long targets = _shell.TargetCount;
-        string prefix = _shell.TargetCountIsEstimate ? "ca. " : string.Empty;
+        string prefix = _shell.TargetCountIsEstimate ? "~" : string.Empty;
         TimeSpan estimate = _shell.EstimatedDuration;
 
         string duration = estimate.TotalSeconds < 90
@@ -202,7 +320,7 @@ public partial class ShellView : Window
             : $"{estimate.TotalMinutes:F0} min";
 
         tb_ScopeFooter.Text =
-            $"{_shell.SelectedScopeCount} Bereiche · {prefix}{targets} Ziele · geschaetzt {duration}";
+            $"{_shell.SelectedScopeCount} ranges · {prefix}{targets} targets · est. {duration}";
     }
 
     // -------------------------------------------------- Verfahren-Schublade
@@ -263,8 +381,8 @@ public partial class ShellView : Window
         }
 
         tb_Ipv6Hint.Text =
-            "Die IPv6-Verfahren - Neighbor Cache, ff02::1, RA-Mitschnitt und MLD - " +
-            "folgen in einem spaeteren Schritt.";
+            "The IPv6 methods - neighbor cache, ff02::1, RA capture and MLD - " +
+            "follow in a later step.";
     }
 
     private void cb_Profile_SelectionChanged(object? sender, SelectionChangedEventArgs e)
@@ -304,7 +422,7 @@ public partial class ShellView : Window
                         new TextBlock
                         {
                             Text = facet.RunningCount > 0
-                                ? $"{facet.DeviceCount}  ({facet.RunningCount} laufend)"
+                                ? $"{facet.DeviceCount}  ({facet.RunningCount} running)"
                                 : $"{facet.DeviceCount}",
                             FontSize = 9.5,
                             Foreground = new SolidColorBrush(Color.Parse("#93A5A9")),
@@ -331,7 +449,7 @@ public partial class ShellView : Window
         {
             rows.Add(new TextBlock
             {
-                Text = "Noch keine Dienste gefunden.",
+                Text = "No services found yet.",
                 FontSize = 10.5,
                 Foreground = new SolidColorBrush(Color.Parse("#93A5A9")),
                 Margin = new global::Avalonia.Thickness(10, 6, 10, 6)
@@ -351,7 +469,7 @@ public partial class ShellView : Window
     private void UpdateServiceFilterLabel()
     {
         int count = _shell.Devices.Filter.Services.Count;
-        tb_ServiceFilterLabel.Text = count == 0 ? "Dienst  ▾" : $"Dienst ({count})  ▾";
+        tb_ServiceFilterLabel.Text = count == 0 ? "Service  ▾" : $"Service ({count})  ▾";
     }
 
     private void bt_ResetFilter_Click(object? sender, RoutedEventArgs e)
@@ -378,43 +496,39 @@ public partial class ShellView : Window
 
         _shell.Section = section;
 
-        bool isDevices = section == ShellSection.Devices;
-        view_Devices.IsVisible = isDevices;
-        view_Placeholder.IsVisible = !isDevices;
+        // Jede gebaute Ansicht bekommt hier ihre Zeile; der Platzhalter faengt
+        // auf, was noch fehlt, und sagt das auch.
+        view_Devices.IsVisible = section == ShellSection.Devices;
+        view_Scopes.IsVisible = section == ShellSection.Scopes;
+        view_Ports.IsVisible = section == ShellSection.Ports;
+        view_Services.IsVisible = section == ShellSection.Services;
+        view_Settings.IsVisible = section == ShellSection.Settings;
 
-        if (isDevices) return;
+        bool built = section is ShellSection.Devices or ShellSection.Scopes
+                             or ShellSection.Ports or ShellSection.Services
+                             or ShellSection.Settings;
+
+        view_Placeholder.IsVisible = !built;
+
+        if (built) return;
 
         (tb_PlaceholderTitle.Text, tb_PlaceholderText.Text) = section switch
         {
-            ShellSection.Network => ("Netz",
-                "Praefixe, Router und Multicast-Gruppen. Entsteht mit den passiven " +
-                "IPv6-Verfahren - vorher gibt es hier nichts zu zeigen."),
+            ShellSection.Network => ("Network",
+                "Prefixes, routers and multicast groups. Grows out of the passive " +
+                "IPv6 methods - before those, there is nothing here to show."),
 
-            ShellSection.Findings => ("Befunde",
-                "Fremde Router-Advertisements, global offene Ports, Protokolldivergenz. " +
-                "Das Regelwerk braucht Daten aus allen vorherigen Schritten und kommt zuletzt."),
+            ShellSection.Findings => ("Findings",
+                "Rogue router advertisements, globally open ports, protocol divergence. " +
+                "The rule set needs data from every earlier step and comes last."),
 
-            ShellSection.Topology => ("Topologie",
-                "Die 3D-Ansicht wird aus dem bisherigen Fenster uebernommen."),
+            ShellSection.Topology => ("Topology",
+                "The 3D view is carried over from the previous window."),
 
-            ShellSection.Scopes => ("Bereiche",
-                "Die Verwaltung bleibt wie bisher - Liste links, Maske rechts. " +
-                "Sie wird als Naechstes hier eingehaengt."),
+            ShellSection.Names => ("Names",
+                "Mapping your own device names."),
 
-            ShellSection.Ports => ("Ports",
-                "Die Portsammlungen aus dem bisherigen Fenster."),
-
-            ShellSection.Services => ("Dienste",
-                "Welcher Dienst auf welchen Ports gesucht wird. " +
-                "Die Erkennungspakete bleiben unangetastet."),
-
-            ShellSection.Names => ("Namen",
-                "Die Zuordnung eigener Geraetenamen."),
-
-            ShellSection.Settings => ("Einstellungen",
-                "Zeitlimits, Speicherorte und die Anzeige."),
-
-            _ => ("Noch nicht gebaut", string.Empty)
+            _ => ("Not built yet", string.Empty)
         };
     }
 
@@ -440,6 +554,61 @@ public partial class ShellView : Window
         _classicWindow.Show();
     }
 
+    /// <summary>
+    /// Beim Schliessen den vorgemerkten Stand der Bereiche sofort schreiben -
+    /// der Zeitgeber der verzoegerten Speicherung wuerde sonst nie mehr feuern
+    /// und die letzte Aenderung waere verloren.
+    /// </summary>
+    protected override void OnClosing(global::Avalonia.Controls.WindowClosingEventArgs e)
+    {
+        _shell.ScopeEditor.SaveNow();
+        _shell.PortEditor.SaveNow();
+        _shell.ServiceEditor.SaveNow();
+        base.OnClosing(e);
+    }
+
+    // ------------------------------------------------------ Einstellungen
+
+    private void bt_OpenSettingsFolder_Click(object? sender, RoutedEventArgs e) =>
+        OpenFolder(_shell.SettingsFolder);
+
+    private void bt_OpenAppFolder_Click(object? sender, RoutedEventArgs e) =>
+        OpenFolder(_shell.ApplicationFolder);
+
+    /// <summary>
+    /// Oeffnet einen Ordner im Dateimanager des Systems.
+    /// <para>
+    /// <c>UseShellExecute</c> ist der plattformneutrale Weg: Windows nimmt den
+    /// Explorer, Linux den eingestellten Dateimanager ueber xdg-open, macOS den
+    /// Finder. Ein fest verdrahtetes <c>explorer.exe</c> waere unter Linux tot.
+    /// </para>
+    /// </summary>
+    private void OpenFolder(string path)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                _shell.StatusText = "No folder to open.";
+                return;
+            }
+
+            // Der Einstellungsordner entsteht erst beim ersten Speichern - ihn
+            // hier anzulegen ist freundlicher als die Meldung, dass es ihn nicht gibt.
+            System.IO.Directory.CreateDirectory(path);
+
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = path,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            _shell.StatusText = $"Could not open {path}: {ex.Message}";
+        }
+    }
+
     // ---------------------------------------------------------- Export
 
     private async void bt_Export_Click(object? sender, RoutedEventArgs e)
@@ -449,8 +618,8 @@ public partial class ShellView : Window
             global::Avalonia.Platform.Storage.IStorageFile? file =
                 await StorageProvider.SaveFilePickerAsync(new global::Avalonia.Platform.Storage.FilePickerSaveOptions
                 {
-                    Title = "Ergebnistabelle exportieren",
-                    SuggestedFileName = $"netzwerk-{DateTime.Now:yyyy-MM-dd-HHmm}.csv",
+                    Title = "Export result table",
+                    SuggestedFileName = $"network-{DateTime.Now:yyyy-MM-dd-HHmm}.csv",
                     DefaultExtension = "csv"
                 });
 
@@ -459,7 +628,7 @@ public partial class ShellView : Window
             await using System.IO.Stream stream = await file.OpenWriteAsync();
             await using System.IO.StreamWriter writer = new(stream, System.Text.Encoding.UTF8);
 
-            await writer.WriteLineAsync("Geraet;IPv4;IPv6;Weitere v6;MAC;Hersteller;Dienste;Offene Ports;Zuletzt;Bereich");
+            await writer.WriteLineAsync("Device;IPv4;IPv6;More v6;MAC;Vendor;Services;Open ports;Last seen;Range");
 
             foreach (Device device in _shell.Devices.Visible)
             {
@@ -472,11 +641,11 @@ public partial class ShellView : Window
                 ]));
             }
 
-            _shell.StatusText = $"{_shell.Devices.VisibleCount} Zeilen exportiert nach {file.Name}.";
+            _shell.StatusText = $"{_shell.Devices.VisibleCount} rows exported to {file.Name}.";
         }
         catch (Exception ex)
         {
-            _shell.StatusText = $"Export fehlgeschlagen: {ex.Message}";
+            _shell.StatusText = $"Export failed: {ex.Message}";
         }
 
         // Semikolon und Zeilenumbrueche wuerden die Spalten zerreissen.

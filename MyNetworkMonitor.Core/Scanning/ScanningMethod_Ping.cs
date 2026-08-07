@@ -132,15 +132,25 @@ namespace MyNetworkMonitor
             }
 
 
+            // Der Fortschritt zaehlt hoch, wenn die Probe fertig ist - nicht,
+            // wenn sie losgeschickt wird. Sonst steht der Balken lange auf
+            // 254/254, waehrend auf Timeouts und spaete Antworten gewartet wird.
+            bool counted = false;
+
+            void CountDone()
+            {
+                if (counted) return;
+                counted = true;
+
+                int currentCount = Interlocked.Increment(ref current);
+                ProgressUpdated?.Invoke(currentCount, responded, total, ScanStatus.running);
+            }
+
             try
             {
                 using Ping ping = new Ping();
                 PingReply reply = null;
                 bool success = false;
-
-                // Fortschritt aktualisieren → UI-Thread nutzen
-                int currentCount = Interlocked.Increment(ref current);
-                ProgressUpdated?.Invoke(currentCount, responded, total, ScanStatus.running);
 
                 // Bis zu 3 Versuche mit steigenden Timeouts
                 for (int attempt = 1; attempt <= 3; attempt++)
@@ -168,6 +178,9 @@ namespace MyNetworkMonitor
                     }
                 }
 
+                // Die Probe ist durch - jetzt zaehlt sie.
+                CountDone();
+
                 if (!success && !showUnused) return;
 
                 ipToScan.ResponseTime = success ? reply?.RoundtripTime.ToString() : string.Empty;
@@ -176,7 +189,7 @@ namespace MyNetworkMonitor
 
                 // Fortschritt für erfolgreiche Pings aktualisieren → UI-Thread nutzen
                 int responsedCount = Interlocked.Increment(ref responded);
-                ProgressUpdated?.Invoke(currentCount, responsedCount, total, ScanStatus.running);
+                ProgressUpdated?.Invoke(current, responsedCount, total, ScanStatus.running);
 
                 // Event auslösen
                 Ping_Task_Finished?.Invoke(this, new ScanTask_Finished_EventArgs { ipToScan = ipToScan });
@@ -188,6 +201,12 @@ namespace MyNetworkMonitor
             catch (Exception ex) when (ex is PingException || ex is SocketException)
             {
                 Console.WriteLine($"Ping Fehler für {ipToScan.IPorHostname}: {ex.Message}");
+            }
+            finally
+            {
+                // Auch ein abgebrochenes oder gescheitertes Ziel ist erledigt -
+                // sonst bliebe der Balken kurz vor dem Ende stehen.
+                CountDone();
             }
         }
     }

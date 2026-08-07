@@ -17,7 +17,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
     public sealed class TcpPortScanMethod : LegacyScanMethod
     {
         public override string Id => "ports.tcp";
-        public override string DisplayName => "TCP-Ports";
+        public override string DisplayName => "TCP ports";
         public override ScanPhase Phase => ScanPhase.Services;
         public override FamilySupport Families => FamilySupport.IPv4;
 
@@ -31,7 +31,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             if (!context.Settings.ScanAllPorts && context.Settings.TcpPorts.Count == 0)
             {
                 return ScanMethodAvailability.NotApplicable(
-                    "Keine Ports ausgewaehlt. Ports in der Verwaltung waehlen oder \"alle Ports\" setzen.");
+                    "No ports selected. Pick ports under Manage, or switch on \"all ports\".");
             }
 
             return ScanMethodAvailability.Available;
@@ -75,7 +75,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
     public sealed class UdpPortScanMethod : LegacyScanMethod
     {
         public override string Id => "ports.udp";
-        public override string DisplayName => "UDP-Ports";
+        public override string DisplayName => "UDP ports";
         public override ScanPhase Phase => ScanPhase.Services;
         public override FamilySupport Families => FamilySupport.IPv4;
 
@@ -114,7 +114,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
     public sealed class SmbVersionScanMethod : LegacyScanMethod
     {
         public override string Id => "smb.version";
-        public override string DisplayName => "SMB-Version";
+        public override string DisplayName => "SMB version";
         public override ScanPhase Phase => ScanPhase.Services;
         public override FamilySupport Families => FamilySupport.IPv4;
 
@@ -160,25 +160,20 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
     public sealed class ServiceDetectionScanMethod(string serviceXmlPath) : LegacyScanMethod
     {
         public override string Id => "services";
-        public override string DisplayName => "Diensterkennung";
+        public override string DisplayName => "Services";
         public override ScanPhase Phase => ScanPhase.Services;
         public override FamilySupport Families => FamilySupport.IPv4;
 
-        public override ScanMethodAvailability CheckAvailability(ScanContext context)
-        {
-            if (!context.HasTargetsOf(IpFamily.IPv4))
-            {
-                return ScanMethodAvailability.NotApplicable(NoIpv4Targets);
-            }
-
-            if (!File.Exists(serviceXmlPath))
-            {
-                return ScanMethodAvailability.Blocked(
-                    $"Die Dienstdefinitionen wurden nicht gefunden: {serviceXmlPath}");
-            }
-
-            return ScanMethodAvailability.Available;
-        }
+        /// <summary>
+        /// Eine fehlende Dienst-XML ist <b>kein</b> Hindernis:
+        /// <c>SetServicePorts</c> legt jeden Diensttyp mit seinen Standardports
+        /// an und liest die Datei nur als Ueberlagerung fuer eigene
+        /// Anpassungen darueber. Sie muss also gar nicht vorhanden sein.
+        /// </summary>
+        public override ScanMethodAvailability CheckAvailability(ScanContext context) =>
+            context.HasTargetsOf(IpFamily.IPv4)
+                ? ScanMethodAvailability.Available
+                : ScanMethodAvailability.NotApplicable(NoIpv4Targets);
 
         public override async Task ExecuteAsync(ScanContext context, CancellationToken cancellationToken)
         {
@@ -186,6 +181,11 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             if (targets.Count == 0) return;
 
             ScanningMethod_Services services = new(serviceXmlPath);
+
+            (List<ServiceType> wanted, Dictionary<ServiceType, List<int>> ports) =
+                SelectServices(services, context.Settings.Services);
+
+            if (wanted.Count == 0) return;
 
             void OnProgress(int c, int r, int t) => context.ReportProgress(c, r, t);
             void OnFound(IPToScan ip) => ReportResult(context, ip, targets);
@@ -196,7 +196,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 
             try
             {
-                await services.ScanIPsAsync(targets.Items, [.. context.Settings.Services]);
+                await services.ScanIPsAsync(targets.Items, wanted, ports);
             }
             finally
             {
@@ -205,6 +205,56 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             }
 
             cancellationToken.ThrowIfCancellationRequested();
+        }
+
+        /// <summary>
+        /// Bestimmt, welche Dienste gesucht werden - und mit welchen Ports.
+        /// <para>
+        /// Drei Stufen: was die Einstellungen ausdruecklich nennen, sonst was
+        /// in der Dienstetabelle als <c>toScan</c> markiert ist, sonst alle.
+        /// Die letzte Stufe ist wichtig, weil die Dienstauswahl in der neuen
+        /// Oberflaeche noch fehlt - ohne sie waere "Diensterkennung" angehakt
+        /// und wuerde trotzdem nichts tun, was niemand versteht.
+        /// </para>
+        /// </summary>
+        private static (List<ServiceType>, Dictionary<ServiceType, List<int>>) SelectServices(
+            ScanningMethod_Services module, List<ServiceType> fromSettings)
+        {
+            Dictionary<ServiceType, List<int>> ports = [];
+            List<ServiceType> marked = [];
+            List<ServiceType> all = [];
+
+            foreach (System.Data.DataRow row in module.Services.Rows)
+            {
+                string name = row["Service"]?.ToString() ?? string.Empty;
+                if (!Enum.TryParse(name, out ServiceType type)) continue;
+
+                all.Add(type);
+                ports[type] = ParsePorts(row["Ports"]?.ToString());
+
+                if (row["toScan"] != DBNull.Value && row["toScan"] is true) marked.Add(type);
+            }
+
+            List<ServiceType> wanted =
+                fromSettings.Count > 0 ? fromSettings :
+                marked.Count > 0 ? marked :
+                all;
+
+            return (wanted, ports);
+        }
+
+        private static List<int> ParsePorts(string? text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return [];
+
+            List<int> ports = [];
+
+            foreach (string part in text.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (int.TryParse(part, out int port) && port is > 0 and <= 65535) ports.Add(port);
+            }
+
+            return ports;
         }
     }
 }

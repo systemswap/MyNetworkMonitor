@@ -4,6 +4,7 @@
         xmlns:model="clr-namespace:MyNetworkMonitor.Core.Model;assembly=MyNetworkMonitor.Core"
         xmlns:conv="clr-namespace:MyNetworkMonitor.Avalonia.Views"
         x:Class="MyNetworkMonitor.Avalonia.Views.ShellView"
+        x:Name="ShellRoot"
         x:DataType="vm:ShellViewModel"
         x:CompileBindings="False"
         Title="My Network Monitor"
@@ -102,6 +103,27 @@
       <Setter Property="Padding" Value="6,0,0,0"/>
     </Style>
 
+    <!--
+        Die Fluent-Vorlage deckelt jedes Ausklappmenue auf eine feste Breite
+        und steckt seinen Inhalt in einen ScrollViewer. Ein Menue, das breiter
+        sein will, waechst darum nicht - es bekommt einen Bildlaufbalken, und
+        was rechts steht, verschwindet. Genau das traf die Bereichsauswahl:
+        die Spalte "Description" war abgeschnitten und die Knoepfe oben rechts
+        gar nicht zu sehen.
+
+        Die Grenze wird hier aufgehoben; die Menues setzen sich ihre eigene
+        ueber MaxWidth, damit sie das Fenster nicht verlassen.
+    -->
+    <Style Selector="FlyoutPresenter">
+      <Setter Property="MaxWidth" Value="4000"/>
+      <Setter Property="MaxHeight" Value="2000"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="CornerRadius" Value="4"/>
+    </Style>
+    <Style Selector="FlyoutPresenter /template/ ScrollViewer">
+      <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>
+    </Style>
+
     <Style Selector="ToggleButton">
       <Setter Property="MinHeight" Value="0"/>
       <Setter Property="Height" Value="22"/>
@@ -119,6 +141,23 @@
     </Style>
     <Style Selector="Button.cmd:pointerover /template/ ContentPresenter">
       <Setter Property="Background" Value="#33505A"/>
+      <Setter Property="BorderBrush" Value="#4A6B75"/>
+    </Style>
+
+    <!--
+        Eine Schaltflaeche, die wie die ComboBox daneben aussieht. Noetig, weil
+        die Bereichsauswahl mehrere Haken zugleich haelt und beim Anhaken offen
+        bleiben muss - eine echte ComboBox schliesst sich beim ersten Klick.
+    -->
+    <Style Selector="Button.combo">
+      <Setter Property="Background" Value="#233A41"/>
+      <Setter Property="Foreground" Value="#DCE9EB"/>
+      <Setter Property="BorderBrush" Value="#3A5860"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Padding" Value="8,0"/>
+    </Style>
+    <Style Selector="Button.combo:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#2C4750"/>
       <Setter Property="BorderBrush" Value="#4A6B75"/>
     </Style>
 
@@ -238,6 +277,42 @@
     <Style Selector="TextBlock.mono">
       <Setter Property="FontFamily" Value="Cascadia Mono,Consolas,monospace"/>
     </Style>
+
+    <!-- Einstellungsseite -->
+    <Style Selector="TextBlock.settingsHead">
+      <Setter Property="FontSize" Value="10"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="#0B7C8B"/>
+    </Style>
+
+    <Style Selector="TextBlock.settingLabel">
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="Foreground" Value="#142326"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <!--
+        Der erklaerende Satz unter jeder Einstellung. Bewusst schmal gehalten,
+        damit er sich als Beiwerk liest und nicht mit der Einstellung selbst
+        um Aufmerksamkeit streitet.
+    -->
+    <Style Selector="TextBlock.settingHint">
+      <Setter Property="FontSize" Value="10.5"/>
+      <Setter Property="Foreground" Value="#7E9095"/>
+      <Setter Property="TextWrapping" Value="Wrap"/>
+      <Setter Property="MaxWidth" Value="460"/>
+      <Setter Property="HorizontalAlignment" Value="Left"/>
+    </Style>
+
+    <Style Selector="ScrollViewer#view_Settings CheckBox">
+      <Setter Property="FontSize" Value="12"/>
+    </Style>
+
+    <!-- Fluent gibt dem Schieberegler sonst 32 Pixel Hoehe -->
+    <Style Selector="Slider">
+      <Setter Property="MinHeight" Value="0"/>
+      <Setter Property="Height" Value="22"/>
+    </Style>
   </Window.Styles>
 
   <DockPanel LastChildFill="True">
@@ -250,80 +325,114 @@
         <!-- Zeile: Quelle, Umfang, Start, Fortschritt -->
         <Grid Margin="10,7" ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,*,Auto">
 
-          <TextBlock Grid.Column="0" Classes="cmdLabel" Text="QUELLE" Margin="0,0,4,0"/>
+          <TextBlock Grid.Column="0" Classes="cmdLabel" Text="SOURCE" Margin="0,0,4,0"/>
 
-          <!-- Mehrfachauswahl mit Kaestchen, an der Stelle der frueheren
-               Einzel-IP. Das Flyout haelt die Bereiche. -->
-          <Button Grid.Column="1" x:Name="bt_Scopes" Classes="cmd" MinWidth="190"
+          <!--
+              Mehrfachauswahl mit Kaestchen, an der Stelle der frueheren
+              Einzel-IP. Sieht aus wie die Umfangsauswahl daneben und
+              verhaelt sich auch so - nur bleibt sie beim Anhaken offen,
+              was eine echte ComboBox nicht kann.
+
+              Aufgeklappt steht je Bereich, was ihn ausmacht: von/bis und
+              wozu er gehoert. Der Name allein ("Buero 2. OG") sagt nicht,
+              welche Adressen gescannt werden.
+          -->
+          <Button Grid.Column="1" x:Name="bt_Scopes" Classes="combo" MinWidth="280"
                   HorizontalContentAlignment="Left">
             <Grid ColumnDefinitions="*,Auto">
-              <TextBlock Grid.Column="0" Text="{Binding ScopeSummary}" VerticalAlignment="Center"/>
-              <TextBlock Grid.Column="1" Text="▾" FontSize="8" Foreground="#7A959B"
+              <TextBlock Grid.Column="0" Text="{Binding ScopeSummary}" VerticalAlignment="Center"
+                         TextTrimming="CharacterEllipsis"/>
+              <TextBlock Grid.Column="1" Text="▾" FontSize="9" Foreground="#7A959B"
                          VerticalAlignment="Center" Margin="8,0,0,0"/>
             </Grid>
             <Button.Flyout>
               <Flyout Placement="BottomEdgeAlignedLeft">
-                <Border Width="440" Background="{StaticResource Panel}" CornerRadius="4">
+                <!--
+                    Keine feste Breite: die Tabelle darunter misst ihre Spalten
+                    am Inhalt, und der Rahmen richtet sich danach. MaxWidth
+                    deckelt das am Fenster, damit ein Bereich mit sehr langer
+                    Beschreibung das Menue nicht ueber den Bildschirmrand
+                    hinaus zieht.
+                -->
+                <!--
+                    Keine Breitenangabe: das Grid darin misst sich an seinem
+                    Inhalt, und der Rahmen folgt. Die Obergrenze setzt
+                    BuildScopeRows anhand der Fensterbreite - gebunden liesse
+                    sie sich hier nicht, weil das Popup einen eigenen
+                    Namensraum hat und #ShellRoot darin nicht aufloest.
+                -->
+                <Border x:Name="bd_ScopeFlyout" MinWidth="620"
+                        Background="{StaticResource Panel}" CornerRadius="4">
                   <DockPanel LastChildFill="True">
 
-                    <Border DockPanel.Dock="Top" Background="#F6F9F9"
-                            BorderBrush="{StaticResource LineSoft}" BorderThickness="0,0,0,1"
-                            Padding="11,7">
-                      <Grid ColumnDefinitions="Auto,*,Auto">
-                        <TextBlock Grid.Column="0" Text="ZU SCANNENDE BEREICHE"
-                                   FontSize="9" Foreground="{StaticResource Dim}"
-                                   VerticalAlignment="Center"/>
-                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10">
-                          <Button x:Name="bt_ScopesAll" Content="Alle" Background="Transparent"
-                                  BorderThickness="0" Foreground="{StaticResource Teal}"
-                                  FontSize="10.5" Padding="2,0" Click="bt_ScopesAll_Click"/>
-                          <Button x:Name="bt_ScopesNone" Content="Keine" Background="Transparent"
-                                  BorderThickness="0" Foreground="{StaticResource Teal}"
-                                  FontSize="10.5" Padding="2,0" Click="bt_ScopesNone_Click"/>
-                          <Button x:Name="bt_ManageScopes" Content="Verwalten →" Background="Transparent"
-                                  BorderThickness="0" Foreground="{StaticResource Teal}"
-                                  FontSize="10.5" Padding="2,0" Click="bt_ManageScopes_Click"/>
-                        </StackPanel>
-                      </Grid>
-                    </Border>
+                    <StackPanel DockPanel.Dock="Top">
+                      <Border Background="#F6F9F9"
+                              BorderBrush="{StaticResource LineSoft}" BorderThickness="0,0,0,1"
+                              Padding="11,7">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                          <TextBlock Grid.Column="0" Text="RANGES TO SCAN"
+                                     FontSize="9" Foreground="{StaticResource Dim}"
+                                     VerticalAlignment="Center"/>
+                          <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10">
+                            <Button x:Name="bt_ScopesAll" Content="All" Background="Transparent"
+                                    BorderThickness="0" Foreground="{StaticResource Teal}"
+                                    FontSize="10.5" Padding="2,0" Click="bt_ScopesAll_Click"/>
+                            <Button x:Name="bt_ScopesNone" Content="None" Background="Transparent"
+                                    BorderThickness="0" Foreground="{StaticResource Teal}"
+                                    FontSize="10.5" Padding="2,0" Click="bt_ScopesNone_Click"/>
+                            <Button x:Name="bt_ManageScopes" Content="Manage →" Background="Transparent"
+                                    BorderThickness="0" Foreground="{StaticResource Teal}"
+                                    FontSize="10.5" Padding="2,0" Click="bt_ManageScopes_Click"/>
+                          </StackPanel>
+                        </Grid>
+                      </Border>
 
+                    </StackPanel>
+
+                    <!--
+                        Eigene Eingabe. Sie wirkt zusaetzlich zu den Haken -
+                        und ist, wenn keiner gesetzt ist, die ganze Auswahl.
+                        Ohne sie liesse sich nichts nachsehen, ohne erst
+                        einen Bereich anzulegen.
+                    -->
                     <Border DockPanel.Dock="Bottom" Background="#F6F9F9"
                             BorderBrush="{StaticResource LineSoft}" BorderThickness="0,1,0,0"
-                            Padding="11,7">
-                      <TextBlock x:Name="tb_ScopeFooter" FontSize="10"
-                                 Foreground="{StaticResource Dim}" Classes="mono"/>
+                            Padding="11,8">
+                      <StackPanel Spacing="4">
+                        <TextBlock Text="OWN ENTRY" FontSize="9" Foreground="{StaticResource Dim}"/>
+                        <TextBox x:Name="tb_CustomTargets" Height="24" FontSize="11"
+                                 Watermark="192.168.1.1-254 · 10.0.0.5 · 192.168.0.0/24 · host.local"
+                                 Text="{Binding CustomTargets}"/>
+                        <TextBlock x:Name="tb_CustomProblem" FontSize="9.5"
+                                   Foreground="{StaticResource Crit}"
+                                   Text="{Binding CustomTargetsProblem}"
+                                   IsVisible="{Binding CustomTargetsProblem, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                        <TextBlock x:Name="tb_ScopeFooter" FontSize="10"
+                                   Foreground="{StaticResource Dim}" Classes="mono"/>
+                      </StackPanel>
                     </Border>
 
-                    <ItemsControl x:Name="ic_Scopes" MaxHeight="320" Margin="0,2">
-                      <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="model:ScanScope">
-                          <Border BorderBrush="#F1F5F6" BorderThickness="0,0,0,1" Padding="11,5">
-                            <Grid ColumnDefinitions="Auto,*,Auto">
-                              <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}"
-                                        VerticalAlignment="Center" Margin="0,0,8,0"
-                                        IsCheckedChanged="Scope_IsCheckedChanged"/>
-                              <StackPanel Grid.Column="1">
-                                <TextBlock Text="{Binding GroupDescription}" FontSize="11.5"
-                                           FontWeight="SemiBold" Foreground="{StaticResource Ink}"/>
-                                <TextBlock Text="{Binding DeviceDescription}" FontSize="9.5"
-                                           Foreground="{StaticResource Dimmer}"
-                                           IsVisible="{Binding DeviceDescription, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-                              </StackPanel>
-                              <TextBlock Grid.Column="2" Classes="mono" FontSize="9.5"
-                                         Foreground="{StaticResource Dim}" VerticalAlignment="Center"
-                                         Text="{Binding Kind}"/>
-                            </Grid>
-                          </Border>
-                        </DataTemplate>
-                      </ItemsControl.ItemTemplate>
-                    </ItemsControl>
+                    <!--
+                        Ein gewoehnliches Grid mit Auto-Spalten statt eines
+                        DataGrid. Der Unterschied ist genau der, auf den es
+                        hier ankommt: ein Grid misst sich an seinem Inhalt und
+                        laesst den Rahmen darum mitwachsen, ein DataGrid nimmt
+                        den angebotenen Platz und scrollt intern, wenn er nicht
+                        reicht - der Rahmen erfaehrt nie, dass er zu schmal ist.
+
+                        Die Zeilen entstehen in BuildScopeRows, weil ihre Zahl
+                        von den vorhandenen Bereichen abhaengt.
+                    -->
+                    <ScrollViewer MaxHeight="360" HorizontalScrollBarVisibility="Disabled">
+                      <Grid x:Name="grd_Scopes" Margin="0,2"/>
+                    </ScrollViewer>
                   </DockPanel>
                 </Border>
               </Flyout>
             </Button.Flyout>
           </Button>
 
-          <TextBlock Grid.Column="2" Classes="cmdLabel" Text="UMFANG"/>
+          <TextBlock Grid.Column="2" Classes="cmdLabel" Text="SCOPE"/>
 
           <ComboBox Grid.Column="3" x:Name="cb_Profile" MinWidth="120"
                     ItemsSource="{Binding Profiles}"
@@ -339,13 +448,13 @@
           <ToggleButton Grid.Column="4" x:Name="tg_Drawer" Classes="cmd" Margin="6,0,0,0"
                         IsChecked="{Binding IsDrawerOpen}">
             <TextBlock>
-              <Run Text="Verfahren"/>
+              <Run Text="Methods"/>
               <Run Text="{Binding SelectedMethodCount, StringFormat=({0})}"/>
             </TextBlock>
           </ToggleButton>
 
           <Button Grid.Column="5" x:Name="bt_Start" Classes="go" Margin="10,0,0,0"
-                  Content="▶  Scan starten"
+                  Content="▶  Start scan"
                   Command="{Binding StartCommand}"
                   IsEnabled="{Binding CanStart}"/>
 
@@ -375,7 +484,7 @@
                   CornerRadius="3" Padding="9,0" Height="22" VerticalAlignment="Center">
             <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
               <Ellipse Width="6" Height="6" Fill="#4C6469"/>
-              <TextBlock Text="Beobachten aus" Foreground="#7E979C" FontSize="10.5"
+              <TextBlock Text="Watch off" Foreground="#7E979C" FontSize="10.5"
                          VerticalAlignment="Center"/>
             </StackPanel>
           </Border>
@@ -388,19 +497,19 @@
           <Grid ColumnDefinitions="*,*,*,*">
 
             <StackPanel Grid.Column="0" Margin="0,0,12,0">
-              <TextBlock Text="GERAETE FINDEN" Classes="sectionHead"/>
+              <TextBlock Text="DISCOVER DEVICES" Classes="sectionHead"/>
               <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,0,0,6"/>
               <ItemsControl x:Name="ic_Discovery"/>
             </StackPanel>
 
             <StackPanel Grid.Column="1" Margin="0,0,12,0">
-              <TextBlock Text="GERAET BESTIMMEN" Classes="sectionHead"/>
+              <TextBlock Text="IDENTIFY DEVICE" Classes="sectionHead"/>
               <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,0,0,6"/>
               <ItemsControl x:Name="ic_Identification"/>
             </StackPanel>
 
             <StackPanel Grid.Column="2" Margin="0,0,12,0">
-              <TextBlock Text="DIENSTE PRUEFEN" Classes="sectionHead"/>
+              <TextBlock Text="CHECK SERVICES" Classes="sectionHead"/>
               <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,0,0,6"/>
               <ItemsControl x:Name="ic_Services"/>
             </StackPanel>
@@ -419,34 +528,56 @@
 
     <!-- ================= STATUSLEISTE ================= -->
     <Border DockPanel.Dock="Bottom" Background="{StaticResource Chrome2}"
-            BorderBrush="#0F1C1F" BorderThickness="0,1,0,0" Height="26">
-      <Grid Margin="10,0" ColumnDefinitions="Auto,*,Auto">
-        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
-          <TextBlock Classes="mono" FontSize="10.5" Foreground="#93ADB2">
-            <Run Text="{Binding Devices.TotalCount}" Foreground="#D3E4E6"/><Run Text=" Geraete"/>
-          </TextBlock>
-          <TextBlock Classes="mono" FontSize="10.5" Foreground="#93ADB2">
-            <Run Text="{Binding Devices.FilteredOutCount}" Foreground="#D3E4E6"/><Run Text=" gefiltert"/>
-          </TextBlock>
-          <TextBlock Classes="mono" FontSize="10.5" Foreground="#93ADB2">
-            <Run Text="IPv6-faehig "/><Run Text="{Binding Devices.Ipv6CapableCount}" Foreground="#9186F5"/>
-          </TextBlock>
-          <TextBlock Classes="mono" FontSize="10.5" Foreground="#93ADB2">
-            <Run Text="erreichbar "/><Run Text="{Binding Devices.OnlineCount}" Foreground="#D3E4E6"/>
-          </TextBlock>
-        </StackPanel>
+            BorderBrush="#0F1C1F" BorderThickness="0,1,0,0">
+      <StackPanel>
 
-        <TextBlock Grid.Column="1" Text="{Binding StatusText}" FontSize="10.5"
-                   Foreground="#93ADB2" VerticalAlignment="Center"
-                   HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+        <!--
+            Was fertig ist und was noch kommt. Ein Lauf besteht aus mehreren
+            Verfahren nacheinander; ohne diese Zeile sieht man nur das gerade
+            laufende und weiss nicht, ob nach ARP noch eine halbe Stunde
+            Diensterkennung folgt.
+        -->
+        <Border Background="#1A2C32" BorderBrush="#0F1C1F" BorderThickness="0,1,0,0"
+                Padding="10,3" IsVisible="{Binding HasScanPlan}">
+          <StackPanel Orientation="Horizontal" Spacing="18">
+            <TextBlock FontSize="10.5" Foreground="#7E979C" VerticalAlignment="Center">
+              <Run Text="done: "/><Run Text="{Binding CompletedScansText}" Foreground="#5FCBAE"/>
+            </TextBlock>
+            <TextBlock FontSize="10.5" Foreground="#7E979C" VerticalAlignment="Center"
+                       TextTrimming="CharacterEllipsis">
+              <Run Text="pending: "/><Run Text="{Binding PendingScansText}" Foreground="#D3E4E6"/>
+            </TextBlock>
+          </StackPanel>
+        </Border>
 
-        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-          <Button x:Name="bt_Export" Classes="cmd" Content="Exportieren" Height="19" FontSize="10"
-                  Click="bt_Export_Click"/>
-          <Button x:Name="bt_Clear" Classes="cmd" Content="Leeren" Height="19" FontSize="10"
-                  Command="{Binding ClearResultsCommand}"/>
-        </StackPanel>
-      </Grid>
+        <Grid Margin="10,0" Height="26" ColumnDefinitions="Auto,*,Auto">
+          <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+            <TextBlock Classes="mono" FontSize="10.5" Foreground="#93ADB2">
+              <Run Text="{Binding Devices.TotalCount}" Foreground="#D3E4E6"/><Run Text=" devices"/>
+            </TextBlock>
+            <TextBlock Classes="mono" FontSize="10.5" Foreground="#93ADB2">
+              <Run Text="{Binding Devices.FilteredOutCount}" Foreground="#D3E4E6"/><Run Text=" filtered out"/>
+            </TextBlock>
+            <TextBlock Classes="mono" FontSize="10.5" Foreground="#93ADB2">
+              <Run Text="IPv6-capable "/><Run Text="{Binding Devices.Ipv6CapableCount}" Foreground="#9186F5"/>
+            </TextBlock>
+            <TextBlock Classes="mono" FontSize="10.5" Foreground="#93ADB2">
+              <Run Text="reachable "/><Run Text="{Binding Devices.OnlineCount}" Foreground="#D3E4E6"/>
+            </TextBlock>
+          </StackPanel>
+
+          <TextBlock Grid.Column="1" Text="{Binding StatusText}" FontSize="10.5"
+                     Foreground="#93ADB2" VerticalAlignment="Center"
+                     HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+
+          <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+            <Button x:Name="bt_Export" Classes="cmd" Content="Export" Height="19" FontSize="10"
+                    Click="bt_Export_Click"/>
+            <Button x:Name="bt_Clear" Classes="cmd" Content="Clear" Height="19" FontSize="10"
+                    Command="{Binding ClearResultsCommand}"/>
+          </StackPanel>
+        </Grid>
+      </StackPanel>
     </Border>
 
     <!-- ================= RAIL + ARBEITSBEREICH ================= -->
@@ -455,29 +586,29 @@
       <Border Grid.Column="0" Background="{StaticResource Rail}">
         <StackPanel Margin="0,8">
           <RadioButton x:Name="nav_Devices" Classes="nav" GroupName="nav" IsChecked="True"
-                       Content="▤   Geraete" IsCheckedChanged="Nav_Checked" Tag="Devices"/>
+                       Content="▤   Devices" IsCheckedChanged="Nav_Checked" Tag="Devices"/>
           <RadioButton x:Name="nav_Network" Classes="nav" GroupName="nav"
-                       Content="◈   Netz" IsCheckedChanged="Nav_Checked" Tag="Network"/>
+                       Content="◈   Network" IsCheckedChanged="Nav_Checked" Tag="Network"/>
           <RadioButton x:Name="nav_Findings" Classes="nav" GroupName="nav"
-                       Content="⚠   Befunde" IsCheckedChanged="Nav_Checked" Tag="Findings"/>
+                       Content="⚠   Findings" IsCheckedChanged="Nav_Checked" Tag="Findings"/>
           <RadioButton x:Name="nav_Topology" Classes="nav" GroupName="nav"
-                       Content="⬡   Topologie" IsCheckedChanged="Nav_Checked" Tag="Topology"/>
+                       Content="⬡   Topology" IsCheckedChanged="Nav_Checked" Tag="Topology"/>
 
           <Border Height="1" Background="#1E2E32" Margin="12,8"/>
-          <TextBlock Text="VERWALTUNG" Classes="navGroup"/>
+          <TextBlock Text="MANAGE" Classes="navGroup"/>
 
           <RadioButton x:Name="nav_Scopes" Classes="nav" GroupName="nav"
-                       Content="≡   Bereiche" IsCheckedChanged="Nav_Checked" Tag="Scopes"/>
+                       Content="≡   Ranges" IsCheckedChanged="Nav_Checked" Tag="Scopes"/>
           <RadioButton x:Name="nav_Ports" Classes="nav" GroupName="nav"
                        Content="⋮   Ports" IsCheckedChanged="Nav_Checked" Tag="Ports"/>
           <RadioButton x:Name="nav_Services" Classes="nav" GroupName="nav"
-                       Content="◇   Dienste" IsCheckedChanged="Nav_Checked" Tag="Services"/>
+                       Content="◇   Services" IsCheckedChanged="Nav_Checked" Tag="Services"/>
           <RadioButton x:Name="nav_Names" Classes="nav" GroupName="nav"
-                       Content="✎   Namen" IsCheckedChanged="Nav_Checked" Tag="Names"/>
+                       Content="✎   Names" IsCheckedChanged="Nav_Checked" Tag="Names"/>
 
           <Border Height="1" Background="#1E2E32" Margin="12,8"/>
           <RadioButton x:Name="nav_Settings" Classes="nav" GroupName="nav"
-                       Content="⚙   Einstellungen" IsCheckedChanged="Nav_Checked" Tag="Settings"/>
+                       Content="⚙   Settings" IsCheckedChanged="Nav_Checked" Tag="Settings"/>
         </StackPanel>
       </Border>
 
@@ -492,17 +623,17 @@
                   BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1" Padding="8,6">
             <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,*,Auto">
 
-              <TextBox Grid.Column="0" x:Name="tb_Search" Width="190" Watermark="Suche ueber alle Spalten"
+              <TextBox Grid.Column="0" x:Name="tb_Search" Width="190" Watermark="Search across all columns"
                        Text="{Binding Devices.Filter.Text1}"/>
 
               <TextBox Grid.Column="1" x:Name="tb_Search2" Width="120" Margin="4,0,0,0"
-                       Watermark="und ..." Text="{Binding Devices.Filter.Text2}"/>
+                       Watermark="and ..." Text="{Binding Devices.Filter.Text2}"/>
 
               <!-- Dienstauswahl: entsteht aus den tatsaechlichen Funden -->
               <Button Grid.Column="2" x:Name="bt_ServiceFilter" Margin="8,0,0,0" MinWidth="106"
                       HorizontalContentAlignment="Left"
                       Background="White" BorderBrush="#C3D2D4" BorderThickness="1">
-                <TextBlock x:Name="tb_ServiceFilterLabel" Text="Dienst  ▾" FontSize="10.5"
+                <TextBlock x:Name="tb_ServiceFilterLabel" Text="Service  ▾" FontSize="10.5"
                            Foreground="#47595D"/>
                 <Button.Flyout>
                   <Flyout Placement="BottomEdgeAlignedLeft">
@@ -511,9 +642,9 @@
                         <Border DockPanel.Dock="Top" Padding="10,6" Background="#F6F9F9"
                                 BorderBrush="{StaticResource LineSoft}" BorderThickness="0,0,0,1">
                           <Grid ColumnDefinitions="*,Auto">
-                            <CheckBox Grid.Column="0" Content="nur laufende" FontSize="10.5"
+                            <CheckBox Grid.Column="0" Content="only running" FontSize="10.5"
                                       IsChecked="{Binding Devices.Filter.OnlyRunningServices}"/>
-                            <Button Grid.Column="1" x:Name="bt_ServicesNone" Content="Keine"
+                            <Button Grid.Column="1" x:Name="bt_ServicesNone" Content="None"
                                     Background="Transparent" BorderThickness="0"
                                     Foreground="{StaticResource Teal}" FontSize="10.5"
                                     Click="bt_ServicesNone_Click"/>
@@ -545,16 +676,16 @@
 
               <StackPanel Grid.Column="6" Orientation="Horizontal" Spacing="10" Margin="12,0,0,0"
                           VerticalAlignment="Center">
-                <CheckBox Content="nur erreichbar" FontSize="10.5"
+                <CheckBox Content="only reachable" FontSize="10.5"
                           IsChecked="{Binding Devices.Filter.OnlyOnline}"/>
-                <CheckBox Content="global erreichbar" FontSize="10.5"
+                <CheckBox Content="globally reachable" FontSize="10.5"
                           Foreground="{StaticResource V6}"
-                          ToolTip.Tip="Nur Geraete mit globaler IPv6-Adresse - ohne NAT direkt aus dem Internet ansprechbar"
+                          ToolTip.Tip="Only devices with a global IPv6 address - reachable from the internet without NAT"
                           IsChecked="{Binding Devices.Filter.OnlyGloballyReachable}"/>
               </StackPanel>
 
               <StackPanel Grid.Column="8" Orientation="Horizontal" Spacing="6">
-                <Button x:Name="bt_ResetFilter" Content="Filter zuruecksetzen" FontSize="10.5"
+                <Button x:Name="bt_ResetFilter" Content="Reset filters" FontSize="10.5"
                         Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
                         Click="bt_ResetFilter_Click"/>
               </StackPanel>
@@ -581,21 +712,19 @@
                   </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
 
-                <DataGridTemplateColumn Header="GERAET" Width="1.15*">
+                <DataGridTemplateColumn Header="DEVICE" Width="Auto" MinWidth="130">
                   <DataGridTemplateColumn.CellTemplate>
                     <DataTemplate x:DataType="model:Device">
                       <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold"
-                                   FontSize="11.5" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="11.5"/>
                         <TextBlock Text="{Binding GroupDescription}" FontSize="9.5"
-                                   Foreground="{StaticResource Dimmer}"
-                                   TextTrimming="CharacterEllipsis"/>
+                                   Foreground="{StaticResource Dimmer}"/>
                       </StackPanel>
                     </DataTemplate>
                   </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
 
-                <DataGridTemplateColumn Header="IPV4" Width="0.95*">
+                <DataGridTemplateColumn Header="IPV4" Width="Auto" MinWidth="110">
                   <DataGridTemplateColumn.CellTemplate>
                     <DataTemplate x:DataType="model:Device">
                       <TextBlock Classes="mono" FontSize="10.5" VerticalAlignment="Center"
@@ -606,13 +735,12 @@
                   </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
 
-                <DataGridTemplateColumn Header="IPV6" Width="1.35*">
+                <DataGridTemplateColumn Header="IPV6" Width="Auto" MinWidth="150">
                   <DataGridTemplateColumn.CellTemplate>
                     <DataTemplate x:DataType="model:Device">
                       <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="4">
                         <TextBlock Classes="mono" FontSize="10.5"
                                    Text="{Binding Ipv6Text}"
-                                   TextTrimming="CharacterEllipsis"
                                    Foreground="{Binding HasIpv6, Converter={StaticResource V6Brush}}"
                                    FontStyle="{Binding HasIpv6, Converter={StaticResource MissingStyle}}"/>
                         <Border Background="{StaticResource V6Soft}" CornerRadius="3" Padding="4,0"
@@ -625,14 +753,40 @@
                   </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
 
-                <DataGridTextColumn Header="HERSTELLER" Binding="{Binding Vendor}" Width="0.8*"/>
+                <DataGridTextColumn Header="VENDOR" Binding="{Binding Vendor}" Width="Auto" MinWidth="90"/>
 
-                <DataGridTextColumn Header="LAUFENDE DIENSTE" Binding="{Binding RunningServicesText}"
-                                    Width="1.3*"/>
+                <!--
+                    Die laufenden Dienste als Kaestchen statt als Fliesstext -
+                    so liest man auf einen Blick, was auf einem Geraet
+                    tatsaechlich antwortet. Wurde nichts erkannt, bleibt die
+                    Zelle leer; ein "keine erkannt" in jeder Zeile waere
+                    Rauschen, das die wenigen Funde erschlaegt.
+                -->
+                <DataGridTemplateColumn Header="RUNNING SERVICES" Width="Auto" MinWidth="170">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="model:Device">
+                      <ItemsControl ItemsSource="{Binding ServiceChips}" VerticalAlignment="Center">
+                        <ItemsControl.ItemsPanel>
+                          <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" Spacing="3"/>
+                          </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate>
+                            <Border Background="{StaticResource TealSoft}" BorderBrush="#A9D5DB"
+                                    BorderThickness="1" CornerRadius="3" Padding="5,1">
+                              <TextBlock Text="{Binding}" FontSize="9.5" Foreground="#08606C"/>
+                            </Border>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
 
-                <DataGridTextColumn Header="PORTS" Binding="{Binding OpenPortCount}" Width="56"/>
+                <DataGridTextColumn Header="PORTS" Binding="{Binding OpenPortCount}" Width="Auto"/>
 
-                <DataGridTextColumn Header="GESEHEN" Binding="{Binding LastSeenText}" Width="72"/>
+                <DataGridTextColumn Header="SEEN" Binding="{Binding LastSeenText}" Width="Auto"/>
               </DataGrid.Columns>
             </DataGrid>
 
@@ -645,7 +799,7 @@
 
               <!-- Ohne Auswahl ein Hinweis statt eines leeren Kastens -->
               <Panel>
-                <TextBlock Text="Zeile waehlen, um Einzelheiten zu sehen"
+                <TextBlock Text="Select a row to see details"
                            Foreground="{StaticResource Dimmer}" FontSize="11"
                            HorizontalAlignment="Center" VerticalAlignment="Center"
                            IsVisible="{Binding Devices.Selected, Converter={x:Static ObjectConverters.IsNull}}"/>
@@ -682,18 +836,18 @@
                     <!-- Identitaet -->
                     <Border Padding="12,9" BorderBrush="#E3EBEC" BorderThickness="0,0,0,1">
                       <StackPanel>
-                        <TextBlock Text="IDENTITAET" Classes="sectionHead"/>
+                        <TextBlock Text="IDENTITY" Classes="sectionHead"/>
                         <Grid ColumnDefinitions="78,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
                           <TextBlock Grid.Row="0" Grid.Column="0" Text="Hostname" Classes="kvKey"/>
                           <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding HostName}" Classes="kvValue"/>
                           <TextBlock Grid.Row="1" Grid.Column="0" Text="MAC" Classes="kvKey"/>
                           <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding MacText}" Classes="kvValue"/>
-                          <TextBlock Grid.Row="2" Grid.Column="0" Text="Erkannt ueber" Classes="kvKey"/>
+                          <TextBlock Grid.Row="2" Grid.Column="0" Text="Identified by" Classes="kvKey"/>
                           <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding IdentityKey}" Classes="kvValue"/>
-                          <TextBlock Grid.Row="3" Grid.Column="0" Text="Erstmals" Classes="kvKey"/>
+                          <TextBlock Grid.Row="3" Grid.Column="0" Text="First seen" Classes="kvKey"/>
                           <TextBlock Grid.Row="3" Grid.Column="1" Classes="kvValue"
                                      Text="{Binding FirstSeen, StringFormat={}{0:dd.MM.yyyy HH:mm}}"/>
-                          <TextBlock Grid.Row="4" Grid.Column="0" Text="Zuletzt" Classes="kvKey"/>
+                          <TextBlock Grid.Row="4" Grid.Column="0" Text="Last seen" Classes="kvKey"/>
                           <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding LastSeenText}" Classes="kvValue"/>
                         </Grid>
                       </StackPanel>
@@ -703,7 +857,7 @@
                     <Border Padding="12,9" BorderBrush="#E3EBEC" BorderThickness="0,0,0,1">
                       <StackPanel>
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                          <TextBlock Text="ADRESSEN" Classes="sectionHead"/>
+                          <TextBlock Text="ADDRESSES" Classes="sectionHead"/>
                           <Border Background="#E1E9EA" CornerRadius="7" Padding="5,0" Height="13"
                                   VerticalAlignment="Top">
                             <TextBlock Text="{Binding Addresses.Count}" FontSize="8.5"
@@ -741,10 +895,10 @@
                     <Border Padding="12,9" BorderBrush="#E3EBEC" BorderThickness="0,0,0,1"
                             IsVisible="{Binding HasServices}">
                       <StackPanel>
-                        <TextBlock Text="DIENSTE &amp; PORTS" Classes="sectionHead"/>
+                        <TextBlock Text="SERVICES &amp; PORTS" Classes="sectionHead"/>
 
                         <Grid ColumnDefinitions="*,44,44" Margin="0,0,0,3">
-                          <TextBlock Grid.Column="0" Text="Dienst" FontSize="8.5"
+                          <TextBlock Grid.Column="0" Text="Service" FontSize="8.5"
                                      Foreground="{StaticResource Dimmer}"/>
                           <TextBlock Grid.Column="1" Text="v4" FontSize="8.5" TextAlignment="Center"
                                      Foreground="{StaticResource Teal}"/>
@@ -752,7 +906,13 @@
                                      Foreground="{StaticResource V6}"/>
                         </Grid>
 
-                        <ItemsControl ItemsSource="{Binding Services}">
+                        <!--
+                            Nur die Dienste, die geantwortet haben. Gescannt
+                            wird gegen mehrere hundert Definitionen - stuenden
+                            die geschlossenen mit darin, muesste man die zwei
+                            Funde in einer Liste von dreihundert "zu" suchen.
+                        -->
+                        <ItemsControl ItemsSource="{Binding OpenServices}">
                           <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="model:DeviceServiceResult">
                               <Grid ColumnDefinitions="*,44,44" Margin="0,0,0,3">
@@ -783,7 +943,7 @@
                     <!-- Freitext der Module -->
                     <Border Padding="12,9" IsVisible="{Binding HasDetails}">
                       <StackPanel>
-                        <TextBlock Text="WEITERE ANGABEN" Classes="sectionHead"/>
+                        <TextBlock Text="MORE DETAILS" Classes="sectionHead"/>
                         <ItemsControl ItemsSource="{Binding Details}">
                           <ItemsControl.ItemTemplate>
                             <DataTemplate>
@@ -805,6 +965,474 @@
           </Grid>
         </DockPanel>
 
+        <!-- ========== Ansicht: Bereiche ========== -->
+        <!--
+            Liste links, Maske rechts - dieselbe Aufteilung wie im bisherigen
+            Fenster, damit niemand umlernen muss. Gespeichert wird nach jeder
+            Aenderung; es gibt bewusst keinen Speichern-Knopf.
+        -->
+        <Grid x:Name="view_Scopes" IsVisible="False" ColumnDefinitions="380,1,*"
+              Background="{StaticResource Workspace}">
+
+          <DockPanel Grid.Column="0" Background="{StaticResource Panel}" LastChildFill="True">
+
+            <Border DockPanel.Dock="Top" Background="#F6F9F9"
+                    BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1"
+                    Padding="12,8">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Grid.Column="0" Text="RANGES" Classes="settingsHead"
+                           VerticalAlignment="Center"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                  <Button Content="New" Command="{Binding ScopeEditor.AddCommand}"
+                          Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
+                          FontSize="10.5"/>
+                  <Button Content="Duplicate" Command="{Binding ScopeEditor.DuplicateCommand}"
+                          IsEnabled="{Binding ScopeEditor.IsEditable}"
+                          Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
+                          FontSize="10.5"/>
+                  <Button Content="Delete" Command="{Binding ScopeEditor.DeleteCommand}"
+                          IsEnabled="{Binding ScopeEditor.IsEditable}"
+                          Background="White" BorderBrush="#E2B6B1" BorderThickness="1"
+                          Foreground="{StaticResource Crit}" FontSize="10.5"/>
+                </StackPanel>
+              </Grid>
+            </Border>
+
+            <Border DockPanel.Dock="Bottom" Background="#F6F9F9"
+                    BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0"
+                    Padding="12,6">
+              <TextBlock Text="{Binding ScopeEditor.Status}" FontSize="10"
+                         Foreground="{StaticResource Dim}" TextTrimming="CharacterEllipsis"/>
+            </Border>
+
+            <ListBox ItemsSource="{Binding Scopes}"
+                     SelectedItem="{Binding ScopeEditor.Selected}"
+                     Background="Transparent" BorderThickness="0">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="model:ScanScope">
+                  <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                    <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}"
+                              VerticalAlignment="Center"
+                              ToolTip.Tip="Include this range in the next scan"/>
+                    <StackPanel Grid.Column="1" Spacing="1">
+                      <TextBlock Text="{Binding GroupDescription}" FontSize="12"
+                                 FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                      <TextBlock Text="{Binding RangeText}" Classes="mono" FontSize="10"
+                                 Foreground="{StaticResource Teal}"
+                                 TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </DockPanel>
+
+          <Border Grid.Column="1" Background="{StaticResource Line}"/>
+
+          <Panel Grid.Column="2">
+
+            <TextBlock Text="Select a range on the left, or create a new one"
+                       Foreground="{StaticResource Dimmer}" FontSize="12"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                       IsVisible="{Binding !ScopeEditor.HasSelection}"/>
+
+            <ScrollViewer IsVisible="{Binding ScopeEditor.HasSelection}" Padding="20">
+              <StackPanel MaxWidth="620" HorizontalAlignment="Left" Spacing="14"
+                          DataContext="{Binding ScopeEditor}">
+
+                <!-- Der Adapter-Bereich wird erzeugt, nicht gespeichert -->
+                <Border Background="#FFF6E6" BorderBrush="#E8CE9B" BorderThickness="1"
+                        CornerRadius="4" Padding="12,9"
+                        IsVisible="{Binding !IsEditable}">
+                  <TextBlock FontSize="11" Foreground="#7A5A18" TextWrapping="Wrap"
+                             Text="This range is derived from the network adapter your machine is actually connected through. It is rebuilt on every start and cannot be edited or deleted."/>
+                </Border>
+
+                <Border Background="{StaticResource CritSoft}" BorderBrush="#E2B6B1"
+                        BorderThickness="1" CornerRadius="4" Padding="12,8"
+                        IsVisible="{Binding Problem, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                  <TextBlock Text="{Binding Problem}" FontSize="11"
+                             Foreground="{StaticResource Crit}" TextWrapping="Wrap"/>
+                </Border>
+
+                <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
+                        BorderThickness="1" CornerRadius="4" Padding="16,14"
+                        IsEnabled="{Binding IsEditable}">
+                  <StackPanel Spacing="11">
+                    <TextBlock Text="ADDRESSES" Classes="settingsHead"/>
+
+                    <Grid ColumnDefinitions="130,*" RowDefinitions="Auto,Auto,Auto,Auto"
+                          ColumnSpacing="10" RowSpacing="8">
+                      <TextBlock Grid.Row="0" Grid.Column="0" Text="Name" Classes="settingLabel"/>
+                      <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Selected.GroupDescription}"
+                               Watermark="e.g. Office 2nd floor"/>
+
+                      <TextBlock Grid.Row="1" Grid.Column="0" Text="Description" Classes="settingLabel"/>
+                      <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Selected.DeviceDescription}"
+                               Watermark="What lives here - printers, clients, cameras"/>
+
+                      <TextBlock Grid.Row="2" Grid.Column="0" Text="First IP" Classes="settingLabel"/>
+                      <TextBox Grid.Row="2" Grid.Column="1" Classes="mono" Width="190"
+                               HorizontalAlignment="Left" Text="{Binding Selected.FirstIP}"/>
+
+                      <TextBlock Grid.Row="3" Grid.Column="0" Text="Last IP" Classes="settingLabel"/>
+                      <TextBox Grid.Row="3" Grid.Column="1" Classes="mono" Width="190"
+                               HorizontalAlignment="Left" Text="{Binding Selected.LastIP}"/>
+                    </Grid>
+                  </StackPanel>
+                </Border>
+
+                <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
+                        BorderThickness="1" CornerRadius="4" Padding="16,14"
+                        IsEnabled="{Binding IsEditable}">
+                  <StackPanel Spacing="11">
+                    <TextBlock Text="NAME RESOLUTION" Classes="settingsHead"/>
+
+                    <Grid ColumnDefinitions="130,*" RowDefinitions="Auto,Auto"
+                          ColumnSpacing="10" RowSpacing="8">
+                      <TextBlock Grid.Row="0" Grid.Column="0" Text="Domain" Classes="settingLabel"/>
+                      <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Selected.Domain}"
+                               Watermark="e.g. company.local"/>
+
+                      <TextBlock Grid.Row="1" Grid.Column="0" Text="DNS servers" Classes="settingLabel"/>
+                      <TextBox Grid.Row="1" Grid.Column="1" Classes="mono"
+                               Text="{Binding Selected.DnsServers}"
+                               Watermark="10.0.0.1, 10.0.0.2"/>
+                    </Grid>
+
+                    <TextBlock Classes="settingHint"
+                               Text="Used to resolve hostnames for this range. Several servers separated by comma. A DNS server set under Settings overrides all of these."/>
+                  </StackPanel>
+                </Border>
+
+                <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
+                        BorderThickness="1" CornerRadius="4" Padding="16,14"
+                        IsEnabled="{Binding IsEditable}">
+                  <StackPanel Spacing="11">
+                    <TextBlock Text="REMOTE ACCESS" Classes="settingsHead"/>
+
+                    <Grid ColumnDefinitions="130,*" RowDefinitions="Auto,Auto"
+                          ColumnSpacing="10" RowSpacing="8">
+                      <TextBlock Grid.Row="0" Grid.Column="0" Text="Gateway IP" Classes="settingLabel"/>
+                      <TextBox Grid.Row="0" Grid.Column="1" Classes="mono" Width="190"
+                               HorizontalAlignment="Left" Text="{Binding Selected.GatewayIP}"/>
+
+                      <TextBlock Grid.Row="1" Grid.Column="0" Text="Gateway port" Classes="settingLabel"/>
+                      <TextBox Grid.Row="1" Grid.Column="1" Classes="mono" Width="90"
+                               HorizontalAlignment="Left" Text="{Binding Selected.GatewayPort}"/>
+                    </Grid>
+
+                    <TextBlock Classes="settingHint"
+                               Text="Scans this range through another instance running in that segment. Leave empty to scan directly from this machine."/>
+                  </StackPanel>
+                </Border>
+
+                <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
+                        BorderThickness="1" CornerRadius="4" Padding="16,14"
+                        IsEnabled="{Binding IsEditable}">
+                  <StackPanel Spacing="9">
+                    <TextBlock Text="AUTOMATIC SCAN" Classes="settingsHead"/>
+
+                    <CheckBox Content="Scan this range on a schedule"
+                              IsChecked="{Binding Selected.AutomaticScan}"/>
+
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                      <TextBlock Text="Every" Classes="settingLabel"/>
+                      <TextBox Width="70" Classes="mono"
+                               Text="{Binding Selected.ScanIntervalMinutes}"
+                               IsEnabled="{Binding Selected.AutomaticScan}"/>
+                      <TextBlock Text="minutes" Classes="settingLabel"/>
+                    </StackPanel>
+
+                    <TextBlock Classes="settingHint"
+                               Text="Stored with the range. The scheduler that acts on it is not built into this window yet."/>
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+            </ScrollViewer>
+          </Panel>
+        </Grid>
+
+        <!-- ========== Ansicht: Ports ========== -->
+        <!--
+            Eine Tabelle statt einer Maske: hier wird nicht ein Eintrag
+            bearbeitet, sondern in Serie abgehakt. Die Knoepfe "all TCP" und
+            "none" wirken bewusst nur auf die gefilterten Zeilen - wer nach
+            "SQL" sucht und dann alles anhakt, meint die SQL-Ports.
+        -->
+        <DockPanel x:Name="view_Ports" IsVisible="False" LastChildFill="True"
+                   Background="{StaticResource Workspace}">
+
+          <Border DockPanel.Dock="Top" Background="{StaticResource Panel}"
+                  BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1" Padding="12,8">
+            <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" ColumnSpacing="10">
+              <TextBox Grid.Column="0" Width="220" Watermark="Search port or description"
+                       Text="{Binding PortEditor.Filter}"/>
+
+              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                <TextBlock Text="TCP" Classes="settingLabel" FontSize="10.5"
+                           Foreground="{StaticResource Dim}" Margin="6,0,2,0"/>
+                <Button Content="all" FontSize="10.5" Command="{Binding PortEditor.AllTcpCommand}"
+                        Background="White" BorderBrush="#C3D2D4" BorderThickness="1"/>
+                <Button Content="none" FontSize="10.5" Command="{Binding PortEditor.NoTcpCommand}"
+                        Background="White" BorderBrush="#C3D2D4" BorderThickness="1"/>
+              </StackPanel>
+
+              <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4">
+                <TextBlock Text="UDP" Classes="settingLabel" FontSize="10.5"
+                           Foreground="{StaticResource Dim}" Margin="6,0,2,0"/>
+                <Button Content="all" FontSize="10.5" Command="{Binding PortEditor.AllUdpCommand}"
+                        Background="White" BorderBrush="#C3D2D4" BorderThickness="1"/>
+                <Button Content="none" FontSize="10.5" Command="{Binding PortEditor.NoUdpCommand}"
+                        Background="White" BorderBrush="#C3D2D4" BorderThickness="1"/>
+              </StackPanel>
+
+              <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="6">
+                <Button Content="New port" FontSize="10.5" Command="{Binding PortEditor.AddCommand}"
+                        Background="White" BorderBrush="#C3D2D4" BorderThickness="1"/>
+                <Button Content="Delete" FontSize="10.5" Command="{Binding PortEditor.DeleteCommand}"
+                        Background="White" BorderBrush="#E2B6B1" BorderThickness="1"
+                        Foreground="{StaticResource Crit}"/>
+              </StackPanel>
+            </Grid>
+          </Border>
+
+          <Border DockPanel.Dock="Bottom" Background="{StaticResource Panel}"
+                  BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="12,6">
+            <Grid ColumnDefinitions="Auto,*">
+              <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="16">
+                <TextBlock Classes="mono" FontSize="10.5" Foreground="{StaticResource Dim}">
+                  <Run Text="{Binding PortEditor.TotalCount}" Foreground="#142326"/><Run Text=" ports"/>
+                </TextBlock>
+                <TextBlock Classes="mono" FontSize="10.5" Foreground="{StaticResource Dim}">
+                  <Run Text="{Binding PortEditor.TcpCount}" Foreground="#0B7C8B"/><Run Text=" TCP"/>
+                </TextBlock>
+                <TextBlock Classes="mono" FontSize="10.5" Foreground="{StaticResource Dim}">
+                  <Run Text="{Binding PortEditor.UdpCount}" Foreground="#5A4FCF"/><Run Text=" UDP"/>
+                </TextBlock>
+              </StackPanel>
+              <TextBlock Grid.Column="1" Text="{Binding PortEditor.Status}" FontSize="10"
+                         Foreground="{StaticResource Dimmer}" HorizontalAlignment="Right"
+                         VerticalAlignment="Center"/>
+            </Grid>
+          </Border>
+
+          <DataGrid ItemsSource="{Binding PortEditor.Visible}"
+                    SelectedItem="{Binding PortEditor.Selected}"
+                    AutoGenerateColumns="False" IsReadOnly="False"
+                    CanUserResizeColumns="True" SelectionMode="Single">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="PORT" Binding="{Binding Port}" Width="90"/>
+              <DataGridCheckBoxColumn Header="TCP" Binding="{Binding Tcp}" Width="60"/>
+              <DataGridCheckBoxColumn Header="UDP" Binding="{Binding Udp}" Width="60"/>
+              <DataGridTextColumn Header="DESCRIPTION" Binding="{Binding Description}" Width="*"/>
+            </DataGrid.Columns>
+          </DataGrid>
+        </DockPanel>
+
+        <!-- ========== Ansicht: Dienste ========== -->
+        <DockPanel x:Name="view_Services" IsVisible="False" LastChildFill="True"
+                   Background="{StaticResource Workspace}">
+
+          <Border DockPanel.Dock="Top" Background="{StaticResource Panel}"
+                  BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1" Padding="12,8">
+            <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="10">
+              <TextBox Grid.Column="0" Width="220" Watermark="Search service, group or port"
+                       Text="{Binding ServiceEditor.Filter}"/>
+
+              <CheckBox Grid.Column="1" Content="only selected" FontSize="10.5"
+                        VerticalAlignment="Center"
+                        IsChecked="{Binding ServiceEditor.OnlySelected}"/>
+
+              <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6">
+                <Button Content="Select all" FontSize="10.5"
+                        Command="{Binding ServiceEditor.SelectAllCommand}"
+                        Background="White" BorderBrush="#C3D2D4" BorderThickness="1"/>
+                <Button Content="Select none" FontSize="10.5"
+                        Command="{Binding ServiceEditor.SelectNoneCommand}"
+                        Background="White" BorderBrush="#C3D2D4" BorderThickness="1"/>
+              </StackPanel>
+            </Grid>
+          </Border>
+
+          <Border DockPanel.Dock="Bottom" Background="{StaticResource Panel}"
+                  BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="12,6">
+            <Grid ColumnDefinitions="Auto,*">
+              <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="16">
+                <TextBlock Classes="mono" FontSize="10.5" Foreground="{StaticResource Dim}">
+                  <Run Text="{Binding ServiceEditor.SelectedCount}" Foreground="#0B7C8B"/><Run Text=" of "/><Run Text="{Binding ServiceEditor.TotalCount}"/><Run Text=" services selected"/>
+                </TextBlock>
+
+                <!-- Leere Auswahl heisst "alle" - das gehoert gesagt -->
+                <TextBlock FontSize="10.5" Foreground="{StaticResource Warn}"
+                           IsVisible="{Binding ServiceEditor.ScansEverything}"
+                           Text="Nothing selected - a scan then looks for every service."/>
+              </StackPanel>
+              <TextBlock Grid.Column="1" Text="{Binding ServiceEditor.Status}" FontSize="10"
+                         Foreground="{StaticResource Dimmer}" HorizontalAlignment="Right"
+                         VerticalAlignment="Center"/>
+            </Grid>
+          </Border>
+
+          <DataGrid ItemsSource="{Binding ServiceEditor.Visible}"
+                    SelectedItem="{Binding ServiceEditor.Selected}"
+                    AutoGenerateColumns="False" IsReadOnly="False"
+                    CanUserResizeColumns="True" SelectionMode="Single">
+            <DataGrid.Columns>
+              <DataGridCheckBoxColumn Header="SCAN" Binding="{Binding ToScan}" Width="60"/>
+              <DataGridTextColumn Header="SERVICE" Binding="{Binding Name}" Width="200" IsReadOnly="True"/>
+              <DataGridTextColumn Header="GROUP" Binding="{Binding Group}" Width="150" IsReadOnly="True"/>
+              <DataGridTextColumn Header="PORTS" Binding="{Binding Ports}" Width="220"/>
+
+              <!--
+                  Das Erkennungspaket wird gezeigt, nicht bearbeitet. Es ist das
+                  Herz der Diensterkennung - ein Byte daran geaendert, und ein
+                  Dienst wird nicht mehr gefunden, ohne dass die Ursache
+                  erkennbar waere.
+              -->
+              <DataGridTemplateColumn Header="DETECTION PACKET" Width="*">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding DetectionPacket}" Classes="mono" FontSize="10"
+                               Foreground="{StaticResource Dimmer}" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTip.Tip="Read-only: the probe used to recognise this service"/>
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+            </DataGrid.Columns>
+          </DataGrid>
+        </DockPanel>
+
+        <!-- ========== Ansicht: Einstellungen ========== -->
+        <!--
+            Zwei Spalten statt der frueheren Streuung ueber sechs Reiter. Was
+            den Scan betrifft, steht links; was Ablage und Umgebung betrifft,
+            rechts. Jede Einstellung traegt einen Satz, der sagt, was sie
+            bewirkt - ein Schieberegler namens "TimeOut" allein sagt niemandem,
+            ob gross oder klein besser ist.
+
+            Jede Aenderung wird sofort gespeichert; es gibt bewusst keinen
+            Speichern-Knopf, den man vergessen kann.
+        -->
+        <ScrollViewer x:Name="view_Settings" IsVisible="False"
+                      Background="{StaticResource Workspace}" Padding="18">
+          <Grid ColumnDefinitions="*,18,*" MaxWidth="1100" HorizontalAlignment="Left">
+
+            <StackPanel Grid.Column="0" Spacing="14">
+
+              <!-- Scan -->
+              <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
+                      BorderThickness="1" CornerRadius="4" Padding="16,14">
+                <StackPanel Spacing="14">
+                  <TextBlock Text="SCAN" Classes="settingsHead"/>
+
+                  <StackPanel Spacing="5">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock Grid.Column="0" Text="Port timeout" Classes="settingLabel"/>
+                      <TextBlock Grid.Column="1" Classes="mono" FontSize="11"
+                                 Foreground="{StaticResource Teal}" VerticalAlignment="Center">
+                        <Run Text="{Binding Settings.PortTimeoutMs}"/><Run Text=" ms"/>
+                      </TextBlock>
+                    </Grid>
+                    <Slider x:Name="sl_Timeout" Minimum="10" Maximum="3000"
+                            TickFrequency="10" IsSnapToTickEnabled="True"
+                            SmallChange="10" LargeChange="100" MaxWidth="460"
+                            HorizontalAlignment="Stretch"
+                            Value="{Binding Settings.PortTimeoutMs, Mode=TwoWay}"/>
+                    <TextBlock Classes="settingHint"
+                               Text="How long a single port may take to answer. Low values scan faster but miss slow or distant devices; high values are thorough but drag out a run over many targets."/>
+                  </StackPanel>
+
+                  <StackPanel Spacing="3">
+                    <CheckBox Content="Scan all 65,536 TCP ports"
+                              IsChecked="{Binding Settings.ScanAllPorts}"/>
+                    <TextBlock Classes="settingHint"
+                               Text="Ignores the port collection and tries every port. Finds services on unusual ports - and takes hours instead of minutes."/>
+                  </StackPanel>
+
+                  <StackPanel Spacing="3">
+                    <CheckBox Content="Only scan targets already in the table"
+                              IsChecked="{Binding Settings.OnlyKnownTargets}"/>
+                    <TextBlock Classes="settingHint"
+                               Text="Turns a sweep over a whole subnet into a follow-up on the few addresses that answered. The usual choice for a second and third pass."/>
+                  </StackPanel>
+
+                  <StackPanel Spacing="3">
+                    <CheckBox Content="Clear the ARP cache before scanning"
+                              IsChecked="{Binding Settings.ClearArpCacheFirst}"/>
+                    <TextBlock Classes="settingHint"
+                               Text="Forces every MAC address to be resolved again instead of taken from the cache. Needs elevated rights; without them the scan simply keeps the cached entries."/>
+                  </StackPanel>
+                </StackPanel>
+              </Border>
+
+              <!-- Namensaufloesung -->
+              <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
+                      BorderThickness="1" CornerRadius="4" Padding="16,14">
+                <StackPanel Spacing="10">
+                  <TextBlock Text="NAME RESOLUTION" Classes="settingsHead"/>
+
+                  <StackPanel Spacing="5">
+                    <TextBlock Text="DNS server override" Classes="settingLabel"/>
+                    <TextBox Width="230" HorizontalAlignment="Left" Watermark="e.g. 10.0.0.1"
+                             Text="{Binding Settings.OverrideDnsServer}"/>
+                    <TextBlock Classes="settingHint"
+                               Text="Overrides the DNS servers stored on each range, for every range at once. Leave empty to use what each range defines."/>
+                  </StackPanel>
+                </StackPanel>
+              </Border>
+            </StackPanel>
+
+            <StackPanel Grid.Column="2" Spacing="14">
+
+              <!-- Ablage -->
+              <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
+                      BorderThickness="1" CornerRadius="4" Padding="16,14">
+                <StackPanel Spacing="12">
+                  <TextBlock Text="STORAGE" Classes="settingsHead"/>
+
+                  <StackPanel Spacing="4">
+                    <TextBlock Text="Settings folder" Classes="settingLabel"/>
+                    <TextBlock Text="{Binding SettingsFolder}" Classes="mono" FontSize="10"
+                               Foreground="{StaticResource Dim}" TextWrapping="Wrap"/>
+                    <Button x:Name="bt_OpenSettingsFolder" Content="Open folder"
+                            HorizontalAlignment="Left" Margin="0,3,0,0"
+                            Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
+                            Click="bt_OpenSettingsFolder_Click"/>
+                    <TextBlock Classes="settingHint"
+                               Text="Holds the ranges, the port collection, the service definitions and these settings - one file each, all plain text."/>
+                  </StackPanel>
+
+                  <Border Height="1" Background="{StaticResource LineSoft}"/>
+
+                  <StackPanel Spacing="4">
+                    <TextBlock Text="Application folder" Classes="settingLabel"/>
+                    <TextBlock Text="{Binding ApplicationFolder}" Classes="mono" FontSize="10"
+                               Foreground="{StaticResource Dim}" TextWrapping="Wrap"/>
+                    <Button x:Name="bt_OpenAppFolder" Content="Open folder"
+                            HorizontalAlignment="Left" Margin="0,3,0,0"
+                            Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
+                            Click="bt_OpenAppFolder_Click"/>
+                  </StackPanel>
+                </StackPanel>
+              </Border>
+
+              <!-- Was hier noch nicht steht -->
+              <Border Background="#F4F8F8" BorderBrush="{StaticResource Line}"
+                      BorderThickness="1" CornerRadius="4" Padding="16,14">
+                <StackPanel Spacing="7">
+                  <TextBlock Text="NOT HERE YET" Classes="settingsHead"/>
+                  <TextBlock Classes="settingHint"
+                             Text="Ports, service definitions and hostname mapping have their own pages in the rail - they are lists, not switches, and are still being moved over."/>
+                  <TextBlock Classes="settingHint"
+                             Text="Saving the last scan result and the topology renderer option follow once those parts exist in this window; a switch that does nothing would be worse than none."/>
+                </StackPanel>
+              </Border>
+            </StackPanel>
+          </Grid>
+        </ScrollViewer>
+
         <!-- ========== Noch nicht gebaute Ansichten ========== -->
         <Border x:Name="view_Placeholder" IsVisible="False"
                 Background="{StaticResource Workspace}">
@@ -817,7 +1445,7 @@
 
             <!-- Solange eine Ansicht hier fehlt, gibt es sie im bisherigen
                  Fenster noch - ein Klick statt eines Neustarts. -->
-            <Button x:Name="bt_OpenClassic" Content="Im bisherigen Fenster oeffnen"
+            <Button x:Name="bt_OpenClassic" Content="Open in the previous window"
                     HorizontalAlignment="Center" Margin="0,10,0,0"
                     Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
                     Click="bt_OpenClassic_Click"/>

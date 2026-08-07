@@ -137,6 +137,9 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
                 List<ScopeRuntime> scopes = ScopeRuntimeFactory.Build(selectedScopes);
                 List<ScanTargetEntry> targets = ScopeRuntimeFactory.BuildTargets(scopes);
 
+                if (settings.ClearArpCacheFirst) FlushArpCache();
+                if (settings.OnlyKnownTargets) targets = KeepKnown(targets, store);
+
                 HashSet<string> wanted = new(selectedMethodIds, StringComparer.OrdinalIgnoreCase);
 
                 foreach (ScanPhase phase in Enum.GetValues<ScanPhase>().OrderBy(p => (int)p))
@@ -168,6 +171,38 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
             {
                 _cts.Dispose();
                 _cts = null;
+            }
+        }
+
+        /// <summary>
+        /// Leert den ARP-Cache des Systems. Ein Fehlschlag ist kein Grund, den
+        /// Lauf abzubrechen - ohne erhoehte Rechte geht es schlicht nicht, und
+        /// der Scan liefert dann eben die zwischengespeicherten Zuordnungen.
+        /// </summary>
+        private static void FlushArpCache()
+        {
+            try { Services.PlatformServices.ArpOrNull?.FlushArpCache(); }
+            catch (Exception) { /* siehe oben */ }
+        }
+
+        /// <summary>
+        /// Reduziert die Ziele auf die bereits bekannten Geraete. Aus einem
+        /// Lauf ueber ein ganzes /24 wird damit ein Nachfassen bei den wenigen
+        /// Adressen, die tatsaechlich belegt sind - der uebliche zweite und
+        /// dritte Durchgang.
+        /// <para>
+        /// Hostnamen bleiben in jedem Fall stehen: ob sie zu einem bekannten
+        /// Geraet gehoeren, weiss man erst nach dem Aufloesen.
+        /// </para>
+        /// </summary>
+        private static List<ScanTargetEntry> KeepKnown(List<ScanTargetEntry> targets, DeviceStore store)
+        {
+            lock (store.SyncRoot)
+            {
+                return
+                [
+                    .. targets.Where(t => t.Address is null || store.FindByAddress(t.Address) is not null)
+                ];
             }
         }
 

@@ -1,4 +1,5 @@
 using System.Net.NetworkInformation;
+using CommunityToolkit.Mvvm.ComponentModel;
 using MyNetworkMonitor.Core.Model;
 using MyNetworkMonitor.Core.Network;
 
@@ -146,27 +147,35 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
     /// Einstellungen, die fuer den gesamten Durchlauf gelten. Was heute ueber
     /// Schieberegler und Kaestchen im Hauptfenster verstreut ist.
     /// </summary>
-    public sealed class ScanSettings
+    public sealed partial class ScanSettings : ObservableObject
     {
         /// <summary>Zeitlimit je Port, in Millisekunden. Entspricht dem bisherigen Schieberegler.</summary>
-        public int PortTimeoutMs { get; set; } = 1000;
+        [ObservableProperty] private int _portTimeoutMs = 1000;
 
         public List<int> TcpPorts { get; init; } = [];
         public List<int> UdpPorts { get; init; } = [];
 
         /// <summary>Alle 65 536 Ports statt der Auswahl.</summary>
-        public bool ScanAllPorts { get; set; }
+        [ObservableProperty] private bool _scanAllPorts;
 
         /// <summary>Zu pruefende Dienste. Leer heisst: alle aktivierten.</summary>
         public List<ServiceType> Services { get; init; } = [];
 
-        /// <summary>Nur Ziele pruefen, die schon in der Tabelle stehen.</summary>
-        public bool OnlyKnownTargets { get; set; }
+        /// <summary>
+        /// Nur Ziele pruefen, die schon in der Tabelle stehen. Aus einem Scan
+        /// ueber 254 Adressen wird damit ein Nachfassen bei den zwoelf, die
+        /// tatsaechlich da sind.
+        /// </summary>
+        [ObservableProperty] private bool _onlyKnownTargets;
 
-        /// <summary>Abweichender DNS-Server fuer die Namensaufloesung.</summary>
-        public string? OverrideDnsServer { get; set; }
+        /// <summary>
+        /// Abweichender DNS-Server fuer die Namensaufloesung. Sticht die
+        /// Server, die am Bereich hinterlegt sind - fuer den Fall, dass man
+        /// gegen einen bestimmten Server pruefen will.
+        /// </summary>
+        [ObservableProperty] private string? _overrideDnsServer;
 
         /// <summary>ARP-Cache vor dem Scan leeren.</summary>
-        public bool ClearArpCacheFirst { get; set; }
+        [ObservableProperty] private bool _clearArpCacheFirst;
     }
 }
