@@ -264,25 +264,44 @@
     </Style>
 
     <!-- Abschnittsueberschrift im Detailpanel -->
-    <Style Selector="TextBlock.sectionHead">
+    <Style Selector=":is(TextBlock).sectionHead">
       <Setter Property="FontSize" Value="9.5"/>
       <Setter Property="Foreground" Value="#7E9095"/>
       <Setter Property="Margin" Value="0,0,0,6"/>
     </Style>
 
-    <Style Selector="TextBlock.kvKey">
+    <Style Selector=":is(TextBlock).kvKey">
       <Setter Property="FontSize" Value="10.5"/>
       <Setter Property="Foreground" Value="#7E9095"/>
     </Style>
-    <Style Selector="TextBlock.kvValue">
+    <Style Selector=":is(TextBlock).kvValue">
       <Setter Property="FontSize" Value="10.5"/>
       <Setter Property="Foreground" Value="#223438"/>
       <Setter Property="FontFamily" Value="Cascadia Mono,Consolas,monospace"/>
       <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
     </Style>
 
-    <Style Selector="TextBlock.mono">
+    <Style Selector=":is(TextBlock).mono">
       <Setter Property="FontFamily" Value="Cascadia Mono,Consolas,monospace"/>
+    </Style>
+
+    <!--
+        Im Detailpanel laesst sich jeder Wert markieren und kopieren. Eine
+        MAC-Adresse abzuschreiben, weil man sie nur ansehen darf, ist genau
+        die Art Reibung, die eine Oberflaeche vermeiden soll.
+
+        Das Kontextmenue kommt an alle SelectableTextBlock auf einmal - an
+        siebenunddreissig Stellen einzeln waere es beim naechsten neuen Feld
+        vergessen.
+    -->
+    <Style Selector="SelectableTextBlock">
+      <Setter Property="Cursor" Value="Ibeam"/>
+      <Setter Property="ContextFlyout">
+        <MenuFlyout>
+          <MenuItem Header="Copy" Command="{Binding $parent[SelectableTextBlock].Copy}"/>
+          <MenuItem Header="Select all" Command="{Binding $parent[SelectableTextBlock].SelectAll}"/>
+        </MenuFlyout>
+      </Setter>
     </Style>
 
     <!-- Einstellungsseite -->
@@ -869,13 +888,13 @@
                         <StackPanel Orientation="Horizontal" Spacing="7">
                           <Ellipse Width="7" Height="7" VerticalAlignment="Center"
                                    Fill="{Binding IsOnline, Converter={StaticResource OnlineBrush}}"/>
-                          <TextBlock Text="{Binding DisplayName}" FontSize="13.5"
+                          <SelectableTextBlock Text="{Binding DisplayName}" FontSize="13.5"
                                      FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
                         </StackPanel>
-                        <TextBlock Classes="mono" FontSize="10" Foreground="{StaticResource Dim}"
+                        <SelectableTextBlock Classes="mono" FontSize="10" Foreground="{StaticResource Dim}"
                                    TextTrimming="CharacterEllipsis">
                           <Run Text="{Binding Vendor}"/><Run Text=" · "/><Run Text="{Binding MacText}"/>
-                        </TextBlock>
+                        </SelectableTextBlock>
                       </StackPanel>
                     </Border>
 
@@ -886,9 +905,9 @@
                             Background="{Binding Conflicts, Converter={StaticResource DupBg}}"
                             BorderBrush="#E3EBEC" BorderThickness="0,0,0,1">
                       <StackPanel Spacing="3">
-                        <TextBlock Text="DUPLICATE ASSIGNMENT" Classes="sectionHead"
+                        <SelectableTextBlock Text="DUPLICATE ASSIGNMENT" Classes="sectionHead"
                                    Foreground="{Binding Conflicts, Converter={StaticResource DupFg}}"/>
-                        <TextBlock Text="{Binding ConflictDetails}" FontSize="10.5"
+                        <SelectableTextBlock Text="{Binding ConflictDetails}" FontSize="10.5"
                                    TextWrapping="Wrap"
                                    Foreground="{Binding Conflicts, Converter={StaticResource DupFg}}"/>
                       </StackPanel>
@@ -899,13 +918,13 @@
                     <Border Padding="12,9" BorderBrush="#E3EBEC" BorderThickness="0,0,0,1"
                             IsVisible="{Binding WasLookedUp}">
                       <StackPanel>
-                        <TextBlock Text="NAME SERVICE" Classes="sectionHead"/>
+                        <SelectableTextBlock Text="NAME SERVICE" Classes="sectionHead"/>
                         <Grid ColumnDefinitions="78,*" RowDefinitions="Auto,Auto">
-                          <TextBlock Grid.Row="0" Grid.Column="0" Text="Resolves to" Classes="kvKey"/>
-                          <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding LookupAddressText}"
+                          <SelectableTextBlock Grid.Row="0" Grid.Column="0" Text="Resolves to" Classes="kvKey"/>
+                          <SelectableTextBlock Grid.Row="0" Grid.Column="1" Text="{Binding LookupAddressText}"
                                      Classes="kvValue" TextWrapping="Wrap"/>
-                          <TextBlock Grid.Row="1" Grid.Column="0" Text="Aliases" Classes="kvKey"/>
-                          <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding AliasText}"
+                          <SelectableTextBlock Grid.Row="1" Grid.Column="0" Text="Aliases" Classes="kvKey"/>
+                          <SelectableTextBlock Grid.Row="1" Grid.Column="1" Text="{Binding AliasText}"
                                      Classes="kvValue" TextWrapping="Wrap"/>
                         </Grid>
                       </StackPanel>
@@ -914,19 +933,19 @@
                     <!-- Identitaet -->
                     <Border Padding="12,9" BorderBrush="#E3EBEC" BorderThickness="0,0,0,1">
                       <StackPanel>
-                        <TextBlock Text="IDENTITY" Classes="sectionHead"/>
+                        <SelectableTextBlock Text="IDENTITY" Classes="sectionHead"/>
                         <Grid ColumnDefinitions="78,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
-                          <TextBlock Grid.Row="0" Grid.Column="0" Text="Hostname" Classes="kvKey"/>
-                          <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding HostName}" Classes="kvValue"/>
-                          <TextBlock Grid.Row="1" Grid.Column="0" Text="MAC" Classes="kvKey"/>
-                          <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding MacText}" Classes="kvValue"/>
-                          <TextBlock Grid.Row="2" Grid.Column="0" Text="Identified by" Classes="kvKey"/>
-                          <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding IdentityKey}" Classes="kvValue"/>
-                          <TextBlock Grid.Row="3" Grid.Column="0" Text="First seen" Classes="kvKey"/>
-                          <TextBlock Grid.Row="3" Grid.Column="1" Classes="kvValue"
+                          <SelectableTextBlock Grid.Row="0" Grid.Column="0" Text="Hostname" Classes="kvKey"/>
+                          <SelectableTextBlock Grid.Row="0" Grid.Column="1" Text="{Binding HostName}" Classes="kvValue"/>
+                          <SelectableTextBlock Grid.Row="1" Grid.Column="0" Text="MAC" Classes="kvKey"/>
+                          <SelectableTextBlock Grid.Row="1" Grid.Column="1" Text="{Binding MacText}" Classes="kvValue"/>
+                          <SelectableTextBlock Grid.Row="2" Grid.Column="0" Text="Identified by" Classes="kvKey"/>
+                          <SelectableTextBlock Grid.Row="2" Grid.Column="1" Text="{Binding IdentityKey}" Classes="kvValue"/>
+                          <SelectableTextBlock Grid.Row="3" Grid.Column="0" Text="First seen" Classes="kvKey"/>
+                          <SelectableTextBlock Grid.Row="3" Grid.Column="1" Classes="kvValue"
                                      Text="{Binding FirstSeen, StringFormat={}{0:dd.MM.yyyy HH:mm}}"/>
-                          <TextBlock Grid.Row="4" Grid.Column="0" Text="Last seen" Classes="kvKey"/>
-                          <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding LastSeenText}" Classes="kvValue"/>
+                          <SelectableTextBlock Grid.Row="4" Grid.Column="0" Text="Last seen" Classes="kvKey"/>
+                          <SelectableTextBlock Grid.Row="4" Grid.Column="1" Text="{Binding LastSeenText}" Classes="kvValue"/>
                         </Grid>
                       </StackPanel>
                     </Border>
@@ -935,10 +954,10 @@
                     <Border Padding="12,9" BorderBrush="#E3EBEC" BorderThickness="0,0,0,1">
                       <StackPanel>
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                          <TextBlock Text="ADDRESSES" Classes="sectionHead"/>
+                          <SelectableTextBlock Text="ADDRESSES" Classes="sectionHead"/>
                           <Border Background="#E1E9EA" CornerRadius="7" Padding="5,0" Height="13"
                                   VerticalAlignment="Top">
-                            <TextBlock Text="{Binding Addresses.Count}" FontSize="8.5"
+                            <SelectableTextBlock Text="{Binding Addresses.Count}" FontSize="8.5"
                                        Foreground="#5C6F73" VerticalAlignment="Center"/>
                           </Border>
                         </StackPanel>
@@ -947,18 +966,18 @@
                           <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="model:DeviceAddress">
                               <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,4">
-                                <TextBlock Grid.Column="0" Classes="mono" FontSize="10"
+                                <SelectableTextBlock Grid.Column="0" Classes="mono" FontSize="10"
                                            Text="{Binding Info.Canonical}"
                                            TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
                                            Foreground="{Binding Info.Family, Converter={StaticResource FamilyBrush}}"/>
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="3">
                                   <Border Background="#EDF1F2" CornerRadius="3" Padding="4,0">
-                                    <TextBlock Text="{Binding Info.Scope}" FontSize="8.5"
+                                    <SelectableTextBlock Text="{Binding Info.Scope}" FontSize="8.5"
                                                Foreground="#56696D"/>
                                   </Border>
                                   <Border Background="#EDF1F2" CornerRadius="3" Padding="4,0"
                                           IsVisible="{Binding Info.InterfaceIdKind, Converter={StaticResource IidVisible}}">
-                                    <TextBlock Text="{Binding Info.InterfaceIdKind}" FontSize="8.5"
+                                    <SelectableTextBlock Text="{Binding Info.InterfaceIdKind}" FontSize="8.5"
                                                Foreground="#56696D"/>
                                   </Border>
                                 </StackPanel>
@@ -973,14 +992,14 @@
                     <Border Padding="12,9" BorderBrush="#E3EBEC" BorderThickness="0,0,0,1"
                             IsVisible="{Binding HasServices}">
                       <StackPanel>
-                        <TextBlock Text="SERVICES &amp; PORTS" Classes="sectionHead"/>
+                        <SelectableTextBlock Text="SERVICES &amp; PORTS" Classes="sectionHead"/>
 
                         <Grid ColumnDefinitions="*,44,44" Margin="0,0,0,3">
-                          <TextBlock Grid.Column="0" Text="Service" FontSize="8.5"
+                          <SelectableTextBlock Grid.Column="0" Text="Service" FontSize="8.5"
                                      Foreground="{StaticResource Dimmer}"/>
-                          <TextBlock Grid.Column="1" Text="v4" FontSize="8.5" TextAlignment="Center"
+                          <SelectableTextBlock Grid.Column="1" Text="v4" FontSize="8.5" TextAlignment="Center"
                                      Foreground="{StaticResource Teal}"/>
-                          <TextBlock Grid.Column="2" Text="v6" FontSize="8.5" TextAlignment="Center"
+                          <SelectableTextBlock Grid.Column="2" Text="v6" FontSize="8.5" TextAlignment="Center"
                                      Foreground="{StaticResource V6}"/>
                         </Grid>
 
@@ -994,20 +1013,20 @@
                           <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="model:DeviceServiceResult">
                               <Grid ColumnDefinitions="*,44,44" Margin="0,0,0,3">
-                                <TextBlock Grid.Column="0" Classes="mono" FontSize="10"
+                                <SelectableTextBlock Grid.Column="0" Classes="mono" FontSize="10"
                                            TextTrimming="CharacterEllipsis" VerticalAlignment="Center">
                                   <Run Text="{Binding ServiceName}"/>
                                   <Run Text="{Binding PortsText}" Foreground="#93A5A9"/>
-                                </TextBlock>
+                                </SelectableTextBlock>
                                 <Border Grid.Column="1" CornerRadius="3" Margin="2,0" Padding="0,1"
                                         Background="{Binding StatusIPv4, Converter={StaticResource StatusBg}}">
-                                  <TextBlock Text="{Binding StatusIPv4, Converter={StaticResource StatusText}}"
+                                  <SelectableTextBlock Text="{Binding StatusIPv4, Converter={StaticResource StatusText}}"
                                              FontSize="8.5" TextAlignment="Center"
                                              Foreground="{Binding StatusIPv4, Converter={StaticResource StatusFg}}"/>
                                 </Border>
                                 <Border Grid.Column="2" CornerRadius="3" Margin="2,0" Padding="0,1"
                                         Background="{Binding StatusIPv6, Converter={StaticResource StatusBg}}">
-                                  <TextBlock Text="{Binding StatusIPv6, Converter={StaticResource StatusText}}"
+                                  <SelectableTextBlock Text="{Binding StatusIPv6, Converter={StaticResource StatusText}}"
                                              FontSize="8.5" TextAlignment="Center"
                                              Foreground="{Binding StatusIPv6, Converter={StaticResource StatusFg}}"/>
                                 </Border>
@@ -1021,13 +1040,13 @@
                     <!-- Freitext der Module -->
                     <Border Padding="12,9" IsVisible="{Binding HasDetails}">
                       <StackPanel>
-                        <TextBlock Text="MORE DETAILS" Classes="sectionHead"/>
+                        <SelectableTextBlock Text="MORE DETAILS" Classes="sectionHead"/>
                         <ItemsControl ItemsSource="{Binding Details}">
                           <ItemsControl.ItemTemplate>
                             <DataTemplate>
                               <StackPanel Margin="0,0,0,5">
-                                <TextBlock Text="{Binding Key}" Classes="kvKey"/>
-                                <TextBlock Text="{Binding Value}" Classes="kvValue"
+                                <SelectableTextBlock Text="{Binding Key}" Classes="kvKey"/>
+                                <SelectableTextBlock Text="{Binding Value}" Classes="kvValue"
                                            TextWrapping="Wrap" TextTrimming="None"/>
                               </StackPanel>
                             </DataTemplate>
