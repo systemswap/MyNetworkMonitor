@@ -159,6 +159,32 @@ namespace MyNetworkMonitor.Core.Model
             }
         }
 
+        /// <summary>
+        /// Ersetzt den Bestand durch gespeicherte Geraete und baut die Register
+        /// neu auf.
+        /// <para>
+        /// Bewusst nicht ueber <see cref="Observe"/>: die Geraete sind bereits
+        /// zusammengefuehrt. Sie noch einmal durch die Identitaetskaskade zu
+        /// schicken, wuerde genau die Doppelbelegungen wieder verschmelzen, die
+        /// beim letzten Lauf gefunden wurden.
+        /// </para>
+        /// </summary>
+        public void LoadFrom(IEnumerable<Device> devices)
+        {
+            ArgumentNullException.ThrowIfNull(devices);
+
+            lock (SyncRoot)
+            {
+                Clear();
+
+                foreach (Device device in devices)
+                {
+                    _devices.Add(device);
+                    Reindex(device);
+                }
+            }
+        }
+
         /// <summary>Sucht ein Geraet zu einer Adresse. Fuer Nachscans einzelner Ziele.</summary>
         public Device? FindByAddress(IpAddressInfo address) =>
             _byAddress.GetValueOrDefault(address.Canonical)?.FirstOrDefault();

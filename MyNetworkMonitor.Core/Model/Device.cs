@@ -197,6 +197,7 @@ namespace MyNetworkMonitor.Core.Model
             Conflicts.HasFlag(DeviceConflict.Address) ? 5 :
             Conflicts.HasFlag(DeviceConflict.DnsMultipleAddresses) ? 4 :
             Conflicts.HasFlag(DeviceConflict.HostName) ? 3 :
+            Conflicts.HasFlag(DeviceConflict.DuplicateAlias) ? 3 :
             Conflicts.HasFlag(DeviceConflict.DnsMismatch) ? 2 :
             Conflicts != DeviceConflict.None ? 1 :
             0;
