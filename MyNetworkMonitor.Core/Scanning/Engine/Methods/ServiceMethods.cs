@@ -18,6 +18,14 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
     {
         public override string Id => "ports.tcp";
         public override string DisplayName => "TCP ports";
+
+        public override string Explanation =>
+            "Knocks on the doors of a device and notes which ones open. Each open door " +
+            "stands for something the device offers - a web page, file shares, remote " +
+            "desktop, a database. This is how you find out what a machine is for, and " +
+            "just as importantly what it offers that nobody intended: an open remote " +
+            "desktop or an old web interface on a device that should only be printing. " +
+            "Which doors are tried is set under Ports.";
         public override ScanPhase Phase => ScanPhase.Services;
         public override FamilySupport Families => FamilySupport.IPv4;
 
@@ -76,6 +84,14 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
     {
         public override string Id => "ports.udp";
         public override string DisplayName => "UDP ports";
+
+        public override string Explanation =>
+            "The same idea as the TCP check, but for services that answer without setting " +
+            "up a connection first: name resolution, time servers, network management, " +
+            "video and voice transmission. Slower and less certain than the TCP check - " +
+            "silence can mean \"closed\" just as well as \"nobody felt like answering\". " +
+            "Worth ticking when you are specifically after such services, not as a " +
+            "routine first pass.";
         public override ScanPhase Phase => ScanPhase.Services;
         public override FamilySupport Families => FamilySupport.IPv4;
 
@@ -115,6 +131,14 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
     {
         public override string Id => "smb.version";
         public override string DisplayName => "SMB version";
+
+        public override string Explanation =>
+            "Checks which generation of Windows file sharing a device still speaks. " +
+            "Windows PCs, servers and network storage boxes answer. This matters because " +
+            "the oldest generation, SMB 1, is considered unsafe and has been switched off " +
+            "for years - where it is still on, it is usually an old storage box or a " +
+            "printer nobody has touched since. The finding is reported so you can see it " +
+            "without hunting through the table.";
         public override ScanPhase Phase => ScanPhase.Services;
         public override FamilySupport Families => FamilySupport.IPv4;
 
@@ -161,6 +185,15 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
     {
         public override string Id => "services";
         public override string DisplayName => "Services";
+
+        public override string Explanation =>
+            "Does not just check whether a door is open, but talks to whatever is behind " +
+            "it and asks what it is. That is the difference between \"port 21 is open\" " +
+            "and \"an FTP server is running here, and this is its version\". Covers the " +
+            "usual suspects - web servers, file transfer, mail, databases, remote access. " +
+            "Use it when you want to know what is really running in the network rather " +
+            "than which numbers are reachable. Which services are looked for is set under " +
+            "Services.";
         public override ScanPhase Phase => ScanPhase.Services;
         public override FamilySupport Families => FamilySupport.IPv4;
 

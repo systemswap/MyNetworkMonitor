@@ -169,6 +169,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             {
                 CollectDuplicates(found);
                 CollectServices(found);
+                CollectDnsCrossChecks(found);
             }
 
             CollectAdapters(found);
@@ -233,6 +234,41 @@ namespace MyNetworkMonitor.Core.ViewModels
             conflicts.HasFlag(DeviceConflict.DnsMismatch) ? "DNS points elsewhere" :
             conflicts.HasFlag(DeviceConflict.MultipleIpv4) ? "Several IPv4 addresses" :
             "Duplicate assignment";
+
+        /// <summary>
+        /// Namensserver, die dieselbe Adresse verschieden beantworten.
+        /// <para>
+        /// Der Befund ist nicht "der Name stimmt nicht", sondern "die Server
+        /// sind sich uneinig" - und er nennt den Server beim Namen. Ohne diese
+        /// Angabe wuesste man zwar, dass etwas klemmt, nicht aber, wo man
+        /// nachsehen muss.
+        /// </para>
+        /// </summary>
+        private void CollectDnsCrossChecks(List<Finding> found)
+        {
+            foreach (Device device in _store.Devices)
+            {
+                if (device.DnsCrossCheck is not { HasMismatch: true } check) continue;
+
+                found.Add(new Finding
+                {
+                    // Widersprechen sich die Server, loest derselbe Name je
+                    // nach Rechner etwas anderes auf - das trifft im Betrieb
+                    // sofort jemanden. Ein stummer oder verwaister Eintrag ist
+                    // ein Pflegethema und wiegt leichter.
+                    Severity = check.DistinctNames.Count > 1
+                        ? FindingSeverity.Critical
+                        : FindingSeverity.Warning,
+                    Category = FindingCategory.Addressing,
+                    Title = check.DistinctNames.Count > 1
+                        ? "DNS servers disagree"
+                        : "DNS server does not resolve cleanly",
+                    Detail = check.Summary,
+                    Subject = device.DisplayName,
+                    Device = device
+                });
+            }
+        }
 
         /// <summary>
         /// Was an den gefundenen Diensten auffaellt. Bisher zwei Regeln, die

@@ -77,6 +77,20 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
         /// <summary>Name in der Oberflaeche.</summary>
         string DisplayName { get; }
 
+        /// <summary>
+        /// Was das Verfahren findet und wofuer man es benutzt - in der Sprache
+        /// dessen, der vor der Liste sitzt und entscheiden muss, ob er den
+        /// Haken setzt.
+        /// <para>
+        /// Der Verfahrensname allein beantwortet diese Frage nicht: "SNMP"
+        /// sagt niemandem, ob es sich lohnt. Der Text nennt darum zwei Dinge -
+        /// <b>welche Geraete das ueblicherweise sprechen</b> und <b>was dabei
+        /// herauskommt</b>. Keine Protokollkunde, keine Abkuerzungen, die nicht
+        /// vorher erklaert sind.
+        /// </para>
+        /// </summary>
+        string Explanation { get; }
+
         ScanPhase Phase { get; }
 
         FamilySupport Families { get; }

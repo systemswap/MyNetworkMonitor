@@ -22,6 +22,14 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
     {
         public string Id => "ping";
         public string DisplayName => "Ping";
+
+        public string Explanation =>
+            "Asks every address in the range whether anyone is there. The oldest and " +
+            "most reliable check: almost every device answers, from servers to phones. " +
+            "You get to know which addresses are in use at all - no names, no details. " +
+            "Some devices are told to stay quiet and will be missed here; a firewall on " +
+            "the target is the usual reason. Start with this one, then let the other " +
+            "methods fill in the blanks.";
         public ScanPhase Phase => ScanPhase.Discovery;
         public FamilySupport Families => FamilySupport.IPv4;
         public bool IsPassive => false;

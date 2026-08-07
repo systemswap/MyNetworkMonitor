@@ -20,6 +20,12 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
     {
         public abstract string Id { get; }
         public abstract string DisplayName { get; }
+
+        // Bewusst abstrakt und nicht mit einem leeren Standard versehen: ein
+        // Verfahren ohne Erklaerung ist eines, das der Nutzer nicht einordnen
+        // kann - das soll beim Hinzufuegen auffallen und nicht im Betrieb.
+        public abstract string Explanation { get; }
+
         public abstract ScanPhase Phase { get; }
 
         public virtual FamilySupport Families => FamilySupport.IPv4;

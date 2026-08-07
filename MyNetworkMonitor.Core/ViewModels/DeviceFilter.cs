@@ -45,6 +45,28 @@ namespace MyNetworkMonitor.Core.ViewModels
         /// <summary>Nur Dienste beruecksichtigen, die tatsaechlich laufen.</summary>
         [ObservableProperty] private bool _onlyRunningServices;
 
+        // --- Herkunftsbereiche ------------------------------------------------
+
+        /// <summary>
+        /// Ausgewaehlte Scan-Bereiche, ueber <see cref="Device.GroupDescription"/>.
+        /// Leer heisst: nicht nach Bereich filtern.
+        /// <para>
+        /// Wie bei den Diensten oder-verknuepft: ein Geraet stammt aus genau
+        /// einem Bereich, und-verknuepft waere die Auswahl darum ab dem zweiten
+        /// Haken immer leer.
+        /// </para>
+        /// </summary>
+        public HashSet<string> Scopes { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Der Schluessel, unter dem ein Geraet ohne Bereichsangabe gefuehrt
+        /// wird. Es gibt sie - aus der ARP-Tabelle oder einer Rundfrage kann ein
+        /// Geraet kommen, das in keinem der eingegebenen Bereiche liegt -, und
+        /// ohne eigenen Eintrag waeren sie die einzigen, die sich nicht filtern
+        /// lassen.
+        /// </summary>
+        public const string NoScopeKey = "(no range)";
+
         // --- Adressfamilie ----------------------------------------------------
         [ObservableProperty] private bool _showIPv4 = true;
         [ObservableProperty] private bool _showIPv6 = true;
@@ -84,13 +106,20 @@ namespace MyNetworkMonitor.Core.ViewModels
         /// <summary>Nach einer Aenderung an <see cref="Services"/> aufrufen.</summary>
         public void NotifyServicesChanged() => Changed?.Invoke();
 
+        /// <summary>Nach einer Aenderung an <see cref="Scopes"/> aufrufen.</summary>
+        public void NotifyScopesChanged() => Changed?.Invoke();
+
+        /// <summary>Unter welchem Schluessel ein Geraet im Bereichsfilter gefuehrt wird.</summary>
+        public static string ScopeKeyOf(Device device) =>
+            string.IsNullOrWhiteSpace(device.GroupDescription) ? NoScopeKey : device.GroupDescription;
+
         /// <summary>Es ist nichts gesetzt - alle Geraete sind sichtbar.</summary>
         public bool IsEmpty =>
             string.IsNullOrWhiteSpace(Text1) && string.IsNullOrWhiteSpace(Text2) &&
             string.IsNullOrWhiteSpace(Ip) && string.IsNullOrWhiteSpace(HostName) &&
             string.IsNullOrWhiteSpace(InternalName) && string.IsNullOrWhiteSpace(Mac) &&
             string.IsNullOrWhiteSpace(Vendor) && string.IsNullOrWhiteSpace(Ports) &&
-            Services.Count == 0 && !OnlyRunningServices && !OnlyOnline &&
+            Services.Count == 0 && Scopes.Count == 0 && !OnlyRunningServices && !OnlyOnline &&
             !OnlyGloballyReachable && ShowIPv4 && ShowIPv6 &&
             !IsCamera && !HasSsdp && !HasSmb && !HasSnmp && !HasNetBios;
 
@@ -98,6 +127,7 @@ namespace MyNetworkMonitor.Core.ViewModels
         {
             Text1 = Text2 = Ip = HostName = InternalName = Mac = Vendor = Ports = string.Empty;
             Services.Clear();
+            Scopes.Clear();
             OnlyRunningServices = OnlyOnline = OnlyGloballyReachable = false;
             IsCamera = HasSsdp = HasSmb = HasSnmp = HasNetBios = false;
             ShowIPv4 = ShowIPv6 = true;
@@ -124,6 +154,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             if (!Contains(MacText(device), Mac)) return false;
             if (!Contains(device.Vendor, Vendor)) return false;
 
+            if (!MatchesScope(device)) return false;
             if (!MatchesPorts(device)) return false;
             if (!MatchesServices(device)) return false;
             if (!MatchesFeatures(device)) return false;
@@ -204,6 +235,13 @@ namespace MyNetworkMonitor.Core.ViewModels
 
             return device.Addresses.Any(a => compiled.IsMatch(a.Info.Canonical));
         }
+
+        /// <summary>
+        /// Stammt das Geraet aus einem der angehakten Bereiche? Ohne Auswahl
+        /// gilt jedes - sonst waere die Tabelle leer, bis man etwas anhakt.
+        /// </summary>
+        private bool MatchesScope(Device device) =>
+            Scopes.Count == 0 || Scopes.Contains(ScopeKeyOf(device));
 
         private bool MatchesPorts(Device device)
         {
