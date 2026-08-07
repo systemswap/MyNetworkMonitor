@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using Avalonia.Data.Converters;
 using Avalonia.Media;
+using MyNetworkMonitor.Core.Model;
 using MyNetworkMonitor.Core.Network;
 
 namespace MyNetworkMonitor.Avalonia.Views;
@@ -31,6 +32,16 @@ internal static class ShellPalette
     internal static readonly SolidColorBrush MuteBg = new(Color.Parse("#EDF1F2"));
     internal static readonly SolidColorBrush MuteFg = new(Color.Parse("#96A7AB"));
     internal static readonly SolidColorBrush Nothing = new(Colors.Transparent);
+
+    // Die Befundfarben der bisherigen Anwendung, auf die hellere Tabelle
+    // dieser Oberflaeche gebracht. Die Zuordnung bleibt: je roeter, desto
+    // schwerer der Befund.
+    internal static readonly SolidColorBrush DupAddrBg = new(Color.Parse("#F6D9D6"));
+    internal static readonly SolidColorBrush DupAddrFg = new(Color.Parse("#8E2B23"));
+    internal static readonly SolidColorBrush DupNameBg = new(Color.Parse("#FAE3CC"));
+    internal static readonly SolidColorBrush DupNameFg = new(Color.Parse("#8A5310"));
+    internal static readonly SolidColorBrush DupSoftBg = new(Color.Parse("#FCF2D9"));
+    internal static readonly SolidColorBrush DupSoftFg = new(Color.Parse("#7C6416"));
 }
 
 /// <summary>Gruener Punkt, wenn erreichbar - sonst grau.</summary>
@@ -150,6 +161,92 @@ public sealed class PortStatusForegroundConverter : IValueConverter
             PortStatus.Error => ShellPalette.WarnFg,
             _ => ShellPalette.MuteFg
         };
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+/// <summary>
+/// Das Kuerzel in der Befundspalte. Kurz genug fuer eine schmale Spalte,
+/// eindeutig genug, um ohne Legende zu verstehen, worum es geht - der
+/// vollstaendige Text steht im Kurzhinweis daneben.
+/// </summary>
+public sealed class ConflictLabelConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is not DeviceConflict conflict || conflict == DeviceConflict.None) return string.Empty;
+
+        // Nur der schwerste Befund kommt in die Spalte. Mehrere Kuerzel
+        // nebeneinander waeren in 44 Pixeln nicht mehr zu lesen.
+        if (conflict.HasFlag(DeviceConflict.Address)) return "DUP IP";
+        if (conflict.HasFlag(DeviceConflict.DnsMultipleAddresses)) return "DNS x";
+        if (conflict.HasFlag(DeviceConflict.HostName)) return "DUP NAME";
+        if (conflict.HasFlag(DeviceConflict.DnsMismatch)) return "DNS ?";
+        if (conflict.HasFlag(DeviceConflict.DnsMultipleNames)) return "ALIAS";
+        if (conflict.HasFlag(DeviceConflict.MultipleIpv4)) return "2x IPv4";
+
+        return "DUP";
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+/// <summary>Hintergrund des Befundkaestchens - je schwerer, desto roeter.</summary>
+public sealed class ConflictBackgroundConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is not DeviceConflict conflict || conflict == DeviceConflict.None) return ShellPalette.Nothing;
+
+        if (conflict.HasFlag(DeviceConflict.Address)) return ShellPalette.DupAddrBg;
+
+        if (conflict.HasFlag(DeviceConflict.DnsMultipleAddresses) ||
+            conflict.HasFlag(DeviceConflict.HostName))
+        {
+            return ShellPalette.DupNameBg;
+        }
+
+        return ShellPalette.DupSoftBg;
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+/// <summary>Schriftfarbe des Befundkaestchens, passend zum Hintergrund.</summary>
+public sealed class ConflictForegroundConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is not DeviceConflict conflict || conflict == DeviceConflict.None) return ShellPalette.Nothing;
+
+        if (conflict.HasFlag(DeviceConflict.Address)) return ShellPalette.DupAddrFg;
+
+        if (conflict.HasFlag(DeviceConflict.DnsMultipleAddresses) ||
+            conflict.HasFlag(DeviceConflict.HostName))
+        {
+            return ShellPalette.DupNameFg;
+        }
+
+        return ShellPalette.DupSoftFg;
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+/// <summary>
+/// Faerbt die Zahl der Namensserver. Ueber der plausiblen Grenze wird sie
+/// rot - das ist der Befund, um dessentwillen die Spalte ueberhaupt da ist.
+/// </summary>
+public sealed class DnsCountBrushConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is int count && count > AdapterInfo.MaxPlausibleDnsServers
+            ? ShellPalette.DupAddrFg
+            : ShellPalette.Ink;
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         throw new NotSupportedException();

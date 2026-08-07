@@ -31,6 +31,10 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
     {
         public required IReadOnlyList<ScanMethodOutcome> Outcomes { get; init; }
         public required int TargetCount { get; init; }
+
+        /// <summary>Wie viele Geraete eine Doppelbelegung tragen.</summary>
+        public int ConflictCount { get; init; }
+
         public required TimeSpan Duration { get; init; }
         public required bool WasCancelled { get; init; }
 
@@ -156,10 +160,23 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
                     if (_cts.IsCancellationRequested) break;
                 }
 
+                // Doppelbelegungen erst jetzt suchen. Waehrend des Laufs waere
+                // jeder Befund vorlaeufig: das zweite Geraet, das dieselbe
+                // Adresse traegt, kann noch kommen - und ein Befund, der
+                // waehrenddessen erscheint und wieder verschwindet, ist
+                // schlimmer als keiner.
+                int conflicts;
+
+                lock (store.SyncRoot)
+                {
+                    conflicts = DuplicateDetector.Analyze(store.Devices);
+                }
+
                 ScanRunResult result = new()
                 {
                     Outcomes = outcomes,
                     TargetCount = targets.Count,
+                    ConflictCount = conflicts,
                     Duration = DateTimeOffset.Now - started,
                     WasCancelled = _cts.IsCancellationRequested
                 };
