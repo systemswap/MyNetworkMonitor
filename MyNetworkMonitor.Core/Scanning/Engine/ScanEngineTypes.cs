@@ -177,5 +177,12 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
 
         /// <summary>ARP-Cache vor dem Scan leeren.</summary>
         [ObservableProperty] private bool _clearArpCacheFirst;
+
+        /// <summary>
+        /// Die Bibliothek der 3D-Topologie vom CDN laden statt aus dem
+        /// Programmordner. Dann ist die erzeugte Seite fuer sich allein
+        /// weitergebbar - dafuer braucht sie eine Internetverbindung.
+        /// </summary>
+        [ObservableProperty] private bool _useOnlineTopologyLibrary;
     }
 }

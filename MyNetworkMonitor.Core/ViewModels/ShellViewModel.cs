@@ -130,6 +130,8 @@ namespace MyNetworkMonitor.Core.ViewModels
             Settings.OnlyKnownTargets = _userSettings.GetBool("OnlyKnownTargets", Settings.OnlyKnownTargets);
             Settings.ClearArpCacheFirst = _userSettings.GetBool("ClearArpCacheFirst", Settings.ClearArpCacheFirst);
             Settings.OverrideDnsServer = _userSettings.GetString("OverrideDnsServer");
+            Settings.UseOnlineTopologyLibrary =
+                _userSettings.GetBool("UseOnlineTopologyLibrary", Settings.UseOnlineTopologyLibrary);
 
             Settings.PropertyChanged += (_, e) =>
             {
@@ -150,6 +152,9 @@ namespace MyNetworkMonitor.Core.ViewModels
                         break;
                     case nameof(ScanSettings.OverrideDnsServer):
                         _userSettings.SetString("OverrideDnsServer", Settings.OverrideDnsServer);
+                        break;
+                    case nameof(ScanSettings.UseOnlineTopologyLibrary):
+                        _userSettings.SetBool("UseOnlineTopologyLibrary", Settings.UseOnlineTopologyLibrary);
                         break;
                 }
             };
