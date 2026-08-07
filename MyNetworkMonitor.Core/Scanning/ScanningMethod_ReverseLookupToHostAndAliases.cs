@@ -171,6 +171,12 @@ namespace MyNetworkMonitor
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
                 cts.CancelAfter(TimeSpan.FromSeconds(10));
 
+                // Die abgeschickte Abfrage zaehlt. Neben "geantwortet" und
+                // "gesamt" ergibt das die dreiteilige Anzeige, an der man sieht,
+                // wie viel schon draussen ist und wie viel davon zurueckkam.
+                int sentCount = Interlocked.Increment(ref current);
+                ProgressUpdated?.Invoke(sentCount, responded, total, ScanStatus.running);
+
 
                 //IPHostEntry _IPHostEntry = await client.GetHostEntryAsync(ipToScan.IPorHostname).WaitAsync(_cts.Token);
 
@@ -293,14 +299,6 @@ namespace MyNetworkMonitor
             catch (Exception ex)
             {
                GetHostAliases_Task_Finished(this, null);
-            }
-            finally
-            {
-                // Erst zaehlen, wenn die Aufloesung durch ist - samt der bis zu
-                // drei Versuche. Beim Absenden zu zaehlen liesse den Balken
-                // schon am Ende stehen, waehrend noch gewartet wird.
-                int currentValue = Interlocked.Increment(ref current);
-                ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
             }
         }
     }

@@ -478,9 +478,16 @@
                          Value="{Binding ProgressFraction}" Height="4"
                          Background="#2A4048" Foreground="#17A38A"
                          VerticalAlignment="Center"/>
+            <!-- Gesendet / geantwortet / gesamt. Die mittlere Zahl ist die
+                 eigentliche Nachricht und darum hervorgehoben; an ihr sieht
+                 man, dass ein Lauf noch etwas bringt, waehrend die erste
+                 laengst am Ende steht. -->
             <TextBlock Grid.Column="2" Classes="mono" FontSize="10" Foreground="#93ADB2"
-                       VerticalAlignment="Center" Margin="8,0,0,0">
-              <Run Text="{Binding ProgressCurrent}"/><Run Text=" / "/><Run Text="{Binding ProgressTotal}"/>
+                       VerticalAlignment="Center" Margin="8,0,0,0"
+                       ToolTip.Tip="Sent / answered / total">
+              <Run Text="{Binding ProgressCurrent}"/><Run Text=" / "/><Run
+                   Text="{Binding ProgressResponded}" Foreground="#9CD9C9"/><Run Text=" / "/><Run
+                   Text="{Binding ProgressTotal}"/>
             </TextBlock>
           </Grid>
 
