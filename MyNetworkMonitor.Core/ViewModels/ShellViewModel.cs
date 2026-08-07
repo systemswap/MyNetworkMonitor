@@ -152,6 +152,21 @@ namespace MyNetworkMonitor.Core.ViewModels
 
             SaveLastScanResult = _userSettings.GetBool("SaveLastScanResult", true);
 
+            // Welche Dienste in der Tabelle zu einem "+n" zusammengefasst
+            // werden. Ohne Angabe wird nichts zusammengefasst - alles zeigen
+            // ist die Erwartung, das Zusammenfassen die Ausnahme.
+            ServiceDisplay.GroupSelected = _userSettings.GetBool("GroupServices", false);
+
+            foreach (string name in (_userSettings.GetString("GroupedServices") ?? string.Empty)
+                         .Split(ServiceNameSeparator,
+                                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                ServiceDisplay.Grouped.Add(name);
+            }
+
+            OnPropertyChanged(nameof(GroupServices));
+            BuildGroupableServices();
+
             // Welche Verfahren nur die bekannten Geraete abfragen sollen. Als
             // eine Zeile gespeichert - eine Einstellung je Verfahren waere
             // dieselbe Angabe, nur unuebersichtlicher.
@@ -263,6 +278,83 @@ namespace MyNetworkMonitor.Core.ViewModels
 
         /// <summary>Der letzte Bestand liess sich nicht lesen.</summary>
         private bool _loadFailed;
+
+        // ------------------------------------------------- Dienste in der Spalte
+
+        /// <summary>
+        /// Trennzeichen der gespeicherten Dienstnamen. Ein Zeilenumbruch, weil
+        /// in einem Dienstnamen ein Komma stehen darf.
+        /// </summary>
+        private const char ServiceNameSeparator = '\n';
+
+        /// <summary>
+        /// Die ausgewaehlten Dienste in der Tabelle zu einem "+n"
+        /// zusammenfassen, statt alle einzeln zu zeigen.
+        /// </summary>
+        public bool GroupServices
+        {
+            get => ServiceDisplay.GroupSelected;
+            set
+            {
+                if (ServiceDisplay.GroupSelected == value) return;
+
+                ServiceDisplay.GroupSelected = value;
+                _userSettings?.SetBool("GroupServices", value);
+
+                OnPropertyChanged();
+                ServiceDisplay.NotifyChanged();
+            }
+        }
+
+        /// <summary>
+        /// Alle Dienste, die sich zusammenfassen lassen - mit ihrem Haken.
+        /// Gespeist aus den Dienstdefinitionen und den Verfahren mit eigenem
+        /// Modul, damit die Liste auch ohne vorherigen Scan vollstaendig ist.
+        /// </summary>
+        public ObservableCollection<GroupableService> GroupableServices { get; } = [];
+
+        /// <summary>
+        /// Baut die Auswahlliste neu. Muss nach dem Laden der
+        /// Dienstdefinitionen laufen - vorher kennt der Editor nur die vier
+        /// Verfahren mit eigenem Modul.
+        /// </summary>
+        public void BuildGroupableServices()
+        {
+            GroupableServices.Clear();
+
+            IEnumerable<string> names = ServiceEditor.All
+                .Select(s => s.Name)
+                .Concat(["SMB", "NetBIOS", "SNMP", "ONVIF"])
+                .Where(n => !string.IsNullOrWhiteSpace(n))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(n => n, StringComparer.CurrentCulture);
+
+            foreach (string name in names)
+            {
+                GroupableService entry = new()
+                {
+                    Name = name,
+                    IsGrouped = ServiceDisplay.Grouped.Contains(name)
+                };
+
+                entry.PropertyChanged += OnGroupableServiceChanged;
+                GroupableServices.Add(entry);
+            }
+        }
+
+        private void OnGroupableServiceChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName != nameof(GroupableService.IsGrouped)) return;
+            if (sender is not GroupableService entry) return;
+
+            if (entry.IsGrouped) ServiceDisplay.Grouped.Add(entry.Name);
+            else ServiceDisplay.Grouped.Remove(entry.Name);
+
+            _userSettings?.SetString("GroupedServices",
+                string.Join(ServiceNameSeparator, ServiceDisplay.Grouped));
+
+            ServiceDisplay.NotifyChanged();
+        }
 
         /// <summary>
         /// Sichert den Bestand. Wird beim Schliessen des Fensters gerufen -

@@ -281,10 +281,15 @@ namespace MyNetworkMonitor.Core.Model
             [.. OpenServices.Select(s => s.ServiceName).Distinct(StringComparer.OrdinalIgnoreCase)];
 
         /// <summary>
-        /// Was in der Spalte "Services" als Kaestchen steht: hoechstens drei
-        /// Namen, der Rest als "+n". Ohne Fund bleibt die Liste leer - die
-        /// Zelle also auch. "Nicht geprueft" und "nichts gefunden" sagt statt
-        /// dessen die Statuszeile, wo es hingehoert.
+        /// Was in der Spalte "Services" als Kaestchen steht. Ohne Fund bleibt
+        /// die Liste leer - die Zelle also auch. "Nicht geprueft" und "nichts
+        /// gefunden" sagt statt dessen die Statuszeile, wo es hingehoert.
+        /// <para>
+        /// Von Haus aus stehen hier <b>alle</b> laufenden Dienste. Welche
+        /// stattdessen zu einem "+n" zusammengefasst werden, entscheidet
+        /// <see cref="ServiceDisplay"/> - und damit der Nutzer, nicht eine
+        /// feste Grenze bei drei.
+        /// </para>
         /// </summary>
         public IReadOnlyList<string> ServiceChips
         {
@@ -292,9 +297,10 @@ namespace MyNetworkMonitor.Core.Model
             {
                 IReadOnlyList<string> names = OpenServiceNames;
                 if (names.Count == 0) return [];
-                if (names.Count <= 3) return names;
 
-                return [.. names.Take(3), $"+{names.Count - 3}"];
+                (IReadOnlyList<string> shown, int folded) = ServiceDisplay.Split(names);
+
+                return folded == 0 ? shown : [.. shown, $"+{folded}"];
             }
         }
 
