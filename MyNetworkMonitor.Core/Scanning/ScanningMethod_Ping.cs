@@ -47,8 +47,10 @@ namespace MyNetworkMonitor
             if (_cts != null && !_cts.IsCancellationRequested)
             {
                 _cts.Cancel(); // 🔹 Scan abbrechen
-                _cts.Dispose();
-                _cts = new CancellationTokenSource();
+                // Hier NICHT aufraeumen und ersetzen: die Schleifen lesen _cts ueber
+                // das Feld. Ein frisches CTS an dieser Stelle meldet ihnen wieder
+                // "nicht abgebrochen", und der Lauf geht weiter, statt zu enden.
+                // Das Zuruecksetzen erledigt StartNewScan beim naechsten Lauf.
             }
            
             ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped); // 🔹 UI auf 0 setzen
@@ -157,7 +159,16 @@ namespace MyNetworkMonitor
                 {
                     _cts.Token.ThrowIfCancellationRequested(); // 🔹 Falls gestoppt, sofort beenden
 
-                    reply = await ping.SendPingAsync(ipToScan.IPorHostname, timeout * attempt, buffer, pingOptions);
+                    // Mit Token: ohne ihn laeuft die angefangene Probe bis zu
+                    // ihrem Timeout weiter, und beim dritten Versuch ist das
+                    // das Dreifache. Genau daran hing, dass "Stop" erst nach
+                    // vielen Sekunden wirkte.
+                    reply = await ping.SendPingAsync(
+                        ipToScan.IPorHostname,
+                        TimeSpan.FromMilliseconds(timeout * attempt),
+                        buffer,
+                        pingOptions,
+                        _cts.Token);
 
                     if (reply != null && reply.Status == IPStatus.Success)
                     {

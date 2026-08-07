@@ -26,6 +26,10 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         public virtual bool IsPassive => false;
         public virtual bool RequiresElevation => false;
 
+        // Die grosse Mehrheit der Module arbeitet eine Zielliste ab; die
+        // Ausnahmen - SSDP, mDNS, ARP-Cache - sagen es selbst.
+        public virtual bool EnumeratesTargets => true;
+
         public abstract ScanMethodAvailability CheckAvailability(ScanContext context);
         public abstract Task ExecuteAsync(ScanContext context, CancellationToken cancellationToken);
 
@@ -70,6 +74,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                 legacy.Add(new IPToScan
                 {
                     IPorHostname = text,
+                    HostName = KnownHostName(context, text),
                     TimeOut = context.Settings.PortTimeoutMs,
                     IPGroupDescription = scope.GroupDescription,
                     DeviceDescription = scope.DeviceDescription,
@@ -83,6 +88,30 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             }
 
             return new LegacyTargets(legacy, byText);
+        }
+
+        /// <summary>
+        /// Der Hostname, der im Lauf bereits zu diesem Ziel gefunden wurde.
+        /// <para>
+        /// Ohne ihn kann der Vorwaertslookup nichts ausrichten: er fragt nach
+        /// <c>HostnameWithDomain</c>, und wenn der Name fehlt, bleibt davon die
+        /// blosse Domain uebrig - eine Abfrage, die fuer jedes Ziel dasselbe
+        /// oder gar nichts liefert. Der Name entsteht in der Rueckwaerts-
+        /// aufloesung, die darum vorher laufen muss.
+        /// </para>
+        /// </summary>
+        private static string KnownHostName(ScanContext context, string text)
+        {
+            if (!IpAddressAnalyzer.TryAnalyze(text, out IpAddressInfo? info) || info is null)
+            {
+                // Das Ziel ist selbst ein Name - dann steht er schon da.
+                return text;
+            }
+
+            lock (context.Store.SyncRoot)
+            {
+                return context.Store.FindByAddress(info)?.HostName ?? string.Empty;
+            }
         }
 
         /// <summary>

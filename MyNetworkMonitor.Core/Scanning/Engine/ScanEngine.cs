@@ -142,7 +142,6 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
                 List<ScanTargetEntry> targets = ScopeRuntimeFactory.BuildTargets(scopes);
 
                 if (settings.ClearArpCacheFirst) FlushArpCache();
-                if (settings.OnlyKnownTargets) targets = KeepKnown(targets, store);
 
                 HashSet<string> wanted = new(selectedMethodIds, StringComparer.OrdinalIgnoreCase);
 
@@ -152,7 +151,15 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
                     {
                         if (_cts.IsCancellationRequested) break;
 
-                        ScanMethodOutcome outcome = await RunOneAsync(method, scopes, targets, settings, store, _cts.Token);
+                        // Erst hier kuerzen, nicht einmal vor dem Lauf: bis das
+                        // Verfahren an der Reihe ist, haben die vorherigen
+                        // schon Geraete gefunden, und genau die soll es
+                        // abfragen.
+                        List<ScanTargetEntry> forMethod = settings.IsRestrictedToKnown(method.Id)
+                            ? KeepKnown(targets, store)
+                            : targets;
+
+                        ScanMethodOutcome outcome = await RunOneAsync(method, scopes, forMethod, settings, store, _cts.Token);
                         outcomes.Add(outcome);
                         MethodFinished?.Invoke(outcome);
                     }

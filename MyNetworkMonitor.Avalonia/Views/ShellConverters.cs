@@ -182,6 +182,7 @@ public sealed class ConflictLabelConverter : IValueConverter
         if (conflict.HasFlag(DeviceConflict.Address)) return "DUP IP";
         if (conflict.HasFlag(DeviceConflict.DnsMultipleAddresses)) return "DNS x";
         if (conflict.HasFlag(DeviceConflict.HostName)) return "DUP NAME";
+        if (conflict.HasFlag(DeviceConflict.DuplicateAlias)) return "DUP ALIAS";
         if (conflict.HasFlag(DeviceConflict.DnsMismatch)) return "DNS ?";
         if (conflict.HasFlag(DeviceConflict.DnsMultipleNames)) return "ALIAS";
         if (conflict.HasFlag(DeviceConflict.MultipleIpv4)) return "2x IPv4";
@@ -203,7 +204,8 @@ public sealed class ConflictBackgroundConverter : IValueConverter
         if (conflict.HasFlag(DeviceConflict.Address)) return ShellPalette.DupAddrBg;
 
         if (conflict.HasFlag(DeviceConflict.DnsMultipleAddresses) ||
-            conflict.HasFlag(DeviceConflict.HostName))
+            conflict.HasFlag(DeviceConflict.HostName) ||
+            conflict.HasFlag(DeviceConflict.DuplicateAlias))
         {
             return ShellPalette.DupNameBg;
         }
@@ -225,7 +227,8 @@ public sealed class ConflictForegroundConverter : IValueConverter
         if (conflict.HasFlag(DeviceConflict.Address)) return ShellPalette.DupAddrFg;
 
         if (conflict.HasFlag(DeviceConflict.DnsMultipleAddresses) ||
-            conflict.HasFlag(DeviceConflict.HostName))
+            conflict.HasFlag(DeviceConflict.HostName) ||
+            conflict.HasFlag(DeviceConflict.DuplicateAlias))
         {
             return ShellPalette.DupNameFg;
         }

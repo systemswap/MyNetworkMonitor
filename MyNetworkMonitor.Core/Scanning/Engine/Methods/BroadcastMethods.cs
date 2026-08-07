@@ -24,6 +24,10 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         public override ScanPhase Phase => ScanPhase.Discovery;
         public override FamilySupport Families => FamilySupport.IPv4;
 
+        // Eine Frage an alle, dann zuhoeren - es gibt keine Zielliste, die
+        // sich auf die bekannten Geraete kuerzen liesse.
+        public override bool EnumeratesTargets => false;
+
         public override ScanMethodAvailability CheckAvailability(ScanContext context) =>
             SupportMethods.SelectedNetworkInterfaceInfos.IPv4 is null
                 ? ScanMethodAvailability.Blocked(
@@ -78,6 +82,9 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         public override string DisplayName => "mDNS";
         public override ScanPhase Phase => ScanPhase.Discovery;
         public override FamilySupport Families => FamilySupport.IPv4;
+
+        // Zuhoeren auf der Multicast-Gruppe, keine Zielliste.
+        public override bool EnumeratesTargets => false;
 
         public override ScanMethodAvailability CheckAvailability(ScanContext context)
         {

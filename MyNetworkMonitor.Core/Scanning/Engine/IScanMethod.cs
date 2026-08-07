@@ -89,6 +89,19 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
         bool IsPassive { get; }
 
         /// <summary>
+        /// Das Verfahren geht eine Zielliste durch, statt einmal in die Runde
+        /// zu fragen.
+        /// <para>
+        /// Nur solche Verfahren lassen sich auf die bereits gefundenen Geraete
+        /// beschraenken - bei SSDP, mDNS oder dem ARP-Cache gibt es keine
+        /// Zielliste, die man kuerzen koennte. An diesem Merkmal haengt, ob die
+        /// Oberflaeche fuer das Verfahren ein Kaestchen unter "scan only
+        /// devices in table" anbietet.
+        /// </para>
+        /// </summary>
+        bool EnumeratesTargets { get; }
+
+        /// <summary>
         /// Braucht Raw Sockets und damit erhoehte Rechte bzw. unter Linux
         /// CAP_NET_RAW. Die Oberflaeche kann das vorab pruefen und melden,
         /// statt es scheitern zu lassen.
