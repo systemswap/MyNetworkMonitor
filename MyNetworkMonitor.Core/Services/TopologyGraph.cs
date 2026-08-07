@@ -293,6 +293,44 @@ namespace MyNetworkMonitor.Core.Services
             font-size: 13px;
             z-index: 10;
         }}
+
+        /* Die Netz-Beschriftungen liegen als HTML ueber der Zeichenflaeche und
+           nicht als Objekt in der Szene - so behalten sie beim Zoomen ihre
+           Groesse und bleiben lesbar. */
+        #net-labels {{
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            pointer-events: none;
+            z-index: 5;
+        }}
+        .net-label {{
+            position: absolute;
+            top: 0;
+            left: 0;
+            white-space: nowrap;
+            background-color: rgba(24, 24, 24, 0.78);
+            border: 1px solid #666666;
+            border-radius: 5px;
+            padding: 3px 7px;
+            color: white;
+            font-family: sans-serif;
+            line-height: 1.25;
+            text-align: center;
+        }}
+        .net-label .net-ip {{
+            display: block;
+            font-size: 13px;
+            font-weight: bold;
+        }}
+        .net-label .net-desc {{
+            display: block;
+            font-size: 11px;
+            opacity: 0.8;
+        }}
     </style>
 </head>
 <body>
@@ -307,6 +345,7 @@ namespace MyNetworkMonitor.Core.Services
     </div>
 
     <div id=""3d-graph""></div>
+    <div id=""net-labels""></div>
     <script>
         const graphData = {graphJson};
 
@@ -340,6 +379,121 @@ namespace MyNetworkMonitor.Core.Services
                                      : link.isDuplicatedIP ? 'yellow'
                                      : link.isDnsConflict ? '#ff4fd8'
                                      : link.isLookup ? 'cyan' : 'white');
+
+        // Die gemeinsame Netzadresse einer Gruppe. Sie steht nirgends in den
+        // Daten, laesst sich aber aus den Adressen der Mitglieder ablesen -
+        // solange sie sich einig sind; sonst bleibt es bei der Beschreibung.
+        function networkOf(members) {{
+            const ips = members.map(n => n.ip).filter(ip => ip);
+            if (!ips.length) return '';
+
+            if (ips.every(ip => ip.indexOf('.') >= 0 && ip.indexOf(':') < 0)) {{
+                for (const length of [3, 2]) {{
+                    const prefix = ips[0].split('.').slice(0, length).join('.');
+                    if (ips.every(ip => ip.split('.').slice(0, length).join('.') === prefix)) {{
+                        return prefix + (length === 3 ? '.0/24' : '.0.0/16');
+                    }}
+                }}
+                return '';
+            }}
+
+            // IPv6: der gemeinsame Blockanfang, ohne Praefixlaenge zu behaupten -
+            // die abgekuerzte Schreibweise laesst sich so nicht sicher zaehlen.
+            const blocks = ips[0].split(':');
+            let shared = 0;
+            while (shared < blocks.length
+                   && blocks[shared] !== ''
+                   && ips.every(ip => ip.split(':')[shared] === blocks[shared])) {{
+                shared++;
+            }}
+
+            return shared > 0 ? blocks.slice(0, shared).join(':') + '::' : '';
+        }}
+
+        // Ein Schild je Netz, aufgehaengt ueber dem obersten Knoten der Gruppe
+        const labelLayer = document.getElementById('net-labels');
+        const netLabels = [];
+
+        (function buildNetLabels() {{
+            const byGroup = new Map();
+
+            graphData.nodes.forEach(node => {{
+                const key = node.group || '';
+                if (!byGroup.has(key)) byGroup.set(key, []);
+                byGroup.get(key).push(node);
+            }});
+
+            byGroup.forEach((members, key) => {{
+                const network = networkOf(members);
+                if (!network && !key) return;
+
+                const element = document.createElement('div');
+                element.className = 'net-label';
+                element.style.borderColor = members[0].color || '#666666';
+
+                const head = document.createElement('span');
+                head.className = 'net-ip';
+                head.textContent = network || key;
+                element.appendChild(head);
+
+                if (network && key) {{
+                    const description = document.createElement('span');
+                    description.className = 'net-desc';
+                    description.textContent = key;
+                    element.appendChild(description);
+                }}
+
+                labelLayer.appendChild(element);
+                netLabels.push({{ members: members, element: element }});
+            }});
+        }})();
+
+        // Jedes Schild folgt seiner Gruppe: waagerecht mittig, senkrecht ueber
+        // dem hoechsten Knoten. Knoten hinter der Kamera bleiben draussen,
+        // deren projizierte Lage waere gespiegelt.
+        function updateNetLabels() {{
+            if (netLabels.length && typeof Graph.graph2ScreenCoords === 'function') {{
+                const camera = Graph.cameraPosition();
+                const controls = Graph.controls();
+                const target = (controls && controls.target) || {{ x: 0, y: 0, z: 0 }};
+                const view = {{ x: target.x - camera.x, y: target.y - camera.y, z: target.z - camera.z }};
+
+                netLabels.forEach(label => {{
+                    let sumX = 0, top = Infinity, visible = 0;
+
+                    label.members.forEach(node => {{
+                        if (node.x === undefined) return;
+
+                        const ahead = (node.x - camera.x) * view.x
+                                    + (node.y - camera.y) * view.y
+                                    + (node.z - camera.z) * view.z;
+                        if (ahead <= 0) return;
+
+                        const point = Graph.graph2ScreenCoords(node.x, node.y, node.z);
+                        sumX += point.x;
+                        if (point.y < top) top = point.y;
+                        visible++;
+                    }});
+
+                    const x = sumX / visible;
+                    const y = top - 12;
+
+                    if (!visible || x < -300 || x > window.innerWidth + 300
+                        || y < -200 || y > window.innerHeight + 200) {{
+                        label.element.style.display = 'none';
+                        return;
+                    }}
+
+                    label.element.style.display = '';
+                    label.element.style.transform =
+                        'translate(' + x + 'px,' + y + 'px) translate(-50%, -100%)';
+                }});
+            }}
+
+            requestAnimationFrame(updateNetLabels);
+        }}
+
+        requestAnimationFrame(updateNetLabels);
 
         // Verzoegerter Zoom, damit sich das Layout vorher stabilisiert
         setTimeout(() => {{
