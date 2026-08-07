@@ -796,6 +796,100 @@ namespace MyNetworkMonitor.Core.ViewModels
         {
             if (!CanStart) return;
 
+            await RunAsync([.. SelectedScopes]);
+        }
+
+        /// <summary>
+        /// Scannt nur die markierten Geraete noch einmal - mit denselben
+        /// Verfahren, die im Kommandobalken gewaehlt sind.
+        /// <para>
+        /// Der Weg dahin ist eine Zielliste als eigener Bereich: ein Geraet
+        /// steht mit allen seinen Adressen darin, v4 wie v6, damit der Lauf
+        /// beide Seiten auffrischt. Bereichsangaben wie Domain, Namensserver
+        /// und Gateway kommen aus dem Bereich, aus dem das Geraet stammt -
+        /// sonst liefe der zweite Blick unter anderen Bedingungen als der
+        /// erste und die Ergebnisse waeren nicht vergleichbar.
+        /// </para>
+        /// </summary>
+        [RelayCommand]
+        private async Task RescanSelectedAsync()
+        {
+            if (IsRunning || SelectedMethodCount == 0) return;
+
+            List<ScanScope> scopes = BuildRescanScopes(Devices.ActionTargets);
+
+            if (scopes.Count == 0)
+            {
+                StatusText = "Nothing selected to rescan.";
+                return;
+            }
+
+            await RunAsync(scopes);
+        }
+
+        /// <summary>
+        /// Baut je Herkunftsbereich eine Zielliste. Die Aufteilung ist noetig,
+        /// weil Domain und Namensserver am Bereich haengen: zwei Geraete aus
+        /// verschiedenen Bereichen in einer Liste bekaemen die Angaben des
+        /// einen und der andere ginge leer aus.
+        /// </summary>
+        private List<ScanScope> BuildRescanScopes(IReadOnlyList<Device> devices)
+        {
+            Dictionary<string, List<string>> byGroup = [];
+
+            foreach (Device device in devices)
+            {
+                List<string> addresses = [.. device.Ipv4Addresses.Select(a => a.Info.Canonical)];
+
+                // Von den IPv6-Adressen genuegt die beste. Ein Geraet traegt
+                // regulaer mehrere, die meisten davon kurzlebig - sie alle
+                // abzufragen kostet Zeit und bringt denselben Befund.
+                if (device.BestIpv6Address is { } v6) addresses.Add(v6.Info.Canonical);
+
+                if (addresses.Count == 0) continue;
+
+                if (!byGroup.TryGetValue(device.GroupDescription, out List<string>? list))
+                {
+                    byGroup[device.GroupDescription] = list = [];
+                }
+
+                foreach (string address in addresses.Where(a => !list.Contains(a)))
+                {
+                    list.Add(address);
+                }
+            }
+
+            List<ScanScope> scopes = [];
+
+            foreach ((string group, List<string> addresses) in byGroup)
+            {
+                ScanScope? origin = Scopes.FirstOrDefault(s =>
+                    string.Equals(s.GroupDescription, group, StringComparison.OrdinalIgnoreCase));
+
+                scopes.Add(new ScanScope
+                {
+                    Kind = ScanScopeKind.TargetList,
+                    IsSelected = true,
+                    GroupDescription = string.IsNullOrWhiteSpace(group) ? "Rescan" : group,
+                    DeviceDescription = origin?.DeviceDescription ?? string.Empty,
+                    Domain = origin?.Domain ?? string.Empty,
+                    DnsServers = origin?.DnsServers ?? string.Empty,
+                    GatewayIP = origin?.GatewayIP ?? string.Empty,
+                    GatewayPort = origin?.GatewayPort ?? string.Empty,
+                    Targets = [.. addresses]
+                });
+            }
+
+            return scopes;
+        }
+
+        /// <summary>
+        /// Der eigentliche Lauf. Gemeinsam fuer den vollen Scan und das
+        /// erneute Pruefen einzelner Geraete - beide unterscheiden sich nur in
+        /// den Bereichen, alles Uebrige davor und danach ist dasselbe.
+        /// </summary>
+        private async Task RunAsync(List<ScanScope> scopes)
+        {
             IsRunning = true;
             OnPropertyChanged(nameof(CanStart));
             LastSkipped.Clear();
@@ -805,7 +899,6 @@ namespace MyNetworkMonitor.Core.ViewModels
             // des vorherigen Laufs, als haetten sie gerade gearbeitet.
             foreach (ScanMethodChoice method in Methods) method.ResetProgress();
 
-            List<ScanScope> scopes = [.. SelectedScopes];
             List<ScanMethodChoice> chosen = [.. Methods.Where(m => m.IsSelected)];
             List<string> methods = [.. chosen.Select(m => m.Id)];
 

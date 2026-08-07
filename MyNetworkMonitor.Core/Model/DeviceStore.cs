@@ -335,13 +335,21 @@ namespace MyNetworkMonitor.Core.Model
         /// Adressfamilie, darum wird je Seite gesetzt und die andere nicht
         /// angetastet - sonst wuerde der IPv4-Lauf den IPv6-Befund loeschen
         /// und die Gegenueberstellung ginge verloren.
+        /// <para>
+        /// Zusammengefasst wird nach Dienst <b>und</b> Ports. Ein Dienst wird
+        /// gegen mehrere Ports geprueft - "WebServices" etwa gegen 80, 443,
+        /// 8080 und weitere - und liefert je Port einen eigenen Befund. Wuerde
+        /// allein der Name den Ausschlag geben, landeten alle neun Befunde auf
+        /// einem Eintrag und der zuletzt eingetroffene ueberschriebe den Rest:
+        /// eine Webseite auf Port 80 verschwaende, weil Port 8443 danach
+        /// nicht geantwortet hat.
+        /// </para>
         /// </summary>
         private static void ApplyServices(Device device, DeviceObservation o)
         {
             foreach (DeviceServiceResult incoming in o.Services!)
             {
-                DeviceServiceResult? existing = device.Services.FirstOrDefault(s =>
-                    string.Equals(s.ServiceName, incoming.ServiceName, StringComparison.OrdinalIgnoreCase));
+                DeviceServiceResult? existing = device.Services.FirstOrDefault(s => IsSameFinding(s, incoming));
 
                 if (existing is null)
                 {
@@ -352,13 +360,18 @@ namespace MyNetworkMonitor.Core.Model
                 if (incoming.StatusIPv4 is not null) existing.StatusIPv4 = incoming.StatusIPv4;
                 if (incoming.StatusIPv6 is not null) existing.StatusIPv6 = incoming.StatusIPv6;
                 if (!string.IsNullOrEmpty(incoming.PortLog)) existing.PortLog = incoming.PortLog;
-
-                foreach (int port in incoming.Ports.Where(p => !existing.Ports.Contains(p)))
-                {
-                    existing.Ports.Add(port);
-                }
             }
         }
+
+        /// <summary>
+        /// Derselbe Befund: gleicher Dienst an genau denselben Ports. Erst das
+        /// macht aus dem IPv4- und dem IPv6-Lauf eine Zeile und laesst zugleich
+        /// die einzelnen Ports desselben Dienstes nebeneinander bestehen.
+        /// </summary>
+        private static bool IsSameFinding(DeviceServiceResult a, DeviceServiceResult b) =>
+            string.Equals(a.ServiceName, b.ServiceName, StringComparison.OrdinalIgnoreCase) &&
+            a.Ports.Count == b.Ports.Count &&
+            !a.Ports.Except(b.Ports).Any();
 
         private static void ApplyAddress(Device device, DeviceObservation o)
         {
@@ -436,7 +449,7 @@ namespace MyNetworkMonitor.Core.Model
             foreach (DeviceServiceResult service in other.Services)
             {
                 DeviceServiceResult? mine = target.Services
-                    .FirstOrDefault(s => string.Equals(s.ServiceName, service.ServiceName, StringComparison.OrdinalIgnoreCase));
+                    .FirstOrDefault(s => IsSameFinding(s, service));
 
                 if (mine is null)
                 {
