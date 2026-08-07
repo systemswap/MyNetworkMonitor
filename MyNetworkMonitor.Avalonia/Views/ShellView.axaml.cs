@@ -68,6 +68,10 @@ public partial class ShellView : Window
         _shell.PortEditor.Load(System.IO.Path.Combine(SettingsFolder(), "portsToScan.xml"));
         _shell.ServiceEditor.Load(ServiceXmlPath());
 
+        // Erst jetzt sind die Dienstdefinitionen da, aus denen die Auswahl
+        // "welche Dienste werden zusammengefasst" besteht.
+        _shell.BuildGroupableServices();
+
         BuildMethodDrawer();
 
         _shell.Devices.AvailableServices.CollectionChanged += (_, _) => BuildServiceFacets();
