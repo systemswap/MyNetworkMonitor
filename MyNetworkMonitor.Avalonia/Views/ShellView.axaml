@@ -664,7 +664,13 @@
                                     Click="bt_ServicesNone_Click"/>
                           </Grid>
                         </Border>
-                        <ItemsControl x:Name="ic_ServiceFacets" MaxHeight="300" Margin="0,3"/>
+                        <!-- Ohne den Roller endet die Liste bei der Hoehe der
+                             Flyouts, und die Dienste darunter sind weder zu
+                             sehen noch anzuhaken. -->
+                        <ScrollViewer MaxHeight="360" VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled">
+                          <ItemsControl x:Name="ic_ServiceFacets" Margin="0,3"/>
+                        </ScrollViewer>
                       </DockPanel>
                     </Border>
                   </Flyout>
@@ -1448,6 +1454,39 @@
                       </ItemsControl>
                     </StackPanel>
                   </Border>
+
+                  <!-- Gruppenrahmen mit Schalter im Rahmen: der Haken oben
+                       entscheidet, ob die Liste darunter ueberhaupt wirkt. -->
+                  <Grid Margin="0,8,0,0">
+                    <Border BorderBrush="{StaticResource Line}" BorderThickness="1"
+                            CornerRadius="4" Padding="12,16,12,10" Margin="0,8,0,0">
+                      <StackPanel Spacing="6">
+                        <TextBlock Classes="settingHint"
+                                   Text="Ticked services are folded into the &quot;+n&quot; badge in the Running services column; everything else is listed by name. With the switch off, every service is listed - which is the point of the column."/>
+
+                        <ScrollViewer MaxHeight="220" VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      IsEnabled="{Binding GroupServices}">
+                          <ItemsControl ItemsSource="{Binding GroupableServices}">
+                            <ItemsControl.ItemTemplate>
+                              <DataTemplate x:DataType="vm:GroupableService">
+                                <CheckBox Content="{Binding Name}" FontSize="11"
+                                          MinHeight="22" Margin="0,0,0,1"
+                                          IsChecked="{Binding IsGrouped}"/>
+                              </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                          </ItemsControl>
+                        </ScrollViewer>
+                      </StackPanel>
+                    </Border>
+
+                    <!-- Sitzt auf der Rahmenlinie, darum weisser Grund. -->
+                    <CheckBox Content="Group services" FontWeight="SemiBold" FontSize="11.5"
+                              VerticalAlignment="Top" HorizontalAlignment="Left"
+                              Margin="10,0,0,0" Padding="4,0,6,0"
+                              Background="{StaticResource Panel}"
+                              IsChecked="{Binding GroupServices}"/>
+                  </Grid>
 
                   <StackPanel Spacing="3">
                     <CheckBox Content="Keep the last scan result"

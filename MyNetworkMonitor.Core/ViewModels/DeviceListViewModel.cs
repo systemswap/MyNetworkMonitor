@@ -59,7 +59,21 @@ namespace MyNetworkMonitor.Core.ViewModels
             ((INotifyCollectionChanged)_store.Devices).CollectionChanged += (_, _) => RequestRefresh();
             _store.DeviceChanged += OnDeviceChanged;
 
+            // Die Dienstspalte ist berechnet und haengt an einer Einstellung
+            // ausserhalb des Geraets - ohne diesen Anstoss bliebe die Tabelle
+            // stehen, bis sich sonst etwas ruehrt.
+            ServiceDisplay.Changed += OnServiceDisplayChanged;
+
             Refresh();
+        }
+
+        /// <summary>
+        /// Die Anzeigeoption hat sich geaendert - jede sichtbare Zeile muss
+        /// ihre Dienstspalte neu berechnen.
+        /// </summary>
+        private void OnServiceDisplayChanged()
+        {
+            foreach (Device device in Visible) device.NotifyDisplayChanged();
         }
 
         private void OnDeviceChanged(Device device)
