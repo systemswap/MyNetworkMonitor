@@ -50,8 +50,10 @@ namespace MyNetworkMonitor
             if (_cts != null && !_cts.IsCancellationRequested)
             {
                 _cts.Cancel(); // 🔹 Scan abbrechen
-                _cts.Dispose();
-                _cts = new CancellationTokenSource();
+                // Hier NICHT aufraeumen und ersetzen: die Schleifen lesen _cts ueber
+                // das Feld. Ein frisches CTS an dieser Stelle meldet ihnen wieder
+                // "nicht abgebrochen", und der Lauf geht weiter, statt zu enden.
+                // Das Zuruecksetzen erledigt StartNewScan beim naechsten Lauf.
             }
 
             ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped); // 🔹 UI auf 0 setzen

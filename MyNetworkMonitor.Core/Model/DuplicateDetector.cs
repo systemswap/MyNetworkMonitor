@@ -49,6 +49,13 @@ namespace MyNetworkMonitor.Core.Model
         DnsMultipleNames = 64,
 
         /// <summary>
+        /// Derselbe Alias steht an mehreren Geraeten. Ein Alias ist genauso
+        /// eine Namensvergabe wie der Hostname - und weil er selten
+        /// nachgehalten wird, bleibt ein Altbestand dort noch laenger stehen.
+        /// </summary>
+        DuplicateAlias = 128,
+
+        /// <summary>
         /// Ein Geraet antwortet unter mehreren IPv4-Adressen. Unter IPv6 ist
         /// das der Normalfall und kein Befund, unter IPv4 fast immer ein
         /// zweiter DHCP-Bezug oder eine vergessene feste Adresse.
@@ -109,6 +116,22 @@ namespace MyNetworkMonitor.Core.Model
             Dictionary<string, int> hostNameCount = Count(devices, d => d.HostName);
             Dictionary<string, int> internalNameCount = Count(devices, d => d.InternalName);
 
+            // Aliase zaehlen wie Hostnamen: ein Name, der auf zwei Geraete
+            // zeigt, ist auch dann doppelt vergeben, wenn er im DNS nur der
+            // zweite Eintrag ist. Je Geraet einmal zaehlen - mehrere gleiche
+            // Aliase an demselben Geraet sind keine Doppelvergabe.
+            Dictionary<string, int> aliasCount = new(StringComparer.OrdinalIgnoreCase);
+
+            foreach (Device device in devices)
+            {
+                foreach (string alias in device.Aliases.Distinct(StringComparer.OrdinalIgnoreCase))
+                {
+                    if (string.IsNullOrWhiteSpace(alias)) continue;
+
+                    aliasCount[alias] = aliasCount.GetValueOrDefault(alias) + 1;
+                }
+            }
+
             int affected = 0;
 
             foreach (Device device in devices)
@@ -165,6 +188,17 @@ namespace MyNetworkMonitor.Core.Model
                 {
                     conflicts |= DeviceConflict.DnsMultipleNames;
                     reasons.Add("reverse lookup returns several names: " + string.Join(", ", device.Aliases));
+                }
+
+                List<string> sharedAliases = [.. device.Aliases
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Where(a => !string.IsNullOrWhiteSpace(a) && aliasCount.GetValueOrDefault(a) > 1)];
+
+                if (sharedAliases.Count > 0)
+                {
+                    conflicts |= DeviceConflict.DuplicateAlias;
+                    reasons.Add($"alias {string.Join(", ", sharedAliases.Select(a => $"\"{a}\""))} " +
+                                "is also used by another device");
                 }
 
                 device.Conflicts = conflicts;

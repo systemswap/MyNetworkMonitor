@@ -112,8 +112,13 @@ public partial class ShellView : Window
         engine.Register(new ArpCacheScanMethod());
         engine.Register(new SsdpScanMethod());
         engine.Register(new MdnsScanMethod());
-        engine.Register(new HostnameLookupScanMethod());
+        // Reihenfolge innerhalb der Phase = Reihenfolge hier. Die
+        // Rueckwaertsaufloesung muss vor der Vorwaertsaufloesung stehen: erst
+        // liefert sie zur Adresse den Namen, dann fragt die Vorwaerts-
+        // aufloesung, welche Adressen dieser Name im DNS hat. Andersherum
+        // fragt die zweite ins Leere, weil der Name noch fehlt.
         engine.Register(new ReverseLookupScanMethod());
+        engine.Register(new HostnameLookupScanMethod());
         engine.Register(new NetBiosScanMethod());
         engine.Register(new SnmpScanMethod());
         engine.Register(new OnvifScanMethod());
@@ -610,6 +615,11 @@ public partial class ShellView : Window
         _shell.ScopeEditor.SaveNow();
         _shell.PortEditor.SaveNow();
         _shell.ServiceEditor.SaveNow();
+
+        // Der Bestand zuletzt: er ist der groesste Brocken, und wenn dabei
+        // etwas schiefgeht, sind die Einstellungen wenigstens schon sicher.
+        _shell.SaveLastScanResultNow();
+
         base.OnClosing(e);
     }
 

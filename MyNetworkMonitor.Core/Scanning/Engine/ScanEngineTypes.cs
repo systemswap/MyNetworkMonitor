@@ -169,6 +169,28 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
         [ObservableProperty] private bool _onlyKnownTargets;
 
         /// <summary>
+        /// Verfahren, die nur die bereits gefundenen Geraete abfragen sollen -
+        /// als Schluesselmenge von <see cref="IScanMethod.Id"/>.
+        /// <para>
+        /// Die Beschraenkung je Verfahren statt fuer den ganzen Lauf, weil beide
+        /// Seiten gebraucht werden: Ping, ARP und SNMP sollen den ganzen Bereich
+        /// abklopfen, weil dort die meisten Geraete antworten - der Port- und
+        /// Dienstscan danach nur noch die, die sich gemeldet haben. Als eine
+        /// Einstellung fuer alles liesse sich das nicht ausdruecken.
+        /// </para>
+        /// <para>
+        /// Ausgewertet wird vor jedem Verfahren neu, nicht einmal am Anfang:
+        /// die Liste waechst waehrend des Laufs, und genau davon lebt die
+        /// Abstufung.
+        /// </para>
+        /// </summary>
+        public HashSet<string> OnlyKnownTargetsFor { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>Dieses Verfahren fragt nur die bereits gefundenen Geraete ab.</summary>
+        public bool IsRestrictedToKnown(string methodId) =>
+            OnlyKnownTargets || OnlyKnownTargetsFor.Contains(methodId);
+
+        /// <summary>
         /// Abweichender DNS-Server fuer die Namensaufloesung. Sticht die
         /// Server, die am Bereich hinterlegt sind - fuer den Fall, dass man
         /// gegen einen bestimmten Server pruefen will.

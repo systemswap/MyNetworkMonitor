@@ -1414,11 +1414,37 @@
                                Text="Ignores the port collection and tries every port. Finds services on unusual ports - and takes hours instead of minutes."/>
                   </StackPanel>
 
+                  <!-- Je Verfahren einzeln, nicht fuer den ganzen Lauf: Ping,
+                       ARP und SNMP sollen den Bereich abklopfen, Port- und
+                       Dienstscan danach nur noch, was geantwortet hat. -->
+                  <Border BorderBrush="{StaticResource Line}" BorderThickness="1"
+                          CornerRadius="4" Padding="12,10">
+                    <StackPanel Spacing="6">
+                      <TextBlock Text="Scan only devices in table" FontWeight="SemiBold" FontSize="11.5"/>
+                      <TextBlock Classes="settingHint"
+                                 Text="Per method. A ticked method only asks the devices found so far - the others still sweep the whole range. Methods that listen instead of asking (SSDP, mDNS, ARP table) have no target list and are not listed."/>
+
+                      <CheckBox Content="All methods" FontSize="11"
+                                ToolTip.Tip="Overrides the individual boxes below"
+                                IsChecked="{Binding Settings.OnlyKnownTargets}"/>
+
+                      <ItemsControl ItemsSource="{Binding RestrictableMethods}" Margin="12,2,0,0">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate x:DataType="vm:ScanMethodChoice">
+                            <CheckBox Content="{Binding DisplayName}" FontSize="11"
+                                      MinHeight="22" Margin="0,0,0,1"
+                                      IsChecked="{Binding OnlyKnownTargets}"/>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                    </StackPanel>
+                  </Border>
+
                   <StackPanel Spacing="3">
-                    <CheckBox Content="Only scan targets already in the table"
-                              IsChecked="{Binding Settings.OnlyKnownTargets}"/>
+                    <CheckBox Content="Keep the last scan result"
+                              IsChecked="{Binding SaveLastScanResult}"/>
                     <TextBlock Classes="settingHint"
-                               Text="Turns a sweep over a whole subnet into a follow-up on the few addresses that answered. The usual choice for a second and third pass."/>
+                               Text="Writes the devices to disk when the window closes and loads them again at the next start. Nothing counts as reachable until it has answered again."/>
                   </StackPanel>
 
                   <StackPanel Spacing="3">

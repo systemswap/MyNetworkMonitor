@@ -71,6 +71,10 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         public override ScanPhase Phase => ScanPhase.Discovery;
         public override FamilySupport Families => FamilySupport.IPv4;
 
+        // Liest die Tabelle des eigenen Rechners aus - was darin steht,
+        // bestimmt das Betriebssystem, nicht eine Zielliste.
+        public override bool EnumeratesTargets => false;
+
         public override ScanMethodAvailability CheckAvailability(ScanContext context) =>
             PlatformServices.ArpOrNull is null
                 ? ScanMethodAvailability.Blocked(ArpRequestScanMethod.ArpProviderMissing)
