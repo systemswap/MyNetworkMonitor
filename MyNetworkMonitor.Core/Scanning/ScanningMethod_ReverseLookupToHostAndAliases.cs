@@ -177,13 +177,29 @@ namespace MyNetworkMonitor
                 IPHostEntry? _IPHostEntry = null;
                 int maxRetries = 3;
                 int attempt = 0;
-               
 
                 while (attempt < maxRetries && _IPHostEntry == null)
                 {
+                    // Der Versuch zaehlt, sobald er unternommen wurde - nicht
+                    // erst, wenn er mit einer Ausnahme endet.
+                    //
+                    // Vorher stand das Hochzaehlen allein im catch. Eine Adresse
+                    // ohne PTR-Eintrag liefert aber keine Ausnahme, sondern
+                    // sauber null: die Schleife lief dann ohne Pause weiter, bis
+                    // nach zehn Sekunden der Zeitgeber griff. Bei fuenfzig
+                    // gleichzeitigen Abfragen wurde daraus ein Dauerfeuer, unter
+                    // dem der Namensserver auch die Adressen nicht mehr
+                    // beantwortet hat, die einen Eintrag haben - daher kamen von
+                    // 66 Hostnamen nur zehn zurueck.
+                    attempt++;
+
                     try
                     {
                         _IPHostEntry = await client.GetHostEntryAsync(ipToScan.IPorHostname).WaitAsync(cts.Token);
+
+                        // Sauber beantwortet, nur eben ohne Eintrag. Ein zweiter
+                        // Versuch findet denselben fehlenden Eintrag wieder.
+                        if (_IPHostEntry is null) break;
                     }
                     catch (OperationCanceledException)
                     {
@@ -192,7 +208,6 @@ namespace MyNetworkMonitor
                     }
                     catch (Exception ex)
                     {
-                        attempt++;
                         if (attempt >= maxRetries)
                         {
                             // Option: Log oder Fehlerbehandlung hier
@@ -200,7 +215,7 @@ namespace MyNetworkMonitor
                         }
                         else
                         {
-                            await Task.Delay(500); // kurze Pause vor erneutem Versuch
+                            await Task.Delay(500, cts.Token); // kurze Pause vor erneutem Versuch
                         }
                     }
                 }
