@@ -370,7 +370,36 @@ public partial class ShellView : Window
                 box.Bind(ToolTip.TipProperty,
                     new global::Avalonia.Data.Binding(nameof(ScanMethodChoice.BlockReason)) { Source = choice });
 
-                boxes.Add(box);
+                // Gesendet / geantwortet / gesamt, je Verfahren und stehend.
+                // Die bisherige Anwendung hat diese drei Zahlen fuer alle
+                // Verfahren nebeneinander gezeigt; daran ist nach dem Lauf
+                // abzulesen, welches wie viel gebracht hat - der Kommandobalken
+                // allein zeigt immer nur das gerade laufende.
+                TextBlock counts = new()
+                {
+                    FontSize = 9.5,
+                    FontFamily = new global::Avalonia.Media.FontFamily("Consolas, monospace"),
+                    Foreground = global::Avalonia.Media.Brushes.Gray,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new global::Avalonia.Thickness(8, 0, 0, 0)
+                };
+
+                counts.Bind(TextBlock.TextProperty,
+                    new global::Avalonia.Data.Binding(nameof(ScanMethodChoice.ProgressText)) { Source = choice });
+
+                counts.Bind(ToolTip.TipProperty,
+                    new global::Avalonia.Data.Binding(nameof(ScanMethodChoice.ProgressText))
+                    {
+                        Source = choice,
+                        StringFormat = "sent / answered / total: {0}"
+                    });
+
+                DockPanel row = new() { LastChildFill = false };
+                DockPanel.SetDock(counts, Dock.Right);
+                row.Children.Add(counts);
+                row.Children.Add(box);
+
+                boxes.Add(row);
             }
 
             target.ItemsSource = boxes;
