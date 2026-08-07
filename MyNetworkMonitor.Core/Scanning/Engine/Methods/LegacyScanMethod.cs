@@ -222,6 +222,38 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         /// <summary>Der Port, auf dem die SMB-Pruefung arbeitet.</summary>
         private const int SmbPort = 445;
 
+        private const int NetBiosPort = 137;
+        private const int SnmpPort = 161;
+        private const int OnvifPort = 3702;
+
+        /// <summary>
+        /// Traegt einen Dienst nach, den ein eigenes Modul gefunden hat.
+        /// <para>
+        /// NetBIOS, SNMP, ONVIF und SMB laufen nicht ueber die Diensterkennung,
+        /// sondern haben je ein eigenes Verfahren - Dienste sind es trotzdem,
+        /// und sie gehoeren in dieselbe Spalte wie die uebrigen. Vorher waren
+        /// sie nur im Klartext unter den Details zu finden, wo man sie nur
+        /// sieht, wenn man ohnehin schon weiss, dass es sie gibt.
+        /// </para>
+        /// </summary>
+        private static void AddFoundService(
+            List<DeviceServiceResult> services, IpFamily family,
+            string name, string category, int port, string? log = null)
+        {
+            DeviceServiceResult entry = new()
+            {
+                ServiceName = name,
+                Category = category,
+                Ports = [port],
+                PortLog = NullIfBlank(log)
+            };
+
+            if (family == IpFamily.IPv6) entry.StatusIPv6 = PortStatus.IsRunning;
+            else entry.StatusIPv4 = PortStatus.IsRunning;
+
+            services.Add(entry);
+        }
+
         private static List<DeviceServiceResult>? BuildServices(IPToScan r, IpFamily family)
         {
             List<DeviceServiceResult> services = [];
@@ -252,18 +284,26 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             // eigentliche Nachricht.
             if (r.SMBVersions.Count > 0)
             {
-                DeviceServiceResult smb = new()
-                {
-                    ServiceName = "SMB",
-                    Category = "File services",
-                    Ports = [SmbPort],
-                    PortLog = "SMB versions: " + string.Join(", ", r.SMBVersions)
-                };
+                AddFoundService(services, family, "SMB", "File services", SmbPort,
+                    "SMB versions: " + string.Join(", ", r.SMBVersions));
+            }
 
-                if (family == IpFamily.IPv6) smb.StatusIPv6 = PortStatus.IsRunning;
-                else smb.StatusIPv4 = PortStatus.IsRunning;
+            if (!string.IsNullOrWhiteSpace(r.NetBiosHostname))
+            {
+                AddFoundService(services, family, "NetBIOS", "Network", NetBiosPort,
+                    $"NetBIOS name: {r.NetBiosHostname}");
+            }
 
-                services.Add(smb);
+            if (!string.IsNullOrWhiteSpace(r.SNMP_SysName))
+            {
+                AddFoundService(services, family, "SNMP", "Network", SnmpPort,
+                    NullIfBlank(r.SNMPInfos) ?? $"System name: {r.SNMP_SysName}");
+            }
+
+            if (r.IsIPCam)
+            {
+                AddFoundService(services, family, "ONVIF", "Cameras", OnvifPort,
+                    $"{r.IPCamName} {r.IPCamXAddress}".Trim());
             }
 
             // Offene Ports ohne erkannten Dienst gehen nicht verloren - sie
