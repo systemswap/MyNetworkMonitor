@@ -746,7 +746,19 @@
                       ItemsSource="{Binding Devices.Visible}"
                       SelectedItem="{Binding Devices.Selected}"
                       AutoGenerateColumns="False" IsReadOnly="True"
-                      CanUserResizeColumns="True" SelectionMode="Single">
+                      CanUserResizeColumns="True" SelectionMode="Extended"
+                      SelectionChanged="dg_Devices_SelectionChanged">
+              <!--
+                  Erneut scannen gehoert an die Zeile, nicht nur in den
+                  Kommandobalken: wer ein einzelnes Geraet nachprueft, will
+                  nicht das halbe Netz noch einmal abfragen.
+              -->
+              <DataGrid.ContextMenu>
+                <ContextMenu>
+                  <MenuItem Header="Rescan selected devices"
+                            Command="{Binding RescanSelectedCommand}"/>
+                </ContextMenu>
+              </DataGrid.ContextMenu>
               <DataGrid.Columns>
 
                 <DataGridTemplateColumn Header="" Width="26">
