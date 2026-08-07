@@ -322,6 +322,55 @@ namespace MyNetworkMonitor.Core.ViewModels
         public ObservableCollection<GroupableServiceGroup> GroupableServiceGroups { get; } = [];
 
         /// <summary>
+        /// Dieselben Rubriken, auf zwei Spalten verteilt.
+        /// <para>
+        /// Die Aufteilung passiert hier und nicht im Layout, weil ein
+        /// Gitter mit gleich hohen Zellen sich an der groessten Rubrik
+        /// ausrichtet - zwischen einer Rubrik mit zwei Eintraegen und der
+        /// naechsten klafft dann eine Luecke von der Hoehe der laengsten.
+        /// Zwei Spalten, die jede fuer sich untereinander wachsen, haben das
+        /// Problem nicht und stellen sich von selbst neu ein, wenn Dienste
+        /// dazukommen.
+        /// </para>
+        /// </summary>
+        public ObservableCollection<GroupableServiceGroup> GroupableServicesLeft { get; } = [];
+
+        public ObservableCollection<GroupableServiceGroup> GroupableServicesRight { get; } = [];
+
+        /// <summary>
+        /// Verteilt die Rubriken so auf zwei Spalten, dass beide etwa gleich
+        /// hoch werden. Gezaehlt wird in Zeilen: je Dienst eine, dazu eine fuer
+        /// die Ueberschrift.
+        /// </summary>
+        private void SpreadOverTwoColumns()
+        {
+            GroupableServicesLeft.Clear();
+            GroupableServicesRight.Clear();
+
+            int left = 0;
+            int right = 0;
+
+            foreach (GroupableServiceGroup group in GroupableServiceGroups)
+            {
+                int height = group.Services.Count + 1;
+
+                // Immer in die derzeit kuerzere Spalte - so bleibt der
+                // Unterschied hoechstens eine Rubrik gross, egal wie viele
+                // spaeter dazukommen.
+                if (left <= right)
+                {
+                    GroupableServicesLeft.Add(group);
+                    left += height;
+                }
+                else
+                {
+                    GroupableServicesRight.Add(group);
+                    right += height;
+                }
+            }
+        }
+
+        /// <summary>
         /// Wohin die vier Verfahren mit eigenem Modul gehoeren. Sie stehen
         /// nicht in den Dienstdefinitionen, sind aber Dienste wie die anderen -
         /// ohne Zuordnung landeten sie in einer Sammelrubrik, in der niemand
@@ -385,6 +434,8 @@ namespace MyNetworkMonitor.Core.ViewModels
 
                 GroupableServiceGroups.Add(bucket);
             }
+
+            SpreadOverTwoColumns();
         }
 
         private void OnGroupableServiceChanged(object? sender, PropertyChangedEventArgs e)
