@@ -541,6 +541,11 @@ public partial class ShellView : Window
         view_Settings.IsVisible = section == ShellSection.Settings;
         view_Network.IsVisible = section == ShellSection.Network;
         view_Topology.IsVisible = section == ShellSection.Topology;
+        view_Findings.IsVisible = section == ShellSection.Findings;
+
+        // Beim Aufschlagen neu pruefen: die Adapterregel liest den Zustand des
+        // Rechners, und der aendert sich auch ohne Scan.
+        if (section == ShellSection.Findings) _shell.FindingsView.Refresh();
 
         // Adapter kommen und gehen - ein VPN-Client, ein Dock, ein Stick.
         // Beim Aufschlagen der Ansicht neu lesen ist billiger als der
@@ -550,7 +555,7 @@ public partial class ShellView : Window
         bool built = section is ShellSection.Devices or ShellSection.Scopes
                              or ShellSection.Ports or ShellSection.Services
                              or ShellSection.Settings or ShellSection.Network
-                             or ShellSection.Topology;
+                             or ShellSection.Topology or ShellSection.Findings;
 
         view_Placeholder.IsVisible = !built;
 
@@ -558,10 +563,6 @@ public partial class ShellView : Window
 
         (tb_PlaceholderTitle.Text, tb_PlaceholderText.Text) = section switch
         {
-            ShellSection.Findings => ("Findings",
-                "Rogue router advertisements, globally open ports, protocol divergence. " +
-                "The rule set needs data from every earlier step and comes last."),
-
             ShellSection.Names => ("Names",
                 "Mapping your own device names."),
 

@@ -151,7 +151,16 @@ namespace MyNetworkMonitor.Core.ViewModels
             OnPropertyChanged(nameof(TcpCount));
             OnPropertyChanged(nameof(UdpCount));
             OnPropertyChanged(nameof(TotalCount));
+
+            // Die Portverfahren pruefen beim Start, ob ueberhaupt Ports
+            // ausgewaehlt sind. Ohne diese Meldung bliebe das Urteil von vor
+            // dem Laden stehen - und weil da noch keine Ports da waren, liess
+            // sich "TCP ports" gar nicht anhaken.
+            PortsChanged?.Invoke();
         }
+
+        /// <summary>Die Portauswahl hat sich geaendert.</summary>
+        public event Action? PortsChanged;
 
         /// <summary>
         /// Merkt den Stand vor und schreibt ihn kurz darauf. Die Kaestchen

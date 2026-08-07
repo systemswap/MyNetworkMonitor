@@ -51,6 +51,28 @@ namespace MyNetworkMonitor.Core.Persistence
                 string? folder = Path.GetDirectoryName(filePath);
                 if (!string.IsNullOrEmpty(folder)) Directory.CreateDirectory(folder);
 
+                // Einen vorhandenen Bestand nicht durch nichts ersetzen, ohne
+                // ihn beiseitezulegen.
+                //
+                // Wer die Tabelle leert und dann schliesst, will die leere
+                // Tabelle behalten - das ist gewollt. Ein Fehlgriff ist es
+                // trotzdem schnell, und der Unterschied zwischen "geleert" und
+                // "beim Laden nicht gelesen" ist von aussen nicht zu sehen.
+                // Eine Sicherung kostet nichts und hat den Ernstfall schon
+                // einmal gegeben.
+                if (records.Count == 0 && File.Exists(filePath) && new FileInfo(filePath).Length > MinimumMeaningfulSize)
+                {
+                    try
+                    {
+                        File.Copy(filePath, filePath + ".backup", overwrite: true);
+                    }
+                    catch (Exception)
+                    {
+                        // Ohne Sicherung trotzdem weiterschreiben - sie ist
+                        // eine Zugabe, keine Bedingung.
+                    }
+                }
+
                 File.WriteAllText(filePath, JsonSerializer.Serialize(records, Options));
                 return true;
             }
@@ -61,12 +83,32 @@ namespace MyNetworkMonitor.Core.Persistence
         }
 
         /// <summary>
+        /// Ab welcher Groesse eine Datei als "enthaelt etwas" gilt. Eine leere
+        /// Liste sind zwei Zeichen.
+        /// </summary>
+        private const int MinimumMeaningfulSize = 8;
+
+        /// <summary>
         /// Laedt den Bestand in einen leeren Store. Gibt zurueck, wie viele
         /// Geraete gelesen wurden.
         /// </summary>
-        public static int Load(DeviceStore store, string filePath)
+        public static int Load(DeviceStore store, string filePath) => Load(store, filePath, out _);
+
+        /// <summary>
+        /// Wie <see cref="Load(DeviceStore, string)"/>, meldet aber, ob die
+        /// Datei unlesbar war.
+        /// <para>
+        /// Der Unterschied zaehlt: eine fehlende Datei ist der erste Start, eine
+        /// unlesbare ist ein Fehler. Wer beides gleich behandelt, schreibt beim
+        /// Schliessen eine leere Liste ueber Daten, die er nur nicht lesen
+        /// konnte.
+        /// </para>
+        /// </summary>
+        public static int Load(DeviceStore store, string filePath, out string? error)
         {
             ArgumentNullException.ThrowIfNull(store);
+
+            error = null;
 
             if (!File.Exists(filePath)) return 0;
 
@@ -80,10 +122,11 @@ namespace MyNetworkMonitor.Core.Persistence
                 store.LoadFrom(records.Select(ToDevice).Where(d => d is not null)!);
                 return store.Devices.Count;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 // Eine beschaedigte Datei darf den Start nicht verhindern -
                 // schlimmstenfalls beginnt man mit einer leeren Liste.
+                error = ex.Message;
                 return 0;
             }
         }
