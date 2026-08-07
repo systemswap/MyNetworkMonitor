@@ -59,6 +59,13 @@ namespace MyNetworkMonitor.Core.ViewModels
         // --- Zustand ----------------------------------------------------------
         [ObservableProperty] private bool _onlyOnline;
 
+        /// <summary>
+        /// Nur Geraete mit einer Doppelbelegung. Der Schalter, den man drueckt,
+        /// wenn die Statuszeile meldet, dass es welche gibt - bei mehreren
+        /// hundert Zeilen sind sie sonst nicht zu finden.
+        /// </summary>
+        [ObservableProperty] private bool _onlyConflicts;
+
         // --- Merkmalsschalter der bisherigen Zeile -----------------------------
         [ObservableProperty] private bool _isCamera;
         [ObservableProperty] private bool _hasSsdp;
@@ -105,6 +112,7 @@ namespace MyNetworkMonitor.Core.ViewModels
 
             if (!MatchesFamily(device)) return false;
             if (OnlyOnline && !device.IsOnline) return false;
+            if (OnlyConflicts && !device.HasConflict) return false;
             if (OnlyGloballyReachable && !device.HasGloballyRoutableAddress) return false;
 
             if (!MatchesFreeText(device, Text1)) return false;
@@ -158,6 +166,15 @@ namespace MyNetworkMonitor.Core.ViewModels
 
             if (device.Addresses.Any(a => a.Info.Canonical.Contains(n, StringComparison.OrdinalIgnoreCase)))
                 return true;
+
+            // Auch der Namensdienst zaehlt zur Suche: wer einen Alias oder
+            // eine im DNS eingetragene Adresse eingibt, sucht das Geraet
+            // dahinter.
+            if (device.Aliases.Any(a => a.Contains(n, StringComparison.OrdinalIgnoreCase)) ||
+                device.LookupAddresses.Any(a => a.Contains(n, StringComparison.OrdinalIgnoreCase)))
+            {
+                return true;
+            }
 
             if (device.OpenServices.Any(s => s.ServiceName.Contains(n, StringComparison.OrdinalIgnoreCase)))
                 return true;

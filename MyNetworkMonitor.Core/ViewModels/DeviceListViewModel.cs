@@ -159,7 +159,10 @@ namespace MyNetworkMonitor.Core.ViewModels
 
             lock (_store.SyncRoot)
             {
-                matching = [.. _store.Devices.Where(Filter.Matches).OrderBy(SortKeyOf, ByteArrayComparer.Instance)];
+                matching = [.. _store.Devices
+                    .Where(Filter.Matches)
+                    .OrderByDescending(d => ConflictsFirst ? d.ConflictRank : 0)
+                    .ThenBy(SortKeyOf, ByteArrayComparer.Instance)];
                 facets = BuildServiceFacets();
 
                 total = _store.Devices.Count;
@@ -179,6 +182,15 @@ namespace MyNetworkMonitor.Core.ViewModels
 
             ApplyServiceFacets(facets);
         }
+
+        /// <summary>
+        /// Doppelbelegungen nach oben. Ein Befund, der auf Zeile 380 steht,
+        /// ist so gut wie keiner - darum laesst sich die Liste danach ordnen,
+        /// ohne dass man die uebrigen Geraete ausblenden muss.
+        /// </summary>
+        [ObservableProperty] private bool _conflictsFirst;
+
+        partial void OnConflictsFirstChanged(bool value) => Refresh();
 
         /// <summary>
         /// Sortiert nach der Hauptadresse. Der 128-Bit-Schluessel bringt IPv4

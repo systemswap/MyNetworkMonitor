@@ -60,6 +60,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             ScopeEditor = new ScopeEditorViewModel(Scopes);
             PortEditor = new PortEditorViewModel(Settings);
             ServiceEditor = new ServiceEditorViewModel();
+            NetworkView = new NetworkViewModel();
 
             // Ein Haken im Kommandobalken und eine Aenderung in der Verwaltung
             // treffen dieselbe Liste - die Zaehler muessen in beiden Faellen neu.
@@ -86,6 +87,9 @@ namespace MyNetworkMonitor.Core.ViewModels
 
         /// <summary>Welcher Dienst auf welchen Ports gesucht wird.</summary>
         public ServiceEditorViewModel ServiceEditor { get; }
+
+        /// <summary>Die Adapter dieses Rechners samt ihrer Namensserver.</summary>
+        public NetworkViewModel NetworkView { get; }
 
         public ObservableCollection<ScanScope> Scopes { get; } = [];
 
@@ -512,6 +516,13 @@ namespace MyNetworkMonitor.Core.ViewModels
 
             int failed = result.Failed.Count();
             if (failed > 0) summary += $" {failed} failed.";
+
+            // Der Befund gehoert an den Anfang des Satzes, nicht ans Ende: er
+            // ist der Grund, aus dem man ueberhaupt gescannt hat.
+            if (result.ConflictCount > 0)
+            {
+                summary = $"{result.ConflictCount} device(s) with duplicate addresses or names. " + summary;
+            }
 
             return summary;
         }
