@@ -157,9 +157,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             // ist die Erwartung, das Zusammenfassen die Ausnahme.
             ServiceDisplay.GroupSelected = _userSettings.GetBool("GroupServices", false);
 
-            foreach (string name in (_userSettings.GetString("GroupedServices") ?? string.Empty)
-                         .Split(ServiceNameSeparator,
-                                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            foreach (string name in _userSettings.GetStrings("GroupedServices"))
             {
                 ServiceDisplay.Grouped.Add(name);
             }
@@ -167,24 +165,23 @@ namespace MyNetworkMonitor.Core.ViewModels
             OnPropertyChanged(nameof(GroupServices));
             BuildGroupableServices();
 
-            // Welche Verfahren nur die bekannten Geraete abfragen sollen. Als
-            // eine Zeile gespeichert - eine Einstellung je Verfahren waere
-            // dieselbe Angabe, nur unuebersichtlicher.
-            string? restricted = _userSettings.GetString("OnlyKnownTargetsFor");
-
+            // Welche Verfahren nur die bekannten Geraete abfragen sollen.
+            //
             // Beim ersten Start die beiden Namensdienste vorbelegen. Die
             // bisherige Anwendung hat ihre Liste aus der Ergebnistabelle
             // gebaut, also aus den gefundenen Geraeten; ueber einen ganzen
             // Bereich gefragt, laufen die meisten Anfragen in Adressen ohne
             // Eintrag - das kostet nur Zeit und belastet den Namensserver.
-            if (restricted is null)
+            //
+            // Gefragt wird nach dem Schluessel, nicht nach dem Wert: eine
+            // leere Auswahl ist eine Entscheidung und darf nicht bei jedem
+            // Start ueberschrieben werden.
+            if (!_userSettings.Contains("OnlyKnownTargetsFor"))
             {
-                restricted = "dns.reverse,dns.lookup";
-                _userSettings.SetString("OnlyKnownTargetsFor", restricted);
+                _userSettings.SetStrings("OnlyKnownTargetsFor", ["dns.reverse", "dns.lookup"]);
             }
 
-            foreach (string id in restricted
-                         .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            foreach (string id in _userSettings.GetStrings("OnlyKnownTargetsFor"))
             {
                 Settings.OnlyKnownTargetsFor.Add(id);
             }
@@ -248,7 +245,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             if (choice.OnlyKnownTargets) Settings.OnlyKnownTargetsFor.Add(choice.Id);
             else Settings.OnlyKnownTargetsFor.Remove(choice.Id);
 
-            _userSettings?.SetString("OnlyKnownTargetsFor", string.Join(",", Settings.OnlyKnownTargetsFor));
+            _userSettings?.SetStrings("OnlyKnownTargetsFor", Settings.OnlyKnownTargetsFor);
         }
 
         /// <summary>
@@ -280,12 +277,6 @@ namespace MyNetworkMonitor.Core.ViewModels
         private bool _loadFailed;
 
         // ------------------------------------------------- Dienste in der Spalte
-
-        /// <summary>
-        /// Trennzeichen der gespeicherten Dienstnamen. Ein Zeilenumbruch, weil
-        /// in einem Dienstnamen ein Komma stehen darf.
-        /// </summary>
-        private const char ServiceNameSeparator = '\n';
 
         /// <summary>
         /// Die ausgewaehlten Dienste in der Tabelle zu einem "+n"
@@ -446,8 +437,11 @@ namespace MyNetworkMonitor.Core.ViewModels
             if (entry.IsGrouped) ServiceDisplay.Grouped.Add(entry.Name);
             else ServiceDisplay.Grouped.Remove(entry.Name);
 
-            _userSettings?.SetString("GroupedServices",
-                string.Join(ServiceNameSeparator, ServiceDisplay.Grouped));
+            // Gespeichert wird immer die ganze Menge, nicht die einzelne
+            // Aenderung. Damit traegt es von selbst, wenn Dienste dazukommen
+            // oder wegfallen - es gibt nichts, was man dabei vergessen
+            // koennte.
+            _userSettings?.SetStrings("GroupedServices", ServiceDisplay.Grouped);
 
             ServiceDisplay.NotifyChanged();
         }
