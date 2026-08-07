@@ -149,8 +149,18 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
     /// </summary>
     public sealed partial class ScanSettings : ObservableObject
     {
-        /// <summary>Zeitlimit je Port, in Millisekunden. Entspricht dem bisherigen Schieberegler.</summary>
-        [ObservableProperty] private int _portTimeoutMs = 1000;
+        /// <summary>
+        /// Zeitlimit je Port, in Millisekunden. Entspricht dem bisherigen
+        /// Schieberegler.
+        /// <para>
+        /// 2500 statt der frueheren 1000: eine Sekunde reicht im eigenen
+        /// Segment, aber nicht ueber eine WAN-Strecke oder zu einem Geraet,
+        /// das erst aufwacht - dort meldet der Scan dann "zu", wo in Wahrheit
+        /// nur niemand schnell genug war. Ein falsches "zu" faellt niemandem
+        /// auf und ist darum teurer als die Wartezeit.
+        /// </para>
+        /// </summary>
+        [ObservableProperty] private int _portTimeoutMs = 2500;
 
         public List<int> TcpPorts { get; init; } = [];
         public List<int> UdpPorts { get; init; } = [];
@@ -196,6 +206,40 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
         /// gegen einen bestimmten Server pruefen will.
         /// </summary>
         [ObservableProperty] private string? _overrideDnsServer;
+
+        /// <summary>
+        /// Nach der Namensaufloesung jede Adresse gegen <b>jeden</b> bekannten
+        /// Namensserver einzeln pruefen und die Antworten vergleichen.
+        /// <para>
+        /// Eine Unterfunktion des DNS-Scans und kein eigenes Verfahren: sie
+        /// braucht dessen Ergebnis und liefe ohne es ins Leere. Weichen die
+        /// Server voneinander ab, entsteht daraus ein Befund - mit Angabe,
+        /// welcher Server nicht sauber aufloest.
+        /// </para>
+        /// <para>
+        /// Kostet Zeit: je Adresse eine Abfrage an jeden Server, und das in
+        /// beide Richtungen. Darum abschaltbar und standardmaessig aus.
+        /// </para>
+        /// </summary>
+        [ObservableProperty] private bool _crossCheckDnsServers;
+
+        /// <summary>
+        /// Der Quervergleich fragt nur die Geraete, die im Lauf geantwortet
+        /// haben, statt jede Zeile der Tabelle.
+        /// <para>
+        /// Voreingestellt an, und das ist die Zeitersparnis, um die es geht:
+        /// je Adresse laeuft eine Abfrage an <em>jeden</em> Namensserver, und
+        /// zwar zweimal. Ueber eine gewachsene Tabelle mit hunderten
+        /// Altbestaenden - Geraeten, die es laengst nicht mehr gibt - sind das
+        /// tausende Abfragen fuer eine Auskunft, die niemanden interessiert.
+        /// </para>
+        /// <para>
+        /// Ausgeschaltet prueft er auch die Karteileichen. Das hat seinen
+        /// Sinn: ein Name, der noch aufloest, obwohl das Geraet weg ist, ist
+        /// genau der Eintrag, den man im Namensdienst aufraeumen will.
+        /// </para>
+        /// </summary>
+        [ObservableProperty] private bool _crossCheckOnlyKnownTargets = true;
 
         /// <summary>ARP-Cache vor dem Scan leeren.</summary>
         [ObservableProperty] private bool _clearArpCacheFirst;

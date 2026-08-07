@@ -21,6 +21,26 @@ namespace MyNetworkMonitor.Core.ViewModels
     }
 
     /// <summary>
+    /// Ein gescannter Bereich samt Trefferzahl - fuer die Bereichsauswahl im
+    /// Filter. Gebaut wie <see cref="ServiceFacet"/>, aus demselben Grund: die
+    /// Bereiche aendern sich, je nachdem wo man arbeitet, und eine feste Liste
+    /// waere nach dem naechsten Ortswechsel falsch.
+    /// </summary>
+    public sealed class ScopeFacet
+    {
+        /// <summary>Die Beschreibung des Bereichs, wie sie am Geraet steht.</summary>
+        public required string Name { get; init; }
+
+        /// <summary>Wie viele Geraete aus diesem Bereich stammen.</summary>
+        public int DeviceCount { get; set; }
+
+        /// <summary>Wie viele davon gerade antworten.</summary>
+        public int OnlineCount { get; set; }
+
+        public override string ToString() => $"{Name} ({DeviceCount})";
+    }
+
+    /// <summary>
     /// Die Ergebnistabelle: nimmt die Geraete aus dem <see cref="DeviceStore"/>,
     /// wendet den Filter an und haelt die sichtbare Liste aktuell.
     /// <para>
@@ -93,6 +113,9 @@ namespace MyNetworkMonitor.Core.ViewModels
 
         /// <summary>Alle gefundenen Dienste mit Trefferzahl, alphabetisch.</summary>
         public ObservableCollection<ServiceFacet> AvailableServices { get; } = [];
+
+        /// <summary>Alle Bereiche, aus denen Geraete stammen, mit Trefferzahl.</summary>
+        public ObservableCollection<ScopeFacet> AvailableScopes { get; } = [];
 
         [ObservableProperty] private int _totalCount;
         [ObservableProperty] private int _visibleCount;
@@ -186,6 +209,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             // Oberflaeche darf sie nicht laenger aufhalten als noetig.
             List<Device> matching;
             List<ServiceFacet> facets;
+            List<ScopeFacet> scopes;
             int total, capable, online;
 
             lock (_store.SyncRoot)
@@ -195,6 +219,7 @@ namespace MyNetworkMonitor.Core.ViewModels
                     .OrderByDescending(d => ConflictsFirst ? d.ConflictRank : 0)
                     .ThenBy(SortKeyOf, ByteArrayComparer.Instance)];
                 facets = BuildServiceFacets();
+                scopes = BuildScopeFacets();
 
                 total = _store.Devices.Count;
                 capable = _store.Devices.Count(d => d.IsIpv6Capable);
@@ -212,6 +237,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             OnPropertyChanged(nameof(FilteredOutCount));
 
             ApplyServiceFacets(facets);
+            ApplyScopeFacets(scopes);
         }
 
         /// <summary>
@@ -313,6 +339,75 @@ namespace MyNetworkMonitor.Core.ViewModels
             if (!Filter.Services.Remove(serviceName)) Filter.Services.Add(serviceName);
 
             Filter.NotifyServicesChanged();
+        }
+
+        /// <summary>
+        /// Baut die Bereichsauswahl neu auf - wie die Dienstauswahl ueber alle
+        /// Geraete und nicht nur die sichtbaren, sonst raeumte die eigene
+        /// Auswahl die Eintraege weg, mit denen man sie zuruecknimmt.
+        /// <para>
+        /// Woher ein Geraet stammt, steht an ihm selbst. Die eingegebenen
+        /// Bereiche waeren die naheliegendere Quelle, taugen dafuer aber nicht:
+        /// sie aendern sich zwischen zwei Laeufen, und nach dem Laden des
+        /// letzten Bestands gibt es sie gar nicht mehr - die Geraete aber schon.
+        /// </para>
+        /// </summary>
+        private List<ScopeFacet> BuildScopeFacets()
+        {
+            Dictionary<string, ScopeFacet> facets = new(StringComparer.OrdinalIgnoreCase);
+
+            foreach (Device device in _store.Devices)
+            {
+                string key = DeviceFilter.ScopeKeyOf(device);
+
+                if (!facets.TryGetValue(key, out ScopeFacet? facet))
+                {
+                    facet = new ScopeFacet { Name = key };
+                    facets[key] = facet;
+                }
+
+                facet.DeviceCount++;
+                if (device.IsOnline) facet.OnlineCount++;
+            }
+
+            // "Ohne Bereich" ans Ende: es ist der Sammelposten, nicht der
+            // erste Bereich, den man sucht.
+            return
+            [
+                .. facets.Values
+                    .OrderBy(f => f.Name == DeviceFilter.NoScopeKey)
+                    .ThenBy(f => f.Name, StringComparer.CurrentCulture)
+            ];
+        }
+
+        /// <summary>
+        /// Uebernimmt die Bereiche nur bei echter Aenderung - derselbe Grund
+        /// wie bei den Diensten: ein geoeffnetes Ausklappmenue darf waehrend
+        /// eines Laufs nicht unter der Hand des Nutzers neu aufgebaut werden.
+        /// </summary>
+        private void ApplyScopeFacets(List<ScopeFacet> facets)
+        {
+            bool same =
+                facets.Count == AvailableScopes.Count &&
+                facets.Zip(AvailableScopes).All(pair =>
+                    string.Equals(pair.First.Name, pair.Second.Name, StringComparison.OrdinalIgnoreCase) &&
+                    pair.First.DeviceCount == pair.Second.DeviceCount &&
+                    pair.First.OnlineCount == pair.Second.OnlineCount);
+
+            if (same) return;
+
+            AvailableScopes.Clear();
+            foreach (ScopeFacet facet in facets) AvailableScopes.Add(facet);
+        }
+
+        /// <summary>Schaltet einen Bereich im Filter um.</summary>
+        public void ToggleScope(string scopeName)
+        {
+            if (string.IsNullOrWhiteSpace(scopeName)) return;
+
+            if (!Filter.Scopes.Remove(scopeName)) Filter.Scopes.Add(scopeName);
+
+            Filter.NotifyScopesChanged();
         }
 
         /// <summary>

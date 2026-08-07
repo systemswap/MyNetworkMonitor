@@ -21,6 +21,14 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 
         public override string Id => "ssdp";
         public override string DisplayName => "SSDP / UPnP";
+
+        public override string Explanation =>
+            "Asks into the room \"who is offering something?\" and listens for a few " +
+            "seconds. Devices meant to be found by themselves answer: smart TVs, media " +
+            "boxes, game consoles, routers, network storage, printers. They usually " +
+            "announce their model name and manufacturer along the way, so you learn what " +
+            "a device is, not just that it exists. Because it is a call to everyone, it " +
+            "also turns up devices outside the ranges you picked.";
         public override ScanPhase Phase => ScanPhase.Discovery;
         public override FamilySupport Families => FamilySupport.IPv4;
 
@@ -80,6 +88,14 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 
         public override string Id => "mdns";
         public override string DisplayName => "mDNS";
+
+        public override string Explanation =>
+            "The way devices introduce themselves by name without any name server being " +
+            "involved. Apple devices, iPhones, printers, network storage, Chromecasts and " +
+            "many smart-home boxes announce themselves this way. It is the method that " +
+            "gives you readable names like \"kitchen-printer\" instead of bare numbers, " +
+            "and it often tells you what a device offers - printing, file shares, media. " +
+            "Listens for a few seconds; only reaches your own network segment.";
         public override ScanPhase Phase => ScanPhase.Discovery;
         public override FamilySupport Families => FamilySupport.IPv4;
 
@@ -140,6 +156,14 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
     {
         public override string Id => "onvif";
         public override string DisplayName => "ONVIF cameras";
+
+        public override string Explanation =>
+            "Looks specifically for surveillance cameras and video recorders. Nearly every " +
+            "professional IP camera answers here, whatever the brand, and reports its " +
+            "model and where its video stream can be reached. Worth ticking when you want " +
+            "to know how many cameras are hanging in a network and whether one of them is " +
+            "there that nobody has on their list - cameras are often installed once and " +
+            "then forgotten.";
         public override ScanPhase Phase => ScanPhase.Identification;
         public override FamilySupport Families => FamilySupport.IPv4;
 

@@ -225,6 +225,14 @@ namespace MyNetworkMonitor.Core.Model
         /// <summary>Freitextangaben der Module: SNMP, mDNS, SSDP, SMB, ONVIF.</summary>
         public Dictionary<string, string> Details { get; } = new(StringComparer.OrdinalIgnoreCase);
 
+        /// <summary>
+        /// Was die einzelnen Namensserver zu diesem Geraet gesagt haben, falls
+        /// der Quervergleich gelaufen ist. Bewusst nicht gespeichert: es ist
+        /// eine Momentaufnahme des Namensdienstes, und ein alter Stand daraus
+        /// waere schlimmer als keiner.
+        /// </summary>
+        public Services.DnsCrossCheckResult? DnsCrossCheck { get; set; }
+
         // ------------------------------------------------------- Fuer die Anzeige
 
         /// <summary>

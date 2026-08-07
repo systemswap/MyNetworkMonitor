@@ -46,6 +46,25 @@ namespace MyNetworkMonitor.Core.ViewModels
         /// <summary>Erklaerung fuer den Tooltip. Leer, wenn das Verfahren laeuft.</summary>
         public string BlockReason => Availability.CanRun ? string.Empty : Availability.Reason;
 
+        /// <summary>Was das Verfahren findet und wofuer man es benutzt.</summary>
+        public string Explanation => Method.Explanation;
+
+        /// <summary>
+        /// Was im Tooltip steht: immer die Erklaerung, und darunter der Grund,
+        /// falls das Verfahren gerade nicht laufen kann.
+        /// <para>
+        /// Beides gehoert zusammen. Bisher stand dort nur der Sperrgrund - bei
+        /// den lauffaehigen Verfahren also nichts, und das sind die, bei denen
+        /// die Frage "soll ich den Haken setzen?" ueberhaupt erst aufkommt.
+        /// Umgekehrt hilft einem Gesperrten die blosse Erklaerung nicht weiter,
+        /// wenn nirgends steht, warum es ausgegraut ist.
+        /// </para>
+        /// </summary>
+        public string Hint =>
+            BlockReason.Length == 0
+                ? Explanation
+                : $"{Explanation}\n\nNot available right now: {BlockReason}";
+
         /// <summary>Nur IPv6 - traegt in der Oberflaeche die Indigo-Kennzeichnung.</summary>
         public bool IsIpv6Only => Families == FamilySupport.IPv6;
 
@@ -92,6 +111,7 @@ namespace MyNetworkMonitor.Core.ViewModels
         {
             OnPropertyChanged(nameof(IsEnabled));
             OnPropertyChanged(nameof(BlockReason));
+            OnPropertyChanged(nameof(Hint));
 
             // Ein Verfahren, das nicht laufen kann, bleibt nicht angehakt -
             // sonst suggeriert die Auswahl etwas, das nicht passiert.

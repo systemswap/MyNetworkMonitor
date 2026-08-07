@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.Input;
 using MyNetworkMonitor.Core.Model;
 using MyNetworkMonitor.Core.Persistence;
 using MyNetworkMonitor.Core.Scanning.Engine;
+using MyNetworkMonitor.Core.Services;
 
 namespace MyNetworkMonitor.Core.ViewModels
 {
@@ -127,6 +128,72 @@ namespace MyNetworkMonitor.Core.ViewModels
         /// <summary>Wo die Anwendung selbst liegt.</summary>
         public string ApplicationFolder => AppContext.BaseDirectory;
 
+        // ------------------------------------------------- Voreinstellungen
+
+        /// <summary>
+        /// Welche Verfahren beim ersten Start nur die bereits gefundenen
+        /// Geraete abfragen.
+        /// <para>
+        /// Alles, was eine Zielliste abarbeitet und nichts Neues entdeckt: die
+        /// beiden Namensdienste, NetBIOS, ONVIF, die Portscans, die
+        /// SMB-Version und die Diensterkennung. Ueber einen ganzen Bereich
+        /// gefragt, laufen deren Anfragen fast alle in Adressen, an denen
+        /// niemand ist - das kostet die meiste Zeit eines Laufs, ohne je ein
+        /// Geraet zu finden, das nicht schon Ping oder ARP gemeldet haetten.
+        /// </para>
+        /// <para>
+        /// Nicht in der Liste stehen die Verfahren, die ueberhaupt erst
+        /// Geraete auftun - Ping und ARP-Anfrage -, denn beschraenkt fänden
+        /// sie nur, was schon dasteht. SSDP, mDNS und die ARP-Tabelle haben
+        /// gar keine Zielliste und tauchen darum nirgends auf.
+        /// </para>
+        /// </summary>
+        private static readonly string[] DefaultOnlyKnownTargetsFor =
+        [
+            "dns.reverse", "dns.lookup", "netbios", "onvif",
+            "ports.tcp", "ports.udp", "smb.version", "services"
+        ];
+
+        /// <summary>
+        /// Die Dienste, die in der Tabelle von Haus aus zu einem "+n"
+        /// zusammengefasst werden.
+        /// <para>
+        /// Es sind die, die auf jedem zweiten Geraet stehen und darum nichts
+        /// unterscheiden - Namens- und Adressdienste, dazu die
+        /// Fernwartungswerkzeuge, die im Unternehmensnetz ohnehin ueberall
+        /// ausgerollt sind. Sie einzeln zu zeigen fuellt die Spalte, ohne dass
+        /// man daran ein Geraet vom naechsten unterscheiden koennte.
+        /// </para>
+        /// </summary>
+        private static readonly string[] DefaultGroupedServices =
+        [
+            "DHCP", "DNS_TCP", "DNS_UDP", "NetBIOS",
+            "RustdeskServer", "TeamViewer", "UltraVNC"
+        ];
+
+        /// <summary>
+        /// Packt Eintraege aus, die aus einer aelteren Fassung stammen.
+        /// <para>
+        /// Bevor es <see cref="UserSettings.SetStrings"/> gab, hat die
+        /// Verfahrensliste ihre Schluessel selbst zusammengefuegt - mit Komma,
+        /// wo die Ablage einen senkrechten Strich erwartet. So ein Eintrag
+        /// steht bis heute in gewachsenen Dateien und enthaelt die ganze Liste
+        /// in einem Feld. Er richtet keinen Schaden an, weil kein Verfahren so
+        /// heisst; er wird nur nie wieder los, solange ihn niemand aufloest.
+        /// </para>
+        /// <para>
+        /// Zerlegt statt weggeworfen: die Schluessel darin sind gueltig, und
+        /// bei jemandem, dessen Auswahl <em>nur</em> aus so einem Eintrag
+        /// besteht, waere Wegwerfen der Verlust seiner Einstellung.
+        /// Unbekanntes bleibt unangetastet - es koennte zu einem Verfahren
+        /// gehoeren, das erst spaeter dazukommt.
+        /// </para>
+        /// </summary>
+        private static IEnumerable<string> ExpandLegacyIds(IEnumerable<string> ids) =>
+            ids.SelectMany(id => id.Split(',', StringSplitOptions.RemoveEmptyEntries
+                                             | StringSplitOptions.TrimEntries))
+               .Where(id => id.Length > 0);
+
         /// <summary>
         /// Bindet die Einstellungen an die Ablage: liest den gespeicherten
         /// Stand und schreibt jede Aenderung sofort zurueck.
@@ -146,6 +213,10 @@ namespace MyNetworkMonitor.Core.ViewModels
             Settings.ScanAllPorts = _userSettings.GetBool("ScanAllPorts", Settings.ScanAllPorts);
             Settings.OnlyKnownTargets = _userSettings.GetBool("OnlyKnownTargets", Settings.OnlyKnownTargets);
             Settings.ClearArpCacheFirst = _userSettings.GetBool("ClearArpCacheFirst", Settings.ClearArpCacheFirst);
+            Settings.CrossCheckDnsServers =
+                _userSettings.GetBool("CrossCheckDnsServers", Settings.CrossCheckDnsServers);
+            Settings.CrossCheckOnlyKnownTargets =
+                _userSettings.GetBool("CrossCheckOnlyKnownTargets", Settings.CrossCheckOnlyKnownTargets);
             Settings.OverrideDnsServer = _userSettings.GetString("OverrideDnsServer");
             Settings.UseOnlineTopologyLibrary =
                 _userSettings.GetBool("UseOnlineTopologyLibrary", Settings.UseOnlineTopologyLibrary);
@@ -153,11 +224,19 @@ namespace MyNetworkMonitor.Core.ViewModels
             SaveLastScanResult = _userSettings.GetBool("SaveLastScanResult", true);
 
             // Welche Dienste in der Tabelle zu einem "+n" zusammengefasst
-            // werden. Ohne Angabe wird nichts zusammengefasst - alles zeigen
-            // ist die Erwartung, das Zusammenfassen die Ausnahme.
-            ServiceDisplay.GroupSelected = _userSettings.GetBool("GroupServices", false);
+            // werden. Voreingestellt an, mit der Auswahl aus
+            // <see cref="DefaultGroupedServices"/>.
+            ServiceDisplay.GroupSelected = _userSettings.GetBool("GroupServices", true);
 
-            foreach (string name in _userSettings.GetStrings("GroupedServices"))
+            // Nach dem Schluessel gefragt, nicht nach dem Wert: wer die
+            // Gruppierung leerraeumt, hat das entschieden, und die
+            // Voreinstellung darf sie ihm nicht bei jedem Start
+            // zurueckschreiben.
+            IReadOnlyList<string> grouped = _userSettings.Contains("GroupedServices")
+                ? _userSettings.GetStrings("GroupedServices")
+                : DefaultGroupedServices;
+
+            foreach (string name in grouped)
             {
                 ServiceDisplay.Grouped.Add(name);
             }
@@ -178,12 +257,23 @@ namespace MyNetworkMonitor.Core.ViewModels
             // Start ueberschrieben werden.
             if (!_userSettings.Contains("OnlyKnownTargetsFor"))
             {
-                _userSettings.SetStrings("OnlyKnownTargetsFor", ["dns.reverse", "dns.lookup"]);
+                _userSettings.SetStrings("OnlyKnownTargetsFor", DefaultOnlyKnownTargetsFor);
             }
 
-            foreach (string id in _userSettings.GetStrings("OnlyKnownTargetsFor"))
+            IReadOnlyList<string> stored = _userSettings.GetStrings("OnlyKnownTargetsFor");
+
+            foreach (string id in ExpandLegacyIds(stored))
             {
                 Settings.OnlyKnownTargetsFor.Add(id);
+            }
+
+            // Hat das Auspacken etwas veraendert, den bereinigten Stand
+            // zurueckschreiben - sonst schleppt die Datei den Altbestand
+            // weiter mit, auch wenn ihn niemand mehr liest.
+            if (Settings.OnlyKnownTargetsFor.Count != stored.Count
+                || !stored.All(Settings.OnlyKnownTargetsFor.Contains))
+            {
+                _userSettings.SetStrings("OnlyKnownTargetsFor", Settings.OnlyKnownTargetsFor);
             }
 
             foreach (ScanMethodChoice method in Methods)
@@ -210,6 +300,13 @@ namespace MyNetworkMonitor.Core.ViewModels
                         break;
                     case nameof(ScanSettings.ClearArpCacheFirst):
                         _userSettings.SetBool("ClearArpCacheFirst", Settings.ClearArpCacheFirst);
+                        break;
+                    case nameof(ScanSettings.CrossCheckDnsServers):
+                        _userSettings.SetBool("CrossCheckDnsServers", Settings.CrossCheckDnsServers);
+                        break;
+                    case nameof(ScanSettings.CrossCheckOnlyKnownTargets):
+                        _userSettings.SetBool("CrossCheckOnlyKnownTargets",
+                                              Settings.CrossCheckOnlyKnownTargets);
                         break;
                     case nameof(ScanSettings.OverrideDnsServer):
                         _userSettings.SetString("OverrideDnsServer", Settings.OverrideDnsServer);
@@ -239,14 +336,37 @@ namespace MyNetworkMonitor.Core.ViewModels
         /// </summary>
         private void OnMethodRestrictionChanged(object? sender, PropertyChangedEventArgs e)
         {
-            if (e.PropertyName != nameof(ScanMethodChoice.OnlyKnownTargets)) return;
             if (sender is not ScanMethodChoice choice) return;
+
+            // Der Quervergleich haengt am DNS-Scan: ohne ihn gibt es keine
+            // Namen, ueber die sich die Server uneinig sein koennten. Sein
+            // Kaestchen muss darum mitbekommen, wenn eines der beiden
+            // DNS-Verfahren an- oder abgewaehlt wird.
+            if (e.PropertyName == nameof(ScanMethodChoice.IsSelected))
+            {
+                if (IsDnsMethod(choice.Id)) OnPropertyChanged(nameof(CanCrossCheckDns));
+                return;
+            }
+
+            if (e.PropertyName != nameof(ScanMethodChoice.OnlyKnownTargets)) return;
 
             if (choice.OnlyKnownTargets) Settings.OnlyKnownTargetsFor.Add(choice.Id);
             else Settings.OnlyKnownTargetsFor.Remove(choice.Id);
 
             _userSettings?.SetStrings("OnlyKnownTargetsFor", Settings.OnlyKnownTargetsFor);
         }
+
+        private static bool IsDnsMethod(string id) =>
+            id is "dns.lookup" or "dns.reverse";
+
+        /// <summary>
+        /// Der DNS-Quervergleich ist waehlbar. Es ist keine eigene Methode,
+        /// sondern eine Unterfunktion des Namensscans - ohne ihn liefe sie
+        /// ins Leere, und ein Kaestchen, das nichts bewirkt, ist schlimmer als
+        /// eines, das erkennbar gesperrt ist.
+        /// </summary>
+        public bool CanCrossCheckDns =>
+            Methods.Any(m => m.IsSelected && IsDnsMethod(m.Id));
 
         /// <summary>
         /// Liest den zuletzt gesicherten Bestand. Ohne Datei bleibt es bei der
@@ -269,8 +389,26 @@ namespace MyNetworkMonitor.Core.ViewModels
 
             if (count == 0) return;
 
+            // Die Doppelbelegungen stehen nicht in der Datei, und das mit
+            // Absicht: gespeicherte Befunde waeren eine zweite Wahrheit neben
+            // den Daten und muessten eigens wieder aufgeraeumt werden, wenn der
+            // Fehler behoben ist. Aus dem geladenen Bestand neu abgeleitet
+            // stimmen sie von selbst - sie sind nach dem Start wieder da und
+            // fallen weg, sobald ein Scan sie nicht mehr hergibt.
+            int conflicts;
+
+            lock (_store.SyncRoot)
+            {
+                conflicts = DuplicateDetector.Analyze(_store.Devices);
+            }
+
             Devices.Refresh();
-            StatusText = $"{count} devices from the last scan. Nothing has been checked yet.";
+            FindingsView.Refresh();
+
+            StatusText = conflicts == 0
+                ? $"{count} devices from the last scan. Nothing has been rechecked yet."
+                : $"{count} devices from the last scan, {conflicts} of them with a finding. " +
+                  "Nothing has been rechecked yet.";
         }
 
         /// <summary>Der letzte Bestand liess sich nicht lesen.</summary>
@@ -523,7 +661,14 @@ namespace MyNetworkMonitor.Core.ViewModels
                 choice.IsSelected = choice.IsEnabled && profile.MethodIds.Contains(choice.Id);
             }
 
+            // Kein Umfang schaltet den DNS-Quervergleich ein. Er fragt jede
+            // Adresse bei jedem Server einzeln und in beide Richtungen - das
+            // ist nichts, was man beilaeufig mit einem Umfang mitnimmt, und
+            // wer es will, hakt es selbst an.
+            Settings.CrossCheckDnsServers = false;
+
             OnPropertyChanged(nameof(SelectedMethodCount));
+            OnPropertyChanged(nameof(CanCrossCheckDns));
             OnPropertyChanged(nameof(CanStart));
         }
 
@@ -646,6 +791,7 @@ namespace MyNetworkMonitor.Core.ViewModels
 
             OnPropertyChanged(nameof(SelectedScopeCount));
             OnPropertyChanged(nameof(SelectedMethodCount));
+            OnPropertyChanged(nameof(CanCrossCheckDns));
             OnPropertyChanged(nameof(TargetCount));
             OnPropertyChanged(nameof(TargetCountIsEstimate));
             OnPropertyChanged(nameof(EstimatedDuration));
@@ -919,6 +1065,13 @@ namespace MyNetworkMonitor.Core.ViewModels
                     ScanRunResult result = await _engine.RunAsync(scopes, methods, Settings, _store);
                     StatusText = Describe(result);
 
+                    // Der Quervergleich haengt am Ergebnis des Laufs und
+                    // laeuft darum danach, nicht als eigenes Verfahren mittendrin.
+                    if (Settings.CrossCheckDnsServers && !result.WasCancelled)
+                    {
+                        await CrossCheckDnsAsync(scopes);
+                    }
+
                     // Die Regeln laufen von selbst, sobald der Lauf durch ist -
                     // ein Befund, den man erst durch einen Klick sichtbar
                     // machen muss, wird nicht gefunden.
@@ -938,6 +1091,221 @@ namespace MyNetworkMonitor.Core.ViewModels
                 OnPropertyChanged(nameof(CanStart));
             }
         }
+
+        // ------------------------------------------------- DNS-Quervergleich
+
+        /// <summary>
+        /// Prueft nach einem Lauf jede aufgeloeste Adresse gegen jeden bekannten
+        /// Namensserver einzeln. Die Server kommen aus den Bereichen, die
+        /// gerade gescannt wurden - sonst pruefte man gegen andere Server als
+        /// die, mit denen der Lauf gearbeitet hat.
+        /// </summary>
+        private async Task CrossCheckDnsAsync(List<ScanScope> scopes)
+        {
+            List<string> servers = [.. scopes
+                .SelectMany(s => s.DnsServers.Split([',', ';', '\r', '\n'],
+                    StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                .Distinct(StringComparer.OrdinalIgnoreCase)];
+
+            List<Device> devices;
+
+            lock (_store.SyncRoot)
+            {
+                // Nur Geraete mit Namen: wo nie ein Name im Spiel war, gibt es
+                // auch nichts, worueber die Server sich uneinig sein koennten.
+                devices = [.. _store.Devices.Where(d => d.PrimaryAddress is not null
+                                                     && (d.WasLookedUp || d.HostName.Length > 0)
+                                                     && (!Settings.CrossCheckOnlyKnownTargets || d.IsOnline))];
+            }
+
+            if (devices.Count == 0) return;
+
+            StatusText = $"Comparing {devices.Count} addresses across the DNS servers...";
+
+            int mismatches = 0;
+
+            foreach (Device device in devices)
+            {
+                string? address = device.PrimaryAddress?.Info.Canonical;
+                if (string.IsNullOrWhiteSpace(address)) continue;
+
+                try
+                {
+                    DnsCrossCheckResult check = await DnsCrossCheck.RunAsync(address, servers);
+
+                    device.DnsCrossCheck = check;
+                    if (check.HasMismatch) mismatches++;
+                }
+                catch (Exception)
+                {
+                    // Ein Geraet, das sich nicht pruefen laesst, darf den
+                    // Vergleich der uebrigen nicht beenden.
+                }
+            }
+
+            StatusText = mismatches == 0
+                ? StatusText + " All DNS servers agree."
+                : StatusText + $" {mismatches} address(es) are answered differently - see Findings.";
+        }
+
+        /// <summary>
+        /// Derselbe Vergleich fuer die markierten Zeilen, aus dem Kontextmenue.
+        /// Das Werkzeug fuer den Einzelfall: man hat ein Geraet im Verdacht und
+        /// will wissen, ob alle Server dasselbe dazu sagen.
+        /// </summary>
+        [RelayCommand]
+        private async Task ResolveAcrossDnsServersAsync()
+        {
+            IReadOnlyList<Device> targets = Devices.ActionTargets;
+
+            if (targets.Count == 0)
+            {
+                StatusText = "Select a device first.";
+                return;
+            }
+
+            List<string> servers = [.. Scopes
+                .SelectMany(s => s.DnsServers.Split([',', ';', '\r', '\n'],
+                    StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                .Distinct(StringComparer.OrdinalIgnoreCase)];
+
+            StatusText = $"Resolving {targets.Count} address(es) across the DNS servers...";
+
+            int mismatches = 0;
+
+            foreach (Device device in targets)
+            {
+                string? address = device.PrimaryAddress?.Info.Canonical;
+                if (string.IsNullOrWhiteSpace(address)) continue;
+
+                try
+                {
+                    DnsCrossCheckResult check = await DnsCrossCheck.RunAsync(address, servers);
+
+                    device.DnsCrossCheck = check;
+                    if (check.HasMismatch) mismatches++;
+
+                    // Auch ins Detailpanel, nicht nur in die Befunde: wer
+                    // gezielt ein Geraet prueft, will die Antworten aller
+                    // Server nebeneinander sehen - auch die uebereinstimmenden.
+                    device.Details["DNS servers"] = check.Report;
+                    device.NotifyDisplayChanged();
+                }
+                catch (Exception ex)
+                {
+                    StatusText = $"DNS comparison failed: {ex.Message}";
+                    return;
+                }
+            }
+
+            FindingsView.Refresh();
+
+            StatusText = mismatches == 0
+                ? "All DNS servers agree. The answers are in the detail panel."
+                : $"{mismatches} of {targets.Count} address(es) are answered differently - see Findings.";
+        }
+
+        /// <summary>
+        /// Sucht einen einzelnen Dienst ueber den gesamten Portbereich.
+        /// <para>
+        /// Der Fall, fuer den es das gibt: ein Dienst laeuft, aber nicht auf
+        /// seinem ueblichen Port, und der regulaere Scan sieht ihn darum nie.
+        /// Alle 65 536 Ports dauern - darum je Aufruf ein Geraet und ein
+        /// Dienst, statt es beilaeufig im grossen Lauf mitzuschleppen.
+        /// </para>
+        /// </summary>
+        [RelayCommand]
+        private async Task FindServicePortAsync(ServiceType service)
+        {
+            if (IsRunning)
+            {
+                StatusText = "A scan is already running.";
+                return;
+            }
+
+            Device? device = Devices.ActionTargets.FirstOrDefault();
+            string? address = device?.PrimaryAddress?.Info.Canonical;
+
+            if (device is null || string.IsNullOrWhiteSpace(address))
+            {
+                StatusText = "Select a device with an address first.";
+                return;
+            }
+
+            IsRunning = true;
+            OnPropertyChanged(nameof(CanStart));
+
+            // Dieselbe Dienstdatei wie der regulaere Dienstscan - sonst suchte
+            // die Portsuche nach einem anderen Dienst als der, den man in der
+            // Dienstverwaltung eingestellt hat.
+            ScanningMethod_Services scanner = new(
+                Path.Combine(SettingsFolder ?? string.Empty, "services.xml"));
+
+            void OnProgress(int current, int responded, int total)
+            {
+                ProgressCurrent = current;
+                ProgressTotal = total;
+                OnPropertyChanged(nameof(ProgressFraction));
+            }
+
+            try
+            {
+                CurrentMethodName = $"{service} on {address}, all ports";
+                StatusText = $"Searching all 65536 ports of {device.DisplayName} for {service}...";
+
+                scanner.FindServicePortProgressUpdated += OnProgress;
+
+                IPToScan found = await scanner.FindServicePortAsync(
+                    new IPToScan { IPorHostname = address }, service);
+
+                // Offen oder antwortend zaehlt. "Filtered" heisst, dass eine
+                // Firewall dazwischensteht - das ist kein Fund des Dienstes.
+                List<int> ports = [.. found.Services.Services
+                    .Where(s => s.Service == service)
+                    .SelectMany(s => s.Ports)
+                    .Where(p => p.Status is PortStatus.Open or PortStatus.IsRunning)
+                    .SelectMany(p => p.Ports)
+                    .Distinct()
+                    .Order()];
+
+                if (ports.Count == 0)
+                {
+                    StatusText = $"{service} was not found on any port of {device.DisplayName}.";
+                    return;
+                }
+
+                // Am Geraet vermerken statt nur zu melden: die Statuszeile ist
+                // beim naechsten Klick weg, und dann waere die Suche ueber
+                // 65 536 Ports umsonst gewesen.
+                device.Details[$"{service} port search"] =
+                    $"found on port {string.Join(", ", ports)}";
+                device.NotifyDisplayChanged();
+
+                StatusText = $"{service} answers on port {string.Join(", ", ports)} " +
+                             $"of {device.DisplayName}.";
+            }
+            catch (Exception ex)
+            {
+                StatusText = $"Port search failed: {ex.Message}";
+            }
+            finally
+            {
+                scanner.FindServicePortProgressUpdated -= OnProgress;
+
+                IsRunning = false;
+                CurrentMethodName = string.Empty;
+                ProgressCurrent = ProgressTotal = 0;
+                OnPropertyChanged(nameof(ProgressFraction));
+                OnPropertyChanged(nameof(CanStart));
+            }
+        }
+
+        /// <summary>
+        /// Die Dienste, die die Portsuche anbietet - dieselbe Aufzaehlung, die
+        /// auch der Dienstscan kennt.
+        /// </summary>
+        public static IReadOnlyList<ServiceType> AllServiceTypes { get; } =
+            [.. Enum.GetValues<ServiceType>()];
 
         [RelayCommand]
         private void Stop()
