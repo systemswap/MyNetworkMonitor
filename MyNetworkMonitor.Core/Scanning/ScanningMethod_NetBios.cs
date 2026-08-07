@@ -283,10 +283,14 @@ public class ScanningMethod_NetBios
         {
             if (cancellationToken.IsCancellationRequested) return; // 🔹 Abbruchprüfung
 
+            bool answered = GetRemoteNetBiosName(IPAddress.Parse(iPToScan.IPorHostname), out string nbName, out _, out _);
+
+            // Erst zaehlen, wenn die Abfrage durch ist - beim Versenden stuende
+            // der Balken schon am Ende, waehrend noch auf Timeouts gewartet wird.
             int currentValue = Interlocked.Increment(ref current);
             ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
 
-            if (GetRemoteNetBiosName(IPAddress.Parse(iPToScan.IPorHostname), out string nbName, out _, out _))
+            if (answered)
             {
                 if (cancellationToken.IsCancellationRequested) return; // 🔹 Abbruchprüfung
 

@@ -151,18 +151,18 @@ namespace MyNetworkMonitor.Core.Model
                     if (!IPAddress.TryParse(FirstIP, out IPAddress? first) ||
                         first.AddressFamily != AddressFamily.InterNetwork)
                     {
-                        problem = "Die erste Adresse ist keine gueltige IPv4-Adresse.";
+                        problem = "The first address is not a valid IPv4 address.";
                         return false;
                     }
                     if (!IPAddress.TryParse(LastIP, out IPAddress? last) ||
                         last.AddressFamily != AddressFamily.InterNetwork)
                     {
-                        problem = "Die letzte Adresse ist keine gueltige IPv4-Adresse.";
+                        problem = "The last address is not a valid IPv4 address.";
                         return false;
                     }
                     if (ToUInt32(last) < ToUInt32(first))
                     {
-                        problem = "Die letzte Adresse liegt vor der ersten.";
+                        problem = "The last address comes before the first.";
                         return false;
                     }
                     return true;
@@ -170,7 +170,7 @@ namespace MyNetworkMonitor.Core.Model
                 case ScanScopeKind.TargetList:
                     if (Targets.Count == 0)
                     {
-                        problem = "Die Zielliste ist leer.";
+                        problem = "The target list is empty.";
                         return false;
                     }
                     return true;
@@ -179,17 +179,17 @@ namespace MyNetworkMonitor.Core.Model
                     if (!IPAddress.TryParse(Prefix, out IPAddress? prefix) ||
                         prefix.AddressFamily != AddressFamily.InterNetworkV6)
                     {
-                        problem = "Das Praefix ist keine gueltige IPv6-Adresse.";
+                        problem = "The prefix is not a valid IPv6 address.";
                         return false;
                     }
                     if (PrefixLength is < 1 or > 128)
                     {
-                        problem = "Die Praefixlaenge muss zwischen 1 und 128 liegen.";
+                        problem = "The prefix length must be between 1 and 128.";
                         return false;
                     }
                     if (Ipv6Discovery == Ipv6Discovery.None)
                     {
-                        problem = "Fuer ein IPv6-Praefix muss mindestens ein Verfahren gewaehlt sein.";
+                        problem = "An IPv6 prefix needs at least one discovery method.";
                         return false;
                     }
                     return true;
@@ -197,13 +197,13 @@ namespace MyNetworkMonitor.Core.Model
                 case ScanScopeKind.NetworkInterface:
                     if (string.IsNullOrWhiteSpace(InterfaceId))
                     {
-                        problem = "Es ist kein Netzwerkadapter zugeordnet.";
+                        problem = "No network adapter is assigned.";
                         return false;
                     }
                     return true;
 
                 default:
-                    problem = "Unbekannte Bereichsart.";
+                    problem = "Unknown scope kind.";
                     return false;
             }
         }
@@ -311,14 +311,150 @@ namespace MyNetworkMonitor.Core.Model
         public string DescribeAddressPart() => Kind switch
         {
             ScanScopeKind.IPv4Range => string.IsNullOrWhiteSpace(FirstIP) ? "-" : $"{FirstIP} - {LastIP}",
-            ScanScopeKind.TargetList => $"{Targets.Count} Eintraege",
+            ScanScopeKind.TargetList => $"{Targets.Count} entries",
             ScanScopeKind.IPv6Prefix => string.IsNullOrWhiteSpace(Prefix) ? "-" : $"{Prefix}/{PrefixLength}",
-            ScanScopeKind.NetworkInterface => string.IsNullOrWhiteSpace(InterfaceId) ? "-" : "vom Adapter",
+            // Ohne feste Zuordnung nimmt der Scan den Adapter, ueber den der
+            // Rechner im Netz haengt - das gehoert hier hin, nicht ein "-".
+            ScanScopeKind.NetworkInterface =>
+                string.IsNullOrWhiteSpace(InterfaceId) ? "subnet of the active adapter" : "from adapter",
             _ => "-"
         };
 
+        /// <summary>
+        /// Dasselbe als bindbare Eigenschaft - in der Bereichsauswahl steht
+        /// die Adressangabe neben dem Namen, weil "Buero 2. OG" allein nicht
+        /// sagt, was gescannt wird.
+        /// </summary>
+        public string RangeText => DescribeAddressPart();
+
+        partial void OnFirstIPChanged(string value) => OnPropertyChanged(nameof(RangeText));
+        partial void OnLastIPChanged(string value) => OnPropertyChanged(nameof(RangeText));
+        partial void OnPrefixChanged(string value) => OnPropertyChanged(nameof(RangeText));
+        partial void OnKindChanged(ScanScopeKind value) => OnPropertyChanged(nameof(RangeText));
+
         public override string ToString() =>
             $"{Index}. {GroupDescription} [{Kind}] {DescribeAddressPart()}";
+
+        // --------------------------------------------------- Freie Eingabe
+
+        /// <summary>
+        /// Liest einen von Hand eingegebenen Bereich. Erlaubt ist, was man
+        /// erwartet, wenn man schnell etwas nachsehen will:
+        /// <list type="bullet">
+        ///   <item><c>192.168.1.20</c> - eine Adresse</item>
+        ///   <item><c>192.168.1.1-192.168.1.254</c> - von/bis</item>
+        ///   <item><c>192.168.1.1-254</c> - Kurzform mit letztem Oktett</item>
+        ///   <item><c>192.168.1.0/24</c> - CIDR</item>
+        ///   <item><c>10.0.0.5, server1, 2003::1</c> - Liste, gemischt</item>
+        /// </list>
+        /// Alles, was keine Adresse ist, bleibt als Hostname stehen und wird
+        /// beim Scan aufgeloest.
+        /// </summary>
+        public static bool TryParseCustom(string? text, out ScanScope? scope, out string? problem)
+        {
+            scope = null;
+            problem = null;
+
+            if (string.IsNullOrWhiteSpace(text)) return false;
+
+            string input = text.Trim();
+
+            if (!input.Contains(',') && TryParseRange(input, out string? first, out string? last))
+            {
+                scope = new ScanScope
+                {
+                    Kind = ScanScopeKind.IPv4Range,
+                    GroupDescription = "Own entry",
+                    DeviceDescription = input,
+                    FirstIP = first!,
+                    LastIP = last!,
+                    IsSelected = true
+                };
+
+                return scope.TryValidate(out problem);
+            }
+
+            List<string> entries =
+            [
+                .. input.Split([',', ';', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            ];
+
+            if (entries.Count == 0)
+            {
+                problem = "Nothing recognised in the entry.";
+                return false;
+            }
+
+            scope = new ScanScope
+            {
+                Kind = ScanScopeKind.TargetList,
+                GroupDescription = "Own entry",
+                DeviceDescription = input,
+                Targets = entries,
+                IsSelected = true
+            };
+
+            return true;
+        }
+
+        /// <summary>
+        /// Erkennt die drei Schreibweisen eines IPv4-Bereichs. Liefert nur dann
+        /// wahr, wenn beide Enden gueltige IPv4-Adressen ergeben - sonst ist es
+        /// keine Bereichsangabe, sondern ein Hostname mit Bindestrich.
+        /// </summary>
+        private static bool TryParseRange(string input, out string? first, out string? last)
+        {
+            first = last = null;
+
+            int slash = input.IndexOf('/');
+            if (slash > 0)
+            {
+                if (!IPAddress.TryParse(input[..slash], out IPAddress? network) ||
+                    network.AddressFamily != AddressFamily.InterNetwork) return false;
+
+                if (!int.TryParse(input[(slash + 1)..], out int bits) || bits is < 0 or > 32) return false;
+
+                uint mask = bits == 0 ? 0u : uint.MaxValue << (32 - bits);
+                uint start = ToUInt32(network) & mask;
+                uint end = start | ~mask;
+
+                // Netz- und Broadcast-Adresse auslassen, solange das Netz gross
+                // genug ist, dass sie ueberhaupt eine eigene Bedeutung haben.
+                if (bits <= 30)
+                {
+                    start++;
+                    end--;
+                }
+
+                first = FromUInt32(start).ToString();
+                last = FromUInt32(end).ToString();
+                return true;
+            }
+
+            int dash = input.IndexOf('-');
+            if (dash <= 0) return false;
+
+            string left = input[..dash].Trim();
+            string right = input[(dash + 1)..].Trim();
+
+            if (!IPAddress.TryParse(left, out IPAddress? from) ||
+                from.AddressFamily != AddressFamily.InterNetwork) return false;
+
+            // Kurzform: rechts steht nur das letzte Oktett.
+            if (!right.Contains('.') && byte.TryParse(right, out byte lastOctet))
+            {
+                byte[] bytes = from.GetAddressBytes();
+                bytes[3] = lastOctet;
+                right = new IPAddress(bytes).ToString();
+            }
+
+            if (!IPAddress.TryParse(right, out IPAddress? to) ||
+                to.AddressFamily != AddressFamily.InterNetwork) return false;
+
+            first = from.ToString();
+            last = to.ToString();
+            return true;
+        }
 
         // ------------------------------------------------- Bestandsuebernahme
 

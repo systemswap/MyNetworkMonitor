@@ -159,7 +159,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             if (device.Addresses.Any(a => a.Info.Canonical.Contains(n, StringComparison.OrdinalIgnoreCase)))
                 return true;
 
-            if (device.Services.Any(s => s.ServiceName.Contains(n, StringComparison.OrdinalIgnoreCase)))
+            if (device.OpenServices.Any(s => s.ServiceName.Contains(n, StringComparison.OrdinalIgnoreCase)))
                 return true;
 
             return device.Details.Values.Any(v => v.Contains(n, StringComparison.OrdinalIgnoreCase));
@@ -193,11 +193,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             PortSpec spec = PortSpec.Parse(Ports);
             if (spec.IsEmpty) return true;
 
-            IEnumerable<DeviceServiceResult> services = OnlyRunningServices
-                ? device.Services.Where(s => s.IsRunning)
-                : device.Services;
-
-            return services.Any(s => spec.ContainsAny(s.Ports));
+            return Candidates(device).Any(s => spec.ContainsAny(s.Ports));
         }
 
         private bool MatchesServices(Device device)
@@ -209,18 +205,25 @@ namespace MyNetworkMonitor.Core.ViewModels
                 return !OnlyRunningServices || device.Services.Any(s => s.IsRunning);
             }
 
-            IEnumerable<DeviceServiceResult> services = OnlyRunningServices
-                ? device.Services.Where(s => s.IsRunning)
-                : device.Services;
-
-            return services.Any(s => Services.Contains(s.ServiceName));
+            return Candidates(device).Any(s => Services.Contains(s.ServiceName));
         }
+
+        /// <summary>
+        /// Wonach ueberhaupt gefiltert wird: nur antwortende Dienste. Ein
+        /// geschlossener Port ist das Ergebnis eines Versuchs, kein Merkmal des
+        /// Geraets - wer nach "SSH" filtert, meint die Geraete mit offenem SSH,
+        /// nicht alle, an denen danach gefragt wurde.
+        /// </summary>
+        private IEnumerable<DeviceServiceResult> Candidates(Device device) =>
+            OnlyRunningServices
+                ? device.Services.Where(s => s.IsRunning)
+                : device.OpenServices;
 
         private bool MatchesFeatures(Device device)
         {
-            if (IsCamera && !HasDetail(device, "Kamera")) return false;
+            if (IsCamera && !HasDetail(device, "Camera")) return false;
             if (HasSnmp && !HasDetail(device, "SNMP")) return false;
-            if (HasSmb && !HasDetail(device, "SMB-Versionen") && !HasService(device, "SMB")) return false;
+            if (HasSmb && !HasDetail(device, "SMB versions") && !HasService(device, "SMB")) return false;
             if (HasNetBios && string.IsNullOrWhiteSpace(device.NetBiosName)) return false;
             if (HasSsdp && !device.SeenBy.Contains("SSDP / UPnP")) return false;
 
@@ -233,7 +236,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             device.Details.ContainsKey(key);
 
         private static bool HasService(Device device, string name) =>
-            device.Services.Any(s => s.ServiceName.Contains(name, StringComparison.OrdinalIgnoreCase));
+            device.OpenServices.Any(s => s.ServiceName.Contains(name, StringComparison.OrdinalIgnoreCase));
 
         private static string MacText(Device device) =>
             device.Mac is null

@@ -27,7 +27,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         public override ScanMethodAvailability CheckAvailability(ScanContext context) =>
             SupportMethods.SelectedNetworkInterfaceInfos.IPv4 is null
                 ? ScanMethodAvailability.Blocked(
-                    "Kein Netzwerkadapter gewaehlt. SSDP muss seinen Empfang an eine lokale IPv4-Adresse binden.")
+                    "No network adapter selected. SSDP has to bind its listener to a local IPv4 address.")
                 : ScanMethodAvailability.Available;
 
         public override async Task ExecuteAsync(ScanContext context, CancellationToken cancellationToken)
@@ -84,7 +84,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             ScopeRuntime? withInterface = context.Scopes.FirstOrDefault(s => s.Interface is not null);
 
             return withInterface is null
-                ? ScanMethodAvailability.Blocked("Kein Netzwerkadapter zugeordnet.")
+                ? ScanMethodAvailability.Blocked("No network adapter assigned.")
                 : ScanMethodAvailability.Available;
         }
 
@@ -132,7 +132,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
     public sealed class OnvifScanMethod : LegacyScanMethod
     {
         public override string Id => "onvif";
-        public override string DisplayName => "ONVIF-Kameras";
+        public override string DisplayName => "ONVIF cameras";
         public override ScanPhase Phase => ScanPhase.Identification;
         public override FamilySupport Families => FamilySupport.IPv4;
 

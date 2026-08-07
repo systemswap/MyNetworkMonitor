@@ -31,6 +31,28 @@ namespace MyNetworkMonitor.Core.Model
 
         public ReadOnlyObservableCollection<Device> Devices { get; }
 
+        /// <summary>
+        /// Die Sperre, unter der der Bestand veraendert wird. Wer waehrend
+        /// eines Laufs liest - die Ergebnistabelle tut das, damit sie sich
+        /// fuellt, statt am Ende auf einen Schlag zu erscheinen - muss sie
+        /// ebenfalls halten. Sonst liest die Oberflaeche eine Liste, die ein
+        /// Scan-Thread gerade veraendert.
+        /// </summary>
+        public Lock SyncRoot { get; } = new();
+
+        /// <summary>
+        /// Die Anzeigemeldungen der Geraete unterdruecken.
+        /// <para>
+        /// Waehrend eines Laufs melden die Scan-Module aus beliebigen Aufgaben.
+        /// Solange die Tabelle die betroffene Zeile bereits zeigt, liefe die
+        /// Bindung damit aus einem Hintergrund-Thread - die Oberflaeche darf
+        /// aber nur vom eigenen Thread aus angefasst werden. Wer das setzt,
+        /// uebernimmt es, <see cref="Device.NotifyDisplayChanged"/> selbst und
+        /// am richtigen Ort nachzuholen.
+        /// </para>
+        /// </summary>
+        public bool DeferDisplayNotifications { get; set; }
+
         public DeviceStore()
         {
             Devices = new ReadOnlyObservableCollection<Device>(_devices);
@@ -57,40 +79,43 @@ namespace MyNetworkMonitor.Core.Model
         {
             ArgumentNullException.ThrowIfNull(observation);
 
-            List<Device> candidates = FindCandidates(observation);
-
             Device device;
             bool isNew = false;
 
-            if (candidates.Count == 0)
+            lock (SyncRoot)
             {
-                device = new Device
-                {
-                    FirstSeen = observation.Timestamp,
-                    LastSeen = observation.Timestamp
-                };
-                _devices.Add(device);
-                isNew = true;
-            }
-            else
-            {
-                // Der Eintrag mit der staerksten Identitaet bleibt bestehen,
-                // die uebrigen gehen in ihm auf.
-                device = candidates.OrderBy(d => (int)d.IdentityKey).First();
+                List<Device> candidates = FindCandidates(observation);
 
-                foreach (Device other in candidates.Where(c => !ReferenceEquals(c, device)))
+                if (candidates.Count == 0)
                 {
-                    MergeInto(device, other);
+                    device = new Device
+                    {
+                        FirstSeen = observation.Timestamp,
+                        LastSeen = observation.Timestamp
+                    };
+                    _devices.Add(device);
+                    isNew = true;
                 }
-            }
+                else
+                {
+                    // Der Eintrag mit der staerksten Identitaet bleibt bestehen,
+                    // die uebrigen gehen in ihm auf.
+                    device = candidates.OrderBy(d => (int)d.IdentityKey).First();
 
-            Apply(device, observation);
-            Reindex(device);
+                    foreach (Device other in candidates.Where(c => !ReferenceEquals(c, device)))
+                    {
+                        MergeInto(device, other);
+                    }
+                }
+
+                Apply(device, observation);
+                Reindex(device);
+            }
 
             // Die Anzeigeeigenschaften sind berechnet und haengen an Adressen
             // und Diensten - deren Aenderungen bemerkt die Bindung nicht von
             // allein.
-            device.NotifyDisplayChanged();
+            if (!DeferDisplayNotifications) device.NotifyDisplayChanged();
 
             if (isNew) DeviceAdded?.Invoke(device);
             DeviceChanged?.Invoke(device);
@@ -101,11 +126,14 @@ namespace MyNetworkMonitor.Core.Model
         /// <summary>Leert die Liste samt aller Zuordnungen.</summary>
         public void Clear()
         {
-            _devices.Clear();
-            _byDuid.Clear();
-            _byMac.Clear();
-            _byAddress.Clear();
-            _byHostName.Clear();
+            lock (SyncRoot)
+            {
+                _devices.Clear();
+                _byDuid.Clear();
+                _byMac.Clear();
+                _byAddress.Clear();
+                _byHostName.Clear();
+            }
         }
 
         /// <summary>Sucht ein Geraet zu einer Adresse. Fuer Nachscans einzelner Ziele.</summary>

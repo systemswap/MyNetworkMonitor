@@ -115,11 +115,26 @@ public class ScanningMethod_SMBVersionCheck
 
 
 
+    /// <summary>
+    /// Zaehlt den Fortschritt hoch, wenn das Ziel fertig geprueft ist - nicht,
+    /// wenn die Pruefung beginnt. Sonst stuende der Balken am Ende, waehrend
+    /// noch auf die Antworten der einzelnen Dialekte gewartet wird.
+    /// </summary>
     private async Task CheckProtocolsAsync(IPToScan ipToScan, int port)
     {
-        int currentValue = Interlocked.Increment(ref current);
-        ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
+        try
+        {
+            await CheckProtocolsCoreAsync(ipToScan, port);
+        }
+        finally
+        {
+            int currentValue = Interlocked.Increment(ref current);
+            ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
+        }
+    }
 
+    private async Task CheckProtocolsCoreAsync(IPToScan ipToScan, int port)
+    {
         foreach (SMBDialects dialect in Enum.GetValues(typeof(SMBDialects)))
         {
             if (_cts.Token.IsCancellationRequested) return;

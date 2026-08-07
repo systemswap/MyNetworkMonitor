@@ -88,7 +88,7 @@ namespace MyNetworkMonitor.Core.Model
                 if (!string.IsNullOrWhiteSpace(InternalName)) return InternalName;
                 if (!string.IsNullOrWhiteSpace(HostName)) return HostName;
                 if (!string.IsNullOrWhiteSpace(NetBiosName)) return NetBiosName;
-                return PrimaryAddress?.Info.Canonical ?? "- unbenannt -";
+                return PrimaryAddress?.Info.Canonical ?? "- unnamed -";
             }
         }
 
@@ -178,7 +178,7 @@ namespace MyNetworkMonitor.Core.Model
         /// sondern der interessante Fall.
         /// </summary>
         public string Ipv4Text =>
-            Ipv4Addresses.FirstOrDefault()?.Info.Canonical ?? "keine";
+            Ipv4Addresses.FirstOrDefault()?.Info.Canonical ?? "none";
 
         public bool HasIpv4 => Ipv4Addresses.Any();
 
@@ -194,9 +194,9 @@ namespace MyNetworkMonitor.Core.Model
                 DeviceAddress? best = BestIpv6Address;
                 if (best is not null) return best.Info.Canonical;
 
-                if (!Ipv6Addresses.Any()) return "keine";
+                if (!Ipv6Addresses.Any()) return "none";
 
-                return Ipv6Addresses.All(a => a.IsExpired) ? "abgelaufen" : "nur Link-Local";
+                return Ipv6Addresses.All(a => a.IsExpired) ? "expired" : "link-local only";
             }
         }
 
@@ -211,33 +211,46 @@ namespace MyNetworkMonitor.Core.Model
             Mac is null ? string.Empty : string.Join(":", Mac.GetAddressBytes().Select(b => b.ToString("x2")));
 
         /// <summary>
-        /// Die laufenden Dienste als Kurztext. Unterscheidet "nicht geprueft"
-        /// von "nichts gefunden" - beides waere sonst eine leere Zelle.
+        /// Nur die Dienste, die tatsaechlich antworten. Gescannt wird gegen
+        /// mehrere hundert Dienstdefinitionen - die geschlossenen Ports sind
+        /// kein Befund, sondern Rauschen, und haben in Anzeige, Filter und
+        /// Zaehlung nichts verloren.
         /// </summary>
-        public string RunningServicesText
+        public IEnumerable<DeviceServiceResult> OpenServices => Services.Where(s => s.IsOpen);
+
+        /// <summary>
+        /// Die antwortenden Dienste als Namen, ohne Dubletten. Grundlage der
+        /// Kaestchen in der Tabellenspalte.
+        /// </summary>
+        public IReadOnlyList<string> OpenServiceNames =>
+            [.. OpenServices.Select(s => s.ServiceName).Distinct(StringComparer.OrdinalIgnoreCase)];
+
+        /// <summary>
+        /// Was in der Spalte "Services" als Kaestchen steht: hoechstens drei
+        /// Namen, der Rest als "+n". Ohne Fund bleibt die Liste leer - die
+        /// Zelle also auch. "Nicht geprueft" und "nichts gefunden" sagt statt
+        /// dessen die Statuszeile, wo es hingehoert.
+        /// </summary>
+        public IReadOnlyList<string> ServiceChips
         {
             get
             {
-                if (Services.Count == 0) return "nicht geprueft";
+                IReadOnlyList<string> names = OpenServiceNames;
+                if (names.Count == 0) return [];
+                if (names.Count <= 3) return names;
 
-                List<string> running = [.. Services.Where(s => s.IsRunning).Select(s => s.ServiceName)];
-                if (running.Count == 0) return "keine erkannt";
-
-                return running.Count <= 3
-                    ? string.Join(", ", running)
-                    : $"{string.Join(", ", running.Take(3))} +{running.Count - 3}";
+                return [.. names.Take(3), $"+{names.Count - 3}"];
             }
         }
 
+        /// <summary>Die antwortenden Dienste als Kurztext - fuer Export und Suche.</summary>
+        public string RunningServicesText => string.Join(", ", OpenServiceNames);
+
         public int OpenPortCount =>
-            Services.Where(s => s.StatusIPv4 is PortStatus.Open or PortStatus.IsRunning
-                             || s.StatusIPv6 is PortStatus.Open or PortStatus.IsRunning)
-                    .SelectMany(s => s.Ports)
-                    .Distinct()
-                    .Count();
+            OpenServices.SelectMany(s => s.Ports).Distinct().Count();
 
         /// <summary>Fuer Abschnitte, die ohne Inhalt gar nicht erst erscheinen sollen.</summary>
-        public bool HasServices => Services.Count > 0;
+        public bool HasServices => Services.Any(s => s.IsOpen);
 
         public bool HasDetails => Details.Count > 0;
 
@@ -252,11 +265,11 @@ namespace MyNetworkMonitor.Core.Model
 
                 return ago.TotalSeconds switch
                 {
-                    < 30 => "jetzt",
-                    < 90 => "vor 1 m",
-                    < 3600 => $"vor {ago.TotalMinutes:F0} m",
-                    < 86400 => $"vor {ago.TotalHours:F0} h",
-                    _ => $"vor {ago.TotalDays:F0} T"
+                    < 30 => "now",
+                    < 90 => "1 m ago",
+                    < 3600 => $"{ago.TotalMinutes:F0} m ago",
+                    < 86400 => $"{ago.TotalHours:F0} h ago",
+                    _ => $"{ago.TotalDays:F0} d ago"
                 };
             }
         }
@@ -278,6 +291,9 @@ namespace MyNetworkMonitor.Core.Model
             OnPropertyChanged(nameof(Ipv6ExtraText));
             OnPropertyChanged(nameof(MacText));
             OnPropertyChanged(nameof(RunningServicesText));
+            OnPropertyChanged(nameof(OpenServices));
+            OnPropertyChanged(nameof(OpenServiceNames));
+            OnPropertyChanged(nameof(ServiceChips));
             OnPropertyChanged(nameof(OpenPortCount));
             OnPropertyChanged(nameof(HasServices));
             OnPropertyChanged(nameof(HasDetails));
@@ -325,6 +341,15 @@ namespace MyNetworkMonitor.Core.Model
 
         public bool IsRunning =>
             StatusIPv4 == PortStatus.IsRunning || StatusIPv6 == PortStatus.IsRunning;
+
+        /// <summary>
+        /// Der Port hat geantwortet - offen oder mit erkanntem Dienst. Alles
+        /// Uebrige (zu, gefiltert, keine Antwort) ist das Ergebnis eines
+        /// Versuchs, kein Befund, und wird nirgends angezeigt.
+        /// </summary>
+        public bool IsOpen =>
+            StatusIPv4 is PortStatus.Open or PortStatus.IsRunning ||
+            StatusIPv6 is PortStatus.Open or PortStatus.IsRunning;
 
         /// <summary>Die Ports als Kurztext hinter dem Dienstnamen, etwa "80, 443".</summary>
         public string PortsText => Ports.Count == 0 ? string.Empty : string.Join(", ", Ports);

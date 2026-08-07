@@ -37,12 +37,8 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
                 }
 
                 // Bereiche ohne festen Adapter laufen ueber den Adapter, ueber
-                // den das Betriebssystem sie ohnehin routen wuerde. Bis die
-                // Routenwahl steht, dient der erste betriebsbereite Adapter
-                // als Naeherung.
-                nic ??= all.FirstOrDefault(n =>
-                    n.OperationalStatus == OperationalStatus.Up &&
-                    n.NetworkInterfaceType != NetworkInterfaceType.Loopback);
+                // den das Betriebssystem sie ohnehin routen wuerde.
+                nic ??= PickDefaultInterface(all);
 
                 result.Add(new ScopeRuntime
                 {
@@ -260,6 +256,62 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
                     };
                 }
             }
+        }
+
+        /// <summary>
+        /// Sucht den Adapter, ueber den der Rechner tatsaechlich im Netz haengt.
+        /// <para>
+        /// "Der erste betriebsbereite" genuegt nicht: auf einem Arbeitsplatz
+        /// stehen regelmaessig Hyper-V-, VMware-, VPN- und Bluetooth-Adapter
+        /// davor, die alle "Up" melden. Wer das Netz wechselt - vom Kabel ins
+        /// WLAN - scannt dann das Netz einer virtuellen Bruecke statt seines
+        /// eigenen.
+        /// </para>
+        /// <para>
+        /// Entscheidend ist das Standardgateway: nur ein Adapter, der eines
+        /// hat, fuehrt irgendwohin. Kommen mehrere in Frage, gewinnt der
+        /// physische - Kabel oder WLAN - vor allem Uebrigen. Die Routenmetrik
+        /// waere das genauere Kriterium, .NET gibt sie aber plattformneutral
+        /// nicht her.
+        /// </para>
+        /// </summary>
+        private static NetworkInterface? PickDefaultInterface(NetworkInterface[] all)
+        {
+            List<NetworkInterface> usable =
+            [
+                .. all.Where(n =>
+                    n.OperationalStatus == OperationalStatus.Up &&
+                    n.NetworkInterfaceType != NetworkInterfaceType.Loopback &&
+                    n.NetworkInterfaceType != NetworkInterfaceType.Tunnel)
+            ];
+
+            return usable
+                .Where(HasGateway)
+                .OrderBy(Rank)
+                .FirstOrDefault()
+                // Kein Adapter mit Gateway - dann der erste brauchbare, damit
+                // ein Laborsegment ohne Router nicht leer ausgeht.
+                ?? usable.OrderBy(Rank).FirstOrDefault();
+
+            static bool HasGateway(NetworkInterface nic)
+            {
+                try
+                {
+                    return nic.GetIPProperties().GatewayAddresses
+                        .Any(g => g.Address is not null && !IPAddress.Any.Equals(g.Address));
+                }
+                catch (NetworkInformationException) { return false; }
+            }
+
+            // Ein Arbeitsplatz traegt regelmaessig Hyper-V-, VMware-, VPN- und
+            // Bluetooth-Adapter, die alle "Up" melden. Sie duerfen nicht vor
+            // dem Adapter stehen, an dem das Netzkabel oder das WLAN haengt.
+            static int Rank(NetworkInterface nic) => nic.NetworkInterfaceType switch
+            {
+                NetworkInterfaceType.Ethernet or NetworkInterfaceType.GigabitEthernet => 0,
+                NetworkInterfaceType.Wireless80211 => 1,
+                _ => 2
+            };
         }
 
         private static NetworkInterface[] SafeGetInterfaces()

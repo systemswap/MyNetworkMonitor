@@ -170,9 +170,6 @@ namespace MyNetworkMonitor
                 cts.CancelAfter(TimeSpan.FromSeconds(10));
 
 
-                int currentValue = Interlocked.Increment(ref current);
-                ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running);
-
                 //IPHostEntry _IPHostEntry = await client.GetHostEntryAsync(ipToScan.IPorHostname).WaitAsync(_cts.Token);
 
                 IPHostEntry? _IPHostEntry = null;
@@ -279,6 +276,14 @@ namespace MyNetworkMonitor
             catch (Exception ex)
             {
                GetHostAliases_Task_Finished(this, null);
+            }
+            finally
+            {
+                // Erst zaehlen, wenn die Aufloesung durch ist - samt der bis zu
+                // drei Versuche. Beim Absenden zu zaehlen liesse den Balken
+                // schon am Ende stehen, waehrend noch gewartet wird.
+                int currentValue = Interlocked.Increment(ref current);
+                ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
             }
         }
     }

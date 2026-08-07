@@ -144,12 +144,19 @@ namespace MyNetworkMonitor
 
         private async Task ScanSingleIPAsync(IPToScan ipToScan)
         {
-            int currentValue = Interlocked.Increment(ref current);
-            ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
-
-            using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10)))
+            try
             {
-                await SNMPTask(ipToScan, cts.Token);
+                using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10)))
+                {
+                    await SNMPTask(ipToScan, cts.Token);
+                }
+            }
+            finally
+            {
+                // Erst zaehlen, wenn die Abfrage beantwortet oder abgelaufen
+                // ist - beim Versenden stuende der Balken minutenlang am Ende.
+                int currentValue = Interlocked.Increment(ref current);
+                ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
             }
         }
 

@@ -35,7 +35,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         /// reinen IPv4-Regex, und verwerfen IPv6-Ziele ohne Meldung.
         /// </summary>
         protected const string NoIpv4Targets =
-            "Keine IPv4-Ziele ausgewaehlt. Das Verfahren arbeitet nur ueber IPv4.";
+            "No IPv4 targets selected. This method works over IPv4 only.";
 
         /// <summary>
         /// Baut die Zielliste im alten Format auf und merkt sich, welcher
@@ -58,6 +58,15 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 
                 ScanScope scope = target.Scope.Scope;
 
+                // Ein in den Einstellungen gesetzter DNS-Server sticht die des
+                // Bereichs - genau dafuer ist er da: gegen einen bestimmten
+                // Server pruefen, ohne jeden Bereich anzufassen.
+                string? overrideDns = context.Settings.OverrideDnsServer;
+
+                List<string> dnsServers = string.IsNullOrWhiteSpace(overrideDns)
+                    ? [.. scope.DnsServerList]
+                    : [overrideDns.Trim()];
+
                 legacy.Add(new IPToScan
                 {
                     IPorHostname = text,
@@ -65,7 +74,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                     IPGroupDescription = scope.GroupDescription,
                     DeviceDescription = scope.DeviceDescription,
                     Domain = scope.Domain,
-                    DNSServerList = [.. scope.DnsServerList],
+                    DNSServerList = dnsServers,
                     NMGatewayIP = scope.GatewayIP,
                     NMGatewayPort = scope.GatewayPort,
                     TCPPortsToScan = [.. context.Settings.TcpPorts],
@@ -103,14 +112,14 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                 if (!string.IsNullOrWhiteSpace(value)) details[key] = value;
             }
 
-            Detail("Antwortzeit", string.IsNullOrWhiteSpace(result.ResponseTime) ? null : $"{result.ResponseTime} ms");
-            Detail("Aliase", result.Aliases);
-            Detail("Lookup-IPs", result.LookUpIPs);
-            Detail("Erkannte Dienste", result.detectedServices);
+            Detail("Response time", string.IsNullOrWhiteSpace(result.ResponseTime) ? null : $"{result.ResponseTime} ms");
+            Detail("Aliases", result.Aliases);
+            Detail("Lookup IPs", result.LookUpIPs);
+            Detail("Detected services", result.detectedServices);
 
-            if (result.SMBVersions.Count > 0) Detail("SMB-Versionen", string.Join(", ", result.SMBVersions));
+            if (result.SMBVersions.Count > 0) Detail("SMB versions", string.Join(", ", result.SMBVersions));
             if (!string.IsNullOrWhiteSpace(result.SNMP_SysName)) Detail("SNMP", result.SNMPInfos);
-            if (result.IsIPCam) Detail("Kamera", $"{result.IPCamName} {result.IPCamXAddress}".Trim());
+            if (result.IsIPCam) Detail("Camera", $"{result.IPCamName} {result.IPCamXAddress}".Trim());
             Detail("mDNS", result.mDNS_toMultiLineString);
 
             context.Report(new DeviceObservation
@@ -173,7 +182,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                 DeviceServiceResult entry = new()
                 {
                     ServiceName = $"TCP {open}",
-                    Category = "Offene Ports",
+                    Category = "Open ports",
                     Ports = [open]
                 };
 
@@ -193,7 +202,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         private static string CategoryOf(ServiceType service) => service switch
         {
             ServiceType.WebServices or ServiceType.DNS_TCP or ServiceType.DNS_UDP
-                or ServiceType.DHCP or ServiceType.SSH or ServiceType.FTP => "Netzwerk",
+                or ServiceType.DHCP or ServiceType.SSH or ServiceType.FTP => "Network",
 
             ServiceType.RDP or ServiceType.UltraVNC or ServiceType.BigFixRemote
                 or ServiceType.TeamViewer or ServiceType.Anydesk
@@ -201,9 +210,9 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 
             ServiceType.MSSQLServer or ServiceType.PostgreSQL or ServiceType.MariaDB
                 or ServiceType.MySQL or ServiceType.OracleDB or ServiceType.MongoDB
-                or ServiceType.InfluxDB2 => "Datenbanken",
+                or ServiceType.InfluxDB2 => "Databases",
 
-            _ => "Weitere"
+            _ => "Other"
         };
 
         private static string? NullIfBlank(string? value) =>
