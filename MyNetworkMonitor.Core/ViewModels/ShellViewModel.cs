@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MyNetworkMonitor.Core.Model;
@@ -95,6 +96,14 @@ namespace MyNetworkMonitor.Core.ViewModels
 
         public ObservableCollection<ScanMethodChoice> Methods { get; } = [];
 
+        /// <summary>
+        /// Die Verfahren, die sich auf die bekannten Geraete beschraenken
+        /// lassen. Wer keine Zielliste hat, steht hier nicht - ein Kaestchen
+        /// ohne Wirkung waere schlimmer als keines.
+        /// </summary>
+        public IEnumerable<ScanMethodChoice> RestrictableMethods =>
+            Methods.Where(m => m.CanRestrictToKnown);
+
         /// <summary>Was die Engine zuletzt uebersprungen hat - fuer die Statuszeile.</summary>
         public ObservableCollection<ScanMethodOutcome> LastSkipped { get; } = [];
 
@@ -133,6 +142,25 @@ namespace MyNetworkMonitor.Core.ViewModels
             Settings.UseOnlineTopologyLibrary =
                 _userSettings.GetBool("UseOnlineTopologyLibrary", Settings.UseOnlineTopologyLibrary);
 
+            SaveLastScanResult = _userSettings.GetBool("SaveLastScanResult", true);
+
+            // Welche Verfahren nur die bekannten Geraete abfragen sollen. Als
+            // eine Zeile gespeichert - eine Einstellung je Verfahren waere
+            // dieselbe Angabe, nur unuebersichtlicher.
+            foreach (string id in (_userSettings.GetString("OnlyKnownTargetsFor") ?? string.Empty)
+                         .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                Settings.OnlyKnownTargetsFor.Add(id);
+            }
+
+            foreach (ScanMethodChoice method in Methods)
+            {
+                method.OnlyKnownTargets = Settings.OnlyKnownTargetsFor.Contains(method.Id);
+                method.PropertyChanged += OnMethodRestrictionChanged;
+            }
+
+            if (SaveLastScanResult) LoadLastScanResult();
+
             Settings.PropertyChanged += (_, e) =>
             {
                 switch (e.PropertyName)
@@ -158,6 +186,60 @@ namespace MyNetworkMonitor.Core.ViewModels
                         break;
                 }
             };
+        }
+
+        /// <summary>
+        /// Den Bestand beim Beenden sichern und beim Start wieder laden.
+        /// </summary>
+        [ObservableProperty] private bool _saveLastScanResult = true;
+
+        partial void OnSaveLastScanResultChanged(bool value) =>
+            _userSettings?.SetBool("SaveLastScanResult", value);
+
+        /// <summary>Wo der letzte Bestand liegt.</summary>
+        public string LastScanResultPath =>
+            Path.Combine(SettingsFolder ?? string.Empty, DeviceStoreFile.DefaultFileName);
+
+        /// <summary>
+        /// Traegt die Beschraenkung eines Verfahrens in die Einstellungen ein.
+        /// Die Menge ist die Wahrheit; die Kaestchen sind nur ihre Anzeige.
+        /// </summary>
+        private void OnMethodRestrictionChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName != nameof(ScanMethodChoice.OnlyKnownTargets)) return;
+            if (sender is not ScanMethodChoice choice) return;
+
+            if (choice.OnlyKnownTargets) Settings.OnlyKnownTargetsFor.Add(choice.Id);
+            else Settings.OnlyKnownTargetsFor.Remove(choice.Id);
+
+            _userSettings?.SetString("OnlyKnownTargetsFor", string.Join(",", Settings.OnlyKnownTargetsFor));
+        }
+
+        /// <summary>
+        /// Liest den zuletzt gesicherten Bestand. Ohne Datei bleibt es bei der
+        /// leeren Liste - das ist kein Fehler, sondern der erste Start.
+        /// </summary>
+        public void LoadLastScanResult()
+        {
+            if (string.IsNullOrEmpty(SettingsFolder)) return;
+
+            int count = DeviceStoreFile.Load(_store, LastScanResultPath);
+            if (count == 0) return;
+
+            Devices.Refresh();
+            StatusText = $"{count} devices from the last scan. Nothing has been checked yet.";
+        }
+
+        /// <summary>
+        /// Sichert den Bestand. Wird beim Schliessen des Fensters gerufen -
+        /// ein Fehler darf das Beenden nicht aufhalten, darum meldet die
+        /// Methode nur, ob es geklappt hat.
+        /// </summary>
+        public bool SaveLastScanResultNow()
+        {
+            if (!SaveLastScanResult || string.IsNullOrEmpty(SettingsFolder)) return false;
+
+            return DeviceStoreFile.Save(_store, LastScanResultPath);
         }
 
         [ObservableProperty] private ShellSection _section = ShellSection.Devices;

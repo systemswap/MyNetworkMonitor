@@ -25,6 +25,19 @@ namespace MyNetworkMonitor.Core.ViewModels
 
         [ObservableProperty] private bool _isSelected;
 
+        /// <summary>
+        /// Dieses Verfahren soll nur die Geraete abfragen, die schon in der
+        /// Tabelle stehen.
+        /// </summary>
+        [ObservableProperty] private bool _onlyKnownTargets;
+
+        /// <summary>
+        /// Das Verfahren geht eine Zielliste durch und laesst sich darum
+        /// ueberhaupt beschraenken. Fuer SSDP, mDNS und die ARP-Tabelle gibt es
+        /// nichts zu kuerzen - sie bekommen kein Kaestchen.
+        /// </summary>
+        public bool CanRestrictToKnown => Method.EnumeratesTargets;
+
         [ObservableProperty] private ScanMethodAvailability _availability = ScanMethodAvailability.Available;
 
         /// <summary>Kann angehakt werden.</summary>

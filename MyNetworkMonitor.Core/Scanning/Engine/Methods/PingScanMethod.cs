@@ -26,6 +26,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         public FamilySupport Families => FamilySupport.IPv4;
         public bool IsPassive => false;
         public bool RequiresElevation => false;
+        public bool EnumeratesTargets => true;
 
         public ScanMethodAvailability CheckAvailability(ScanContext context)
         {
