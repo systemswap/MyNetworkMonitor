@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:MyNetworkMonitor.Core.ViewModels;assembly=MyNetworkMonitor.Core"
         xmlns:model="clr-namespace:MyNetworkMonitor.Core.Model;assembly=MyNetworkMonitor.Core"
+        xmlns:net="clr-namespace:MyNetworkMonitor.Core.Network;assembly=MyNetworkMonitor.Core"
         xmlns:conv="clr-namespace:MyNetworkMonitor.Avalonia.Views"
         x:Class="MyNetworkMonitor.Avalonia.Views.ShellView"
         x:Name="ShellRoot"
@@ -64,6 +65,10 @@
     <conv:PortStatusTextConverter x:Key="StatusText"/>
     <conv:PortStatusBackgroundConverter x:Key="StatusBg"/>
     <conv:PortStatusForegroundConverter x:Key="StatusFg"/>
+    <conv:ConflictLabelConverter x:Key="DupLabel"/>
+    <conv:ConflictBackgroundConverter x:Key="DupBg"/>
+    <conv:ConflictForegroundConverter x:Key="DupFg"/>
+    <conv:DnsCountBrushConverter x:Key="DnsCountBrush"/>
   </Window.Resources>
 
   <Window.Styles>
@@ -682,6 +687,14 @@
                           Foreground="{StaticResource V6}"
                           ToolTip.Tip="Only devices with a global IPv6 address - reachable from the internet without NAT"
                           IsChecked="{Binding Devices.Filter.OnlyGloballyReachable}"/>
+                <CheckBox Content="duplicates only" FontSize="10.5"
+                          Foreground="{StaticResource Crit}"
+                          ToolTip.Tip="Only devices whose address or name is assigned more than once"
+                          IsChecked="{Binding Devices.Filter.OnlyConflicts}"/>
+                <CheckBox Content="duplicates first" FontSize="10.5"
+                          Foreground="{StaticResource Crit}"
+                          ToolTip.Tip="Sort conflicting devices to the top instead of hiding the rest"
+                          IsChecked="{Binding Devices.ConflictsFirst}"/>
               </StackPanel>
 
               <StackPanel Grid.Column="8" Orientation="Horizontal" Spacing="6">
@@ -708,6 +721,24 @@
                       <Ellipse Width="7" Height="7" VerticalAlignment="Center"
                                HorizontalAlignment="Center"
                                Fill="{Binding IsOnline, Converter={StaticResource OnlineBrush}}"/>
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <!-- Doppelbelegung. Steht direkt neben dem Namen, weil sie
+                     genau dort interessiert: der Name sieht harmlos aus, und
+                     erst das Kaestchen sagt, dass es ihn zweimal gibt. -->
+                <DataGridTemplateColumn Header="!" Width="Auto" MinWidth="62">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="model:Device">
+                      <Border CornerRadius="3" Padding="4,1" VerticalAlignment="Center"
+                              IsVisible="{Binding HasConflict}"
+                              Background="{Binding Conflicts, Converter={StaticResource DupBg}}"
+                              ToolTip.Tip="{Binding ConflictDetails}">
+                        <TextBlock Text="{Binding Conflicts, Converter={StaticResource DupLabel}}"
+                                   FontSize="9.5" FontWeight="SemiBold"
+                                   Foreground="{Binding Conflicts, Converter={StaticResource DupFg}}"/>
+                      </Border>
                     </DataTemplate>
                   </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
@@ -1432,6 +1463,62 @@
             </StackPanel>
           </Grid>
         </ScrollViewer>
+
+        <!-- ========== Netz: die Adapter dieses Rechners ========== -->
+        <DockPanel x:Name="view_Network" IsVisible="False" LastChildFill="True"
+                   Background="{StaticResource Workspace}">
+
+          <Border DockPanel.Dock="Top" Background="{StaticResource Panel}"
+                  BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1"
+                  Padding="12,8">
+            <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+              <TextBlock Text="ADAPTERS ON THIS MACHINE" FontSize="10.5" FontWeight="SemiBold"
+                         Foreground="{StaticResource Dim}" VerticalAlignment="Center"/>
+              <CheckBox Content="include disabled" FontSize="10.5"
+                        IsChecked="{Binding NetworkView.IncludeDown}"/>
+              <Button Content="Refresh" FontSize="10.5" Background="White"
+                      BorderBrush="#C3D2D4" BorderThickness="1"
+                      Command="{Binding NetworkView.RefreshCommand}"/>
+            </StackPanel>
+          </Border>
+
+          <!-- Der Hinweis steht unter der Liste, nicht darueber: er ergibt
+               sich aus ihr und soll die Tabelle nicht wegdruecken. -->
+          <Border DockPanel.Dock="Bottom" Padding="12,8"
+                  Background="{StaticResource CritSoft}"
+                  IsVisible="{Binding NetworkView.HasDnsWarning}">
+            <TextBlock Text="{Binding NetworkView.DnsWarningText}" FontSize="11"
+                       Foreground="{StaticResource Crit}" TextWrapping="Wrap"/>
+          </Border>
+
+          <DataGrid ItemsSource="{Binding NetworkView.Adapters}"
+                    SelectedItem="{Binding NetworkView.Selected}"
+                    AutoGenerateColumns="False" IsReadOnly="True"
+                    CanUserResizeColumns="True" SelectionMode="Single">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="ADAPTER" Binding="{Binding Name}" Width="Auto" MinWidth="130"/>
+              <DataGridTextColumn Header="STATE" Binding="{Binding ConfigurationText}" Width="Auto" MinWidth="60"/>
+
+              <!-- Die Zahl steht vor der Aufzaehlung, damit ein Ausreisser
+                   auffaellt, ohne dass man 25 Adressen lesen muss. -->
+              <DataGridTemplateColumn Header="DNS" Width="Auto" MinWidth="50">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate x:DataType="net:AdapterInfo">
+                    <TextBlock Text="{Binding DnsServerCount}" FontWeight="SemiBold"
+                               VerticalAlignment="Center" Margin="0,0,4,0"
+                               Foreground="{Binding DnsServerCount, Converter={StaticResource DnsCountBrush}}"/>
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+
+              <DataGridTextColumn Header="DNS SERVERS" Binding="{Binding DnsText}" Width="*"/>
+              <DataGridTextColumn Header="IPV4" Binding="{Binding Ipv4Text}" Width="Auto" MinWidth="110"/>
+              <DataGridTextColumn Header="GATEWAY" Binding="{Binding GatewayText}" Width="Auto" MinWidth="110"/>
+              <DataGridTextColumn Header="SUFFIX" Binding="{Binding DnsSuffix}" Width="Auto" MinWidth="90"/>
+              <DataGridTextColumn Header="MAC" Binding="{Binding MacText}" Width="Auto" MinWidth="130"/>
+            </DataGrid.Columns>
+          </DataGrid>
+        </DockPanel>
 
         <!-- ========== Noch nicht gebaute Ansichten ========== -->
         <Border x:Name="view_Placeholder" IsVisible="False"

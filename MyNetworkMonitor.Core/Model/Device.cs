@@ -147,6 +147,60 @@ namespace MyNetworkMonitor.Core.Model
         public bool HasGloballyRoutableAddress =>
             Addresses.Any(a => a.Info.IsGloballyRoutable && !a.IsExpired);
 
+        // --------------------------------------------------------- Namensdienst
+
+        /// <summary>
+        /// Adressen, auf die der Hostname im DNS zeigt. Mehr als eine bedeutet,
+        /// dass derselbe Name mehrfach vergeben ist.
+        /// </summary>
+        public List<string> LookupAddresses { get; } = [];
+
+        /// <summary>Weitere Namen zur Adresse, aus dem Rueckwaertslookup.</summary>
+        public List<string> Aliases { get; } = [];
+
+        /// <summary>Der Vorwaertslookup wurde ueberhaupt durchgefuehrt.</summary>
+        [ObservableProperty] private bool _wasLookedUp;
+
+        /// <summary>
+        /// Der Name zeigt auf eine Adresse, unter der dieses Geraet gar nicht
+        /// antwortet. Entweder ein Altbestand im DNS oder ein zweites Geraet,
+        /// das sich denselben Namen genommen hat.
+        /// </summary>
+        public bool HasLookupMismatch =>
+            WasLookedUp && LookupAddresses.Count > 0 &&
+            !LookupAddresses.Any(a => Addresses.Any(x =>
+                string.Equals(x.Info.Canonical, a, StringComparison.OrdinalIgnoreCase)));
+
+        public string LookupAddressText => string.Join(", ", LookupAddresses);
+
+        public string AliasText => string.Join(", ", Aliases);
+
+        // ------------------------------------------------------------ Befunde
+
+        /// <summary>Was an diesem Geraet doppelt vergeben ist.</summary>
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(HasConflict))]
+        [NotifyPropertyChangedFor(nameof(ConflictRank))]
+        private DeviceConflict _conflicts;
+
+        /// <summary>Der Befund im Klartext, fuer Kurzhinweis und Detailansicht.</summary>
+        [ObservableProperty] private string _conflictDetails = string.Empty;
+
+        public bool HasConflict => Conflicts != DeviceConflict.None;
+
+        /// <summary>
+        /// Wie schwer der Befund wiegt - je hoeher, desto dringender. Danach
+        /// wird sortiert, damit die Dopplungen oben stehen statt sich in
+        /// hunderten Zeilen zu verstecken.
+        /// </summary>
+        public int ConflictRank =>
+            Conflicts.HasFlag(DeviceConflict.Address) ? 5 :
+            Conflicts.HasFlag(DeviceConflict.DnsMultipleAddresses) ? 4 :
+            Conflicts.HasFlag(DeviceConflict.HostName) ? 3 :
+            Conflicts.HasFlag(DeviceConflict.DnsMismatch) ? 2 :
+            Conflicts != DeviceConflict.None ? 1 :
+            0;
+
         // ---------------------------------------------------- Beobachtungen
 
         [ObservableProperty] private DateTimeOffset _firstSeen;
@@ -304,6 +358,11 @@ namespace MyNetworkMonitor.Core.Model
             OnPropertyChanged(nameof(HasGloballyRoutableAddress));
             OnPropertyChanged(nameof(PrimaryAddress));
             OnPropertyChanged(nameof(BestIpv6Address));
+            OnPropertyChanged(nameof(LookupAddressText));
+            OnPropertyChanged(nameof(AliasText));
+            OnPropertyChanged(nameof(HasLookupMismatch));
+            OnPropertyChanged(nameof(HasConflict));
+            OnPropertyChanged(nameof(ConflictRank));
         }
 
         public override string ToString() =>

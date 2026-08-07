@@ -113,8 +113,6 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             }
 
             Detail("Response time", string.IsNullOrWhiteSpace(result.ResponseTime) ? null : $"{result.ResponseTime} ms");
-            Detail("Aliases", result.Aliases);
-            Detail("Lookup IPs", result.LookUpIPs);
             Detail("Detected services", result.detectedServices);
 
             if (result.SMBVersions.Count > 0) Detail("SMB versions", string.Join(", ", result.SMBVersions));
@@ -134,8 +132,48 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                 GroupDescription = NullIfBlank(result.IPGroupDescription) ?? NullIfBlank(scope?.GroupDescription),
                 IsResponding = IsResponding(result),
                 Details = details.Count > 0 ? details : null,
+                LookupAddresses = LookupAddresses(result),
+                Aliases = SplitLines(result.Aliases),
                 Services = BuildServices(result, info.Family)
             });
+        }
+
+        /// <summary>
+        /// Die Adressen, auf die der Name im DNS zeigt.
+        /// <para>
+        /// Genommen wird der ganze <see cref="IPHostEntry"/>, nicht das Feld
+        /// <c>LookUpIPs</c>: das Modul fuellt es nur, wenn der Lookup
+        /// <em>abweicht</em>, und laesst es sonst leer. Leer hiesse damit
+        /// zugleich "stimmt ueberein" und "nicht geprueft" - zwei Dinge, die
+        /// auseinandergehalten werden muessen, wenn daraus ein Befund werden
+        /// soll.
+        /// </para>
+        /// </summary>
+        private static List<string>? LookupAddresses(IPToScan result)
+        {
+            if (result.UsedScanMethod != ScanMethod.Lookup) return null;
+            if (result.IP_HostEntry?.AddressList is not { } addresses) return null;
+
+            // Auf dieselbe Schreibweise bringen wie die Adressen am Geraet -
+            // sonst gilt fe80:0:0::1 als etwas anderes als fe80::1 und jeder
+            // Vergleich schlaegt fehl.
+            return [.. addresses
+                .Select(a => IpAddressAnalyzer.TryAnalyze(a.ToString(), out IpAddressInfo? info) && info is not null
+                    ? info.Canonical
+                    : a.ToString())
+                .Distinct(StringComparer.OrdinalIgnoreCase)];
+        }
+
+        /// <summary>Zerlegt ein mehrzeiliges Feld der alten Module in eine Liste.</summary>
+        private static List<string>? SplitLines(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return null;
+
+            List<string> lines = [.. value
+                .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Distinct(StringComparer.OrdinalIgnoreCase)];
+
+            return lines.Count > 0 ? lines : null;
         }
 
         /// <summary>

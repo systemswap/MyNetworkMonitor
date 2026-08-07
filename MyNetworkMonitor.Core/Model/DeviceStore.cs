@@ -26,8 +26,16 @@ namespace MyNetworkMonitor.Core.Model
 
         private readonly Dictionary<string, Device> _byDuid = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, Device> _byMac = new(StringComparer.OrdinalIgnoreCase);
-        private readonly Dictionary<string, Device> _byAddress = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, Device> _byHostName = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Adresse auf Geraet - und zwar auf <em>alle</em> Geraete, die sie
+        /// tragen. Die uebrigen Register kommen mit einem Wert aus, dieses
+        /// nicht: eine doppelt vergebene IP ist der Befund, auf den es hier
+        /// ankommt, und mit einem einwertigen Register waere das zweite Geraet
+        /// beim Indizieren stillschweigend verlorengegangen.
+        /// </summary>
+        private readonly Dictionary<string, List<Device>> _byAddress = new(StringComparer.OrdinalIgnoreCase);
 
         public ReadOnlyObservableCollection<Device> Devices { get; }
 
@@ -86,6 +94,15 @@ namespace MyNetworkMonitor.Core.Model
             {
                 List<Device> candidates = FindCandidates(observation);
 
+                // Was der Sichtung widerspricht, wird nicht zusammengefuehrt,
+                // sondern bleibt als eigenes Geraet stehen. Genau daran haengt
+                // die Doppelbelegung: zwei Netzkarten mit derselben IP sind
+                // zwei Geraete, kein Eintrag mit zwei Namen.
+                if (candidates.Count > 0)
+                {
+                    candidates = [.. candidates.Where(c => !ContradictsObservation(c, observation))];
+                }
+
                 if (candidates.Count == 0)
                 {
                     device = new Device
@@ -102,8 +119,14 @@ namespace MyNetworkMonitor.Core.Model
                     // die uebrigen gehen in ihm auf.
                     device = candidates.OrderBy(d => (int)d.IdentityKey).First();
 
+                    // Auch untereinander muessen die Kandidaten zusammenpassen.
+                    // Traegt die Sichtung nur eine Adresse, kann sie auf zwei
+                    // Geraete mit verschiedenen MACs passen - die beiden aber
+                    // deshalb zu verschmelzen, waere gerade der Fehler.
                     foreach (Device other in candidates.Where(c => !ReferenceEquals(c, device)))
                     {
+                        if (Contradicts(device, other)) continue;
+
                         MergeInto(device, other);
                     }
                 }
@@ -138,7 +161,14 @@ namespace MyNetworkMonitor.Core.Model
 
         /// <summary>Sucht ein Geraet zu einer Adresse. Fuer Nachscans einzelner Ziele.</summary>
         public Device? FindByAddress(IpAddressInfo address) =>
-            _byAddress.GetValueOrDefault(address.Canonical);
+            _byAddress.GetValueOrDefault(address.Canonical)?.FirstOrDefault();
+
+        /// <summary>
+        /// Alle Geraete, die diese Adresse tragen. Mehr als eines heisst, dass
+        /// die Adresse doppelt vergeben ist.
+        /// </summary>
+        public IReadOnlyList<Device> FindAllByAddress(IpAddressInfo address) =>
+            _byAddress.GetValueOrDefault(address.Canonical) ?? (IReadOnlyList<Device>)[];
 
         // ------------------------------------------------------- Zuordnung
 
@@ -168,8 +198,12 @@ namespace MyNetworkMonitor.Core.Model
             if (o.Address?.DerivedMac is { } derived)
                 Add(_byMac.GetValueOrDefault(MacKey(derived)));
 
-            if (o.Address is not null)
-                Add(_byAddress.GetValueOrDefault(o.Address.Canonical));
+            // Traegt die Adresse mehr als ein Geraet, kommen alle in Betracht -
+            // welches davon gemeint ist, entscheidet erst die MAC-Pruefung.
+            if (o.Address is not null && _byAddress.TryGetValue(o.Address.Canonical, out List<Device>? holders))
+            {
+                foreach (Device holder in holders) Add(holder);
+            }
 
             // Hostnamen sind schwach: mehrere Geraete koennen denselben Namen
             // melden. Nur heranziehen, wenn sonst nichts passt.
@@ -177,6 +211,45 @@ namespace MyNetworkMonitor.Core.Model
                 Add(_byHostName.GetValueOrDefault(o.HostName));
 
             return found;
+        }
+
+        /// <summary>
+        /// Die Sichtung kann nicht zu diesem Geraet gehoeren, weil beide eine
+        /// harte Kennung tragen und die sich unterscheidet.
+        /// <para>
+        /// Nur DUID und MAC zaehlen als hart. Ein abweichender Hostname
+        /// bedeutet nichts - Geraete haben mehrere Namen. Eine fehlende Angabe
+        /// auf einer der beiden Seiten widerspricht ebenfalls nicht; sie sagt
+        /// nur, dass niemand nachgesehen hat.
+        /// </para>
+        /// </summary>
+        private static bool ContradictsObservation(Device device, DeviceObservation o)
+        {
+            if (device.Duid is { Length: > 0 } && o.Duid is { Length: > 0 } &&
+                !string.Equals(device.Duid, o.Duid, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            // Die aus EUI-64 zurueckgerechnete MAC bleibt hier aussen vor: sie
+            // ist geraten, und ein geratener Wert darf keine Zuordnung
+            // verhindern.
+            return device.Mac is not null && o.Mac is not null && !device.Mac.Equals(o.Mac);
+        }
+
+        /// <summary>
+        /// Zwei Eintraege koennen nicht dasselbe Geraet sein. Gleiche Regel wie
+        /// bei <see cref="ContradictsObservation"/>.
+        /// </summary>
+        private static bool Contradicts(Device a, Device b)
+        {
+            if (a.Duid is { Length: > 0 } && b.Duid is { Length: > 0 } &&
+                !string.Equals(a.Duid, b.Duid, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            return a.Mac is not null && b.Mac is not null && !a.Mac.Equals(b.Mac);
         }
 
         /// <summary>Traegt die Angaben der Sichtung am Geraet ein.</summary>
@@ -199,6 +272,25 @@ namespace MyNetworkMonitor.Core.Model
             if (!string.IsNullOrWhiteSpace(o.Domain)) device.Domain = o.Domain;
             if (!string.IsNullOrWhiteSpace(o.NetBiosName)) device.NetBiosName = o.NetBiosName;
             if (!string.IsNullOrWhiteSpace(o.GroupDescription)) device.GroupDescription = o.GroupDescription;
+
+            // Der Lookup wird als Ganzes uebernommen, nicht ergaenzt: er
+            // beschreibt den Stand im DNS zum Zeitpunkt der Abfrage. Alte
+            // Adressen dazuzumischen wuerde genau den Befund verwischen, um den
+            // es geht.
+            if (o.LookupAddresses is not null)
+            {
+                device.WasLookedUp = true;
+                device.LookupAddresses.Clear();
+                device.LookupAddresses.AddRange(o.LookupAddresses);
+            }
+
+            if (o.Aliases is not null)
+            {
+                foreach (string alias in o.Aliases.Where(a => !device.Aliases.Contains(a, StringComparer.OrdinalIgnoreCase)))
+                {
+                    device.Aliases.Add(alias);
+                }
+            }
 
             if (o.Details is not null)
             {
@@ -297,6 +389,17 @@ namespace MyNetworkMonitor.Core.Model
             if (string.IsNullOrWhiteSpace(target.InternalName)) target.InternalName = other.InternalName;
             if (string.IsNullOrWhiteSpace(target.GroupDescription)) target.GroupDescription = other.GroupDescription;
 
+            if (!target.WasLookedUp && other.WasLookedUp)
+            {
+                target.WasLookedUp = true;
+                target.LookupAddresses.AddRange(other.LookupAddresses);
+            }
+
+            foreach (string alias in other.Aliases.Where(a => !target.Aliases.Contains(a, StringComparer.OrdinalIgnoreCase)))
+            {
+                target.Aliases.Add(alias);
+            }
+
             foreach (string source in other.SeenBy) target.SeenBy.Add(source);
 
             foreach (KeyValuePair<string, string> detail in other.Details)
@@ -340,7 +443,11 @@ namespace MyNetworkMonitor.Core.Model
 
             foreach (DeviceAddress address in device.Addresses)
             {
-                _byAddress[address.Info.Canonical] = device;
+                List<Device> holders = _byAddress.TryGetValue(address.Info.Canonical, out List<Device>? existing)
+                    ? existing
+                    : _byAddress[address.Info.Canonical] = [];
+
+                if (!holders.Any(d => ReferenceEquals(d, device))) holders.Add(device);
             }
         }
 
@@ -358,7 +465,6 @@ namespace MyNetworkMonitor.Core.Model
         {
             Repoint(_byDuid);
             Repoint(_byMac);
-            Repoint(_byAddress);
             Repoint(_byHostName);
 
             void Repoint(Dictionary<string, Device> index)
@@ -368,6 +474,20 @@ namespace MyNetworkMonitor.Core.Model
                                             .ToList())
                 {
                     index[key] = to;
+                }
+            }
+
+            // Im Adressregister steht der aufgeloeste Eintrag moeglicherweise
+            // neben einem weiteren Halter derselben Adresse - er wird darum
+            // ersetzt, nicht die ganze Liste.
+            foreach (List<Device> holders in _byAddress.Values)
+            {
+                for (int i = holders.Count - 1; i >= 0; i--)
+                {
+                    if (!ReferenceEquals(holders[i], from)) continue;
+
+                    if (holders.Any(d => ReferenceEquals(d, to))) holders.RemoveAt(i);
+                    else holders[i] = to;
                 }
             }
         }
