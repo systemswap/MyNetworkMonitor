@@ -35,6 +35,16 @@ namespace MyNetworkMonitor.Core.Services
             ShowAsync(webViewHost, useOnlineVersion, graphFolder,
                       folder => TopologyGraph.WriteHtmlFile(folder, devices, useOnlineVersion));
 
+        /// <summary>
+        /// Die Dienstsicht. Eigener Weg bis hinunter zur erzeugten Datei -
+        /// gemeinsam sind nur Bibliothek, Server und Navigation, also genau
+        /// das, was mit der Darstellung nichts zu tun hat.
+        /// </summary>
+        public static Task ShowServicesAsync(IWebViewHost webViewHost, IReadOnlyList<Model.Device> devices,
+                                             bool useOnlineVersion, string? graphFolder = null) =>
+            ShowAsync(webViewHost, useOnlineVersion, graphFolder,
+                      folder => ServiceTopologyGraph.WriteHtmlFile(folder, devices, useOnlineVersion));
+
         private static async Task ShowAsync(IWebViewHost webViewHost, bool useOnlineVersion,
                                             string? graphFolder, Func<string, string> writePage)
         {
