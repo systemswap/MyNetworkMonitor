@@ -138,14 +138,16 @@ namespace MyNetworkMonitor
         {
             _cts.Token.ThrowIfCancellationRequested(); // 🔹 Falls abgebrochen, sofort raus
 
-            int currentValue = Interlocked.Increment(ref current);
-            ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
-
             if (_cts.Token.IsCancellationRequested) return;
 
             IPAddress ipAddress = IPAddress.Parse(ipToScan.IPorHostname);
 
             string? mac = await _arp.ResolveMacAsync(ipAddress, _cts.Token);
+
+            // Erst hochzaehlen, wenn die Anfrage beantwortet oder abgelaufen
+            // ist - beim Versenden stuende der Balken viel zu frueh am Ende.
+            int currentValue = Interlocked.Increment(ref current);
+            ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
 
             if (_cts.Token.IsCancellationRequested) return;
 

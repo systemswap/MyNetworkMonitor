@@ -53,7 +53,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
         /// fuer alle gilt.
         /// </summary>
         public string Ipv6BlockReason =>
-            Scopes.FirstOrDefault()?.Ipv6.Reason ?? "Kein Bereich ausgewaehlt.";
+            Scopes.FirstOrDefault()?.Ipv6.Reason ?? "No range selected.";
     }
 
     /// <summary>

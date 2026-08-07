@@ -10,7 +10,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
     public sealed class ArpRequestScanMethod : LegacyScanMethod
     {
         public override string Id => "arp.request";
-        public override string DisplayName => "ARP-Request";
+        public override string DisplayName => "ARP request";
         public override ScanPhase Phase => ScanPhase.Discovery;
         public override FamilySupport Families => FamilySupport.IPv4;
 
@@ -24,7 +24,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             return context.HasTargetsOf(IpFamily.IPv4)
                 ? ScanMethodAvailability.Available
                 : ScanMethodAvailability.NotApplicable(
-                    "Keine IPv4-Ziele. Unter IPv6 tritt an die Stelle von ARP die Neighbor Discovery.");
+                    "No IPv4 targets. Under IPv6, Neighbor Discovery takes the place of ARP.");
         }
 
         /// <summary>
@@ -32,7 +32,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         /// Startprojekts. Ohne sie wird das Verfahren gemeldet statt zu werfen.
         /// </summary>
         internal const string ArpProviderMissing =
-            "Kein ARP-Anbieter registriert. Diese Plattform wird noch nicht unterstuetzt.";
+            "No ARP provider registered. This platform is not supported yet.";
 
         public override async Task ExecuteAsync(ScanContext context, CancellationToken cancellationToken)
         {
@@ -67,7 +67,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
     public sealed class ArpCacheScanMethod : LegacyScanMethod
     {
         public override string Id => "arp.cache";
-        public override string DisplayName => "ARP-Tabelle";
+        public override string DisplayName => "ARP table";
         public override ScanPhase Phase => ScanPhase.Discovery;
         public override FamilySupport Families => FamilySupport.IPv4;
 

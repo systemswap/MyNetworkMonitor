@@ -30,6 +30,28 @@ namespace MyNetworkMonitor.Core.Persistence
             Save();
         }
 
+        public int GetInt(string key, int fallback)
+            => _values.TryGetValue(key, out string? value) && int.TryParse(value, out int parsed) ? parsed : fallback;
+
+        public void SetInt(string key, int value)
+        {
+            _values[key] = value.ToString();
+            Save();
+        }
+
+        /// <summary>
+        /// Ein leerer Wert und ein fehlender Schluessel sind dasselbe: nicht
+        /// gesetzt. Sonst muesste jeder Aufrufer beides pruefen.
+        /// </summary>
+        public string GetString(string key, string fallback = "")
+            => _values.TryGetValue(key, out string? value) && !string.IsNullOrWhiteSpace(value) ? value : fallback;
+
+        public void SetString(string key, string? value)
+        {
+            _values[key] = value?.Trim() ?? string.Empty;
+            Save();
+        }
+
         private void Load()
         {
             if (!File.Exists(_filePath)) return;

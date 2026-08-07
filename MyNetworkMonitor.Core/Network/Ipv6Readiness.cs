@@ -111,7 +111,7 @@ namespace MyNetworkMonitor.Core.Network
                 return new Ipv6Readiness
                 {
                     Availability = Ipv6Availability.NotSupportedByOperatingSystem,
-                    Reason = "Das Betriebssystem unterstuetzt kein IPv6."
+                    Reason = "This operating system does not support IPv6."
                 };
             }
 
@@ -120,7 +120,7 @@ namespace MyNetworkMonitor.Core.Network
                 return new Ipv6Readiness
                 {
                     Availability = Ipv6Availability.Unknown,
-                    Reason = "Kein Netzwerkadapter ausgewaehlt."
+                    Reason = "No network adapter selected."
                 };
             }
 
@@ -131,7 +131,7 @@ namespace MyNetworkMonitor.Core.Network
                     return new Ipv6Readiness
                     {
                         Availability = Ipv6Availability.DisabledOnAdapter,
-                        Reason = $"IPv6 ist am Adapter \"{nic.Name}\" nicht gebunden - im Adapter abgeschaltet."
+                        Reason = $"IPv6 is not bound on adapter \"{nic.Name}\" - switched off there."
                     };
                 }
 
@@ -157,7 +157,7 @@ namespace MyNetworkMonitor.Core.Network
                     return new Ipv6Readiness
                     {
                         Availability = Ipv6Availability.Global,
-                        Reason = "IPv6 vollstaendig nutzbar - globale Adresse vorhanden."
+                        Reason = "IPv6 fully usable - a global address is present."
                     };
                 }
 
@@ -175,15 +175,15 @@ namespace MyNetworkMonitor.Core.Network
                     return new Ipv6Readiness
                     {
                         Availability = Ipv6Availability.LinkLocalOnly,
-                        Reason = "Nur Link-Local - im Netz kuendigt kein Router ein Praefix an. " +
-                                 "Das eigene Segment laesst sich trotzdem vollstaendig untersuchen."
+                        Reason = "Link-local only - no router announces a prefix on this network. " +
+                                 "The local segment can still be examined in full."
                     };
                 }
 
                 return new Ipv6Readiness
                 {
                     Availability = Ipv6Availability.NoAddress,
-                    Reason = $"Der Adapter \"{nic.Name}\" hat keine einzige IPv6-Adresse."
+                    Reason = $"Adapter \"{nic.Name}\" has no IPv6 address at all."
                 };
             }
             catch (NetworkInformationException ex)
@@ -191,7 +191,7 @@ namespace MyNetworkMonitor.Core.Network
                 return new Ipv6Readiness
                 {
                     Availability = Ipv6Availability.Unknown,
-                    Reason = $"IPv6-Status nicht ermittelbar: {ex.Message}"
+                    Reason = $"IPv6 status could not be determined: {ex.Message}"
                 };
             }
             catch (PlatformNotSupportedException ex)
@@ -199,7 +199,7 @@ namespace MyNetworkMonitor.Core.Network
                 return new Ipv6Readiness
                 {
                     Availability = Ipv6Availability.Unknown,
-                    Reason = $"IPv6-Status nicht ermittelbar: {ex.Message}"
+                    Reason = $"IPv6 status could not be determined: {ex.Message}"
                 };
             }
         }
