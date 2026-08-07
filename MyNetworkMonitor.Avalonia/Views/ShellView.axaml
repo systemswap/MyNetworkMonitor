@@ -1455,14 +1455,15 @@
                     </StackPanel>
                   </Border>
 
-                  <!-- Gruppenrahmen mit Schalter auf der Rahmenlinie. Der
-                       Rahmen beginnt bei 11, die Kaestchenhoehe ist auf 22
-                       festgelegt - so liegt seine Mitte genau auf der Linie.
-                       Ohne feste Hoehe zieht Fluent das Kaestchen auf 32 und
-                       es sitzt sichtbar zu tief. -->
-                  <Grid Margin="0,10,0,0">
+                  <!-- Gruppenrahmen mit Schalter auf der Rahmenlinie.
+                       Das Kaestchen behaelt seine natuerliche Hoehe - eine
+                       feste Hoehe schneidet es unten ab, weil Fluent
+                       Kaestchen und Beschriftung darin zentriert. Statt
+                       dessen faengt der Rahmen auf halber Kaestchenhoehe an,
+                       dann liegt die Linie durch beides hindurch. -->
+                  <Grid Margin="0,4,0,0">
                     <Border BorderBrush="{StaticResource Line}" BorderThickness="1"
-                            CornerRadius="4" Padding="12,18,12,10" Margin="0,11,0,0">
+                            CornerRadius="4" Padding="12,24,12,10" Margin="0,16,0,0">
                       <StackPanel Spacing="8">
                         <TextBlock Classes="settingHint"
                                    Text="Ticked services are folded into the &quot;+n&quot; badge in the Running services column; everything else is listed by name. With the switch off, every service is listed - which is the point of the column."/>
@@ -1470,47 +1471,68 @@
                         <!-- Der Roller darf nicht mit abgeschaltet werden:
                              sonst laesst sich bei ausgeschaltetem Schalter
                              nicht einmal nachsehen, was ausgewaehlt ist. -->
-                        <ScrollViewer MaxHeight="260" VerticalScrollBarVisibility="Visible"
+                        <!-- Zwei Spalten, die jede fuer sich untereinander
+                             wachsen. Ein Gitter mit gleich hohen Zellen
+                             richtet sich an der groessten Rubrik aus und
+                             reisst zwischen den kleinen Luecken auf. -->
+                        <ScrollViewer MaxHeight="300" VerticalScrollBarVisibility="Visible"
                                       HorizontalScrollBarVisibility="Disabled">
-                          <ItemsControl ItemsSource="{Binding GroupableServiceGroups}">
-                            <ItemsControl.ItemsPanel>
-                              <ItemsPanelTemplate>
-                                <!-- Zwei Spalten: die Rubriken sind kurz, und
-                                     untereinander waere die Haelfte der
-                                     Breite verschenkt. -->
-                                <UniformGrid Columns="2"/>
-                              </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
+                          <Grid ColumnDefinitions="*,*">
+                            <ItemsControl Grid.Column="0" ItemsSource="{Binding GroupableServicesLeft}"
+                                          Margin="0,0,10,0">
+                              <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:GroupableServiceGroup">
+                                  <StackPanel Margin="0,0,0,8">
+                                    <TextBlock Text="{Binding Name}" FontSize="11"
+                                               FontWeight="SemiBold"
+                                               Foreground="{StaticResource Dim}"
+                                               Margin="0,0,0,1"/>
+                                    <ItemsControl ItemsSource="{Binding Services}" Margin="14,0,0,0">
+                                      <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:GroupableService">
+                                          <CheckBox Content="{Binding Name}" FontSize="11"
+                                                    MinHeight="0" Padding="7,0,0,0" Margin="0,1"
+                                                    IsChecked="{Binding IsGrouped}"/>
+                                        </DataTemplate>
+                                      </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                  </StackPanel>
+                                </DataTemplate>
+                              </ItemsControl.ItemTemplate>
+                            </ItemsControl>
 
-                            <ItemsControl.ItemTemplate>
-                              <DataTemplate x:DataType="vm:GroupableServiceGroup">
-                                <StackPanel Margin="0,0,16,10">
-                                  <TextBlock Text="{Binding Name}" FontSize="11"
-                                             FontWeight="SemiBold"
-                                             Foreground="{StaticResource Dim}"
-                                             Margin="0,0,0,2"/>
-
-                                  <ItemsControl ItemsSource="{Binding Services}" Margin="14,0,0,0">
-                                    <ItemsControl.ItemTemplate>
-                                      <DataTemplate x:DataType="vm:GroupableService">
-                                        <CheckBox Content="{Binding Name}" FontSize="11"
-                                                  MinHeight="20" Height="20" Margin="0,0,0,1"
-                                                  IsChecked="{Binding IsGrouped}"/>
-                                      </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                  </ItemsControl>
-                                </StackPanel>
-                              </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                          </ItemsControl>
+                            <ItemsControl Grid.Column="1" ItemsSource="{Binding GroupableServicesRight}">
+                              <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:GroupableServiceGroup">
+                                  <StackPanel Margin="0,0,0,8">
+                                    <TextBlock Text="{Binding Name}" FontSize="11"
+                                               FontWeight="SemiBold"
+                                               Foreground="{StaticResource Dim}"
+                                               Margin="0,0,0,1"/>
+                                    <ItemsControl ItemsSource="{Binding Services}" Margin="14,0,0,0">
+                                      <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:GroupableService">
+                                          <CheckBox Content="{Binding Name}" FontSize="11"
+                                                    MinHeight="0" Padding="7,0,0,0" Margin="0,1"
+                                                    IsChecked="{Binding IsGrouped}"/>
+                                        </DataTemplate>
+                                      </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                  </StackPanel>
+                                </DataTemplate>
+                              </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                          </Grid>
                         </ScrollViewer>
                       </StackPanel>
                     </Border>
 
+                    <!-- MinHeight 0 nimmt Fluent die eingebauten 32 Pixel;
+                         die Hoehe ergibt sich dann aus Kaestchen und Schrift,
+                         die darin ohnehin zueinander mittig stehen. -->
                     <CheckBox Content="Group services" FontWeight="SemiBold" FontSize="11.5"
                               VerticalAlignment="Top" HorizontalAlignment="Left"
-                              MinHeight="22" Height="22"
-                              Margin="10,0,0,0" Padding="6,0,8,0"
+                              MinHeight="0" Margin="10,0,0,0" Padding="7,0,8,0"
                               Background="{StaticResource Panel}"
                               IsChecked="{Binding GroupServices}"/>
                   </Grid>
