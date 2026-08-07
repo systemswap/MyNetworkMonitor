@@ -147,7 +147,20 @@ namespace MyNetworkMonitor.Core.ViewModels
             // Welche Verfahren nur die bekannten Geraete abfragen sollen. Als
             // eine Zeile gespeichert - eine Einstellung je Verfahren waere
             // dieselbe Angabe, nur unuebersichtlicher.
-            foreach (string id in (_userSettings.GetString("OnlyKnownTargetsFor") ?? string.Empty)
+            string? restricted = _userSettings.GetString("OnlyKnownTargetsFor");
+
+            // Beim ersten Start die beiden Namensdienste vorbelegen. Die
+            // bisherige Anwendung hat ihre Liste aus der Ergebnistabelle
+            // gebaut, also aus den gefundenen Geraeten; ueber einen ganzen
+            // Bereich gefragt, laufen die meisten Anfragen in Adressen ohne
+            // Eintrag - das kostet nur Zeit und belastet den Namensserver.
+            if (restricted is null)
+            {
+                restricted = "dns.reverse,dns.lookup";
+                _userSettings.SetString("OnlyKnownTargetsFor", restricted);
+            }
+
+            foreach (string id in restricted
                          .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
             {
                 Settings.OnlyKnownTargetsFor.Add(id);
