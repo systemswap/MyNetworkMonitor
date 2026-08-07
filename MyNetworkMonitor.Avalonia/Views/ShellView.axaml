@@ -69,6 +69,8 @@
     <conv:ConflictBackgroundConverter x:Key="DupBg"/>
     <conv:ConflictForegroundConverter x:Key="DupFg"/>
     <conv:DnsCountBrushConverter x:Key="DnsCountBrush"/>
+    <conv:SeverityBackgroundConverter x:Key="SeverityBg"/>
+    <conv:SeverityForegroundConverter x:Key="SeverityFg"/>
   </Window.Resources>
 
   <Window.Styles>
@@ -1581,6 +1583,91 @@
               <DataGridTextColumn Header="GATEWAY" Binding="{Binding GatewayText}" Width="Auto" MinWidth="110"/>
               <DataGridTextColumn Header="SUFFIX" Binding="{Binding DnsSuffix}" Width="Auto" MinWidth="90"/>
               <DataGridTextColumn Header="MAC" Binding="{Binding MacText}" Width="Auto" MinWidth="130"/>
+            </DataGrid.Columns>
+          </DataGrid>
+        </DockPanel>
+
+        <!-- ========== Befunde ========== -->
+        <DockPanel x:Name="view_Findings" IsVisible="False" LastChildFill="True"
+                   Background="{StaticResource Workspace}">
+
+          <Border DockPanel.Dock="Top" Background="{StaticResource Panel}"
+                  BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1"
+                  Padding="12,8">
+            <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+              <TextBlock Text="FINDINGS" FontSize="10.5" FontWeight="SemiBold"
+                         Foreground="{StaticResource Dim}" VerticalAlignment="Center"/>
+
+              <!-- Die Zaehler stehen vorn: wie viele und wie schlimm ist die
+                   erste Frage, die Liste beantwortet erst die zweite. -->
+              <Border Background="{StaticResource CritSoft}" CornerRadius="3" Padding="6,1">
+                <TextBlock FontSize="10.5" Foreground="{StaticResource Crit}">
+                  <Run Text="{Binding FindingsView.CriticalCount}"/><Run Text=" critical"/>
+                </TextBlock>
+              </Border>
+              <Border Background="#FAEBD3" CornerRadius="3" Padding="6,1">
+                <TextBlock FontSize="10.5" Foreground="{StaticResource Warn}">
+                  <Run Text="{Binding FindingsView.WarningCount}"/><Run Text=" warnings"/>
+                </TextBlock>
+              </Border>
+              <Border Background="{StaticResource LineSoft}" CornerRadius="3" Padding="6,1">
+                <TextBlock FontSize="10.5" Foreground="{StaticResource Dim}">
+                  <Run Text="{Binding FindingsView.NoteCount}"/><Run Text=" notes"/>
+                </TextBlock>
+              </Border>
+
+              <CheckBox Content="critical only" FontSize="10.5"
+                        IsChecked="{Binding FindingsView.CriticalOnly}"/>
+
+              <Button Content="Re-check" FontSize="10.5" Background="White"
+                      BorderBrush="#C3D2D4" BorderThickness="1"
+                      Command="{Binding FindingsView.RefreshCommand}"/>
+            </StackPanel>
+          </Border>
+
+          <TextBlock DockPanel.Dock="Top" Margin="16,20" FontSize="11.5"
+                     Foreground="{StaticResource Dim}" TextWrapping="Wrap"
+                     Text="{Binding FindingsView.EmptyText}"
+                     IsVisible="{Binding !FindingsView.HasFindings}"/>
+
+          <DataGrid ItemsSource="{Binding FindingsView.Findings}"
+                    SelectedItem="{Binding FindingsView.Selected}"
+                    AutoGenerateColumns="False" IsReadOnly="True"
+                    CanUserResizeColumns="True" SelectionMode="Single"
+                    IsVisible="{Binding FindingsView.HasFindings}">
+            <DataGrid.Columns>
+              <DataGridTemplateColumn Header="" Width="Auto" MinWidth="72">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate x:DataType="vm:Finding">
+                    <Border CornerRadius="3" Padding="5,1" VerticalAlignment="Center"
+                            Background="{Binding Severity, Converter={StaticResource SeverityBg}}">
+                      <TextBlock Text="{Binding SeverityText}" FontSize="9" FontWeight="SemiBold"
+                                 Foreground="{Binding Severity, Converter={StaticResource SeverityFg}}"/>
+                    </Border>
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+
+              <!-- Adressfamilie in der Farbe des Entwurfs. Heute fast immer
+                   leer; sobald die IPv6-Regeln stehen, ist an dieser Spalte
+                   auf einen Blick zu sehen, was davon v6 betrifft. -->
+              <DataGridTemplateColumn Header="" Width="Auto" MinWidth="30">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate x:DataType="vm:Finding">
+                    <TextBlock Text="{Binding FamilyText}" FontSize="9.5" FontWeight="SemiBold"
+                               VerticalAlignment="Center"
+                               Foreground="{Binding Family, Converter={StaticResource FamilyBrush}}"/>
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+
+              <DataGridTextColumn Header="AREA" Binding="{Binding CategoryText}"
+                                  Width="Auto" MinWidth="100"/>
+              <DataGridTextColumn Header="FINDING" Binding="{Binding Title}"
+                                  Width="Auto" MinWidth="200"/>
+              <DataGridTextColumn Header="SUBJECT" Binding="{Binding Subject}"
+                                  Width="Auto" MinWidth="140"/>
+              <DataGridTextColumn Header="DETAIL" Binding="{Binding Detail}" Width="*"/>
             </DataGrid.Columns>
           </DataGrid>
         </DockPanel>

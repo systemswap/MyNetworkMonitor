@@ -1,5 +1,8 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Net;
+using System.Net.NetworkInformation;
+using System.Net.Sockets;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MyNetworkMonitor.Core.Model;
@@ -62,10 +65,12 @@ namespace MyNetworkMonitor.Core.ViewModels
             PortEditor = new PortEditorViewModel(Settings);
             ServiceEditor = new ServiceEditorViewModel();
             NetworkView = new NetworkViewModel();
+            FindingsView = new FindingsViewModel(store);
 
             // Ein Haken im Kommandobalken und eine Aenderung in der Verwaltung
             // treffen dieselbe Liste - die Zaehler muessen in beiden Faellen neu.
             ScopeEditor.SelectionChanged += RefreshAvailability;
+            PortEditor.PortsChanged += RefreshAvailability;
 
             foreach (IScanMethod method in _engine.Methods)
             {
@@ -91,6 +96,9 @@ namespace MyNetworkMonitor.Core.ViewModels
 
         /// <summary>Die Adapter dieses Rechners samt ihrer Namensserver.</summary>
         public NetworkViewModel NetworkView { get; }
+
+        /// <summary>Alle Befunde an einer Stelle.</summary>
+        public FindingsViewModel FindingsView { get; }
 
         public ObservableCollection<ScanScope> Scopes { get; } = [];
 
@@ -236,12 +244,25 @@ namespace MyNetworkMonitor.Core.ViewModels
         {
             if (string.IsNullOrEmpty(SettingsFolder)) return;
 
-            int count = DeviceStoreFile.Load(_store, LastScanResultPath);
+            int count = DeviceStoreFile.Load(_store, LastScanResultPath, out string? error);
+
+            if (error is not null)
+            {
+                // Nicht ueberschreiben, was sich nicht lesen liess - sonst ist
+                // beim naechsten Schliessen auch die Datei weg.
+                _loadFailed = true;
+                StatusText = $"The last scan result could not be read, it stays untouched: {error}";
+                return;
+            }
+
             if (count == 0) return;
 
             Devices.Refresh();
             StatusText = $"{count} devices from the last scan. Nothing has been checked yet.";
         }
+
+        /// <summary>Der letzte Bestand liess sich nicht lesen.</summary>
+        private bool _loadFailed;
 
         /// <summary>
         /// Sichert den Bestand. Wird beim Schliessen des Fensters gerufen -
@@ -251,6 +272,11 @@ namespace MyNetworkMonitor.Core.ViewModels
         public bool SaveLastScanResultNow()
         {
             if (!SaveLastScanResult || string.IsNullOrEmpty(SettingsFolder)) return false;
+
+            // Was sich beim Start nicht lesen liess, wird auch nicht
+            // ueberschrieben. Sonst kostet ein einzelner Lesefehler den
+            // gesamten gespeicherten Bestand.
+            if (_loadFailed) return false;
 
             return DeviceStoreFile.Save(_store, LastScanResultPath);
         }
@@ -427,6 +453,8 @@ namespace MyNetworkMonitor.Core.ViewModels
         {
             _lastRuntimes = ScopeRuntimeFactory.Build([.. SelectedScopes]);
 
+            EnsureLocalInterfaceSelected();
+
             ScanContext probe = BuildProbeContext();
 
             foreach (ScanMethodChoice choice in Methods)
@@ -441,6 +469,45 @@ namespace MyNetworkMonitor.Core.ViewModels
             OnPropertyChanged(nameof(EstimatedDuration));
             OnPropertyChanged(nameof(CanStart));
             OnPropertyChanged(nameof(ScopeSummary));
+        }
+
+        /// <summary>
+        /// Sorgt dafuer, dass eine lokale Netzwerkkarte eingetragen ist.
+        /// <para>
+        /// Verfahren, die einen Lauscher aufsetzen statt Ziele abzufragen -
+        /// SSDP, ONVIF, der DHCP-Mitschnitt - binden ihn an
+        /// <c>SupportMethods.SelectedNetworkInterfaceInfos.IPv4</c>. In der
+        /// bisherigen Oberflaeche kam der Wert aus einer Auswahlliste; die gibt
+        /// es hier nicht, und so blieb er leer. SSDP war damit dauerhaft
+        /// gesperrt, ohne dass man haette sehen koennen, warum.
+        /// </para>
+        /// <para>
+        /// Genommen wird die Karte des ersten gewaehlten Bereichs - dort soll
+        /// gescannt werden, also gehoert der Lauscher dorthin. Ohne Bereich die
+        /// erste betriebsbereite Karte mit Gateway.
+        /// </para>
+        /// </summary>
+        private void EnsureLocalInterfaceSelected()
+        {
+            NetworkInterface? nic = _lastRuntimes
+                .Select(r => r.Interface)
+                .FirstOrDefault(i => i is not null);
+
+            nic ??= NetworkInterface.GetAllNetworkInterfaces()
+                .FirstOrDefault(i =>
+                    i.OperationalStatus == OperationalStatus.Up &&
+                    i.NetworkInterfaceType is not (NetworkInterfaceType.Loopback or NetworkInterfaceType.Tunnel) &&
+                    i.GetIPProperties().GatewayAddresses.Any(g => g.Address?.AddressFamily == AddressFamily.InterNetwork));
+
+            if (nic is null) return;
+
+            IPAddress? address = nic.GetIPProperties().UnicastAddresses
+                .FirstOrDefault(u => u.Address.AddressFamily == AddressFamily.InterNetwork)?.Address;
+
+            if (address is null) return;
+
+            SupportMethods.SelectedNetworkInterfaceInfos.Name = nic.Name;
+            SupportMethods.SelectedNetworkInterfaceInfos.IPv4 = address;
         }
 
         /// <summary>Kurztext der Bereichsauswahl fuer den Kommandobalken.</summary>
@@ -576,6 +643,11 @@ namespace MyNetworkMonitor.Core.ViewModels
                 {
                     ScanRunResult result = await _engine.RunAsync(scopes, methods, Settings, _store);
                     StatusText = Describe(result);
+
+                    // Die Regeln laufen von selbst, sobald der Lauf durch ist -
+                    // ein Befund, den man erst durch einen Klick sichtbar
+                    // machen muss, wird nicht gefunden.
+                    FindingsView.Refresh();
                 }
             }
             catch (Exception ex)

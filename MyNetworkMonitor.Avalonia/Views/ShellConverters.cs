@@ -4,6 +4,7 @@ using Avalonia.Data.Converters;
 using Avalonia.Media;
 using MyNetworkMonitor.Core.Model;
 using MyNetworkMonitor.Core.Network;
+using MyNetworkMonitor.Core.ViewModels;
 
 namespace MyNetworkMonitor.Avalonia.Views;
 
@@ -250,6 +251,36 @@ public sealed class DnsCountBrushConverter : IValueConverter
         value is int count && count > AdapterInfo.MaxPlausibleDnsServers
             ? ShellPalette.DupAddrFg
             : ShellPalette.Ink;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+/// <summary>Hintergrund des Dringlichkeitskaestchens in der Befundliste.</summary>
+public sealed class SeverityBackgroundConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value as FindingSeverity? switch
+        {
+            FindingSeverity.Critical => ShellPalette.DupAddrBg,
+            FindingSeverity.Warning => ShellPalette.WarnBg,
+            _ => ShellPalette.MuteBg
+        };
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+/// <summary>Schriftfarbe des Dringlichkeitskaestchens.</summary>
+public sealed class SeverityForegroundConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value as FindingSeverity? switch
+        {
+            FindingSeverity.Critical => ShellPalette.DupAddrFg,
+            FindingSeverity.Warning => ShellPalette.WarnFg,
+            _ => ShellPalette.MuteFg
+        };
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         throw new NotSupportedException();
