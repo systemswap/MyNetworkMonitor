@@ -432,6 +432,22 @@ public partial class ShellView : Window
         if (cb_Profile.SelectedItem is ScanProfile profile) _shell.ApplyProfile(profile);
     }
 
+    /// <summary>
+    /// Haelt die Mehrfachauswahl der Gerätetabelle im Ansichtsmodell nach.
+    /// <c>SelectedItem</c> kennt nur die zuletzt angeklickte Zeile; das
+    /// erneute Scannen soll aber alle markierten treffen, so wie es die
+    /// alte Oberflaeche ueber <c>SelectedCells</c> getan hat.
+    /// </summary>
+    private void dg_Devices_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        _shell.Devices.SelectedDevices.Clear();
+
+        foreach (Device device in dg_Devices.SelectedItems.OfType<Device>())
+        {
+            _shell.Devices.SelectedDevices.Add(device);
+        }
+    }
+
     // ----------------------------------------------------- Dienstauswahl
 
     /// <summary>
