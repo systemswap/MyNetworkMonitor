@@ -21,6 +21,17 @@ namespace MyNetworkMonitor.Core.Persistence
             Load();
         }
 
+        /// <summary>
+        /// Der Schluessel wurde schon einmal geschrieben.
+        /// <para>
+        /// Noetig, um "noch nie gesetzt" von "bewusst geleert" zu
+        /// unterscheiden - <see cref="GetString"/> liefert in beiden Faellen
+        /// eine leere Zeichenkette. Wer eine Voreinstellung nur beim ersten
+        /// Start setzen will, muss hier fragen.
+        /// </para>
+        /// </summary>
+        public bool Contains(string key) => _values.ContainsKey(key);
+
         public bool GetBool(string key, bool fallback)
             => _values.TryGetValue(key, out string? value) && bool.TryParse(value, out bool parsed) ? parsed : fallback;
 
@@ -48,9 +59,62 @@ namespace MyNetworkMonitor.Core.Persistence
 
         public void SetString(string key, string? value)
         {
+            // Im Speicher steht der rohe Wert; verpackt wird erst beim
+            // Schreiben, ausgepackt beim Lesen.
             _values[key] = value?.Trim() ?? string.Empty;
             Save();
         }
+
+        /// <summary>
+        /// Eine Liste von Werten unter einem Schluessel.
+        /// <para>
+        /// Gibt es, damit niemand mehr selbst zusammenfuegt und zerlegt. Genau
+        /// daran ist die Auswahl der gruppierten Dienste gescheitert: als
+        /// Trennzeichen war ein Zeilenumbruch gewaehlt, und diese Ablage ist
+        /// zeilenweise aufgebaut - jeder Eintrag wurde beim Speichern zu einer
+        /// eigenen, unlesbaren Zeile.
+        /// </para>
+        /// <para>
+        /// Wer eine Auswahl speichert, ruft <see cref="SetStrings"/> und
+        /// <see cref="GetStrings"/> auf und muss sich um nichts weiter
+        /// kuemmern - auch nicht, wenn spaeter Eintraege dazukommen.
+        /// </para>
+        /// </summary>
+        public IReadOnlyList<string> GetStrings(string key)
+        {
+            string value = GetString(key);
+
+            return value.Length == 0
+                ? []
+                : value.Split(ListSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        }
+
+        public void SetStrings(string key, IEnumerable<string> values)
+        {
+            ArgumentNullException.ThrowIfNull(values);
+
+            // Ein Wert, der das Trennzeichen enthaelt, wuerde beim Lesen in
+            // zwei zerfallen. Das darf nicht stillschweigend passieren, also
+            // wird es entfernt - in einem Dienstnamen hat ein senkrechter
+            // Strich ohnehin nichts verloren.
+            IEnumerable<string> cleaned = values
+                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .Select(v => v.Replace(ListSeparator, ' ').Trim());
+
+            SetString(key, string.Join(ListSeparator, cleaned));
+        }
+
+        private const char ListSeparator = '|';
+
+        // Zeilenumbrueche wuerden die Datei zerreissen, das Gleichheitszeichen
+        // nur den ersten Teil eines Wertes durchlassen. Beides kommt in den
+        // gespeicherten Werten kaum vor - wenn doch, soll es den naechsten
+        // Start nicht kosten.
+        private static string Escape(string value) =>
+            value.Replace("\\", @"\\").Replace("\r", @"\r").Replace("\n", @"\n");
+
+        private static string Unescape(string value) =>
+            value.Replace(@"\n", "\n").Replace(@"\r", "\r").Replace(@"\\", "\\");
 
         private void Load()
         {
@@ -63,7 +127,7 @@ namespace MyNetworkMonitor.Core.Persistence
                     int separator = line.IndexOf('=');
                     if (separator <= 0) continue;
 
-                    _values[line[..separator].Trim()] = line[(separator + 1)..].Trim();
+                    _values[line[..separator].Trim()] = Unescape(line[(separator + 1)..].Trim());
                 }
             }
             catch (Exception)
@@ -82,7 +146,7 @@ namespace MyNetworkMonitor.Core.Persistence
                 var lines = new List<string>();
                 foreach (KeyValuePair<string, string> entry in _values)
                 {
-                    lines.Add($"{entry.Key}={entry.Value}");
+                    lines.Add($"{entry.Key}={Escape(entry.Value)}");
                 }
 
                 File.WriteAllLines(_filePath, lines);
