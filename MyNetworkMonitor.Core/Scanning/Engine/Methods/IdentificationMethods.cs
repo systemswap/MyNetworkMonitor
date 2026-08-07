@@ -7,6 +7,14 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
     {
         public override string Id => "dns.lookup";
         public override string DisplayName => "Hostname";
+
+        public override string Explanation =>
+            "Asks the name server which address belongs to a name - the same step your " +
+            "browser takes when you type in a web address. Use it when you know the names " +
+            "of your machines and want to check where they actually point. In a company " +
+            "network this is also how you spot stale entries: a name that resolves to an " +
+            "address where nothing answers any more usually means the device is long gone " +
+            "and only the record stayed behind.";
         public override ScanPhase Phase => ScanPhase.Identification;
 
         // DNS kennt AAAA-Eintraege; das Modul reicht den Zieltext durch,
@@ -55,6 +63,14 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 
         public override string Id => "dns.reverse";
         public override string DisplayName => "Reverse lookup";
+
+        public override string Explanation =>
+            "The other direction: you have an address and want the name behind it. This is " +
+            "what turns a list of bare numbers into something readable, and it also brings " +
+            "in second names a device carries. Only works where someone has kept the name " +
+            "server tidy - in a home network mostly nothing comes back, in a company " +
+            "network almost everything. Where the answer is missing or wrong, the record " +
+            "has not been maintained.";
         public override ScanPhase Phase => ScanPhase.Identification;
         public override FamilySupport Families => FamilySupport.Both;
 
@@ -106,6 +122,14 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
     {
         public override string Id => "netbios";
         public override string DisplayName => "NetBIOS";
+
+        public override string Explanation =>
+            "The old Windows way of asking a machine \"what is your name?\" directly, " +
+            "without any name server. Windows PCs and servers answer, as do network " +
+            "storage boxes and anything else that offers Windows file shares. You get the " +
+            "computer name, often the workgroup or domain, and the hardware address (MAC). " +
+            "Especially useful where the name server knows nothing - the machine answers " +
+            "for itself.";
         public override ScanPhase Phase => ScanPhase.Identification;
         public override FamilySupport Families => FamilySupport.IPv4;
 
@@ -152,6 +176,14 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
     {
         public override string Id => "snmp";
         public override string DisplayName => "SNMP";
+
+        public override string Explanation =>
+            "The language network equipment speaks about itself. Printers, switches, " +
+            "routers, uninterruptible power supplies and many storage boxes answer here. " +
+            "Without logging in you get device name, model, serial number, location as " +
+            "the administrator typed it in, and how long the device has been running - by " +
+            "far the richest information of any method, and the fastest way to find out " +
+            "what a device in the rack actually is. Ordinary PCs usually stay silent.";
         public override ScanPhase Phase => ScanPhase.Identification;
         public override FamilySupport Families => FamilySupport.IPv4;
 

@@ -538,6 +538,9 @@
             <StackPanel Grid.Column="1" Margin="0,0,12,0">
               <TextBlock Text="IDENTIFY DEVICE" Classes="sectionHead"/>
               <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,0,0,6"/>
+              <!-- Der DNS-Quervergleich haengt als Unterfunktion mitten in
+                   dieser Liste, zwischen Rueckwaertsaufloesung und Hostname.
+                   Eingesetzt wird er in BuildMethodDrawer. -->
               <ItemsControl x:Name="ic_Identification"/>
             </StackPanel>
 
@@ -654,7 +657,7 @@
           <!-- Filterzeile -->
           <Border DockPanel.Dock="Top" Background="{StaticResource Panel}"
                   BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1" Padding="8,6">
-            <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,*,Auto">
+            <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,*,Auto">
 
               <TextBox Grid.Column="0" x:Name="tb_Search" Width="190" Watermark="Search across all columns"
                        Text="{Binding Devices.Filter.Text1}"/>
@@ -696,24 +699,57 @@
                 </Button.Flyout>
               </Button>
 
-              <TextBox Grid.Column="3" x:Name="tb_PortFilter" Width="96" Margin="4,0,0,0"
+              <!-- Bereichsauswahl: entsteht aus den Bereichen, aus denen die
+                   gefundenen Geraete stammen - nicht aus einer festen Liste,
+                   weil sich die Bereiche je nach Arbeitsort aendern. -->
+              <Button Grid.Column="3" x:Name="bt_ScopeFilter" Margin="4,0,0,0" MinWidth="100"
+                      HorizontalContentAlignment="Left"
+                      Background="White" BorderBrush="#C3D2D4" BorderThickness="1">
+                <TextBlock x:Name="tb_ScopeFilterLabel" Text="Range  ▾" FontSize="10.5"
+                           Foreground="#47595D"/>
+                <Button.Flyout>
+                  <Flyout Placement="BottomEdgeAlignedLeft">
+                    <Border Width="270" Background="{StaticResource Panel}">
+                      <DockPanel LastChildFill="True">
+                        <Border DockPanel.Dock="Top" Padding="10,6" Background="#F6F9F9"
+                                BorderBrush="{StaticResource LineSoft}" BorderThickness="0,0,0,1">
+                          <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="Scanned ranges" FontSize="10.5"
+                                       Foreground="#47595D" VerticalAlignment="Center"/>
+                            <Button Grid.Column="1" x:Name="bt_RangeFilterNone" Content="None"
+                                    Background="Transparent" BorderThickness="0"
+                                    Foreground="{StaticResource Teal}" FontSize="10.5"
+                                    Click="bt_RangeFilterNone_Click"/>
+                          </Grid>
+                        </Border>
+                        <ScrollViewer MaxHeight="360" VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled">
+                          <ItemsControl x:Name="ic_ScopeFacets" Margin="0,3"/>
+                        </ScrollViewer>
+                      </DockPanel>
+                    </Border>
+                  </Flyout>
+                </Button.Flyout>
+              </Button>
+
+              <TextBox Grid.Column="4" x:Name="tb_PortFilter" Width="96" Margin="4,0,0,0"
                        Watermark="Port" ToolTip.Tip="445 · 80,443 · 5000-5100"
                        Text="{Binding Devices.Filter.Ports}"/>
 
               <!-- Familienschalter: Tuerkis fuer v4, Indigo fuer v6 -->
-              <ToggleButton Grid.Column="4" x:Name="tg_V4" Margin="8,0,0,0"
+              <ToggleButton Grid.Column="5" x:Name="tg_V4" Margin="8,0,0,0"
                             IsChecked="{Binding Devices.Filter.ShowIPv4}"
                             Background="{StaticResource TealSoft}" BorderBrush="#77BAC3"
                             BorderThickness="1" Foreground="#08606C" FontSize="10.5"
                             Content="IPv4"/>
 
-              <ToggleButton Grid.Column="5" x:Name="tg_V6" Margin="4,0,0,0"
+              <ToggleButton Grid.Column="6" x:Name="tg_V6" Margin="4,0,0,0"
                             IsChecked="{Binding Devices.Filter.ShowIPv6}"
                             Background="{StaticResource V6Soft}" BorderBrush="#A79FEA"
                             BorderThickness="1" Foreground="#4A3FC0" FontSize="10.5"
                             Content="IPv6"/>
 
-              <StackPanel Grid.Column="6" Orientation="Horizontal" Spacing="10" Margin="12,0,0,0"
+              <StackPanel Grid.Column="7" Orientation="Horizontal" Spacing="10" Margin="12,0,0,0"
                           VerticalAlignment="Center">
                 <CheckBox Content="only reachable" FontSize="10.5"
                           IsChecked="{Binding Devices.Filter.OnlyOnline}"/>
@@ -731,7 +767,7 @@
                           IsChecked="{Binding Devices.ConflictsFirst}"/>
               </StackPanel>
 
-              <StackPanel Grid.Column="8" Orientation="Horizontal" Spacing="6">
+              <StackPanel Grid.Column="9" Orientation="Horizontal" Spacing="6">
                 <Button x:Name="bt_ResetFilter" Content="Reset filters" FontSize="10.5"
                         Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
                         Click="bt_ResetFilter_Click"/>
@@ -757,6 +793,19 @@
                 <ContextMenu>
                   <MenuItem Header="Rescan selected devices"
                             Command="{Binding RescanSelectedCommand}"/>
+
+                  <Separator/>
+
+                  <!-- Die Dienstliste entsteht im Code: sie kommt aus der
+                       Aufzaehlung der Dienste, und jeder Eintrag muss seinen
+                       Dienst als Parameter mitgeben. -->
+                  <MenuItem x:Name="mi_FindServicePort"
+                            Header="Find port of one service (all 65536 ports)"
+                            ToolTip.Tip="Searches the whole port range for a single service - for a service that runs on an unusual port and is therefore never found by the regular scan. Takes a while, so it runs for one device at a time."/>
+
+                  <MenuItem Header="Resolve IP across DNS servers"
+                            Command="{Binding ResolveAcrossDnsServersCommand}"
+                            ToolTip.Tip="Asks every known DNS server about this address separately, forwards and backwards. If they disagree, that is the finding - and it names the server."/>
                 </ContextMenu>
               </DataGrid.ContextMenu>
               <DataGrid.Columns>
@@ -1474,15 +1523,25 @@
                                 ToolTip.Tip="Overrides the individual boxes below"
                                 IsChecked="{Binding Settings.OnlyKnownTargets}"/>
 
-                      <ItemsControl ItemsSource="{Binding RestrictableMethods}" Margin="12,2,0,0">
-                        <ItemsControl.ItemTemplate>
-                          <DataTemplate x:DataType="vm:ScanMethodChoice">
-                            <CheckBox Content="{Binding DisplayName}" FontSize="11"
-                                      MinHeight="22" Margin="0,0,0,1"
-                                      IsChecked="{Binding OnlyKnownTargets}"/>
-                          </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                      </ItemsControl>
+                      <StackPanel Margin="12,2,0,0">
+                        <ItemsControl ItemsSource="{Binding RestrictableMethods}">
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ScanMethodChoice">
+                              <CheckBox Content="{Binding DisplayName}" FontSize="11"
+                                        MinHeight="22" Margin="0,0,0,1"
+                                        IsChecked="{Binding OnlyKnownTargets}"/>
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- Kein Verfahren, sondern die Unterfunktion des
+                             Namensscans - steht aber hier, weil sie dieselbe
+                             Frage beantwortet und dieselbe Zeit spart. -->
+                        <CheckBox Content="DNS cross-check" FontSize="11"
+                                  MinHeight="22" Margin="0,0,0,1"
+                                  IsChecked="{Binding Settings.CrossCheckOnlyKnownTargets}"
+                                  ToolTip.Tip="Compares only the devices that answered in this run. Off, it also checks every old row in the table - which is how you find names that still resolve although the device is long gone."/>
+                      </StackPanel>
                     </StackPanel>
                   </Border>
 
@@ -1597,6 +1656,12 @@
                     <TextBlock Classes="settingHint"
                                Text="Overrides the DNS servers stored on each range, for every range at once. Leave empty to use what each range defines."/>
                   </StackPanel>
+
+                  <!-- Der Quervergleich der DNS-Server steht bewusst nicht
+                       hier, sondern als Unterfunktion beim Namensscan in der
+                       Verfahren-Schublade: er ist Teil des Laufs und keine
+                       Grundeinstellung, und man entscheidet ihn dort, wo man
+                       auch die Verfahren anhakt. -->
                 </StackPanel>
               </Border>
             </StackPanel>
@@ -1804,6 +1869,12 @@
               <Button x:Name="bt_DrawTopology" Content="Draw" FontSize="10.5"
                       Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
                       Click="bt_DrawTopology_Click"/>
+              <RadioButton x:Name="rb_TopologyNetwork" GroupName="TopologyMode" Content="Network topo"
+                           FontSize="10.5" IsChecked="True"
+                           ToolTip.Tip="Devices grouped by network - duplicate addresses and names show up as coloured edges"/>
+              <RadioButton x:Name="rb_TopologyService" GroupName="TopologyMode" Content="Service topo"
+                           FontSize="10.5"
+                           ToolTip.Tip="Devices grouped by service - only devices that actually run a service are drawn"/>
               <CheckBox Content="library from CDN" FontSize="10.5"
                         ToolTip.Tip="Load the 3D library from the internet - the generated page can then be passed on by itself"
                         IsChecked="{Binding Settings.UseOnlineTopologyLibrary}"/>

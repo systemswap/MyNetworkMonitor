@@ -75,6 +75,7 @@ public partial class ShellView : Window
         BuildMethodDrawer();
 
         _shell.Devices.AvailableServices.CollectionChanged += (_, _) => BuildServiceFacets();
+        _shell.Devices.AvailableScopes.CollectionChanged += (_, _) => BuildScopeFacets();
         _shell.Devices.Filter.Changed += UpdateServiceFilterLabel;
 
         // Die eigene Eingabe aendert die Zielzahl genauso wie ein Haken -
@@ -92,6 +93,8 @@ public partial class ShellView : Window
         }
 
         BuildServiceFacets();
+        BuildScopeFacets();
+        BuildFindServicePortMenu();
         UpdateServiceFilterLabel();
         UpdateScopeFooter();
         UpdateIpv6Hint();
@@ -344,11 +347,18 @@ public partial class ShellView : Window
     private void BuildMethodDrawer()
     {
         Fill(ic_Discovery, _shell.Methods.Where(m => m.Phase == ScanPhase.Discovery));
-        Fill(ic_Identification, _shell.Methods.Where(m => m.Phase == ScanPhase.Identification));
+
+        // Der Quervergleich sitzt mitten in der Liste, direkt hinter der
+        // Rueckwaertsaufloesung: er gehoert thematisch zwischen die beiden
+        // DNS-Verfahren und nicht unter alle Verfahren der Spalte.
+        Fill(ic_Identification, _shell.Methods.Where(m => m.Phase == ScanPhase.Identification),
+             after: "dns.reverse", extra: BuildDnsCrossCheckBox());
+
         Fill(ic_Services, _shell.Methods.Where(m => m.Phase == ScanPhase.Services));
         Fill(ic_Ipv6, _shell.Methods.Where(m => m.IsIpv6Only));
 
-        static void Fill(ItemsControl target, IEnumerable<ScanMethodChoice> methods)
+        static void Fill(ItemsControl target, IEnumerable<ScanMethodChoice> methods,
+                         string? after = null, Control? extra = null)
         {
             List<Control> boxes = [];
 
@@ -371,8 +381,25 @@ public partial class ShellView : Window
                 box.Bind(IsEnabledProperty,
                     new global::Avalonia.Data.Binding(nameof(ScanMethodChoice.IsEnabled)) { Source = choice });
 
-                box.Bind(ToolTip.TipProperty,
-                    new global::Avalonia.Data.Binding(nameof(ScanMethodChoice.BlockReason)) { Source = choice });
+                // Der Tooltip erklaert das Verfahren in ganzen Saetzen. Als
+                // blosser Text laeuft er auf eine Zeile hinaus, die breiter ist
+                // als der Bildschirm - darum ein umbrechender TextBlock mit
+                // fester Hoechstbreite statt der Zeichenkette selbst.
+                TextBlock hint = new()
+                {
+                    FontSize = 11,
+                    TextWrapping = global::Avalonia.Media.TextWrapping.Wrap,
+                    MaxWidth = 320
+                };
+
+                hint.Bind(TextBlock.TextProperty,
+                    new global::Avalonia.Data.Binding(nameof(ScanMethodChoice.Hint)) { Source = choice });
+
+                ToolTip.SetTip(box, hint);
+
+                // Ausgegraute Verfahren zeigen sonst gar nichts an - gerade
+                // dort will man aber wissen, warum.
+                ToolTip.SetShowOnDisabled(box, true);
 
                 // Gesendet / geantwortet / gesamt, je Verfahren und stehend.
                 // Die bisherige Anwendung hat diese drei Zahlen fuer alle
@@ -404,10 +431,54 @@ public partial class ShellView : Window
                 row.Children.Add(box);
 
                 boxes.Add(row);
+
+                if (extra is not null && choice.Id == after) boxes.Add(extra);
             }
 
             target.ItemsSource = boxes;
         }
+    }
+
+    /// <summary>
+    /// Das Kaestchen des DNS-Quervergleichs. Kein eigenes Verfahren, sondern
+    /// eine Unterfunktion des Namensscans - eingerueckt, damit man das sieht,
+    /// und gesperrt, solange keines der beiden DNS-Verfahren angehakt ist.
+    /// </summary>
+    private CheckBox BuildDnsCrossCheckBox()
+    {
+        CheckBox box = new()
+        {
+            Content = "cross-check DNS servers",
+            FontSize = 10.5,
+            Margin = new global::Avalonia.Thickness(14, 0, 0, 2)
+        };
+
+        box.Bind(ToggleButton.IsCheckedProperty,
+            new global::Avalonia.Data.Binding(nameof(ScanSettings.CrossCheckDnsServers))
+            {
+                Source = _shell.Settings,
+                Mode = global::Avalonia.Data.BindingMode.TwoWay
+            });
+
+        box.Bind(IsEnabledProperty,
+            new global::Avalonia.Data.Binding(nameof(ShellViewModel.CanCrossCheckDns)) { Source = _shell });
+
+        ToolTip.SetTip(box, new TextBlock
+        {
+            FontSize = 11,
+            TextWrapping = global::Avalonia.Media.TextWrapping.Wrap,
+            MaxWidth = 320,
+            Text = "Asks every known DNS server about each address separately - forwards and " +
+                   "backwards. As long as they all say the same thing there is nothing to do; " +
+                   "where they differ, that is the finding, and it names the server that does " +
+                   "not resolve cleanly. Needs the reverse lookup or the hostname lookup to be " +
+                   "ticked. A thorough check that costs noticeable time on a large network, so " +
+                   "no preset turns it on - tick it yourself when you want it."
+        });
+
+        ToolTip.SetShowOnDisabled(box, true);
+
+        return box;
     }
 
     private void UpdateIpv6Hint()
@@ -522,16 +593,126 @@ public partial class ShellView : Window
         BuildServiceFacets();
     }
 
+    /// <summary>
+    /// Die Bereichsauswahl, gebaut wie die Dienstauswahl. Angezeigt wird je
+    /// Bereich, wie viele Geraete daraus stammen und wie viele davon gerade
+    /// antworten - daran sieht man, ob sich das Filtern ueberhaupt lohnt.
+    /// </summary>
+    private void BuildScopeFacets()
+    {
+        List<Control> rows = [];
+
+        foreach (ScopeFacet facet in _shell.Devices.AvailableScopes)
+        {
+            CheckBox box = new()
+            {
+                IsChecked = _shell.Devices.Filter.Scopes.Contains(facet.Name),
+                FontSize = 10.5,
+                Margin = new global::Avalonia.Thickness(10, 2, 10, 2),
+                Content = new Grid
+                {
+                    ColumnDefinitions = new ColumnDefinitions("*,Auto"),
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            Text = facet.Name,
+                            TextTrimming = global::Avalonia.Media.TextTrimming.CharacterEllipsis,
+                            VerticalAlignment = VerticalAlignment.Center,
+                            [ToolTip.TipProperty] = facet.Name
+                        },
+                        new TextBlock
+                        {
+                            Text = facet.OnlineCount > 0
+                                ? $"{facet.DeviceCount}  ({facet.OnlineCount} up)"
+                                : $"{facet.DeviceCount}",
+                            FontSize = 9.5,
+                            Foreground = new SolidColorBrush(Color.Parse("#93A5A9")),
+                            VerticalAlignment = VerticalAlignment.Center,
+                            [Grid.ColumnProperty] = 1
+                        }
+                    }
+                }
+            };
+
+            string name = facet.Name;
+            box.IsCheckedChanged += (_, _) =>
+            {
+                bool wanted = box.IsChecked == true;
+                bool present = _shell.Devices.Filter.Scopes.Contains(name);
+
+                if (wanted != present) _shell.Devices.ToggleScope(name);
+            };
+
+            rows.Add(box);
+        }
+
+        if (rows.Count == 0)
+        {
+            rows.Add(new TextBlock
+            {
+                Text = "Nothing scanned yet.",
+                FontSize = 10.5,
+                Foreground = new SolidColorBrush(Color.Parse("#93A5A9")),
+                Margin = new global::Avalonia.Thickness(10, 6, 10, 6)
+            });
+        }
+
+        ic_ScopeFacets.ItemsSource = rows;
+    }
+
+    // Nicht "ScopesNone": so heisst bereits das Zuruecksetzen der
+    // Umfangs-Auswahl im Kommandobalken. Zwei verschiedene Dinge - was
+    // gescannt wird und wonach gefiltert wird - duerfen nicht denselben
+    // Namen tragen.
+    /// <summary>
+    /// Fuellt das Untermenue der Portsuche mit den Diensten. Ein Dienst je
+    /// Eintrag - die Suche laeuft ueber 65 536 Ports und dauert; sie fuer alle
+    /// Dienste auf einmal anzubieten waere ein Klick, nach dem man eine
+    /// Viertelstunde wartet.
+    /// </summary>
+    private void BuildFindServicePortMenu()
+    {
+        List<MenuItem> entries = [];
+
+        foreach (ServiceType service in ShellViewModel.AllServiceTypes)
+        {
+            ServiceType captured = service;
+
+            MenuItem entry = new()
+            {
+                Header = service.ToString(),
+                Command = _shell.FindServicePortCommand,
+                CommandParameter = captured
+            };
+
+            entries.Add(entry);
+        }
+
+        mi_FindServicePort.ItemsSource = entries;
+    }
+
+    private void bt_RangeFilterNone_Click(object? sender, RoutedEventArgs e)
+    {
+        _shell.Devices.Filter.Scopes.Clear();
+        _shell.Devices.Filter.NotifyScopesChanged();
+        BuildScopeFacets();
+    }
+
     private void UpdateServiceFilterLabel()
     {
         int count = _shell.Devices.Filter.Services.Count;
         tb_ServiceFilterLabel.Text = count == 0 ? "Service  ▾" : $"Service ({count})  ▾";
+
+        int scopes = _shell.Devices.Filter.Scopes.Count;
+        tb_ScopeFilterLabel.Text = scopes == 0 ? "Range  ▾" : $"Range ({scopes})  ▾";
     }
 
     private void bt_ResetFilter_Click(object? sender, RoutedEventArgs e)
     {
         _shell.Devices.Filter.Reset();
         BuildServiceFacets();
+        BuildScopeFacets();
     }
 
     // ------------------------------------------------------------ Rail
@@ -616,14 +797,31 @@ public partial class ShellView : Window
             return;
         }
 
+        // Welche Sicht gezeichnet wird, entscheidet allein der Schalter - der
+        // Weg dorthin ist ab hier ein anderer, damit die Netzansicht von der
+        // Dienstansicht nichts mitbekommt.
+        bool services = rb_TopologyService.IsChecked == true;
+
         try
         {
             tb_TopologyHint.Text = $"Drawing {devices.Count} devices...";
 
-            await TopologyLauncher.ShowAsync(
-                new NativeWebViewHost(webTopology), devices, _shell.Settings.UseOnlineTopologyLibrary);
+            NativeWebViewHost host = new(webTopology);
+            bool online = _shell.Settings.UseOnlineTopologyLibrary;
 
-            tb_TopologyHint.Text = "Duplicate addresses and names are drawn as coloured edges.";
+            if (services)
+            {
+                await TopologyLauncher.ShowServicesAsync(host, devices, online);
+
+                tb_TopologyHint.Text = "One cloud per service, with the devices running it around it. " +
+                                      "Only devices with a service are drawn.";
+            }
+            else
+            {
+                await TopologyLauncher.ShowAsync(host, devices, online);
+
+                tb_TopologyHint.Text = "Duplicate addresses and names are drawn as coloured edges.";
+            }
         }
         catch (Exception ex)
         {

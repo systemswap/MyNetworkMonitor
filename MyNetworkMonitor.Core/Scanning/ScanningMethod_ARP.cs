@@ -8,21 +8,24 @@ using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
-using Lextm.SharpSnmpLib;
 using MyNetworkMonitor.Core.Services;
 namespace MyNetworkMonitor
 {
     public class ScanningMethod_ARP
     {
         private readonly IArpProvider _arp;
-        private readonly IRoutingProvider _routing;
 
+        /// <summary>
+        /// <paramref name="routingProvider"/> wird nicht mehr ausgewertet: die
+        /// Vorauswahl der Ziele richtet sich nach den Netzen der aktiven
+        /// Adapter, nicht nach der Routing-Tabelle. Der Parameter bleibt, damit
+        /// bestehende Aufrufe unveraendert uebersetzen.
+        /// </summary>
         public ScanningMethod_ARP(IArpProvider? arpProvider = null, IRoutingProvider? routingProvider = null)
         {
             // Ohne Injection kommen die vom Startprojekt registrierten
             // Plattform-Provider zum Einsatz – die Scan-Logik bleibt unveraendert.
             _arp = arpProvider ?? PlatformServices.Arp;
-            _routing = routingProvider ?? PlatformServices.Routing;
         }
         
         
@@ -110,8 +113,10 @@ namespace MyNetworkMonitor
                 return; // Beende die Methode sauber
             }
 
-            if (filtered.Count <= 1) filtered = ipsToRefresh;
-          
+            // Frueher wurde bei hoechstens einem Treffer die ganze Liste
+            // wiederhergestellt. Das hob die Beschraenkung genau dann auf,
+            // wenn sie am meisten gebracht haette: wenn nichts davon lokal
+            // erreichbar ist. Ein leeres Ergebnis ist hier eine Antwort.
             total = filtered.Count;
             ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running);
 
@@ -280,25 +285,107 @@ namespace MyNetworkMonitor
 
 
 
+        /// <summary>
+        /// Grenzt die Zielliste auf das ein, was ARP ueberhaupt beantworten
+        /// kann.
+        /// <para>
+        /// Eine ARP-Anfrage bleibt im eigenen Netzsegment: sie geht als
+        /// Broadcast raus, und nur wer daran haengt, hoert sie. Alles hinter
+        /// einem Router kann per Definition nicht antworten - jede solche
+        /// Anfrage ist reine Wartezeit bis zum Timeout. Massgeblich ist
+        /// deshalb, wo ein <em>aktiver</em> Adapter steht und welche Maske er
+        /// traegt, nicht, wohin die Routing-Tabelle zeigt.
+        /// </para>
+        /// </summary>
         public async Task<List<IPToScan>> GetIPsInSameVLANAsync(List<IPToScan> ipsToRefresh)
         {
-            var knownIpsTask = GetLocalArpTableAsync(); // 1️⃣ ARP-Tabelle abrufen (asynchron)
-            var gatewayTask = Task.Run(() => GetDefaultGateway()); // 2️⃣ Standard-Gateway bestimmen (asynchron)
-            var routingTableTask = _routing.GetRouteNetworkIpsAsync(); // 3️⃣ Routing-Tabelle abrufen (asynchron)
+            List<LocalSubnet> subnets = GetLocalSubnets();
 
-            await Task.WhenAll(knownIpsTask, gatewayTask, routingTableTask);
+            // Dazu, was ohnehin schon aufgeloest ist: ein Eintrag in der
+            // Tabelle beweist, dass die Adresse erreichbar war.
+            HashSet<string> knownIps = new(await GetLocalArpTableAsync(), StringComparer.OrdinalIgnoreCase);
 
-            List<string> knownIps = await knownIpsTask;
-            string gateway = await gatewayTask;
-            IReadOnlyList<string> routingTable = await routingTableTask;
-            string subnetMask = await Task.Run(() => GetSubnetMaskViaSnmp(gateway)); // 4️⃣ SNMP-Subnetzmaske abrufen (asynchron)
+            if (subnets.Count == 0 && knownIps.Count == 0)
+            {
+                // Kein aktiver IPv4-Adapter und keine Tabelle - dann ist gar
+                // nichts bekannt, und lieber alles versuchen als nichts.
+                return ipsToRefresh;
+            }
 
-            return ipsToRefresh.Where(ip =>
-                knownIps.Contains(ip.IPorHostname) || // Ist IP in ARP-Tabelle?
-                (!string.IsNullOrEmpty(gateway) && ip.IPorHostname.StartsWith(gateway.Substring(0, gateway.LastIndexOf('.')))) || // Gehört IP zum Gateway-Netz?
-                routingTable.Any(route => ip.IPorHostname.StartsWith(route.Substring(0, route.LastIndexOf('.')))) || // Gehört IP zu bekannten Routen?
-                (subnetMask != "255.255.255.255" && IsIpInSubnet(ip.IPorHostname, gateway, subnetMask)) // Falls SNMP-Subnetzmaske sinnvoll ist
-            ).ToList();
+            List<IPToScan> reachable = [.. ipsToRefresh.Where(ip => IsReachableByArp(ip.IPorHostname, subnets, knownIps))];
+
+            Debug.WriteLine($"ARP: {reachable.Count} von {ipsToRefresh.Count} Zielen liegen an einem aktiven Adapter.");
+
+            return reachable;
+        }
+
+        /// <summary>Ein Netz, an dem ein aktiver Adapter dieses Rechners haengt.</summary>
+        private sealed record LocalSubnet(byte[] Address, byte[] Mask)
+        {
+            public bool Contains(byte[] candidate)
+            {
+                for (int i = 0; i < 4; i++)
+                {
+                    if ((candidate[i] & Mask[i]) != (Address[i] & Mask[i])) return false;
+                }
+
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// Die IPv4-Netze aller betriebsbereiten Adapter. Loopback und Tunnel
+        /// bleiben draussen - dort gibt es niemanden, den man per Broadcast
+        /// fragen koennte.
+        /// </summary>
+        private static List<LocalSubnet> GetLocalSubnets()
+        {
+            List<LocalSubnet> subnets = [];
+
+            foreach (NetworkInterface adapter in NetworkInterface.GetAllNetworkInterfaces())
+            {
+                if (adapter.OperationalStatus != OperationalStatus.Up) continue;
+
+                if (adapter.NetworkInterfaceType is NetworkInterfaceType.Loopback
+                                                 or NetworkInterfaceType.Tunnel)
+                {
+                    continue;
+                }
+
+                foreach (UnicastIPAddressInformation address in adapter.GetIPProperties().UnicastAddresses)
+                {
+                    if (address.Address.AddressFamily != AddressFamily.InterNetwork) continue;
+
+                    // Ohne Maske laesst sich das Netz nicht bestimmen; ein
+                    // geratenes /24 waere genau der Fehler, der hier weg soll.
+                    IPAddress? mask = address.IPv4Mask;
+                    if (mask == null || mask.Equals(IPAddress.Any)) continue;
+
+                    subnets.Add(new LocalSubnet(address.Address.GetAddressBytes(), mask.GetAddressBytes()));
+                }
+            }
+
+            return subnets;
+        }
+
+        private static bool IsReachableByArp(string? address, List<LocalSubnet> subnets, HashSet<string> knownIps)
+        {
+            if (string.IsNullOrWhiteSpace(address)) return false;
+
+            if (knownIps.Contains(address)) return true;
+
+            // ARP gibt es nur ueber IPv4. Hostnamen und IPv6-Adressen gehoeren
+            // anderen Verfahren - hier wuerden sie beim Parsen fliegen und den
+            // ganzen Lauf mitnehmen.
+            if (!IPAddress.TryParse(address, out IPAddress? parsed)
+                || parsed.AddressFamily != AddressFamily.InterNetwork)
+            {
+                return false;
+            }
+
+            byte[] bytes = parsed.GetAddressBytes();
+
+            return subnets.Any(subnet => subnet.Contains(bytes));
         }
 
 
@@ -309,67 +396,5 @@ namespace MyNetworkMonitor
         }
 
 
-        private static string GetDefaultGateway()
-        {
-            return NetworkInterface.GetAllNetworkInterfaces()
-                .Where(n => n.OperationalStatus == OperationalStatus.Up)
-                .SelectMany(n => n.GetIPProperties().GatewayAddresses)
-                .Where(g => g.Address.AddressFamily == AddressFamily.InterNetwork) // Nur IPv4 auswählen
-                .Select(g => g.Address.ToString())
-                .FirstOrDefault() ?? string.Empty; // Falls kein IPv4-Gateway gefunden wird, gib einen leeren String zurück
-        }
-
-
-        private static string GetSubnetMaskViaSnmp(string gatewayIp, string community = "public")
-        {
-            if (string.IsNullOrEmpty(gatewayIp)) return "255.255.255.255"; // Fallback
-
-            try
-            {
-                // SNMP OID für Subnetzmaske
-                var result = SnmpHelper.Walk(gatewayIp, VersionCode.V2, community, "1.3.6.1.2.1.4.20.1.3");
-
-                if (result == null || result.Count == 0)
-                {
-                    Console.WriteLine("❌ Keine SNMP-Subnetzmaske erhalten.");
-                    return "255.255.255.255";
-                }
-
-                string localIp = SupportMethods.SelectedNetworkInterfaceInfos.IPv4_string;
-                foreach (var kvp in result)
-                {
-                    if (kvp.Key.ToString().EndsWith("." + localIp))
-                    {
-                        Console.WriteLine($"✅ SNMP-Subnetzmaske gefunden: {kvp.Value}");
-                        return kvp.Value.ToString();
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"❌ Fehler bei der SNMP-Abfrage: {ex.Message}");
-            }
-
-            return "255.255.255.255"; // Falls keine brauchbare Subnetzmaske gefunden wird
-        }
-
-      
-
-        private static bool IsIpInSubnet(string ipAddress, string networkIp, string subnetMask)
-        {
-            var ip = IPAddress.Parse(ipAddress).GetAddressBytes();
-            var network = IPAddress.Parse(networkIp).GetAddressBytes();
-            var mask = IPAddress.Parse(subnetMask).GetAddressBytes();
-
-            for (int i = 0; i < 4; i++)
-            {
-                if ((ip[i] & mask[i]) != (network[i] & mask[i]))
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
     }
 }

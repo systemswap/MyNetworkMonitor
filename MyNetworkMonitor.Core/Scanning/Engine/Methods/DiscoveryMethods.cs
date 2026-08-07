@@ -11,6 +11,14 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
     {
         public override string Id => "arp.request";
         public override string DisplayName => "ARP request";
+
+        public override string Explanation =>
+            "Calls out on the local cable: \"who has this address?\" Every device on the " +
+            "same network segment has to answer - that is how the network works, and a " +
+            "firewall cannot suppress it. So this finds machines that stay silent on Ping. " +
+            "You also get the hardware address (MAC), which says who built the network " +
+            "card - often the first hint at what kind of device it is. Only works within " +
+            "your own segment: anything behind a router cannot hear the call.";
         public override ScanPhase Phase => ScanPhase.Discovery;
         public override FamilySupport Families => FamilySupport.IPv4;
 
@@ -68,6 +76,14 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
     {
         public override string Id => "arp.cache";
         public override string DisplayName => "ARP table";
+
+        public override string Explanation =>
+            "Looks into a list your own computer already keeps: every device it has " +
+            "recently exchanged data with, together with its hardware address (MAC). " +
+            "Costs nothing and disturbs nobody - no packet leaves the machine. It can " +
+            "turn up devices that are switched off by now, because the entry survives " +
+            "them for a while, and it says nothing about devices your computer has " +
+            "never talked to. A good free extra, not a substitute for a real scan.";
         public override ScanPhase Phase => ScanPhase.Discovery;
         public override FamilySupport Families => FamilySupport.IPv4;
 
