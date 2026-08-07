@@ -145,31 +145,70 @@ namespace MyNetworkMonitor
 
 
 
+        /// <summary>
+        /// Wie lange auf eine Antwort gewartet wird. Kurz gehalten: eine
+        /// Rueckwaertsaufloesung, die zwei Sekunden braucht, wird auch nach
+        /// zehn nicht besser, und bei einem ganzen Netz summiert sich jede
+        /// Sekunde ueber hunderte Adressen.
+        /// </summary>
+        private static readonly TimeSpan QueryTimeout = TimeSpan.FromSeconds(2);
+
+        /// <summary>
+        /// Ein Client je Namensserver-Zusammenstellung, ueber den ganzen Lauf
+        /// hinweg.
+        /// <para>
+        /// Vorher wurde je Adresse ein neuer <see cref="LookupClient"/> gebaut.
+        /// Der bringt seinen eigenen Zwischenspeicher mit - je Abfrage neu
+        /// erzeugt, ist der immer leer, und dieselbe Zone wird hundertfach neu
+        /// erfragt. Wiederverwendet traegt er dagegen ueber den ganzen Lauf.
+        /// </para>
+        /// </summary>
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<string, LookupClient> _clients = new();
+
+        private LookupClient ClientFor(IPToScan ipToScan)
+        {
+            List<string> servers = ipToScan.DNSServerList?
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .Select(s => s.Trim())
+                .ToList() ?? [];
+
+            return _clients.GetOrAdd(string.Join(",", servers), _ =>
+            {
+                LookupClientOptions options;
+
+                if (servers.Count > 0 && servers.All(s => IPAddress.TryParse(s, out IPAddress? _)))
+                {
+                    options = new LookupClientOptions([.. servers.Select(s => new NameServer(IPAddress.Parse(s)))]);
+                }
+                else
+                {
+                    // Ohne eigene Angabe die Server des Systems - dieselben,
+                    // die auch der Rest des Rechners benutzt.
+                    options = new LookupClientOptions();
+                }
+
+                options.Timeout = QueryTimeout;
+                options.Retries = 1;
+                options.UseCache = true;
+
+                // Ein fehlender Eintrag ist eine Antwort, kein Fehler. Als
+                // Ausnahme geworfen, kostet er nur Zeit.
+                options.ThrowDnsErrors = false;
+
+                return new LookupClient(options);
+            });
+        }
+
         private async Task ReverseLookupToHostAndAliases(IPToScan ipToScan, bool isDeepDNSServerScan)
         {
             if (_cts.Token.IsCancellationRequested) return; // 🔹 Abbruch vor dem Start prüfen
 
             try
             {
-                List<NameServer> dnsServers = new List<NameServer>();
-                DnsClient.LookupClient client = null;
-                if (ipToScan.DNSServerList != null && ipToScan.DNSServerList.Count > 0 && !string.IsNullOrEmpty(string.Join(string.Empty, ipToScan.DNSServerList)))
-                {
-                    foreach (string s in ipToScan.DNSServerList)
-                    {
-                        if (_cts.Token.IsCancellationRequested) return; // 🔹 Abbruch vor dem Start prüfen
-
-                        dnsServers.Add(IPAddress.Parse(s));
-                    }
-                    client = new DnsClient.LookupClient(dnsServers.ToArray());
-                }
-                else
-                {
-                    client = new DnsClient.LookupClient();
-                }
+                LookupClient client = ClientFor(ipToScan);
 
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
-                cts.CancelAfter(TimeSpan.FromSeconds(10));
+                cts.CancelAfter(QueryTimeout);
 
                 // Die abgeschickte Abfrage zaehlt. Neben "geantwortet" und
                 // "gesamt" ergibt das die dreiteilige Anzeige, an der man sieht,
@@ -177,54 +216,13 @@ namespace MyNetworkMonitor
                 int sentCount = Interlocked.Increment(ref current);
                 ProgressUpdated?.Invoke(sentCount, responded, total, ScanStatus.running);
 
-
-                //IPHostEntry _IPHostEntry = await client.GetHostEntryAsync(ipToScan.IPorHostname).WaitAsync(_cts.Token);
-
-                IPHostEntry? _IPHostEntry = null;
-                int maxRetries = 3;
-                int attempt = 0;
-
-                while (attempt < maxRetries && _IPHostEntry == null)
-                {
-                    // Der Versuch zaehlt, sobald er unternommen wurde - nicht
-                    // erst, wenn er mit einer Ausnahme endet.
-                    //
-                    // Vorher stand das Hochzaehlen allein im catch. Eine Adresse
-                    // ohne PTR-Eintrag liefert aber keine Ausnahme, sondern
-                    // sauber null: die Schleife lief dann ohne Pause weiter, bis
-                    // nach zehn Sekunden der Zeitgeber griff. Bei fuenfzig
-                    // gleichzeitigen Abfragen wurde daraus ein Dauerfeuer, unter
-                    // dem der Namensserver auch die Adressen nicht mehr
-                    // beantwortet hat, die einen Eintrag haben - daher kamen von
-                    // 66 Hostnamen nur zehn zurueck.
-                    attempt++;
-
-                    try
-                    {
-                        _IPHostEntry = await client.GetHostEntryAsync(ipToScan.IPorHostname).WaitAsync(cts.Token);
-
-                        // Sauber beantwortet, nur eben ohne Eintrag. Ein zweiter
-                        // Versuch findet denselben fehlenden Eintrag wieder.
-                        if (_IPHostEntry is null) break;
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        // Abbruch durch CancellationToken
-                        throw;
-                    }
-                    catch (Exception ex)
-                    {
-                        if (attempt >= maxRetries)
-                        {
-                            // Option: Log oder Fehlerbehandlung hier
-                            Console.WriteLine($"Fehler bei Versuch {attempt}: {ex.Message}");
-                        }
-                        else
-                        {
-                            await Task.Delay(500, cts.Token); // kurze Pause vor erneutem Versuch
-                        }
-                    }
-                }
+                // Eine Abfrage, kein eigener Wiederholungslauf: der Client
+                // wiederholt selbst und kennt sein Zeitlimit. Die fruehere
+                // Schleife hat daneben noch dreimal gefragt und dabei eine
+                // Adresse ohne PTR-Eintrag - den Normalfall - wie einen Fehler
+                // behandelt.
+                IPHostEntry? _IPHostEntry = await client.GetHostEntryAsync(ipToScan.IPorHostname)
+                                                        .WaitAsync(cts.Token);
                     var results = new List<string>();
 
                 if (isDeepDNSServerScan)
