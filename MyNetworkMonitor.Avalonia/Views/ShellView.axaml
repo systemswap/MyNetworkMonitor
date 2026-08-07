@@ -864,6 +864,38 @@
                       </StackPanel>
                     </Border>
 
+                    <!-- Doppelbelegung. Steht vor allem anderen: wenn eine
+                         Adresse zweimal vergeben ist, ist das die erste
+                         Nachricht, nicht eine Fussnote unter den Diensten. -->
+                    <Border Padding="12,9" IsVisible="{Binding HasConflict}"
+                            Background="{Binding Conflicts, Converter={StaticResource DupBg}}"
+                            BorderBrush="#E3EBEC" BorderThickness="0,0,0,1">
+                      <StackPanel Spacing="3">
+                        <TextBlock Text="DUPLICATE ASSIGNMENT" Classes="sectionHead"
+                                   Foreground="{Binding Conflicts, Converter={StaticResource DupFg}}"/>
+                        <TextBlock Text="{Binding ConflictDetails}" FontSize="10.5"
+                                   TextWrapping="Wrap"
+                                   Foreground="{Binding Conflicts, Converter={StaticResource DupFg}}"/>
+                      </StackPanel>
+                    </Border>
+
+                    <!-- Was der Namensdienst sagt. Ohne diesen Abschnitt liesse
+                         sich ein DNS-Befund oben nicht nachvollziehen. -->
+                    <Border Padding="12,9" BorderBrush="#E3EBEC" BorderThickness="0,0,0,1"
+                            IsVisible="{Binding WasLookedUp}">
+                      <StackPanel>
+                        <TextBlock Text="NAME SERVICE" Classes="sectionHead"/>
+                        <Grid ColumnDefinitions="78,*" RowDefinitions="Auto,Auto">
+                          <TextBlock Grid.Row="0" Grid.Column="0" Text="Resolves to" Classes="kvKey"/>
+                          <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding LookupAddressText}"
+                                     Classes="kvValue" TextWrapping="Wrap"/>
+                          <TextBlock Grid.Row="1" Grid.Column="0" Text="Aliases" Classes="kvKey"/>
+                          <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding AliasText}"
+                                     Classes="kvValue" TextWrapping="Wrap"/>
+                        </Grid>
+                      </StackPanel>
+                    </Border>
+
                     <!-- Identitaet -->
                     <Border Padding="12,9" BorderBrush="#E3EBEC" BorderThickness="0,0,0,1">
                       <StackPanel>
@@ -1518,6 +1550,31 @@
               <DataGridTextColumn Header="MAC" Binding="{Binding MacText}" Width="Auto" MinWidth="130"/>
             </DataGrid.Columns>
           </DataGrid>
+        </DockPanel>
+
+        <!-- ========== Topologie ========== -->
+        <DockPanel x:Name="view_Topology" IsVisible="False" LastChildFill="True"
+                   Background="{StaticResource Workspace}">
+
+          <Border DockPanel.Dock="Top" Background="{StaticResource Panel}"
+                  BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1"
+                  Padding="12,8">
+            <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+              <TextBlock Text="TOPOLOGY" FontSize="10.5" FontWeight="SemiBold"
+                         Foreground="{StaticResource Dim}" VerticalAlignment="Center"/>
+              <Button x:Name="bt_DrawTopology" Content="Draw" FontSize="10.5"
+                      Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
+                      Click="bt_DrawTopology_Click"/>
+              <CheckBox Content="library from CDN" FontSize="10.5"
+                        ToolTip.Tip="Load the 3D library from the internet - the generated page can then be passed on by itself"
+                        IsChecked="{Binding Settings.UseOnlineTopologyLibrary}"/>
+              <TextBlock x:Name="tb_TopologyHint" FontSize="10.5" VerticalAlignment="Center"
+                         Foreground="{StaticResource Dim}"
+                         Text="Duplicate addresses and names are drawn as coloured edges."/>
+            </StackPanel>
+          </Border>
+
+          <NativeWebView x:Name="webTopology"/>
         </DockPanel>
 
         <!-- ========== Noch nicht gebaute Ansichten ========== -->

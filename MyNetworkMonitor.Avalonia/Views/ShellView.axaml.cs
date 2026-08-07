@@ -8,8 +8,10 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
+using MyNetworkMonitor.Avalonia.Platform;
 using MyNetworkMonitor.Core.Model;
 using MyNetworkMonitor.Core.Models;
+using MyNetworkMonitor.Core.Services;
 using MyNetworkMonitor.Core.Persistence;
 using MyNetworkMonitor.Core.Scanning.Engine;
 using MyNetworkMonitor.Core.Scanning.Engine.Methods;
@@ -504,6 +506,7 @@ public partial class ShellView : Window
         view_Services.IsVisible = section == ShellSection.Services;
         view_Settings.IsVisible = section == ShellSection.Settings;
         view_Network.IsVisible = section == ShellSection.Network;
+        view_Topology.IsVisible = section == ShellSection.Topology;
 
         // Adapter kommen und gehen - ein VPN-Client, ein Dock, ein Stick.
         // Beim Aufschlagen der Ansicht neu lesen ist billiger als der
@@ -512,7 +515,8 @@ public partial class ShellView : Window
 
         bool built = section is ShellSection.Devices or ShellSection.Scopes
                              or ShellSection.Ports or ShellSection.Services
-                             or ShellSection.Settings or ShellSection.Network;
+                             or ShellSection.Settings or ShellSection.Network
+                             or ShellSection.Topology;
 
         view_Placeholder.IsVisible = !built;
 
@@ -524,14 +528,54 @@ public partial class ShellView : Window
                 "Rogue router advertisements, globally open ports, protocol divergence. " +
                 "The rule set needs data from every earlier step and comes last."),
 
-            ShellSection.Topology => ("Topology",
-                "The 3D view is carried over from the previous window."),
-
             ShellSection.Names => ("Names",
                 "Mapping your own device names."),
 
             _ => ("Not built yet", string.Empty)
         };
+    }
+
+    /// <summary>
+    /// Zeichnet die Topologie aus dem aktuellen Bestand.
+    /// <para>
+    /// Bewusst auf Knopfdruck und nicht beim Aufschlagen der Ansicht: der
+    /// Graph wird als Datei geschrieben und ueber einen lokalen Webserver
+    /// geladen, und das bei jedem Klick in der Leiste zu tun waere
+    /// verschwenderisch.
+    /// </para>
+    /// </summary>
+    private async void bt_DrawTopology_Click(object? sender, RoutedEventArgs e)
+    {
+        List<Device> devices;
+
+        // Unter der Sperre nur kopieren. Das Schreiben der Seite dauert, und
+        // solange duerfte kein Scan den Bestand veraendern.
+        lock (_store.SyncRoot)
+        {
+            devices = [.. _store.Devices];
+        }
+
+        if (devices.Count == 0)
+        {
+            tb_TopologyHint.Text = "Nothing to draw yet - run a scan first.";
+            return;
+        }
+
+        try
+        {
+            tb_TopologyHint.Text = $"Drawing {devices.Count} devices...";
+
+            await TopologyLauncher.ShowAsync(
+                new NativeWebViewHost(webTopology), devices, _shell.Settings.UseOnlineTopologyLibrary);
+
+            tb_TopologyHint.Text = "Duplicate addresses and names are drawn as coloured edges.";
+        }
+        catch (Exception ex)
+        {
+            // Die Webansicht faellt je nach System unterschiedlich aus - ein
+            // Fehler darf die Oberflaeche nicht mitnehmen.
+            tb_TopologyHint.Text = $"Could not draw: {ex.Message}";
+        }
     }
 
     /// <summary>

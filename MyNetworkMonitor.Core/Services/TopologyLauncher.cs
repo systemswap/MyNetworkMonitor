@@ -20,13 +20,28 @@ namespace MyNetworkMonitor.Core.Services
             Path.Combine(Environment.ExpandEnvironmentVariables("%userprofile%"), "Documents"),
             "MyNetworkMonitor", "3dFoceGraph");
 
-        public static async Task ShowAsync(IWebViewHost webViewHost, DataTable resultTable,
-                                           bool useOnlineVersion, string? graphFolder = null)
+        public static Task ShowAsync(IWebViewHost webViewHost, DataTable resultTable,
+                                     bool useOnlineVersion, string? graphFolder = null) =>
+            ShowAsync(webViewHost, useOnlineVersion, graphFolder,
+                      folder => TopologyGraph.WriteHtmlFile(folder, resultTable, useOnlineVersion));
+
+        /// <summary>
+        /// Dieselbe Anzeige aus dem neuen Geraetemodell. Nur die Quelle der
+        /// Seite unterscheidet sich - Bibliothek, Server und Navigation sind
+        /// dieselben.
+        /// </summary>
+        public static Task ShowAsync(IWebViewHost webViewHost, IReadOnlyList<Model.Device> devices,
+                                     bool useOnlineVersion, string? graphFolder = null) =>
+            ShowAsync(webViewHost, useOnlineVersion, graphFolder,
+                      folder => TopologyGraph.WriteHtmlFile(folder, devices, useOnlineVersion));
+
+        private static async Task ShowAsync(IWebViewHost webViewHost, bool useOnlineVersion,
+                                            string? graphFolder, Func<string, string> writePage)
         {
             string folder = graphFolder ?? DefaultGraphFolder;
 
             TopologyGraph.EnsureLocalLibrary(folder);
-            string htmlFilePath = TopologyGraph.WriteHtmlFile(folder, resultTable, useOnlineVersion);
+            string htmlFilePath = writePage(folder);
 
             // Die Seite muss ueber http geladen werden - ueber file:// verweigern
             // Chromium-basierte Engines das Nachladen der Bibliothek.
