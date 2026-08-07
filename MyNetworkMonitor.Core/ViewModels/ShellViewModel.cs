@@ -314,6 +314,30 @@ namespace MyNetworkMonitor.Core.ViewModels
         public ObservableCollection<GroupableService> GroupableServices { get; } = [];
 
         /// <summary>
+        /// Dieselben Dienste, nach ihrer Rubrik gebuendelt - so wie sie in den
+        /// Definitionen stehen. Eine Liste aus dreissig Namen am Stueck laesst
+        /// sich nicht ueberfliegen; nach Rubriken sortiert findet man den
+        /// gesuchten Dienst dort, wo man ihn vermutet.
+        /// </summary>
+        public ObservableCollection<GroupableServiceGroup> GroupableServiceGroups { get; } = [];
+
+        /// <summary>
+        /// Wohin die vier Verfahren mit eigenem Modul gehoeren. Sie stehen
+        /// nicht in den Dienstdefinitionen, sind aber Dienste wie die anderen -
+        /// ohne Zuordnung landeten sie in einer Sammelrubrik, in der niemand
+        /// sucht.
+        /// </summary>
+        private static readonly Dictionary<string, string> ModuleServiceGroups = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["SMB"] = "🗂️ Dateidienste",
+            ["ONVIF"] = "📷 Kameras",
+            ["NetBIOS"] = "🌍 Netzwerk-Dienste",
+            ["SNMP"] = "🌍 Netzwerk-Dienste"
+        };
+
+        private const string UngroupedServices = "· Ohne Rubrik";
+
+        /// <summary>
         /// Baut die Auswahlliste neu. Muss nach dem Laden der
         /// Dienstdefinitionen laufen - vorher kennt der Editor nur die vier
         /// Verfahren mit eigenem Modul.
@@ -321,24 +345,45 @@ namespace MyNetworkMonitor.Core.ViewModels
         public void BuildGroupableServices()
         {
             GroupableServices.Clear();
+            GroupableServiceGroups.Clear();
 
-            IEnumerable<string> names = ServiceEditor.All
-                .Select(s => s.Name)
-                .Concat(["SMB", "NetBIOS", "SNMP", "ONVIF"])
-                .Where(n => !string.IsNullOrWhiteSpace(n))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(n => n, StringComparer.CurrentCulture);
+            // Name und Rubrik zusammenfuehren: aus den Definitionen, was dort
+            // steht, fuer die vier Modulverfahren die feste Zuordnung.
+            Dictionary<string, string> groupOf = new(StringComparer.OrdinalIgnoreCase);
 
-            foreach (string name in names)
+            foreach (ServiceEntry service in ServiceEditor.All.Where(s => !string.IsNullOrWhiteSpace(s.Name)))
             {
-                GroupableService entry = new()
-                {
-                    Name = name,
-                    IsGrouped = ServiceDisplay.Grouped.Contains(name)
-                };
+                groupOf[service.Name] = string.IsNullOrWhiteSpace(service.Group)
+                    ? UngroupedServices
+                    : service.Group;
+            }
 
-                entry.PropertyChanged += OnGroupableServiceChanged;
-                GroupableServices.Add(entry);
+            foreach (KeyValuePair<string, string> module in ModuleServiceGroups)
+            {
+                groupOf.TryAdd(module.Key, module.Value);
+            }
+
+            foreach (IGrouping<string, KeyValuePair<string, string>> group in groupOf
+                         .GroupBy(pair => pair.Value)
+                         .OrderBy(g => g.Key, StringComparer.CurrentCulture))
+            {
+                GroupableServiceGroup bucket = new() { Name = group.Key };
+
+                foreach (string name in group.Select(p => p.Key).OrderBy(n => n, StringComparer.CurrentCulture))
+                {
+                    GroupableService entry = new()
+                    {
+                        Name = name,
+                        IsGrouped = ServiceDisplay.Grouped.Contains(name)
+                    };
+
+                    entry.PropertyChanged += OnGroupableServiceChanged;
+
+                    bucket.Services.Add(entry);
+                    GroupableServices.Add(entry);
+                }
+
+                GroupableServiceGroups.Add(bucket);
             }
         }
 
