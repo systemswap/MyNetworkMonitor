@@ -32,8 +32,17 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
         public required IReadOnlyList<ScanMethodOutcome> Outcomes { get; init; }
         public required int TargetCount { get; init; }
 
-        /// <summary>Wie viele Geraete eine Doppelbelegung tragen.</summary>
-        public int ConflictCount { get; init; }
+        /// <summary>
+        /// Wie viele Geraete eine Doppelbelegung tragen.
+        /// <para>
+        /// Wird vom Aufrufer nachgetragen, nicht von der Engine gefuellt: die
+        /// Auswertung schreibt <see cref="Model.Device.Conflicts"/>, und das ist
+        /// eine gebundene Eigenschaft. Der Lauf selbst findet im Thread-Pool
+        /// statt - von dort aus geschrieben, faellt die Oberflaeche beim
+        /// naechsten Zeichnen um.
+        /// </para>
+        /// </summary>
+        public int ConflictCount { get; set; }
 
         public required TimeSpan Duration { get; init; }
         public required bool WasCancelled { get; init; }
@@ -167,23 +176,20 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
                     if (_cts.IsCancellationRequested) break;
                 }
 
-                // Doppelbelegungen erst jetzt suchen. Waehrend des Laufs waere
-                // jeder Befund vorlaeufig: das zweite Geraet, das dieselbe
-                // Adresse traegt, kann noch kommen - und ein Befund, der
-                // waehrenddessen erscheint und wieder verschwindet, ist
-                // schlimmer als keiner.
-                int conflicts;
-
-                lock (store.SyncRoot)
-                {
-                    conflicts = DuplicateDetector.Analyze(store.Devices);
-                }
-
+                // Die Suche nach Doppelbelegungen steht bewusst *nicht* hier.
+                //
+                // Sie gehoert ans Ende des Laufs - waehrenddessen waere jeder
+                // Befund vorlaeufig, weil das zweite Geraet mit derselben
+                // Adresse noch kommen kann. Sie schreibt dabei aber
+                // Device.Conflicts und Device.ConflictDetails, und beide sind
+                // gebunden. Dieser Lauf findet im Thread-Pool statt; von dort
+                // aus geschrieben, riss es die Oberflaeche mit. Darum ruft der
+                // Aufrufer DuplicateDetector.Analyze selbst auf, sobald er
+                // wieder auf seinem Thread ist, und traegt die Zahl nach.
                 ScanRunResult result = new()
                 {
                     Outcomes = outcomes,
                     TargetCount = targets.Count,
-                    ConflictCount = conflicts,
                     Duration = DateTimeOffset.Now - started,
                     WasCancelled = _cts.IsCancellationRequested
                 };

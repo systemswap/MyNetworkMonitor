@@ -49,6 +49,32 @@ namespace MyNetworkMonitor.Core.Model
     {
         public Guid Id { get; init; } = Guid.NewGuid();
 
+        /// <summary>
+        /// Solange gesetzt, meldet das Geraet keine Aenderungen.
+        /// <para>
+        /// Waehrend eines Laufs schreiben die Scan-Threads ueber
+        /// <c>DeviceStore.Apply</c> hier hinein - Hostname, Hersteller, MAC und
+        /// die uebrigen erzeugten Eigenschaften melden dabei jede fuer sich.
+        /// Eine gebundene Zeile wuerde diese Meldung auf dem fremden Thread
+        /// verarbeiten, und genau das lehnt Avalonia ab.
+        /// </para>
+        /// <para>
+        /// Aufgehoben wird das Schweigen in <see cref="NotifyDisplayChanged"/>:
+        /// die Liste ruft es fuer die vorgemerkten Geraete auf ihrem eigenen
+        /// Thread nach. Deshalb meldet es dort zuerst "alles hat sich
+        /// geaendert" - was waehrend des Schweigens unterging, ist damit
+        /// abgedeckt.
+        /// </para>
+        /// </summary>
+        internal bool IsQuiet { get; set; }
+
+        protected override void OnPropertyChanged(System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (IsQuiet) return;
+
+            base.OnPropertyChanged(e);
+        }
+
         // ------------------------------------------------------- Identitaet
 
         /// <summary>DHCPv6-DUID in Hex-Schreibweise, falls beobachtet.</summary>
@@ -421,6 +447,14 @@ namespace MyNetworkMonitor.Core.Model
         /// </summary>
         public void NotifyDisplayChanged()
         {
+            // Das Schweigen endet hier - und zwar auf dem Thread, der diese
+            // Methode ruft. Der leere Name heisst "alle Eigenschaften neu
+            // lesen" und holt nach, was waehrend des Laufs unterdrueckt wurde;
+            // die ausdruecklichen Meldungen darunter bleiben fuer die
+            // berechneten Eigenschaften noetig, die keine eigenen Felder haben.
+            IsQuiet = false;
+            OnPropertyChanged(new System.ComponentModel.PropertyChangedEventArgs(string.Empty));
+
             OnPropertyChanged(nameof(DisplayName));
             OnPropertyChanged(nameof(IdentityKey));
             OnPropertyChanged(nameof(Ipv4Text));
