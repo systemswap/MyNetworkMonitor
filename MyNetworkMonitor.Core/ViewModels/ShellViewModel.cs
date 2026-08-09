@@ -496,6 +496,40 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
 
+        // ------------------------------------------------- MAC-Herstellerliste
+
+        /// <summary>Waehrend des Herunterladens gesperrt, damit kein zweiter Versuch nebenher laeuft.</summary>
+        [ObservableProperty] private bool _isUpdatingMacVendors;
+
+        /// <summary>
+        /// Baut die MAC-Herstellerliste aus Wiresharks manuf-Datei neu auf - siehe
+        /// <see cref="MacVendorUpdater"/> dazu, warum das mehr Treffer liefert als
+        /// die mitgelieferte Liste (die kennt nur die klassischen 24-Bit-Bloecke).
+        /// </summary>
+        [RelayCommand]
+        private async Task UpdateMacVendorsAsync()
+        {
+            if (IsUpdatingMacVendors) return;
+
+            IsUpdatingMacVendors = true;
+            StatusText = "Downloading the current MAC vendor list from Wireshark...";
+
+            try
+            {
+                string targetPath = Path.Combine(AppContext.BaseDirectory, "MacVendors", "mac_vendors.csv");
+                MacVendorUpdateResult result = await MacVendorUpdater.UpdateAsync(targetPath);
+
+                StatusText = result.Success
+                    ? $"MAC vendor list updated: {result.EntryCount:N0} entries (MA-L, MA-M and MA-S). " +
+                      "Takes effect on the next scan."
+                    : $"MAC vendor update failed: {result.Error}";
+            }
+            finally
+            {
+                IsUpdatingMacVendors = false;
+            }
+        }
+
         /// <summary>
         /// Alle Dienste, die sich zusammenfassen lassen - mit ihrem Haken.
         /// Gespeist aus den Dienstdefinitionen und den Verfahren mit eigenem

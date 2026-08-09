@@ -30,6 +30,13 @@ namespace MyNetworkMonitor
         
         
         
+        /// <summary>
+        /// Wie viele Aufloesungen gleichzeitig laufen duerfen. Unter Linux
+        /// startet jede einen eigenen Prozess (siehe oben) - der Wert ist
+        /// darum niedriger als das Semaphor bei den reinen In-Prozess-Verfahren.
+        /// </summary>
+        private const int MaxConcurrentResolutions = 32;
+
         private int current = 0;
         private int responded = 0;
         private int total = 0;
@@ -122,7 +129,19 @@ namespace MyNetworkMonitor
 
             try
             {
-                await Parallel.ForEachAsync(filtered.Where(ip => !string.IsNullOrEmpty(ip.IPorHostname)), _cts.Token,
+                // Ohne Grenze liefen bei einem /24 bis zu 254 Aufloesungen
+                // gleichzeitig los - unter Linux bedeutet jede davon einen
+                // eigenen "ping"- und "ip neigh"-Kindprozess (siehe
+                // LinuxArpProvider), also potenziell 500+ Prozesse auf einmal.
+                // Derselbe Fehler wie beim Ping-Scan, nur mit Prozessen statt
+                // Threads als knappe Ressource.
+                ParallelOptions options = new()
+                {
+                    MaxDegreeOfParallelism = MaxConcurrentResolutions,
+                    CancellationToken = _cts.Token
+                };
+
+                await Parallel.ForEachAsync(filtered.Where(ip => !string.IsNullOrEmpty(ip.IPorHostname)), options,
                     async (ip, token) =>
                     {
                         token.ThrowIfCancellationRequested(); // 🔹 Sofort abbrechen, wenn gefordert

@@ -327,8 +327,14 @@ public class ScanningMethod_NetBios
             using Socket requestSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
             requestSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReceiveTimeout, receiveTimeOut);
 
+            // Connect() statt SendTo() auf einem unverbundenen Socket: sonst
+            // liefert Receive() die Antwort des erstbesten Absenders, der auf
+            // demselben lokalen Port antwortet - nicht zwingend das
+            // angefragte Ziel. Auf einem gemeinsamen Segment (z.B. hinter
+            // demselben Switch/AP) waere das eine Verwechslungsquelle.
             EndPoint remoteEndpoint = new IPEndPoint(targetAddress, 137);
-            requestSocket.SendTo(NameRequest, remoteEndpoint);
+            requestSocket.Connect(remoteEndpoint);
+            requestSocket.Send(NameRequest);
 
             if (_cts.Token.IsCancellationRequested) return false; // 🔹 Abbruchprüfung
 

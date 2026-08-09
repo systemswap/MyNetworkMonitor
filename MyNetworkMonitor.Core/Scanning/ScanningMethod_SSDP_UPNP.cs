@@ -137,6 +137,18 @@ namespace MyNetworkMonitor
                 udpClient.EnableBroadcast = true;
                 udpClient.MulticastLoopback = true;
 
+                // Ohne das hier geht die M-SEARCH-Anfrage ueber die
+                // Standardroute des Betriebssystems hinaus, nicht ueber das
+                // ausgewaehlte Interface - auf einem Rechner mit mehreren
+                // Adaptern (VPN, Docker, zweite Netzkarte) kam die Anfrage
+                // dann von der falschen Seite und Antworten aus dem
+                // eigentlich gewuenschten Segment blieben aus.
+                if (SupportMethods.SelectedNetworkInterfaceInfos.IPv4 is { } selectedInterface)
+                {
+                    udpClient.Client.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastInterface,
+                        selectedInterface.GetAddressBytes());
+                }
+
                 IPEndPoint multicastEP = new IPEndPoint(IPAddress.Parse(SSDP_IP), SSDP_PORT);
 
                 // SSDP-M-SEARCH Anfrage erstellen
@@ -153,9 +165,6 @@ namespace MyNetworkMonitor
 
                 //Console.WriteLine("📡 SSDP-Scan gesendet... Warte auf Antworten...");
 
-                // Antworten empfangen
-                //var endpoint = new IPEndPoint(IPAddress.Any, SSDP_PORT);
-                var endpoint = new IPEndPoint(SupportMethods.SelectedNetworkInterfaceInfos.IPv4, SSDP_PORT);
                 udpClient.Client.ReceiveTimeout = scanDuration; // Timeout für Antworten (5 Sekunden)
 
                 try
@@ -273,7 +282,11 @@ namespace MyNetworkMonitor
         {
             try
             {
-                using HttpClient client = new HttpClient();
+                // Ohne eigenes Zeitlimit haengt ein einzelnes langsames oder
+                // totes Geraet hier bis zu HttpClients Standard von 100
+                // Sekunden - waehrend die Empfangsschleife nicht mehr zum
+                // Zug kommt und Antworten anderer Geraete liegenbleiben.
+                using HttpClient client = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
                 string xmlContent = await client.GetStringAsync(url);
 
                 // XML in XDocument laden
