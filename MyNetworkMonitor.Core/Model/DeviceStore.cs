@@ -279,8 +279,14 @@ namespace MyNetworkMonitor.Core.Model
         }
 
         /// <summary>Traegt die Angaben der Sichtung am Geraet ein.</summary>
-        private static void Apply(Device device, DeviceObservation o)
+        private void Apply(Device device, DeviceObservation o)
         {
+            // Waehrend eines Laufs kommt die Sichtung aus einem Scan-Thread.
+            // Jede der folgenden Zuweisungen wuerde von dort aus melden, und
+            // eine gebundene Zeile verarbeitete das auf dem fremden Thread.
+            // Das Nachholen uebernimmt die Liste in NotifyDisplayChanged.
+            if (DeferDisplayNotifications) device.IsQuiet = true;
+
             if (o.Timestamp > device.LastSeen) device.LastSeen = o.Timestamp;
             if (device.FirstSeen == default || o.Timestamp < device.FirstSeen) device.FirstSeen = o.Timestamp;
 
