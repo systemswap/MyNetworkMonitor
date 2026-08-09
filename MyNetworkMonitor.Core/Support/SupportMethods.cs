@@ -63,6 +63,20 @@ namespace MyNetworkMonitor
             fields = lines.Skip(1).Select(l => Regex.Split(l, ",(?=(?:[^\"]*\"[^\"]*\")*(?![^\"]*\"))")).ToArray();
         }
 
+        /// <summary>
+        /// Schlaegt den Hersteller zu einer MAC-Adresse nach.
+        /// <para>
+        /// <b>Liefert nie ein leeres Feld.</b> Beide Aufrufer greifen ungeprueft
+        /// auf das erste Element zu (<c>vendor[0]</c> bzw. <c>.First()</c>) -
+        /// frueher kam bei fehlender Herstellerliste
+        /// <see cref="Array.Empty{T}()"/> zurueck, und der Zugriff darauf riss
+        /// den <em>gesamten</em> ARP-Lauf mit, gemeldet als das irrefuehrende
+        /// "IPInfo: Error Parsing 'arp -a' results". Am 2026-08-09 in einer
+        /// Umgebung ohne <c>MacVendors/mac_vendors.csv</c> ausgeloest. Statt an
+        /// zwei Aufrufstellen zu pruefen, gibt die Quelle jetzt immer etwas
+        /// Brauchbares zurueck - das haelt auch kuenftige Aufrufer heil.
+        /// </para>
+        /// </summary>
         public string[] GetVendorFromMac(string macAdress)
         {
             if (fields == null)
@@ -70,30 +84,43 @@ namespace MyNetworkMonitor
                 LoadMacVendors();
             }
 
-            string[]? data = fields.FirstOrDefault(f => macAdress.Replace("-", ":").ToLower().StartsWith(f[0].ToLower()))?.ToArray();
-
+            // Ohne Liste gibt es nichts nachzuschlagen. Ein "Unknown" ist hier
+            // die richtige Antwort - nicht "gar keine".
             if (fields.Length == 0 || header.Length == 0)
             {
-                return Array.Empty<string>();
+                return UnknownVendor(1);
             }
-            else if (data is null)
+
+            string needle = macAdress.Replace("-", ":").ToLower();
+
+            // f[0] ungeprueft zu lesen wirft bei einer leeren Zeile in der CSV.
+            // Ein leeres Praefix wiederum passt auf *jede* MAC und wuerde den
+            // ersten Datensatz zum Hersteller aller Geraete machen.
+            string[]? data = fields.FirstOrDefault(f =>
+                f.Length > 0 && f[0].Length > 0 && needle.StartsWith(f[0].ToLower()));
+
+            int columns = Math.Max(header.Length - 1, 1);
+
+            if (data is null) return UnknownVendor(columns);
+
+            // Eine Zeile kann weniger Spalten haben als der Kopf - bei 3 MB
+            // fremder CSV keine Seltenheit. Fehlende Spalten werden aufgefuellt,
+            // statt den Lauf zu beenden.
+            string[] result = new string[columns];
+            for (int i = 0; i < columns; i++)
             {
-                string[] result = new string[header.Length - 1];
-                for (int i = 0; i < result.Length; i++)
-                {
-                    result[i] = "Unknown";
-                }
-                return result;
+                result[i] = i + 1 < data.Length ? data[i + 1] : "Unknown";
             }
-            else
-            {
-                List<string> result = new List<string>();
-                for (int i = 1; i < header.Length; i++)
-                {
-                    result.Add($"{data[i]}");
-                }
-                return result.ToArray();
-            }
+
+            return result;
+        }
+
+        /// <summary>Ein Ergebnis aus lauter "Unknown", mindestens einspaltig.</summary>
+        private static string[] UnknownVendor(int count)
+        {
+            string[] result = new string[Math.Max(count, 1)];
+            Array.Fill(result, "Unknown");
+            return result;
         }
 
         public string[] GetHeader()
