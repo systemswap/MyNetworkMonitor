@@ -297,8 +297,6 @@ namespace MyNetworkMonitor.Core.ViewModels
             // namentliche Liste einzeln abwaehlen zu muessen.
             ServiceDisplay.GroupTcpPorts = _userSettings.GetBool("GroupTcpPorts", true);
             ServiceDisplay.GroupUdpPorts = _userSettings.GetBool("GroupUdpPorts", true);
-            OnPropertyChanged(nameof(GroupTcpPorts));
-            OnPropertyChanged(nameof(GroupUdpPorts));
 
             OnPropertyChanged(nameof(GroupServices));
             BuildGroupableServices();
@@ -497,40 +495,6 @@ namespace MyNetworkMonitor.Core.ViewModels
             }
         }
 
-        /// <summary>
-        /// Offene TCP-Ports ohne erkannten Dienst zu einem Chip "TCP Ports"
-        /// zusammenfassen, statt jeden einzeln zu zeigen.
-        /// </summary>
-        public bool GroupTcpPorts
-        {
-            get => ServiceDisplay.GroupTcpPorts;
-            set
-            {
-                if (ServiceDisplay.GroupTcpPorts == value) return;
-
-                ServiceDisplay.GroupTcpPorts = value;
-                _userSettings?.SetBool("GroupTcpPorts", value);
-
-                OnPropertyChanged();
-                ServiceDisplay.NotifyChanged();
-            }
-        }
-
-        /// <summary>Dasselbe fuer UDP-Ports, siehe <see cref="GroupTcpPorts"/>.</summary>
-        public bool GroupUdpPorts
-        {
-            get => ServiceDisplay.GroupUdpPorts;
-            set
-            {
-                if (ServiceDisplay.GroupUdpPorts == value) return;
-
-                ServiceDisplay.GroupUdpPorts = value;
-                _userSettings?.SetBool("GroupUdpPorts", value);
-
-                OnPropertyChanged();
-                ServiceDisplay.NotifyChanged();
-            }
-        }
 
         /// <summary>
         /// Alle Dienste, die sich zusammenfassen lassen - mit ihrem Haken.
@@ -661,13 +625,54 @@ namespace MyNetworkMonitor.Core.ViewModels
                 GroupableServiceGroups.Add(bucket);
             }
 
+            // Offene Ports ohne erkannten Dienst treffen keinen einzelnen
+            // Namen - "TCP 8080", "TCP 8081", "TCP 8443" ... sind alle
+            // verschieden. Eigene Rubrik, eigene Schalter (siehe
+            // GroupableService.OnChanged), aber optisch dieselbe Zeile wie
+            // jeder andere Dienst.
+            GroupableServiceGroup openPorts = new() { Name = "🔌 Open Ports" };
+
+            openPorts.Services.Add(OpenPortsEntry("TCP Ports",
+                ServiceDisplay.GroupTcpPorts,
+                value => { ServiceDisplay.GroupTcpPorts = value; _userSettings?.SetBool("GroupTcpPorts", value); }));
+
+            openPorts.Services.Add(OpenPortsEntry("UDP Ports",
+                ServiceDisplay.GroupUdpPorts,
+                value => { ServiceDisplay.GroupUdpPorts = value; _userSettings?.SetBool("GroupUdpPorts", value); }));
+
+            foreach (GroupableService entry in openPorts.Services) GroupableServices.Add(entry);
+            GroupableServiceGroups.Add(openPorts);
+
             SpreadOverTwoColumns();
+        }
+
+        private GroupableService OpenPortsEntry(string name, bool initial, Action<bool> apply)
+        {
+            GroupableService entry = new()
+            {
+                Name = name,
+                IsGrouped = initial,
+                OnChanged = value =>
+                {
+                    apply(value);
+                    ServiceDisplay.NotifyChanged();
+                }
+            };
+
+            entry.PropertyChanged += OnGroupableServiceChanged;
+            return entry;
         }
 
         private void OnGroupableServiceChanged(object? sender, PropertyChangedEventArgs e)
         {
             if (e.PropertyName != nameof(GroupableService.IsGrouped)) return;
             if (sender is not GroupableService entry) return;
+
+            if (entry.OnChanged is not null)
+            {
+                entry.OnChanged(entry.IsGrouped);
+                return;
+            }
 
             if (entry.IsGrouped) ServiceDisplay.Grouped.Add(entry.Name);
             else ServiceDisplay.Grouped.Remove(entry.Name);

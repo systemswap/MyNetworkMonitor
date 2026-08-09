@@ -26,6 +26,16 @@ namespace MyNetworkMonitor.Core.ViewModels
 
         [ObservableProperty] private bool _isGrouped;
 
+        /// <summary>
+        /// Wohin eine Aenderung geschrieben wird, wenn es nicht der
+        /// Normalfall ist - der Name in <see cref="ServiceDisplay.Grouped"/>.
+        /// Die Rubrik "offene Ports" trifft keinen einzelnen Dienstnamen,
+        /// sondern eigene Schalter; ohne diesen Umweg muesste die Auswertung
+        /// den Namen kennen und danach unterscheiden, statt dass jeder
+        /// Eintrag selbst mitbringt, was ein Haken an ihm bedeutet.
+        /// </summary>
+        public Action<bool>? OnChanged { get; init; }
+
         public override string ToString() => $"{Name}{(IsGrouped ? " (grouped)" : string.Empty)}";
     }
 }
