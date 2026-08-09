@@ -1701,18 +1701,6 @@
                               IsChecked="{Binding GroupServices}"/>
                   </Grid>
 
-                  <!-- Offene Ports ohne erkannten Dienst sprengen die Spalte
-                       am haeufigsten - eigene Schalter statt sie einzeln aus
-                       der Namensliste oben abwaehlen zu muessen. -->
-                  <StackPanel Orientation="Horizontal" Spacing="16" Margin="10,4,0,0">
-                    <CheckBox Content="TCP Ports" FontSize="11" MinHeight="0" Padding="7,0,0,0"
-                              IsChecked="{Binding GroupTcpPorts}"
-                              ToolTip.Tip="Folds open TCP ports without a recognized service into a single &quot;TCP Ports&quot; chip."/>
-                    <CheckBox Content="UDP Ports" FontSize="11" MinHeight="0" Padding="7,0,0,0"
-                              IsChecked="{Binding GroupUdpPorts}"
-                              ToolTip.Tip="Folds open UDP ports without a recognized service into a single &quot;UDP Ports&quot; chip."/>
-                  </StackPanel>
-
                   <StackPanel Spacing="3">
                     <CheckBox Content="Keep the last scan result"
                               IsChecked="{Binding SaveLastScanResult}"/>
