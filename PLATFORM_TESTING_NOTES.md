@@ -8,11 +8,11 @@ werden, damit nachvollziehbar bleibt, was wann geprüft wurde.
 
 ## Offen: braucht Test unter Windows
 
-- **Firmennetz-Erkennung (`WindowsEnterpriseEnvironment`, 2026-08-09).**
+- **Firmennetz-Erkennung (`WindowsEnterpriseEnvironment`, Version 5.1.0.31, 2026-08-09).**
   `IsCompanyNetwork()` wurde auf `ActiveDirectoryDetector.DomainControllerReachable()`
   umgestellt (DNS-SRV-Abfrage `_ldap._tcp.dc._msdcs.<domain>` statt IP-Bereichs-Heuristik).
-  Auf Linux gegen ein FRITZ!Box-Heimnetz getestet: korrekt `false`, ~75ms.
-  Unter Windows noch nicht getestet:
+  Released und live auf GitHub (v5.1.0.31). Auf Linux gegen ein FRITZ!Box-Heimnetz
+  getestet: korrekt `false`, ~75ms. Unter Windows noch nicht getestet:
   - Liefert `false` in einem normalen Windows-Heimnetz (auch mit Hyper-V/WSL2/VPN-Adaptern aktiv)?
   - Liefert `true` in einem echten AD-Netz?
   - Die Adapter-Filterliste (`docker`, `veth`, `virbr`, `br-`, `vmnet`, `vboxnet`,
@@ -36,8 +36,15 @@ werden, damit nachvollziehbar bleibt, was wann geprüft wurde.
 
 ## Verlauf (erledigt)
 
-- 2026-08-09: Sechs IPv6-Suchverfahren (Commit 4d5f73d) unter Linux getestet -
-  vier von sechs (neighborcache, multicastping, routeradvertisement-Fallback,
-  eui64) funktionieren einwandfrei; lowbytesweep läuft sauber durch (0 Treffer
-  erwartungsgemäß); MLD meldet 0 ohne Absturz. Live-Capture-Pfad siehe oben,
-  weiterhin offen.
+- 2026-08-09: Sechs IPv6-Suchverfahren (Version 5.1.0.30, Commit a55962a - Hinweis:
+  Hash am 2026-08-09 abends durch History-Rewrite geändert, alte Referenz 4d5f73d
+  ist ungültig) unter Linux getestet - vier von sechs (neighborcache, multicastping,
+  routeradvertisement-Fallback, eui64) funktionieren einwandfrei; lowbytesweep läuft
+  sauber durch (0 Treffer erwartungsgemäß); MLD meldet 0 ohne Absturz.
+  Live-Capture-Pfad siehe oben, weiterhin offen.
+- 2026-08-09: Firmennetz-Erkennung (Version 5.1.0.31) auf Linux entwickelt und
+  getestet, siehe oben - Windows-Test steht noch aus.
+- 2026-08-09: Gesamte Git-Historie umgeschrieben (Co-Authored-By-Zeilen entfernt,
+  484 Commits, alle Tags neu gepusht). Alte Commit-Hashes aus früheren Notizen oder
+  Bookmarks sind ab diesem Zeitpunkt ungültig - bei Verweisen auf Commits vor
+  2026-08-09 lieber über die Commit-Message/Version suchen statt über den Hash.
