@@ -128,23 +128,17 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 
             try
             {
-                Task discovery = mdns.DiscoverAsync(runtime.Interface.Name, ListenTimeMs);
-
-                // Kein StopScan vorhanden - bei Abbruch nicht laenger warten.
-                Task cancelled = Task.Delay(Timeout.Infinite, cancellationToken);
-                await Task.WhenAny(discovery, cancelled);
-            }
-            catch (OperationCanceledException)
-            {
-                // Abbruch ist kein Fehler.
+                // DiscoverAsync nimmt den Abbruch inzwischen selbst entgegen -
+                // der fruehere Task.WhenAny-Umweg (ohne echtes StopScan lief
+                // die Empfangsschleife im Hintergrund weiter, auch nachdem
+                // hier laengst nicht mehr gewartet wurde) ist damit ueberfluessig.
+                await mdns.DiscoverAsync(runtime.Interface.Name, ListenTimeMs, cancellationToken);
             }
             finally
             {
                 mdns.ProgressUpdated -= OnProgress;
                 mdns.found_mDNS_Device -= OnFound;
             }
-
-            cancellationToken.ThrowIfCancellationRequested();
         }
     }
 

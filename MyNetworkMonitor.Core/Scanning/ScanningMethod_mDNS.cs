@@ -131,7 +131,7 @@ namespace MyNetworkMonitor
                 "_mediaremotetv._tcp.local",      // Apple TV Remote
                 "_vnc._tcp.local",                // VNC-Zugriff
                 "_vlc-http._tcp.local",           // VLC Media Server
-                "_mieleathome._dns-sd._udp.loca",
+                "_mieleathome._dns-sd._udp.local",
             };
         }
 
@@ -245,7 +245,8 @@ namespace MyNetworkMonitor
 
 
 
-        public async Task<List<MdnsDeviceInfo>> DiscoverAsync(string NetworkInterfaceName, int listenTimeMs = 30000)
+        public async Task<List<MdnsDeviceInfo>> DiscoverAsync(
+            string NetworkInterfaceName, int listenTimeMs = 30000, CancellationToken cancellationToken = default)
         {
             startTime = DateTime.UtcNow;
 
@@ -258,8 +259,22 @@ namespace MyNetworkMonitor
             using var udp = new UdpClient(AddressFamily.InterNetwork);
             udp.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             udp.ExclusiveAddressUse = false;
-            udp.Client.Bind(new IPEndPoint(localIp, MdnsPort));
+
+            // An IPAddress.Any binden, nicht an localIp. Live nachgemessen
+            // (2026-08-10): ein Socket, der an eine bestimmte Unicast-Adresse
+            // gebunden ist, empfaengt unter Linux keine Multicast-Pakete - sie
+            // sind an 224.0.0.251 adressiert, nicht an die eigene Adresse, und
+            // der Kernel liefert sie dann gar nicht erst aus. Mit derselben
+            // Anfrage kamen an IPAddress.Any 16 Antworten, an der eigenen
+            // Adresse null - dieses Verfahren hat unter Linux vermutlich noch
+            // nie ein Geraet gefunden. Welches Interface beitritt, legt
+            // weiterhin JoinMulticastGroup ueber localIp fest, das ist der
+            // richtige Ort dafuer, nicht der Bind.
+            udp.Client.Bind(new IPEndPoint(IPAddress.Any, MdnsPort));
             udp.JoinMulticastGroup(IPAddress.Parse(MdnsMulticast), localIp);
+
+            using CancellationTokenSource windowCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            windowCts.CancelAfter(listenTimeMs);
 
             // Timer initialisieren, der jede Sekunde das Event auslöst
             Timer progressTimer = null;
@@ -278,49 +293,10 @@ namespace MyNetworkMonitor
                 }
             }, null, 0, 1000); // Intervall: 1000 ms = 1 Sekunde
 
-            // Start receiving before sending requests
-            var end = DateTime.UtcNow.AddMilliseconds(listenTimeMs);
-            var receiveTask = Task.Run(async () =>
+            void ReportDevice(string ip)
             {
-                while (DateTime.UtcNow < end)
-                {
-                    if (udp.Available > 0)
-                    {
-                        var result = await udp.ReceiveAsync();
-                        ParseResponse(result.Buffer, result.RemoteEndPoint.Address.ToString(), startTime);
-                        ProgressUpdated?.Invoke(remainingTime, foundDevices.Count, 0, ScanStatus.running);
-                    }
-                    //await Task.Delay(10);  // Non-blocking delay to allow for periodic response checks
-                }
-            });
+                if (!foundDevices.TryGetValue(ip, out MdnsDeviceInfo device)) return;
 
-            // Send queries one by one and wait for responses
-            foreach (var query in ListOf_mDNS_ServiceQueryStrings())
-            {
-                byte[] byte_query = CreateQuery(query);
-
-                try
-                {
-                    // Send query and wait for the task to continue after response
-                    await udp.SendAsync(byte_query, byte_query.Length, new IPEndPoint(IPAddress.Parse(MdnsMulticast), MdnsPort));
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine("Fehler beim Senden der mDNS-Anfrage: " + ex.Message);
-                }
-
-                await Task.Delay(100);  // Optional: Slight delay to avoid flooding the network
-            }
-
-            // Wait until the receiving task completes
-            await receiveTask;
-
-            // Timer stoppen, wenn der Scan abgeschlossen ist
-            progressTimer?.Change(Timeout.Infinite, Timeout.Infinite);
-
-            // Process the found devices and invoke the callback
-            foreach (var device in foundDevices.Values)
-            {
                 IPToScan ipToScan = new IPToScan
                 {
                     UsedScanMethod = ScanMethod.mDNS,
@@ -335,7 +311,89 @@ namespace MyNetworkMonitor
                 found_mDNS_Device?.Invoke(ipToScan);
             }
 
+            // Start receiving before sending requests. Ersetzt die vorherige
+            // Busy-Wait-Schleife ohne Wartezeit zwischen den Pruefungen (band
+            // einen Kern voll, solange kein Paket anlag) durch echtes
+            // asynchrones Warten, und meldet ein Geraet sofort statt erst nach
+            // dem vollen Zeitfenster.
+            var receiveTask = Task.Run(async () =>
+            {
+                while (!windowCts.IsCancellationRequested)
+                {
+                    UdpReceiveResult result;
+
+                    try
+                    {
+                        result = await udp.ReceiveAsync(windowCts.Token);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        break;
+                    }
+                    catch (SocketException)
+                    {
+                        // Ein einzelnes verworfenes Paket beendet das Zuhoeren nicht.
+                        continue;
+                    }
+
+                    try
+                    {
+                        string ip = result.RemoteEndPoint.Address.ToString();
+                        ParseResponse(result.Buffer, ip, startTime);
+                        ReportDevice(ip);
+                    }
+                    catch (Exception ex)
+                    {
+                        // Ein kaputtes/unerwartetes Paket darf das Zuhoeren nicht
+                        // lautlos beenden - frueher riss eine unbehandelte
+                        // IndexOutOfRangeException im Parser (ReadName) genau
+                        // das mit, ohne dass mDNS_ScanStatus je "finished" meldete.
+                        Debug.WriteLine("Fehler beim Auswerten einer mDNS-Antwort: " + ex.Message);
+                    }
+
+                    ProgressUpdated?.Invoke(remainingTime, foundDevices.Count, 0, ScanStatus.running);
+                }
+            }, cancellationToken);
+
+            // Send queries one by one and wait for responses
+            foreach (var query in ListOf_mDNS_ServiceQueryStrings())
+            {
+                if (windowCts.IsCancellationRequested) break;
+
+                byte[] byte_query = CreateQuery(query);
+
+                try
+                {
+                    // Send query and wait for the task to continue after response
+                    await udp.SendAsync(byte_query, byte_query.Length, new IPEndPoint(IPAddress.Parse(MdnsMulticast), MdnsPort));
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine("Fehler beim Senden der mDNS-Anfrage: " + ex.Message);
+                }
+
+                try
+                {
+                    await Task.Delay(100, windowCts.Token);  // Optional: Slight delay to avoid flooding the network
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+            }
+
+            // Wait until the receiving task completes
+            await receiveTask;
+
+            // Timer stoppen, wenn der Scan abgeschlossen ist
+            progressTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+
+            // Die Geraete sind schon waehrend des Laufs gemeldet worden (siehe
+            // ReportDevice oben) - hier nur noch das Ergebnis zurueckgeben.
             mDNS_ScanStatus?.Invoke(ScanStatus.finished);
+
+            cancellationToken.ThrowIfCancellationRequested();
+
             return new List<MdnsDeviceInfo>(foundDevices.Values);
         }
 
@@ -452,6 +510,11 @@ namespace MyNetworkMonitor
 
                 if ((len & 0xC0) == 0xC0) // DNS Pointer Compression
                 {
+                    // Das zweite Zeigerbyte kann bei einem abgeschnittenen
+                    // Paket fehlen - ungeprueft gelesen warf das hier eine
+                    // IndexOutOfRangeException, die den ganzen Scan mitriss.
+                    if (offset >= data.Length) break;
+
                     if (!jumped)
                         original = offset + 1;
 

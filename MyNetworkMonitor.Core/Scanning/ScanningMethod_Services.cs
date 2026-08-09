@@ -300,31 +300,31 @@ public class ScanningMethod_Services
                     }
                     break;
                 case ServiceType.SSH:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket, service).WaitAsync(_cts.Token);
                     break;
                 case ServiceType.FTP:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket, service).WaitAsync(_cts.Token);
                     break;
                 case ServiceType.RDP:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket, service).WaitAsync(_cts.Token);
                     break;
                 case ServiceType.UltraVNC:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket, service).WaitAsync(_cts.Token);
                     break;
                 case ServiceType.BigFixRemote:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket, service).WaitAsync(_cts.Token);
                     break;
                 case ServiceType.RustdeskServer:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket, service).WaitAsync(_cts.Token);
                     break;
                 case ServiceType.TeamViewer:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket, service).WaitAsync(_cts.Token);
                     break;
                 case ServiceType.Anydesk:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket, service).WaitAsync(_cts.Token);
                     break;
                 case ServiceType.MSSQLServer:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket, service).WaitAsync(_cts.Token);
 
                     if (portResult.Status != PortStatus.IsRunning)
                     {
@@ -352,37 +352,37 @@ public class ScanningMethod_Services
                     }
                     break;
                 case ServiceType.PostgreSQL:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket, service).WaitAsync(_cts.Token);
                     break;
                 case ServiceType.MySQL:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket, service).WaitAsync(_cts.Token);
                     break;
                 case ServiceType.MariaDB:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket, service).WaitAsync(_cts.Token);
                     break;
                 case ServiceType.OracleDB:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket, service).WaitAsync(_cts.Token);
                     break;
                 case ServiceType.MongoDB:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket, service).WaitAsync(_cts.Token);
                     break;
                 case ServiceType.InfluxDB2:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket, service).WaitAsync(_cts.Token);
                     break;
                 case ServiceType.OPCUA:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket, service).WaitAsync(_cts.Token);
                     break;
                 case ServiceType.ModBus:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket, service).WaitAsync(_cts.Token);
                     break;
                 case ServiceType.S7:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket, service).WaitAsync(_cts.Token);
                     break;
                 case ServiceType.BacNet:
                      portResult = await GetBacNetInfos(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
                     break;
                 default:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
+                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket, service).WaitAsync(_cts.Token);
                     break;
             }
             if (_cts.Token.IsCancellationRequested) return;
@@ -548,8 +548,26 @@ public class ScanningMethod_Services
 
 
 
+    /// <summary>
+    /// Dienste, fuer die es unten eine echte Antwortpruefung gibt. Fuer alles
+    /// andere (etwa RustdeskServer, dessen Protokoll nicht dokumentiert und
+    /// hier nicht sicher nachpruefbar ist) bleibt es beim alten Verhalten:
+    /// eine Antwort auf dem erwarteten Port gilt als Treffer. Das ist bewusst
+    /// so, statt diese Dienste stillschweigend nie mehr zu finden.
+    /// </summary>
+    private static readonly HashSet<ServiceType> ValidatedServiceTypes =
+    [
+        ServiceType.FTP, ServiceType.SSH, ServiceType.UltraVNC, ServiceType.TeamViewer,
+        ServiceType.BigFixRemote, ServiceType.Anydesk, ServiceType.MSSQLServer,
+        ServiceType.PostgreSQL, ServiceType.MariaDB, ServiceType.MySQL, ServiceType.OracleDB,
+        ServiceType.MongoDB, ServiceType.InfluxDB2, ServiceType.OPCUA, ServiceType.ModBus,
+        ServiceType.S7, ServiceType.RDP
+    ];
+
     private bool IdentifyServices(byte[] response, ServiceType service)
     {
+        if (!ValidatedServiceTypes.Contains(service)) return response.Length > 0;
+
         bool serviceMatched = false;
         string str_serviceResponse = Encoding.ASCII.GetString(response);
 
@@ -651,20 +669,20 @@ public class ScanningMethod_Services
         }
 
 
-        // ?? PostgreSQL-Erkennung
+        // ?? PostgreSQL-Erkennung: Antwort auf die SSLRequest ist ein einzelnes
+        // Byte - 'S' (0x53), wenn der Server TLS anbietet, 'N' (0x4e), wenn nicht.
+        // Server ohne TLS ueberwiegen in der Praxis nicht - ein Server, der die
+        // uebliche, sicherere Antwort 'S' gibt, wurde hier bisher schlicht
+        // uebersehen.
         if (service == ServiceType.PostgreSQL)
         {
-            if (response.Length == 1)
+            if (response.Length == 1 && (response[0] == 0x53 || response[0] == 0x4e))
             {
-                // Überprüfung auf PostgreSQL-"Ready for Query"-Antwort ("R" + 7 weitere Bytes)
-                if (response[0] == 0x4e)
-                {
-                    serviceMatched = true;
-                }
+                serviceMatched = true;
             }
             if (response.Length >= 8)
             {
-                // Überprüfung auf PostgreSQL-"Ready for Query"-Antwort ("R" + 7 weitere Bytes)
+                // Direkte "ReadyForQuery"/Fehlerantwort ohne SSL-Verhandlung.
                 if (response[0] == 0x52 && response[1] == 0x00 && response[2] == 0x00)
                 {
                     serviceMatched = true;
@@ -672,10 +690,48 @@ public class ScanningMethod_Services
             }
         }
 
-        // ?? MariaDB
-        if (service == ServiceType.MariaDB)
+        // ?? MariaDB / MySQL: beide gruessen unaufgefordert mit dem
+        // Handshake-Paket - 3 Byte Laenge (little-endian), 1 Byte Sequenznummer
+        // (bei der Begruessung immer 0), dann 1 Byte Protokollversion (ueblich: 10).
+        // Nur an "mariadb" im Versionstext zu erkennen liesse jeden echten
+        // MySQL-Server (der das Wort nicht fuehrt) unentdeckt.
+        if (service == ServiceType.MariaDB || service == ServiceType.MySQL)
         {
-            if (str_serviceResponse.ToLower().Contains("mariadb"))
+            bool looksLikeHandshake = response.Length >= 5
+                && response[3] == 0x00
+                && response[4] == 0x0A;
+
+            bool isMariaDb = str_serviceResponse.ToLower().Contains("mariadb");
+
+            if (service == ServiceType.MariaDB)
+            {
+                serviceMatched = looksLikeHandshake && isMariaDb;
+            }
+            else
+            {
+                // Reines MySQL nennt sich nicht "mariadb" im Versionstext -
+                // ein gueltiges Handshake-Paket ohne diese Kennung ist der
+                // richtige Treffer.
+                serviceMatched = looksLikeHandshake && !isMariaDb;
+            }
+        }
+
+        // ?? Oracle TNS: Antworttyp steht in Byte 4 des TNS-Headers.
+        // 2 = Accept, 4 = Refuse (Dienst lehnt ab, ist aber da), 11 = Redirect.
+        if (service == ServiceType.OracleDB)
+        {
+            if (response.Length >= 8 && response[4] is 0x02 or 0x04 or 0x0B)
+            {
+                serviceMatched = true;
+            }
+        }
+
+        // ?? RDP: Antwort auf die X.224-Verbindungsanfrage ist ein TPKT-Paket
+        // (0x03 0x00 ...), das im COTP-Teil den Code 0xD0 (Connection Confirm)
+        // traegt.
+        if (service == ServiceType.RDP)
+        {
+            if (response.Length >= 6 && response[0] == 0x03 && response[1] == 0x00 && response[5] == 0xD0)
             {
                 serviceMatched = true;
             }
@@ -732,13 +788,18 @@ public class ScanningMethod_Services
         // ?? Modbus TCP-Erkennung
         if (service == ServiceType.ModBus)
         {
-            // Modbus TCP Header besteht mindestens aus 7 Bytes:
+            // Modbus TCP Header besteht aus 7 Bytes, der Funktionscode ist das
+            // erste Byte danach - also Index 7, und der ist nur gueltig zu lesen,
+            // wenn die Antwort mindestens 8 Byte lang ist. Mit ">= 7" warf response[7]
+            // bei einer genau 7 Byte langen Antwort eine IndexOutOfRangeException,
+            // gefangen von der pauschalen catch-Klausel in FindServicePortAsync und
+            // dort als "Fehler" statt als "kein Modbus" verbucht.
             // [0-1] Transaction Identifier (2 Bytes)
             // [2-3] Protocol Identifier (immer 0x00 0x00 für Modbus TCP)
             // [4-5] Length Field (Länge der nachfolgenden Daten)
             // [6]   Unit Identifier
-            // [7+]  Function Code + Payload
-            if (response.Length >= 7)
+            // [7]   Function Code
+            if (response.Length >= 8)
             {
                 // Protokollkennung überprüfen (muss 0x00 0x00 für Modbus TCP sein)
                 bool isModbusTcp = response[2] == 0x00 && response[3] == 0x00;
@@ -752,14 +813,33 @@ public class ScanningMethod_Services
                 // 0x05 - Write Single Coil
                 // 0x06 - Write Single Register
                 // 0x10 - Write Multiple Registers
+                //
+                // Eine Fehlerantwort (Exception Response) traegt denselben
+                // Funktionscode mit gesetztem oberstem Bit, also 0x81-0x90 -
+                // etwa wenn das angefragte Register auf diesem Geraet nicht
+                // existiert. Das ist trotzdem eine Modbus-Antwort und kein
+                // Nichttreffer: das Geraet hat verstanden und geantwortet,
+                // nur eben mit "nein" statt mit Werten.
                 byte functionCode = response[7];
-                bool validFunctionCode = functionCode >= 0x01 && functionCode <= 0x10;
+                bool validFunctionCode = functionCode is >= 0x01 and <= 0x10 or >= 0x81 and <= 0x90;
 
                 // Wenn sowohl das Protokoll als auch der Funktionscode stimmen, erkennen wir Modbus TCP
                 if (isModbusTcp && validFunctionCode)
                 {
                     serviceMatched = true;
                 }
+            }
+        }
+
+        // ?? Siemens S7: Antwort auf die COTP-Verbindungsanfrage ist ein
+        // TPKT-Paket (0x03 0x00 ...), dessen COTP-Teil den Code 0xD0
+        // (Connection Confirm) traegt - an derselben Stelle, an der die
+        // eigene Anfrage 0xE0 (Connection Request) trug.
+        if (service == ServiceType.S7)
+        {
+            if (response.Length >= 6 && response[0] == 0x03 && response[1] == 0x00 && response[5] == 0xD0)
+            {
+                serviceMatched = true;
             }
         }
 
@@ -772,104 +852,93 @@ public class ScanningMethod_Services
 
 
 
-    private async Task<PortResult> ScanPortAsync(string ip, int port, byte[] detectionPacket)
+    /// <summary>
+    /// Prueft einen Port: erreichbar, und falls ja, antwortet dort das
+    /// erwartete Protokoll - nicht nur irgendein Dienst.
+    /// <para>
+    /// Frueher zwei getrennte Verbindungen je Versuch: ein roher Socket nur
+    /// fuer offen/zu, sofort verworfen, danach ein zweiter <see cref="TcpClient"/>
+    /// fuer die eigentliche Sonde. Bei Industrieprotokollen wie S7 und Modbus
+    /// bedeutete das zwei bis sechs Verbindungsaufbauten gegen dieselbe SPS fuer
+    /// eine einzige Pruefung - unnoetige Last auf Geraeten, die dafuer nicht
+    /// ausgelegt sind. Jetzt eine Verbindung, die beides beantwortet.
+    /// </para>
+    /// <para>
+    /// Frueher ausserdem ein blockierender <c>WaitOne()</c> auf den
+    /// Verbindungsaufbau - das legt einen echten Thread-Pool-Thread fuer die
+    /// volle Wartezeit lahm, multipliziert mit <see cref="MaxParallelIPs"/> mal
+    /// der Zahl der Dienste, und war derselbe Fehler, der beim Ping-Scan schon
+    /// die Ergebnistabelle zum Stocken brachte.
+    /// </para>
+    /// </summary>
+    private async Task<PortResult> ScanPortAsync(string ip, int port, byte[] detectionPacket, ServiceType service)
     {
-        var portResult = new PortResult { Ports = new List<int>{ port } };
+        var portResult = new PortResult { Ports = new List<int> { port } };
         var logBuilder = new StringBuilder();
 
         for (int attempt = 1; attempt <= RetryCount; attempt++)
         {
             using var client = new TcpClient();
+
             try
             {
-                using (var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
-                {
-                    socket.Blocking = false;
-                    var result = socket.BeginConnect(ip, port, null, null);
-                    bool success = result.AsyncWaitHandle.WaitOne(Timeout);
+                Task connectTask = client.ConnectAsync(ip, port);
 
-                    if (!success)
-                    {
-                        portResult.Status = PortStatus.Filtered;
-                        logBuilder.AppendLine("Timeout: Port möglicherweise durch Firewall blockiert.");
-                        portResult.PortLog = logBuilder.ToString();
-                        return portResult;
-                    }
-
-                    try
-                    {
-                        socket.EndConnect(result);
-                        portResult.Status = PortStatus.Open;
-                    }
-                    catch (SocketException ex)
-                    {
-                        if (ex.SocketErrorCode == SocketError.ConnectionRefused)
-                        {
-                            portResult.Status = PortStatus.Closed;
-                            logBuilder.AppendLine("Verbindung verweigert: Kein Dienst lauscht auf diesem Port.");
-                        }
-                        else
-                        {
-                            portResult.Status = PortStatus.NoResponse;
-                            logBuilder.AppendLine($"Unbekannter Verbindungsfehler: {ex.Message}");
-                        }
-                        portResult.PortLog = logBuilder.ToString();
-                        return portResult;
-                    }
-                }
-
-                // Verbindung mit TcpClient testen
-                var connectTask = client.ConnectAsync(ip, port);
                 if (await Task.WhenAny(connectTask, Task.Delay(Timeout)) != connectTask)
                 {
-                    portResult.Status = PortStatus.Closed;
-                    logBuilder.AppendLine("Timeout beim Verbindungsaufbau.");
+                    portResult.Status = PortStatus.Filtered;
+                    logBuilder.AppendLine("Timeout: Port möglicherweise durch Firewall blockiert.");
                     portResult.PortLog = logBuilder.ToString();
                     return portResult;
                 }
 
+                await connectTask; // wirft die eigentliche Verbindungsausnahme, falls es eine gab
+
+                portResult.Status = PortStatus.Open;
+
+                // Ein einziger Stream fuer Schreiben und Lesen - TcpClient.GetStream()
+                // liefert zwar bei jedem Aufruf dieselbe zugrundeliegende Verbindung,
+                // aber ihn zwischendurch zu entsorgen (etwa nur um den Schreibteil zu
+                // umklammern) schliesst den Socket mit - der zweite Aufruf traf dann
+                // auf "operation not allowed on non-connected sockets" statt zu lesen.
+                NetworkStream stream = client.GetStream();
+
                 if (detectionPacket.Length > 0)
                 {
-                    try
+                    await stream.WriteAsync(detectionPacket, 0, detectionPacket.Length);
+                }
+
+                // Immer lesen, auch ohne eigene Nutzlast - Begruessungsprotokolle
+                // wie FTP, MySQL und MariaDB schicken ihre Kennung unaufgefordert.
+                var buffer = new byte[4096];
+                using var readCts = new CancellationTokenSource(Timeout);
+
+                try
+                {
+                    int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length, readCts.Token);
+
+                    if (bytesRead > 0)
                     {
-                        await using var stream = client.GetStream();
-                        await stream.WriteAsync(detectionPacket, 0, detectionPacket.Length);
+                        byte[] response = buffer[..bytesRead];
 
-                        var buffer = new byte[4096];
-                        var cts = new CancellationTokenSource(Timeout);
-                        int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length, cts.Token);
-
-                        if (bytesRead > 0)
+                        if (IdentifyServices(response, service))
                         {
                             portResult.Status = PortStatus.IsRunning;
-                            string responseAscii = Encoding.ASCII.GetString(buffer, 0, bytesRead)
-                                .Replace("\r", "\\r")
-                                .Replace("\n", "\\n")
-                                .Replace("\0", ""); // Nullbytes entfernen
-
-                            if (responseAscii.IndexOf("anydesk", StringComparison.OrdinalIgnoreCase) >= 0)
-                            {
-                                logBuilder.AppendLine("? AnyDesk in Serverantwort gefunden.");
-                            }
-                            else
-                            {
-                                logBuilder.AppendLine("? Server hat geantwortet, aber AnyDesk nicht gefunden.");
-                            }
+                            logBuilder.AppendLine("Antwort passt zum erwarteten Protokoll.");
                         }
                         else
                         {
-                            portResult.Status = PortStatus.NoResponse;
-                            logBuilder.AppendLine("?? Port ist offen, aber keine Antwort von einer Anwendung.");
+                            logBuilder.AppendLine("Port offen, Antwort kam, passt aber nicht zum erwarteten Protokoll - vermutlich ein anderer Dienst auf demselben Port.");
                         }
                     }
-                    catch (OperationCanceledException)
+                    else
                     {
-                        logBuilder.AppendLine("? Antwort vom Server dauerte zu lange.");
+                        logBuilder.AppendLine("Port ist offen, aber keine Antwort von einer Anwendung.");
                     }
-                    catch (Exception ex)
-                    {
-                        logBuilder.AppendLine($"? Fehler beim Lesen der Antwort: {ex.Message}");
-                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    logBuilder.AppendLine("Antwort vom Server dauerte zu lange.");
                 }
 
                 portResult.PortLog = logBuilder.ToString();
@@ -877,10 +946,18 @@ public class ScanningMethod_Services
             }
             catch (SocketException ex)
             {
-                if (attempt == RetryCount)
+                if (ex.SocketErrorCode == SocketError.ConnectionRefused)
                 {
                     portResult.Status = PortStatus.Closed;
-                    logBuilder.AppendLine($"?? Fehler nach {RetryCount} Versuchen: {ex.Message}");
+                    logBuilder.AppendLine("Verbindung verweigert: Kein Dienst lauscht auf diesem Port.");
+                    portResult.PortLog = logBuilder.ToString();
+                    return portResult;
+                }
+
+                if (attempt == RetryCount)
+                {
+                    portResult.Status = PortStatus.NoResponse;
+                    logBuilder.AppendLine($"Fehler nach {RetryCount} Versuchen: {ex.Message}");
                 }
             }
         }
@@ -1879,12 +1956,11 @@ static async Task<PortResult> SendTcpDnsQuery(string dnsServer, byte[] query, in
             // Secure Shell
             ServiceType.SSH => Encoding.ASCII.GetBytes("SSH-2.0-MySSHClient\r\n"),  
 
-            // File Transfer Protocol
-            ServiceType.FTP => new byte[]
-            {
-                0xCD, 0xCA, 0x00, 0x15, 0x5E, 0xE8, 0x15, 0xC2, 0x00, 0x00, 0x00, 0x00, 0x80, 0x02, 0xFA, 0xF0,
-                0x90, 0x80, 0x00, 0x00, 0x02, 0x04, 0x05, 0xB4, 0x01, 0x03, 0x03, 0x08, 0x01, 0x01, 0x04, 0x02
-            },
+            // File Transfer Protocol - grüsst von sich aus (Banner "220 ..."), es gibt
+            // nichts zu senden. Frueher stand hier faelschlich das rohe TCP-SYN-Paket
+            // aus dem Wireshark-Mitschnitt statt einer Anwendungsnutzlast - fiel nie
+            // auf, weil der FTP-Server ohnehin antwortet, egal was ankommt.
+            ServiceType.FTP => Array.Empty<byte>(),
 
 
 
@@ -2034,47 +2110,27 @@ static async Task<PortResult> SendTcpDnsQuery(string dnsServer, byte[] query, in
            },
 
 
-            ServiceType.MariaDB => new byte[] 
-            {
-                0xC3, 0xBC, 0x0C, 0xEA, 0x1E, 0xF7, 0x13, 0x5D,
-                0x00, 0x00, 0x00, 0x00, 0x80, 0x02, 0xFA, 0xF0,
-                0xE5, 0xD7, 0x00, 0x00, 0x02, 0x04, 0x05, 0xB4,
-                0x01, 0x03, 0x03, 0x08, 0x01, 0x01, 0x04, 0x02
-            },
+            // Dasselbe wie FTP: MariaDB/MySQL schicken ihr Greeting-Paket unaufgefordert.
+            // Frueher stand auch hier das rohe TCP-SYN-Paket, nur mit dem Zielport 3306
+            // im Header - deshalb sahen alle drei Sonden (FTP/MariaDB/MySQL) nur im
+            // Zielport verschieden aus, obwohl sie fuer drei verschiedene Protokolle
+            // stehen sollten.
+            ServiceType.MariaDB => Array.Empty<byte>(),
+            ServiceType.MySQL => Array.Empty<byte>(),
 
-            ServiceType.MySQL => new byte[]
-           {
-                0xC3, 0xCE, 0x0C, 0xEA, 0xE5, 0x8F, 0x81, 0x10,
-                0x00, 0x00, 0x00, 0x00, 0x80, 0x02, 0xFA, 0xF0,
-                0xE5, 0xD7, 0x00, 0x00, 0x02, 0x04, 0x05, 0xB4,
-                0x01, 0x03, 0x03, 0x08, 0x01, 0x01, 0x04, 0x02
-           },
+            // Oracle TNS spricht nicht von sich aus - anders als FTP/MySQL/MariaDB
+            // braucht es ein echtes Connect-Paket, sonst bleibt die Leitung stumm.
+            // TNS-Header (8 Byte: Laenge, Pruefsumme 0, Typ 1=Connect, Flag 0,
+            // Header-Pruefsumme 0) gefolgt vom Connect-Deskriptor als ASCII.
+            ServiceType.OracleDB => BuildOracleTnsConnectPacket(),
 
-            ServiceType.OracleDB => new byte[]
-           {
-                0xC3, 0xC3, 0x05, 0xF1, 0xF2, 0x3C, 0x83, 0x34,
-                0x00, 0x00, 0x00, 0x00, 0x80, 0x02, 0xFA, 0xF0,
-                0xE5, 0xD7, 0x00, 0x00, 0x02, 0x04, 0x05, 0xB4,
-                0x01, 0x03, 0x03, 0x08, 0x01, 0x01, 0x04, 0x02
-           },
-
-            ServiceType.InfluxDB2 => new byte[]
-           {
-                0x50, 0x4F, 0x53, 0x54, 0x20, 0x2F, 0x61, 0x70, 0x69, 0x2F, 0x76, 0x32, 0x2F, 0x73, 0x69, 0x67,
-                0x6E, 0x69, 0x6E, 0x20, 0x48, 0x54, 0x54, 0x50, 0x2F, 0x31, 0x2E, 0x31, 0x0D, 0x0A, 0x41, 0x75,
-                0x74, 0x68, 0x6F, 0x72, 0x69, 0x7A, 0x61, 0x74, 0x69, 0x6F, 0x6E, 0x3A, 0x20, 0x42, 0x61, 0x73,
-                0x69, 0x63, 0x20, 0x55, 0x47, 0x6C, 0x75, 0x61, 0x33, 0x6B, 0x36, 0x4D, 0x51, 0x3D, 0x3D, 0x0D,
-                0x0A, 0x55, 0x73, 0x65, 0x72, 0x2D, 0x41, 0x67, 0x65, 0x6E, 0x74, 0x3A, 0x20, 0x69, 0x6E, 0x66,
-                0x6C, 0x75, 0x78, 0x64, 0x62, 0x2D, 0x63, 0x6C, 0x69, 0x65, 0x6E, 0x74, 0x2D, 0x6A, 0x61, 0x76,
-                0x61, 0x2F, 0x37, 0x2E, 0x31, 0x2E, 0x30, 0x0D, 0x0A, 0x41, 0x63, 0x63, 0x65, 0x70, 0x74, 0x2D,
-                0x45, 0x6E, 0x63, 0x6F, 0x64, 0x69, 0x6E, 0x67, 0x3A, 0x20, 0x69, 0x64, 0x65, 0x6E, 0x74, 0x69,
-                0x74, 0x79, 0x0D, 0x0A, 0x43, 0x6F, 0x6E, 0x74, 0x65, 0x6E, 0x74, 0x2D, 0x4C, 0x65, 0x6E, 0x67,
-                0x74, 0x68, 0x3A, 0x20, 0x31, 0x36, 0x0D, 0x0A, 0x48, 0x6F, 0x73, 0x74, 0x3A, 0x20, 0x31, 0x39,
-                0x32, 0x2E, 0x31, 0x36, 0x38, 0x2E, 0x31, 0x37, 0x38, 0x2E, 0x35, 0x32, 0x3A, 0x38, 0x30, 0x38,
-                0x36, 0x0D, 0x0A, 0x43, 0x6F, 0x6E, 0x6E, 0x65, 0x63, 0x74, 0x69, 0x6F, 0x6E, 0x3A, 0x20, 0x4B,
-                0x65, 0x65, 0x70, 0x2D, 0x41, 0x6C, 0x69, 0x76, 0x65, 0x0D, 0x0A, 0x0D, 0x0A, 0x61, 0x70, 0x70,
-                0x6C, 0x69, 0x63, 0x61, 0x74, 0x69, 0x6F, 0x6E, 0x2F, 0x6A, 0x73, 0x6F, 0x6E
-           },
+            // Ein echter, unauthentifizierter Health-Check statt eines Login-Versuchs
+            // mit fest einprogrammierten Zugangsdaten - eine Anmeldung ist kein
+            // passiver Scan mehr, sondern ein Zugriffsversuch, der auf einem echten
+            // System Sperren oder Alarme ausloesen kann. /health antwortet ohne
+            // Authentifizierung mit "influxdb" im Namen, das reicht zur Erkennung.
+            ServiceType.InfluxDB2 => Encoding.ASCII.GetBytes(
+                "GET /health HTTP/1.1\r\nHost: influxdb\r\nConnection: close\r\n\r\n"),
 
 
 
@@ -2142,5 +2198,52 @@ static async Task<PortResult> SendTcpDnsQuery(string dnsServer, byte[] query, in
 
             _ => new byte[0]
         };
+    }
+
+    /// <summary>
+    /// Baut ein TNS-Connect-Paket nach dem Oracle-Net-Grundformat: ein 8-Byte-Header
+    /// (Gesamtlaenge, Pruefsumme 0, Pakettyp 1 = Connect, Flag 0, Header-Pruefsumme 0)
+    /// gefolgt von der Version, Verbindungsoptionen und dem Connect-Deskriptor als
+    /// ASCII-Text. Ungetestet gegen einen echten Oracle-Server - anders als bei SMB
+    /// stand hier keiner zur Verfuegung, um es nachzumessen. Ersetzt aber in jedem
+    /// Fall die vorherige Sonde, die nachweislich ueberhaupt nichts bewirkte (siehe
+    /// GetDetectionPacket: dort stand das rohe TCP-SYN-Paket aus einem
+    /// Wireshark-Mitschnitt statt einer TNS-Nachricht).
+    /// </summary>
+    private static byte[] BuildOracleTnsConnectPacket()
+    {
+        const string connectDescriptor =
+            "(DESCRIPTION=(CONNECT_DATA=(SERVICE_NAME=orcl)(CID=(PROGRAM=)(HOST=)(USER=)))" +
+            "(ADDRESS=(PROTOCOL=TCP)(HOST=localhost)(PORT=1521)))";
+
+        byte[] descriptorBytes = Encoding.ASCII.GetBytes(connectDescriptor);
+
+        // Version 3.10 (0x013A), "Service Options" 0x0801, SDU/TDU 0x0800 je,
+        // Protocolcharacteristics 0x7F08 - uebliche Werte aus oeffentlich
+        // dokumentierten TNS-Connect-Mitschnitten.
+        byte[] body = new byte[]
+        {
+            0x01, 0x3A, 0x01, 0x2C, 0x08, 0x01, 0x08, 0x00, 0x08, 0x00, 0x7F, 0x08,
+            0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        };
+
+        byte[] packet = new byte[8 + body.Length + descriptorBytes.Length];
+        int totalLength = packet.Length;
+
+        packet[0] = (byte)(totalLength >> 8);
+        packet[1] = (byte)(totalLength & 0xFF);
+        packet[2] = 0x00; // Pruefsumme (nicht genutzt)
+        packet[3] = 0x00;
+        packet[4] = 0x01; // Pakettyp: Connect
+        packet[5] = 0x00; // Flag
+        packet[6] = 0x00; // Header-Pruefsumme (nicht genutzt)
+        packet[7] = 0x00;
+
+        Array.Copy(body, 0, packet, 8, body.Length);
+        Array.Copy(descriptorBytes, 0, packet, 8 + body.Length, descriptorBytes.Length);
+
+        return packet;
     }
 }

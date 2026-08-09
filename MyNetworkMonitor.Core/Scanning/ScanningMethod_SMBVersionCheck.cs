@@ -175,7 +175,7 @@ public class ScanningMethod_SMBVersionCheck
                         }
 
                         int bytesRead = await readTask;
-                        if (bytesRead > 0)
+                        if (bytesRead > 0 && NegotiationSucceeded(tempResponse, bytesRead, dialect))
                         {
                             byte[] response = new byte[bytesRead];
                             Array.Copy(tempResponse, response, bytesRead);
@@ -206,8 +206,12 @@ public class ScanningMethod_SMBVersionCheck
                         }
                     }
 
-                    socket.Shutdown(SocketShutdown.Both);
-                    socket.Close();
+                    // Kein Shutdown/Close hier: NetworkStream(socket, true) hat den
+                    // Socket beim Verlassen des using-Blocks bereits geschlossen.
+                    // Beide Aufrufe liefen bisher gegen ein schon entsorgtes Objekt
+                    // und warfen "Cannot access a disposed object" - gefangen von der
+                    // catch-Klausel unten und faelschlich als Verbindungsfehler
+                    // geloggt, obwohl die Antwort laengst ausgewertet war.
                 }
             }
             catch (SocketException se)
@@ -240,6 +244,48 @@ public class ScanningMethod_SMBVersionCheck
         _3_0_2,
         _3_1_1,
         all
+    }
+
+    /// <summary>
+    /// Ob die Antwort wirklich sagt "diesen Dialekt unterstuetze ich", statt nur
+    /// "hier kam irgendetwas zurueck".
+    /// <para>
+    /// Live gegen einen Samba-Server mit deaktiviertem SMB1 nachgemessen
+    /// (2026-08-10): auf eine SMB1-Anfrage antwortet er trotzdem - mit
+    /// Status STATUS_SUCCESS und WordCount 1, aber DialectIndex 0xFFFF, dem
+    /// dokumentierten Wert fuer "keiner der angebotenen Dialekte passt" (MS-CIFS).
+    /// Ohne diese Pruefung zaehlte jede Antwort als Treffer, auch die
+    /// ausdrueckliche Ablehnung.
+    /// </para>
+    /// <para>
+    /// Fuer SMB2/3 gilt dasselbe ueber das Status-Feld im 64-Byte-Header
+    /// (MS-SMB2): 0 heisst angenommen, jeder andere Wert - ueblicherweise
+    /// STATUS_NOT_SUPPORTED - heisst abgelehnt. Ebenfalls live bestaetigt: eine
+    /// angenommene 2.0.2-Anfrage gegen denselben Server lieferte Status 0.
+    /// </para>
+    /// </summary>
+    private static bool NegotiationSucceeded(byte[] response, int length, SMBDialects dialect)
+    {
+        if (dialect == SMBDialects._1)
+        {
+            // NetBIOS-Kopf (4) + SMB1-Kopf (32) + WordCount (1) = Offset 37,
+            // dort steht die 2-Byte-DialectIndex als little-endian Wort.
+            if (length < 39) return false;
+            if (response[4] != 0xFF || response[5] != 0x53 || response[6] != 0x4D || response[7] != 0x42) return false;
+
+            byte wordCount = response[36];
+            if (wordCount < 1) return false;
+
+            ushort dialectIndex = (ushort)(response[37] | (response[38] << 8));
+            return dialectIndex != 0xFFFF;
+        }
+
+        // SMB2/3: NetBIOS-Kopf (4) + Status-Feld ab Offset 8 im SMB2-Header,
+        // also absolut Offset 12, 4 Byte.
+        if (length < 16) return false;
+        if (response[4] != 0xFE || response[5] != 0x53 || response[6] != 0x4D || response[7] != 0x42) return false;
+
+        return response[12] == 0 && response[13] == 0 && response[14] == 0 && response[15] == 0;
     }
 
     private byte[] GetSMB1NegotiationRequest()
