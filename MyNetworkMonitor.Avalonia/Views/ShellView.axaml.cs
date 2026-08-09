@@ -92,11 +92,6 @@ public partial class ShellView : Window
             scopeFlyout.Opened += (_, _) => BuildScopeRows();
         }
 
-        // Muss hier stehen und nicht erst beim Zeichnen: die Webansicht baut
-        // ihren Unterbau auf, sobald sie sichtbar wird - also schon beim
-        // Umschalten auf den Abschnitt, lange vor dem ersten Klick auf "Draw".
-        PrepareTopologyView();
-
         BuildServiceFacets();
         BuildScopeFacets();
         BuildFindServicePortMenu();
@@ -752,8 +747,14 @@ public partial class ShellView : Window
         view_Services.IsVisible = section == ShellSection.Services;
         view_Settings.IsVisible = section == ShellSection.Settings;
         view_Network.IsVisible = section == ShellSection.Network;
-        view_Topology.IsVisible = section == ShellSection.Topology;
         view_Findings.IsVisible = section == ShellSection.Findings;
+
+        // Die Webansicht wird erst hier eingehaengt, und erst beim ersten Mal.
+        // Vor dem Sichtbarschalten, damit sie beim Aufschlagen schon steht -
+        // aber eben nur, wenn der Nutzer die Topologie ueberhaupt aufruft.
+        if (section == ShellSection.Topology) PrepareTopologyView();
+
+        view_Topology.IsVisible = section == ShellSection.Topology;
 
         // Beim Aufschlagen neu pruefen: die Adapterregel liest den Zustand des
         // Rechners, und der aendert sich auch ohne Scan.
@@ -802,9 +803,8 @@ public partial class ShellView : Window
     /// Die nativen Bibliotheken, die die eingebettete Ansicht unter Linux
     /// braucht.
     /// <para>
-    /// <b>Das ist die Ursache des Absturzes unter Debian 13:</b> der Linux-Unterbau
-    /// von <c>NativeWebView</c> ist nicht WebKitGTK, sondern <b>WPE WebKit</b> -
-    /// die Namen stehen als P/Invoke-Ziele in
+    /// Der Linux-Unterbau von <c>NativeWebView</c> ist nicht WebKitGTK, sondern
+    /// <b>WPE WebKit</b> - die Namen stehen als P/Invoke-Ziele in
     /// <c>Avalonia.Controls.WebView.dll</c>. Debian 13 hat die Pakete, aber
     /// installiert sie nicht von sich aus; fehlen sie, scheitert der Ladevorgang
     /// im nativen Teil und nimmt den Prozess mit, statt eine Ausnahme zu werfen,
@@ -849,8 +849,8 @@ public partial class ShellView : Window
         // Windows und macOS bringen ihre Engine mit.
         if (!OperatingSystem.IsLinux()) return WebEngine.Native;
 
-        if (WpeLibraries.All(CanLoad)) return WebEngine.Native;
-        if (WebKitGtkLibraries.Any(CanLoad)) return WebEngine.WebKitGtk;
+        if (WpeLibraries.All(IsLibraryPresent)) return WebEngine.Native;
+        if (WebKitGtkLibraries.Any(IsLibraryPresent)) return WebEngine.WebKitGtk;
 
         return WebEngine.None;
     }
@@ -877,11 +877,29 @@ public partial class ShellView : Window
     /// nicht aufbauen.
     /// </para>
     /// </summary>
-    /// <summary>Die eingebettete Webansicht - nur vorhanden, wenn sie laufen kann.</summary>
+    /// <summary>Die eingebettete Webansicht - erst vorhanden, wenn sie gebraucht wird.</summary>
     private NativeWebView? _webTopology;
 
+    private bool _topologyPrepared;
+
+    /// <summary>
+    /// Haengt die Webansicht ein - beim ersten Aufschlagen der Topologie und
+    /// nicht frueher.
+    /// <para>
+    /// <b>Warum so spaet:</b> die Anwendung darf beim Start nicht davon
+    /// abhaengen, dass eine Webengine vorhanden und heil ist. Ein Fehlschlag
+    /// unter Linux ist ein nativer Absturz, kein Fehler, den man abfangen kann.
+    /// Passiert er beim Erzeugen des Hauptfensters, verschwindet die ganze
+    /// Anwendung - und niemand kommt darauf, dass es an der Topologie lag, die
+    /// man gar nicht geoeffnet hat. Passiert er hier, hat der Nutzer gerade auf
+    /// "Topology" geklickt, und der Zusammenhang ist offensichtlich.
+    /// </para>
+    /// </summary>
     private void PrepareTopologyView()
     {
+        if (_topologyPrepared) return;
+        _topologyPrepared = true;
+
         _webEngine = AvailableWebEngine();
 
         if (_webEngine == WebEngine.None)
@@ -913,13 +931,83 @@ public partial class ShellView : Window
         host_Topology.Children.Add(_webTopology);
     }
 
-    private static bool CanLoad(string library)
+    /// <summary>
+    /// Ob eine native Bibliothek auf diesem System vorhanden ist.
+    /// <para>
+    /// <b>Bewusst ohne sie zu laden.</b> Die naheliegende Fassung -
+    /// <c>NativeLibrary.TryLoad</c> und anschliessend <c>Free</c> - ist genau
+    /// hier gefaehrlich: <c>Free</c> ist ein <c>dlclose</c>, und WebKit, GTK und
+    /// WPE vertragen das nicht. Sie registrieren GObject-Typen, halten
+    /// threadlokalen Zustand und haengen sich in <c>atexit</c>; werden sie
+    /// wieder entladen, bleiben Zeiger auf Code stehen, den es nicht mehr gibt,
+    /// und der Prozess stirbt - ohne Ausnahme, die sich abfangen liesse.
+    /// </para>
+    /// <para>
+    /// Gesucht wird darum im Verzeichnis, so wie es auch der dynamische Linker
+    /// tut: erst der Zwischenspeicher von <c>ldconfig</c>, dann die ueblichen
+    /// Pfade als Rueckfall.
+    /// </para>
+    /// </summary>
+    private static bool IsLibraryPresent(string soname)
     {
-        if (!System.Runtime.InteropServices.NativeLibrary.TryLoad(library, out nint handle)) return false;
+        if (LdConfigCache.Value.Contains(soname)) return true;
 
-        System.Runtime.InteropServices.NativeLibrary.Free(handle);
-        return true;
+        string[] directories =
+        [
+            "/usr/lib/x86_64-linux-gnu",
+            "/usr/lib/aarch64-linux-gnu",
+            "/usr/lib64",
+            "/usr/lib",
+            "/lib/x86_64-linux-gnu",
+            "/lib64",
+            "/lib"
+        ];
+
+        return directories.Any(d => System.IO.File.Exists(System.IO.Path.Combine(d, soname)));
     }
+
+    /// <summary>
+    /// Die Namen aller dem Linker bekannten Bibliotheken. Einmal gelesen, denn
+    /// dafuer laeuft ein fremder Prozess.
+    /// </summary>
+    private static readonly Lazy<HashSet<string>> LdConfigCache = new(() =>
+    {
+        HashSet<string> names = new(StringComparer.Ordinal);
+
+        if (!OperatingSystem.IsLinux()) return names;
+
+        try
+        {
+            using System.Diagnostics.Process? process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("/sbin/ldconfig", "-p")
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            });
+
+            if (process is null) return names;
+
+            string output = process.StandardOutput.ReadToEnd();
+            process.WaitForExit(3000);
+
+            // Zeilenformat: "\tlibfoo.so.1 (libc6,x86-64) => /usr/lib/libfoo.so.1"
+            foreach (string line in output.Split('\n'))
+            {
+                string trimmed = line.Trim();
+                int space = trimmed.IndexOf(' ');
+
+                if (space > 0) names.Add(trimmed[..space]);
+            }
+        }
+        catch (Exception)
+        {
+            // Kein ldconfig erreichbar - dann entscheidet die Suche im
+            // Verzeichnis allein.
+        }
+
+        return names;
+    });
 
     /// <summary>
     /// Schaltet die Ansicht auf den GTK-Unterbau um.
