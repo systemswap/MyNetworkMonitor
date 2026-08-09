@@ -14,14 +14,17 @@ namespace MyNetworkMonitor.Core.Services
         private static IRegistryReader? _registry;
         private static IWifiProvider? _wifi;
         private static IEnterpriseEnvironment? _enterprise;
+        private static INeighborProvider? _neighbors;
 
         public static void RegisterArp(IArpProvider provider) => _arp = provider;
+        public static void RegisterNeighbors(INeighborProvider provider) => _neighbors = provider;
         public static void RegisterRouting(IRoutingProvider provider) => _routing = provider;
         public static void RegisterRegistry(IRegistryReader provider) => _registry = provider;
         public static void RegisterWifi(IWifiProvider provider) => _wifi = provider;
         public static void RegisterEnterprise(IEnterpriseEnvironment provider) => _enterprise = provider;
 
         public static IArpProvider Arp => Require(_arp, nameof(IArpProvider));
+        public static INeighborProvider Neighbors => Require(_neighbors, nameof(INeighborProvider));
         public static IRoutingProvider Routing => Require(_routing, nameof(IRoutingProvider));
         public static IRegistryReader Registry => Require(_registry, nameof(IRegistryReader));
         public static IWifiProvider Wifi => Require(_wifi, nameof(IWifiProvider));
@@ -31,6 +34,7 @@ namespace MyNetworkMonitor.Core.Services
         // wollen, statt eine Ausnahme zu bekommen - etwa die Scan-Verfahren,
         // die daraus eine Meldung an den Nutzer machen.
         public static IArpProvider? ArpOrNull => _arp;
+        public static INeighborProvider? NeighborsOrNull => _neighbors;
         public static IRoutingProvider? RoutingOrNull => _routing;
         public static IRegistryReader? RegistryOrNull => _registry;
         public static IWifiProvider? WifiOrNull => _wifi;
