@@ -79,13 +79,13 @@ jobs:
           -p:IncludeNativeLibrariesForSelfExtract=true
           -p:EnableCompressionInSingleFile=true
           -p:DebugType=none
-          -p:AssemblyName=MyNetworkMonitor
           -o publish/win-x64
 
       - name: ZIP erstellen
         id: zip
         shell: pwsh
         run: |
+          Rename-Item -Path "publish\win-x64\MyNetworkMonitor.Avalonia.exe" -NewName "MyNetworkMonitor.exe"
           $zipName = "MyNetworkMonitor_v${{ needs.check-version.outputs.version }}_windows-x64.zip"
           Compress-Archive -Path publish\win-x64\* -DestinationPath $zipName
           echo "zipname=$zipName" >> $env:GITHUB_OUTPUT
@@ -114,11 +114,12 @@ jobs:
             -p:IncludeNativeLibrariesForSelfExtract=true \
             -p:EnableCompressionInSingleFile=true \
             -p:DebugType=none \
-            -p:AssemblyName=MyNetworkMonitor \
             -o publish/linux-x64
 
       - name: AppDir aufbauen
         run: |
+          mv publish/linux-x64/MyNetworkMonitor.Avalonia publish/linux-x64/MyNetworkMonitor
+
           APPDIR="$PWD/AppDir"
           mkdir -p "$APPDIR/usr/bin"
           cp -r publish/linux-x64/* "$APPDIR/usr/bin/"
