@@ -1,4 +1,5 @@
 using System.Data;
+using System.Runtime.InteropServices;
 
 namespace MyNetworkMonitor.Core.Services
 {
@@ -17,7 +18,11 @@ namespace MyNetworkMonitor.Core.Services
         /// damit beide Versionen dieselben Dateien schreiben.
         /// </summary>
         public static string DefaultGraphFolder { get; } = Path.Combine(
-            Path.Combine(Environment.ExpandEnvironmentVariables("%userprofile%"), "Documents"),
+            Path.Combine(
+                RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+                    ? Environment.ExpandEnvironmentVariables("%userprofile%")
+                    : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                "Documents"),
             "MyNetworkMonitor", "3dFoceGraph");
 
         public static Task ShowAsync(IWebViewHost webViewHost, DataTable resultTable,
