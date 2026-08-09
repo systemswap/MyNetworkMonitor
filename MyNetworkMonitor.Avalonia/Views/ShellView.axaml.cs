@@ -827,14 +827,59 @@ public partial class ShellView : Window
     ];
 
     /// <summary>
+    /// Ordnet jeder Bibliothek aus <see cref="WpeLibraries"/> das apt-Paket zu,
+    /// das sie mitbringt - nur so laesst sich der Hinweistext auf das
+    /// beschraenken, was tatsaechlich fehlt.
+    /// </summary>
+    private static readonly IReadOnlyDictionary<string, string> WpePackageBySoName =
+        new Dictionary<string, string>
+        {
+            ["libWPEWebKit-2.0.so.1"] = "libwpewebkit-2.0-1",
+            ["libwpe-1.0.so.1"] = "libwpe-1.0-1",
+            ["libWPEBackend-fdo-1.0.so.1"] = "libwpebackend-fdo-1.0-1"
+        };
+
+    /// <summary>
+    /// Die apt-Pakete fuer die WPE-Bibliotheken, die auf diesem System fehlen.
+    /// Leer, wenn WPE vollstaendig vorhanden ist.
+    /// </summary>
+    private static IEnumerable<string> MissingWpePackages() =>
+        WpeLibraries.Where(lib => !IsLibraryPresent(lib)).Select(lib => WpePackageBySoName[lib]);
+
+    /// <summary>
     /// Was in der Statuszeile steht, wenn der Graph im Browser geoeffnet wurde.
     /// Nennt die Ursache und die Abhilfe beim Namen - "geht nicht" allein hilft
-    /// niemandem weiter.
+    /// niemandem weiter. Listet nur die Pakete, die auf diesem System
+    /// tatsaechlich fehlen, statt pauschal alle drei - und nennt den echten
+    /// Grund, wenn WPE zwar da, das Embedding aber absichtlich aus ist.
     /// </summary>
-    private const string NoEmbeddedViewHint =
-        "Opened in your browser: this system has no embedded web engine. " +
-        "To get the view back inside the window, install WPE WebKit - on Debian and " +
-        "Ubuntu that is: sudo apt install libwpewebkit-2.0-1 libwpe-1.0-1 libwpebackend-fdo-1.0-1";
+    private static string NoEmbeddedViewHint()
+    {
+        if (OperatingSystem.IsLinux() && !EmbeddedWebViewEnabledOnLinux && WpeLibraries.All(IsLibraryPresent))
+        {
+            return "Opened in your browser: the embedded view is disabled on Linux for now - " +
+                   "it loads the page but never paints it (Avalonia.Controls.WebView issue, not a missing package).";
+        }
+
+        return "Opened in your browser: this system has no embedded web engine. " +
+               "To get the view back inside the window, install WPE WebKit - on Debian and " +
+               "Ubuntu that is: sudo apt install " + string.Join(' ', MissingWpePackages());
+    }
+
+    /// <summary>
+    /// Unter Linux abgeschaltet, obwohl die Erkennung und das Control fertig
+    /// dastehen. Getestet mit vollstaendig installiertem WPE (alle drei
+    /// Bibliotheken vorhanden, Prozesse starten, Seite laedt laut
+    /// <c>NavigationCompleted</c> erfolgreich, JavaScript und WebGL laufen) -
+    /// im Fenster bleibt es trotzdem leer. Es ist also nicht die Erkennung
+    /// oder das Nachladen, sondern die Bruecke zwischen WPEs Offscreen-Puffer
+    /// und Avalonias Compositor in <c>Avalonia.Controls.WebView</c> 12.0.1,
+    /// die auf diesem Weg nichts zeichnet. Ein kaputtes Embedding, das Erfolg
+    /// meldet, ist schlimmer als gar keins - deshalb bleibt es auf
+    /// <see cref="WebEngine.None"/> und damit beim Systembrowser, bis eine
+    /// neuere Paketversion das Zeichnen tatsaechlich zustande bringt.
+    /// </summary>
+    private const bool EmbeddedWebViewEnabledOnLinux = false;
 
     /// <summary>
     /// Bestimmt, womit die eingebettete Ansicht arbeiten kann.
@@ -848,6 +893,8 @@ public partial class ShellView : Window
     {
         // Windows und macOS bringen ihre Engine mit.
         if (!OperatingSystem.IsLinux()) return WebEngine.Native;
+
+        if (!EmbeddedWebViewEnabledOnLinux) return WebEngine.None;
 
         if (WpeLibraries.All(IsLibraryPresent)) return WebEngine.Native;
         if (WebKitGtkLibraries.Any(IsLibraryPresent)) return WebEngine.WebKitGtk;
@@ -905,14 +952,24 @@ public partial class ShellView : Window
         if (_webEngine == WebEngine.None)
         {
             // Kein Unterbau: gar nicht erst erzeugen. An seine Stelle kommt,
-            // was fehlt und wie es zu beheben ist.
+            // was fehlt und wie es zu beheben ist - oder, falls WPE zwar da
+            // ist aber absichtlich abgeschaltet, dass es an Avalonia liegt
+            // und nicht an einer fehlenden Bibliothek.
+            bool linuxEmbeddingDisabled = OperatingSystem.IsLinux() && !EmbeddedWebViewEnabledOnLinux
+                                          && WpeLibraries.All(IsLibraryPresent);
+
             host_Topology.Children.Add(new TextBlock
             {
                 Margin = new global::Avalonia.Thickness(24),
-                Text = "No embedded web engine on this system, so the graph opens in your browser " +
-                       "when you press Draw.\n\n" +
-                       "To get it back inside this window, install WPE WebKit - on Debian and Ubuntu:\n" +
-                       "sudo apt install libwpewebkit-2.0-1 libwpe-1.0-1 libwpebackend-fdo-1.0-1",
+                Text = linuxEmbeddingDisabled
+                    ? "WPE WebKit is installed, but the graph opens in your browser when you press " +
+                      "Draw anyway: the embedded view loads the page successfully without ever " +
+                      "painting it, a known issue in Avalonia.Controls.WebView on Linux - not " +
+                      "something a missing package would fix."
+                    : "No embedded web engine on this system, so the graph opens in your browser " +
+                      "when you press Draw.\n\n" +
+                      "To get it back inside this window, install WPE WebKit - on Debian and Ubuntu:\n" +
+                      "sudo apt install " + string.Join(' ', MissingWpePackages()),
                 FontSize = 11.5,
                 TextWrapping = global::Avalonia.Media.TextWrapping.Wrap,
                 Foreground = new SolidColorBrush(Color.Parse("#5C6F73")),
@@ -1091,7 +1148,7 @@ public partial class ShellView : Window
                 tb_TopologyHint.Text = "Duplicate addresses and names are drawn as coloured edges.";
             }
 
-            if (!embedded) tb_TopologyHint.Text += " " + NoEmbeddedViewHint;
+            if (!embedded) tb_TopologyHint.Text += " " + NoEmbeddedViewHint();
         }
         catch (Exception ex)
         {
