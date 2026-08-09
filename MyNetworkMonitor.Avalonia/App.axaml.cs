@@ -30,12 +30,14 @@ public partial class App : Application
         PlatformServices.RegisterRegistry(new WindowsRegistryReader());
         PlatformServices.RegisterEnterprise(new WindowsEnterpriseEnvironment());
         PlatformServices.RegisterWifi(new ScanningMethod_WiFi());
+        PlatformServices.RegisterNeighbors(new WindowsNeighborProvider());
 #else
         PlatformServices.RegisterArp(new LinuxArpProvider());
         PlatformServices.RegisterRouting(new LinuxRoutingProvider());
         PlatformServices.RegisterRegistry(new LinuxRegistryReader());
         PlatformServices.RegisterEnterprise(new LinuxEnterpriseEnvironment());
         PlatformServices.RegisterWifi(new LinuxWifiProvider());
+        PlatformServices.RegisterNeighbors(new LinuxNeighborProvider());
 #endif
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
