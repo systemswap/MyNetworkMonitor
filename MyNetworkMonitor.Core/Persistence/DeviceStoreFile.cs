@@ -150,6 +150,19 @@ namespace MyNetworkMonitor.Core.Persistence
             LookupAddresses = [.. device.LookupAddresses],
             Aliases = [.. device.Aliases],
             Details = device.Details.Count > 0 ? new Dictionary<string, string>(device.Details) : null,
+
+            // Die TTL wird gespeichert, die daraus abgeleitete Vermutung nicht:
+            // die Regel dahinter kann sich aendern, die Messung nicht.
+            Ttl = device.Ttl,
+            SwitchName = Blank(device.SwitchName),
+            SwitchPort = Blank(device.SwitchPort),
+            Vlan = Blank(device.Vlan),
+            WebTitle = Blank(device.WebTitle),
+            CertificateSubject = Blank(device.CertificateSubject),
+            CertificateIssuer = Blank(device.CertificateIssuer),
+            CertificateExpires = device.CertificateExpires,
+            CertificateIsSelfSigned = device.CertificateIsSelfSigned,
+
             Addresses = [.. device.Addresses.Select(a => new AddressRecord
             {
                 Address = a.Info.Canonical,
@@ -186,7 +199,17 @@ namespace MyNetworkMonitor.Core.Persistence
                 GroupDescription = record.GroupDescription ?? string.Empty,
                 FirstSeen = record.FirstSeen,
                 LastSeen = record.LastSeen,
-                WasLookedUp = record.WasLookedUp
+                WasLookedUp = record.WasLookedUp,
+
+                Ttl = record.Ttl,
+                SwitchName = record.SwitchName ?? string.Empty,
+                SwitchPort = record.SwitchPort ?? string.Empty,
+                Vlan = record.Vlan ?? string.Empty,
+                WebTitle = record.WebTitle ?? string.Empty,
+                CertificateSubject = record.CertificateSubject ?? string.Empty,
+                CertificateIssuer = record.CertificateIssuer ?? string.Empty,
+                CertificateExpires = record.CertificateExpires,
+                CertificateIsSelfSigned = record.CertificateIsSelfSigned
             };
 
             foreach (string source in record.SeenBy ?? []) device.SeenBy.Add(source);
@@ -272,6 +295,17 @@ namespace MyNetworkMonitor.Core.Persistence
             public List<string>? LookupAddresses { get; set; }
             public List<string>? Aliases { get; set; }
             public Dictionary<string, string>? Details { get; set; }
+
+            public int Ttl { get; set; }
+            public string? SwitchName { get; set; }
+            public string? SwitchPort { get; set; }
+            public string? Vlan { get; set; }
+            public string? WebTitle { get; set; }
+            public string? CertificateSubject { get; set; }
+            public string? CertificateIssuer { get; set; }
+            public DateTimeOffset? CertificateExpires { get; set; }
+            public bool CertificateIsSelfSigned { get; set; }
+
             public List<AddressRecord>? Addresses { get; set; }
             public List<ServiceRecord>? Services { get; set; }
         }

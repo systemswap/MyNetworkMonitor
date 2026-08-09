@@ -6,6 +6,7 @@ using System.Net.Sockets;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MyNetworkMonitor.Core.Model;
+using MyNetworkMonitor.Core.Network;
 using MyNetworkMonitor.Core.Persistence;
 using MyNetworkMonitor.Core.Scanning.Engine;
 using MyNetworkMonitor.Core.Services;
@@ -55,6 +56,29 @@ namespace MyNetworkMonitor.Core.ViewModels
     {
         private readonly ScanEngine _engine;
         private readonly DeviceStore _store;
+
+        /// <summary>
+        /// Die laufende Portsuche, solange eine laeuft.
+        /// <para>
+        /// Sie laeuft <b>nicht</b> ueber die Engine, sondern als eigene
+        /// Modulinstanz - <c>_engine.Stop()</c> erreicht sie darum nicht. Ohne
+        /// diesen Verweis liesse sich eine Suche ueber 65 536 Ports gar nicht
+        /// abbrechen: der Knopf meldete "Cancelling...", und der Lauf ginge
+        /// weiter, bis er von allein fertig war.
+        /// </para>
+        /// </summary>
+        private ScanningMethod_Services? _portSearch;
+
+        /// <summary>
+        /// Die laufende Portsuche wurde abgebrochen.
+        /// <para>
+        /// Noetig, weil das Modul nach dem Abbruch ganz normal zurueckkehrt -
+        /// mit einem leeren Ergebnis. Ohne diese Unterscheidung meldete der
+        /// Abbruch "wurde auf keinem Port gefunden", und das ist eine Aussage
+        /// ueber das Geraet, die gar nicht geprueft wurde.
+        /// </para>
+        /// </summary>
+        private bool _portSearchStopped;
 
         public ShellViewModel(ScanEngine engine, DeviceStore store)
         {
@@ -211,6 +235,11 @@ namespace MyNetworkMonitor.Core.ViewModels
 
             Settings.PortTimeoutMs = _userSettings.GetInt("PortTimeoutMs", Settings.PortTimeoutMs);
             Settings.ScanAllPorts = _userSettings.GetBool("ScanAllPorts", Settings.ScanAllPorts);
+
+            // Die Gemeinschaftskennung leer zu speichern waere ein Fussangel:
+            // SNMP fragt dann ohne Kennung und bekommt nirgends eine Antwort.
+            string community = _userSettings.GetString("SnmpCommunity");
+            if (!string.IsNullOrWhiteSpace(community)) Settings.SnmpCommunity = community;
             Settings.OnlyKnownTargets = _userSettings.GetBool("OnlyKnownTargets", Settings.OnlyKnownTargets);
             Settings.ClearArpCacheFirst = _userSettings.GetBool("ClearArpCacheFirst", Settings.ClearArpCacheFirst);
             Settings.CrossCheckDnsServers =
@@ -294,6 +323,9 @@ namespace MyNetworkMonitor.Core.ViewModels
                     case nameof(ScanSettings.ScanAllPorts):
                         _userSettings.SetBool("ScanAllPorts", Settings.ScanAllPorts);
                         RefreshAvailability(); // schaltet "TCP-Ports" frei bzw. sperrt es
+                        break;
+                    case nameof(ScanSettings.SnmpCommunity):
+                        _userSettings.SetString("SnmpCommunity", Settings.SnmpCommunity);
                         break;
                     case nameof(ScanSettings.OnlyKnownTargets):
                         _userSettings.SetBool("OnlyKnownTargets", Settings.OnlyKnownTargets);
@@ -1241,6 +1273,10 @@ namespace MyNetworkMonitor.Core.ViewModels
             ScanningMethod_Services scanner = new(
                 Path.Combine(SettingsFolder ?? string.Empty, "services.xml"));
 
+            // Ab hier ist die Suche fuer den Stop-Knopf erreichbar.
+            _portSearch = scanner;
+            _portSearchStopped = false;
+
             void OnProgress(int current, int responded, int total)
             {
                 ProgressCurrent = current;
@@ -1270,16 +1306,33 @@ namespace MyNetworkMonitor.Core.ViewModels
 
                 if (ports.Count == 0)
                 {
-                    StatusText = $"{service} was not found on any port of {device.DisplayName}.";
+                    // Ein Abbruch ist kein Befund: bis wohin gesucht wurde,
+                    // weiss der Nutzer, alles dahinter ist ungeprueft.
+                    StatusText = _portSearchStopped
+                        ? $"Port search for {service} on {device.DisplayName} was cancelled."
+                        : $"{service} was not found on any port of {device.DisplayName}.";
                     return;
                 }
 
-                // Am Geraet vermerken statt nur zu melden: die Statuszeile ist
-                // beim naechsten Klick weg, und dann waere die Suche ueber
-                // 65 536 Ports umsonst gewesen.
+                // Der eigentliche Fund gehoert in die Dienstliste des Geraets -
+                // dorthin, wo auch der regulaere Dienstscan seine Treffer
+                // ablegt. Vorher stand er nur in der Statuszeile und in einer
+                // Detailzeile: die Spalte "Running services", der Dienstfilter
+                // und die Portzaehlung wussten nichts davon, und beim naechsten
+                // Speichern war die Suche ueber 65 536 Ports verloren.
+                MergeFoundPorts(device, service, found);
+
+                // Der Vermerk bleibt zusaetzlich stehen: er haelt fest, dass
+                // dieser Port aus der Suche ueber den ganzen Bereich stammt und
+                // nicht aus der regulaeren Portauswahl.
                 device.Details[$"{service} port search"] =
                     $"found on port {string.Join(", ", ports)}";
                 device.NotifyDisplayChanged();
+
+                // Die Dienstauswahl und die Facettenzaehlung werden aus dem
+                // Bestand aufgebaut - ohne diesen Anstoss taucht ein Dienst,
+                // den es bisher nirgends gab, im Filter nicht auf.
+                Devices.Refresh();
 
                 StatusText = $"{service} answers on port {string.Join(", ", ports)} " +
                              $"of {device.DisplayName}.";
@@ -1291,6 +1344,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             finally
             {
                 scanner.FindServicePortProgressUpdated -= OnProgress;
+                _portSearch = null;
 
                 IsRunning = false;
                 CurrentMethodName = string.Empty;
@@ -1301,16 +1355,84 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
+        /// Traegt die Funde der Portsuche in die Dienstliste des Geraets ein.
+        /// <para>
+        /// Bewusst ueber <c>Observe</c> und nicht durch direktes Anhaengen an
+        /// <c>device.Services</c>: die Zusammenfuehrung im Speicher entscheidet
+        /// nach Dienst <b>und</b> Ports, ob ein Befund neu ist oder einen
+        /// bestehenden ergaenzt. Wer daran vorbei einfuegt, bekommt denselben
+        /// Dienst zweimal in der Liste, sobald die Suche wiederholt wird.
+        /// </para>
+        /// <para>
+        /// Uebernommen wird nur, was geantwortet hat. "Filtered" oder "keine
+        /// Antwort" ueber 65 536 Ports waere kein Befund, sondern das Protokoll
+        /// eines Versuchs - und wuerde die Dienstliste zumuellen.
+        /// </para>
+        /// </summary>
+        private void MergeFoundPorts(Device device, ServiceType service, IPToScan found)
+        {
+            IpAddressInfo? address = device.PrimaryAddress?.Info;
+            if (address is null) return;
+
+            List<DeviceServiceResult> results = [];
+
+            foreach (ServiceScanData.ServiceResult entry in found.Services.Services
+                         .Where(s => s.Service == service))
+            {
+                foreach (ServiceScanData.PortResult port in entry.Ports)
+                {
+                    if (port.Status is not (PortStatus.Open or PortStatus.IsRunning)) continue;
+                    if (port.Ports is not { Count: > 0 }) continue;
+
+                    DeviceServiceResult result = new()
+                    {
+                        ServiceName = service.ToString(),
+                        Category = ServiceCategories.Of(service),
+                        Ports = [.. port.Ports],
+                        PortLog = string.IsNullOrWhiteSpace(port.PortLog) ? null : port.PortLog
+                    };
+
+                    if (address.Family == IpFamily.IPv6) result.StatusIPv6 = port.Status;
+                    else result.StatusIPv4 = port.Status;
+
+                    results.Add(result);
+                }
+            }
+
+            if (results.Count == 0) return;
+
+            _store.Observe(new DeviceObservation
+            {
+                Source = "Port search",
+                Address = address,
+                IsResponding = true,
+                Services = results
+            });
+        }
+
+        /// <summary>
         /// Die Dienste, die die Portsuche anbietet - dieselbe Aufzaehlung, die
         /// auch der Dienstscan kennt.
         /// </summary>
         public static IReadOnlyList<ServiceType> AllServiceTypes { get; } =
             [.. Enum.GetValues<ServiceType>()];
 
+        /// <summary>
+        /// Bricht ab, was gerade laeuft - den Scan der Engine <b>und</b> eine
+        /// Portsuche daneben. Die beiden sind getrennte Laeufe; der Knopf ist
+        /// fuer den Nutzer trotzdem derselbe.
+        /// </summary>
         [RelayCommand]
         private void Stop()
         {
             _engine.Stop();
+
+            if (_portSearch is not null)
+            {
+                _portSearchStopped = true;
+                _portSearch.StopScan();
+            }
+
             StatusText = "Cancelling...";
         }
 
