@@ -92,6 +92,11 @@ public partial class ShellView : Window
             scopeFlyout.Opened += (_, _) => BuildScopeRows();
         }
 
+        // Muss hier stehen und nicht erst beim Zeichnen: die Webansicht baut
+        // ihren Unterbau auf, sobald sie sichtbar wird - also schon beim
+        // Umschalten auf den Abschnitt, lange vor dem ersten Klick auf "Draw".
+        PrepareTopologyView();
+
         BuildServiceFacets();
         BuildScopeFacets();
         BuildFindServicePortMenu();
@@ -850,6 +855,61 @@ public partial class ShellView : Window
         return WebEngine.None;
     }
 
+    /// <summary>
+    /// Der Unterbau, den die Webansicht auf diesem System bekommt. Einmal
+    /// beim Erzeugen bestimmt.
+    /// </summary>
+    private WebEngine _webEngine = WebEngine.Native;
+
+    /// <summary>
+    /// Bereitet die Topologie-Ansicht vor, <b>bevor</b> sie zum ersten Mal
+    /// sichtbar wird.
+    /// <para>
+    /// Das ist der Kern der Sache: <c>NativeWebView</c> erzeugt seinen nativen
+    /// Unterbau, sobald das Control in den sichtbaren Baum kommt - also
+    /// bereits beim Umschalten auf den Abschnitt, nicht erst beim Zeichnen.
+    /// Scheitert das unter Linux mangels WPE, bricht der Wechsel mittendrin ab
+    /// und die vorherige Ansicht bleibt stehen. Genau dieses Bild.
+    /// </para>
+    /// <para>
+    /// Darum wird das Control hier entweder auf den GTK-Ersatzweg gestellt
+    /// oder ganz aus dem Baum genommen - was nicht da ist, kann sich auch
+    /// nicht aufbauen.
+    /// </para>
+    /// </summary>
+    private void PrepareTopologyView()
+    {
+        _webEngine = AvailableWebEngine();
+
+        if (_webEngine == WebEngine.WebKitGtk)
+        {
+            PreferWebKitGtk(webTopology);
+            return;
+        }
+
+        if (_webEngine == WebEngine.Native) return;
+
+        // Kein Unterbau: das Control ersatzlos entfernen und an seine Stelle
+        // schreiben, was fehlt und wie es zu beheben ist.
+        view_Topology.Children.Remove(webTopology);
+
+        view_Topology.Children.Add(new Border
+        {
+            Padding = new global::Avalonia.Thickness(24),
+            Child = new TextBlock
+            {
+                Text = "No embedded web engine on this system, so the graph opens in your browser " +
+                       "when you press Draw.\n\n" +
+                       "To get it back inside this window, install WPE WebKit - on Debian and Ubuntu:\n" +
+                       "sudo apt install libwpewebkit-2.0-1 libwpe-1.0-1 libwpebackend-fdo-1.0-1",
+                FontSize = 11.5,
+                TextWrapping = global::Avalonia.Media.TextWrapping.Wrap,
+                Foreground = new SolidColorBrush(Color.Parse("#5C6F73")),
+                VerticalAlignment = VerticalAlignment.Top
+            }
+        });
+    }
+
     private static bool CanLoad(string library)
     {
         if (!System.Runtime.InteropServices.NativeLibrary.TryLoad(library, out nint handle)) return false;
@@ -915,21 +975,14 @@ public partial class ShellView : Window
         {
             tb_TopologyHint.Text = $"Drawing {devices.Count} devices...";
 
-            WebEngine engine = AvailableWebEngine();
-            bool embedded = engine != WebEngine.None;
-
-            // Ohne WPE, aber mit GTK: der dokumentierte Ersatzweg. Der Haken
-            // muss stehen, bevor die Ansicht ihren Unterbau erzeugt - danach
-            // ist die Entscheidung gefallen.
-            if (engine == WebEngine.WebKitGtk) PreferWebKitGtk(webTopology);
+            // Der Unterbau steht seit dem Erzeugen des Fensters fest - er wird
+            // hier nur noch benutzt. Ihn jetzt erst zu bestimmen waere zu
+            // spaet: die Ansicht ist beim Umschalten laengst aufgebaut worden.
+            bool embedded = _webEngine != WebEngine.None;
 
             IWebViewHost host = embedded
                 ? new NativeWebViewHost(webTopology)
                 : new SystemBrowserWebViewHost();
-
-            // Ohne eingebettete Ansicht bleibt die Flaeche leer - dann soll dort
-            // wenigstens stehen, wohin der Graph gegangen ist.
-            webTopology.IsVisible = embedded;
 
             bool online = _shell.Settings.UseOnlineTopologyLibrary;
 

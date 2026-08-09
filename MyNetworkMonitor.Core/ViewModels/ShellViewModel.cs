@@ -70,6 +70,27 @@ namespace MyNetworkMonitor.Core.ViewModels
         private ScanningMethod_Services? _portSearch;
 
         /// <summary>
+        /// Der Oberflaechen-Thread, festgehalten beim Erzeugen.
+        /// <para>
+        /// Seit der Lauf auf einem Hintergrund-Thread stattfindet, treffen die
+        /// Fortschrittsmeldungen von dort ein. Sie schreiben gebundene
+        /// Eigenschaften - das darf nur von hier aus geschehen, sonst wirft
+        /// Avalonia beim ersten Zeichnen.
+        /// </para>
+        /// </summary>
+        private readonly SynchronizationContext? _uiContext = SynchronizationContext.Current;
+
+        /// <summary>
+        /// Fuehrt die Aktion auf dem Oberflaechen-Thread aus. Ohne erfassten
+        /// Kontext - etwa in Tests - unmittelbar.
+        /// </summary>
+        private void OnUi(Action action)
+        {
+            if (_uiContext is null) action();
+            else _uiContext.Post(_ => action(), null);
+        }
+
+        /// <summary>
         /// Die laufende Portsuche wurde abgebrochen.
         /// <para>
         /// Noetig, weil das Modul nach dem Abbruch ganz normal zurueckkehrt -
@@ -933,7 +954,13 @@ namespace MyNetworkMonitor.Core.ViewModels
             OnPropertyChanged(nameof(HasScanPlan));
         }
 
-        private void OnProgress(ScanProgress progress)
+        /// <summary>
+        /// Fortschritt eines Verfahrens. Kommt aus dem Scan-Thread und wird
+        /// darum hinuebergereicht, bevor irgendetwas Gebundenes geschrieben wird.
+        /// </summary>
+        private void OnProgress(ScanProgress progress) => OnUi(() => ApplyProgress(progress));
+
+        private void ApplyProgress(ScanProgress progress)
         {
             CurrentMethodName = progress.MethodName;
             ProgressCurrent = progress.Current;
@@ -956,7 +983,11 @@ namespace MyNetworkMonitor.Core.ViewModels
             choice.HasProgress = true;
         }
 
-        private void OnMethodFinished(ScanMethodOutcome outcome)
+        /// <summary>
+        /// Ein Verfahren ist fertig. Schreibt in <see cref="LastSkipped"/>, eine
+        /// gebundene Sammlung - also ebenfalls nur vom Oberflaechen-Thread aus.
+        /// </summary>
+        private void OnMethodFinished(ScanMethodOutcome outcome) => OnUi(() =>
         {
             if (outcome.State != ScanMethodState.Available || outcome.Error is not null)
             {
@@ -965,7 +996,7 @@ namespace MyNetworkMonitor.Core.ViewModels
 
             if (!_done.Contains(outcome.MethodName)) _done.Add(outcome.MethodName);
             NotifyPlanChanged();
-        }
+        });
 
         // -------------------------------------------------------------- Start
 
@@ -1094,7 +1125,35 @@ namespace MyNetworkMonitor.Core.ViewModels
                 // waehrend gescannt wird, statt erst am Ende auf einen Schlag.
                 using (Devices.BeginLiveUpdates())
                 {
-                    ScanRunResult result = await _engine.RunAsync(scopes, methods, Settings, _store);
+                    // Task.Run ist hier kein Beiwerk, sondern der Grund, warum
+                    // sich die Tabelle waehrend des Laufs ueberhaupt fuellt.
+                    //
+                    // Kein Modul der Kette benutzt ConfigureAwait(false). Wird
+                    // die Engine vom Oberflaechen-Thread aus abgewartet, kehrt
+                    // damit *jede* Fortsetzung dorthin zurueck: bei 254 Zielen
+                    // sind das die Wartezeiten aller Proben, die Auswertung
+                    // jeder Antwort und die gesamte Zuordnung im Speicher - alles
+                    // auf dem einen Thread, der nebenher zeichnen soll. Die
+                    // Tabelle zieht dann zwar alle 400 ms nach, kommt aber gegen
+                    // die Flut nicht an und wirkt, als fuelle sie sich erst am
+                    // Schluss.
+                    //
+                    // Task.Run startet ohne Synchronisierungskontext; die
+                    // Fortsetzungen laufen damit im Thread-Pool, und der
+                    // Oberflaechen-Thread hat nur noch das Zeichnen zu tun.
+                    ScanRunResult result = await Task.Run(() =>
+                        _engine.RunAsync(scopes, methods, Settings, _store));
+
+                    // Ab hier wieder auf dem Oberflaechen-Thread. Erst jetzt die
+                    // Doppelbelegungen bestimmen: die Auswertung schreibt
+                    // gebundene Eigenschaften am Geraet, und sie will den
+                    // vollstaendigen Bestand sehen - waehrend des Laufs waere
+                    // jeder Befund vorlaeufig.
+                    lock (_store.SyncRoot)
+                    {
+                        result.ConflictCount = DuplicateDetector.Analyze(_store.Devices);
+                    }
+
                     StatusText = Describe(result);
 
                     // Der Quervergleich haengt am Ergebnis des Laufs und
@@ -1277,12 +1336,14 @@ namespace MyNetworkMonitor.Core.ViewModels
             _portSearch = scanner;
             _portSearchStopped = false;
 
-            void OnProgress(int current, int responded, int total)
+            // Auch hier ueber den Oberflaechen-Thread: die Suche laeuft im
+            // Thread-Pool, und der Fortschrittsbalken ist gebunden.
+            void OnProgress(int current, int responded, int total) => OnUi(() =>
             {
                 ProgressCurrent = current;
                 ProgressTotal = total;
                 OnPropertyChanged(nameof(ProgressFraction));
-            }
+            });
 
             try
             {
@@ -1291,8 +1352,12 @@ namespace MyNetworkMonitor.Core.ViewModels
 
                 scanner.FindServicePortProgressUpdated += OnProgress;
 
-                IPToScan found = await scanner.FindServicePortAsync(
-                    new IPToScan { IPorHostname = address }, service);
+                // Wie beim grossen Lauf in den Thread-Pool: 65 536 Proben mit
+                // ihren Fortsetzungen auf dem Oberflaechen-Thread legen das
+                // Fenster lahm - bis hin zum Stop-Knopf, der dann nicht mehr
+                // rechtzeitig drankommt.
+                IPToScan found = await Task.Run(() => scanner.FindServicePortAsync(
+                    new IPToScan { IPorHostname = address }, service));
 
                 // Offen oder antwortend zaehlt. "Filtered" heisst, dass eine
                 // Firewall dazwischensteht - das ist kein Fund des Dienstes.
