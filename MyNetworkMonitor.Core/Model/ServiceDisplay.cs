@@ -33,6 +33,20 @@ namespace MyNetworkMonitor.Core.Model
         public static HashSet<string> Grouped { get; } = new(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
+        /// Offene TCP-Ports ohne erkannten Dienst zu einem Chip "TCP Ports"
+        /// zusammenfassen, statt jeden einzeln als "TCP 8080", "TCP 8443" usw.
+        /// zu zeigen. Anders als bei <see cref="Grouped"/> steht hier keine
+        /// feste Namensliste dahinter, sondern jeder Fund der Form "TCP {Port}"
+        /// - genau die Faelle, in denen ein Geraet mit vielen offenen Ports die
+        /// Spalte sonst sprengt. Standardmaessig an, weil das der Fall ist, der
+        /// die Spalte am haeufigsten unlesbar macht.
+        /// </summary>
+        public static bool GroupTcpPorts { get; set; } = true;
+
+        /// <summary>Dasselbe fuer UDP-Ports, siehe <see cref="GroupTcpPorts"/>.</summary>
+        public static bool GroupUdpPorts { get; set; } = true;
+
+        /// <summary>
         /// Die Einstellung hat sich geaendert. Die Geraeteliste haengt sich
         /// hier ein und laesst die Spalte neu zeichnen - berechnete
         /// Eigenschaften melden sich nicht von allein.

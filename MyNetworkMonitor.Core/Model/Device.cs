@@ -403,9 +403,40 @@ namespace MyNetworkMonitor.Core.Model
                 IReadOnlyList<string> names = OpenServiceNames;
                 if (names.Count == 0) return [];
 
-                (IReadOnlyList<string> shown, int folded) = ServiceDisplay.Split(names);
+                // Offene Ports ohne erkannten Dienst heissen "TCP {Port}" bzw.
+                // "UDP {Port}" (siehe LegacyScanMethod.BuildServices) - genau
+                // die Faelle, die die Spalte bei einem Geraet mit vielen
+                // offenen Ports sprengen. Vor der namentlichen Gruppierung
+                // herausziehen und zu einem einzigen Chip zusammenfassen,
+                // damit "TCP 22", "TCP 8080", "TCP 8443" ... nicht mehr Platz
+                // brauchen als ein benannter Dienst.
+                List<string> remaining = [];
+                int tcpPorts = 0, udpPorts = 0;
 
-                return folded == 0 ? shown : [.. shown, $"+{folded}"];
+                foreach (string name in names)
+                {
+                    if (ServiceDisplay.GroupTcpPorts && name.StartsWith("TCP ", StringComparison.Ordinal))
+                    {
+                        tcpPorts++;
+                    }
+                    else if (ServiceDisplay.GroupUdpPorts && name.StartsWith("UDP ", StringComparison.Ordinal))
+                    {
+                        udpPorts++;
+                    }
+                    else
+                    {
+                        remaining.Add(name);
+                    }
+                }
+
+                (IReadOnlyList<string> shown, int folded) = ServiceDisplay.Split(remaining);
+
+                List<string> chips = [.. shown];
+                if (tcpPorts > 0) chips.Add(tcpPorts == 1 ? "TCP Ports" : $"TCP Ports ({tcpPorts})");
+                if (udpPorts > 0) chips.Add(udpPorts == 1 ? "UDP Ports" : $"UDP Ports ({udpPorts})");
+                if (folded > 0) chips.Add($"+{folded}");
+
+                return chips;
             }
         }
 
