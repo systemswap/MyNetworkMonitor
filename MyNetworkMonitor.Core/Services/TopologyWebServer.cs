@@ -31,7 +31,12 @@ namespace MyNetworkMonitor.Core.Services
                 if (_listener == null)
                 {
                     _listener = new HttpListener();
-                    _listener.Prefixes.Add($"http://localhost:{port}/");
+
+                    // Nicht "localhost": das bindet unter .NET auf Linux nur
+                    // IPv6 ([::1]), waehrend die eingebettete Webansicht ueber
+                    // IPv4 verbindet - die Anfrage liefe ins Leere, ohne dass
+                    // ein Fehler sichtbar wuerde. 127.0.0.1 ist eindeutig.
+                    _listener.Prefixes.Add($"http://127.0.0.1:{port}/");
                     _listener.Start();
 
                     var thread = new Thread(Serve) { IsBackground = true, Name = "TopologyWebServer" };
@@ -39,7 +44,7 @@ namespace MyNetworkMonitor.Core.Services
                 }
             }
 
-            return $"http://localhost:{port}/";
+            return $"http://127.0.0.1:{port}/";
         }
 
         private static void Serve()
