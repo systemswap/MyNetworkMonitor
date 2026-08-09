@@ -21,9 +21,9 @@
       Setzt die Zaehlung des bisherigen WPF-Projekts fort (dort zuletzt 4.6.3.12),
       damit die veroeffentlichten Versionen aufsteigend bleiben.
     -->
-    <Version>5.1.0.31</Version>
-    <AssemblyVersion>5.1.0.31</AssemblyVersion>
-    <FileVersion>5.1.0.31</FileVersion>
+    <Version>5.1.0.32</Version>
+    <AssemblyVersion>5.1.0.32</AssemblyVersion>
+    <FileVersion>5.1.0.32</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
