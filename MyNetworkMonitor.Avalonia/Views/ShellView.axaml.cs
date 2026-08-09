@@ -120,6 +120,25 @@ public partial class ShellView : Window
         engine.Register(new SsdpScanMethod());
         engine.Register(new MdnsScanMethod());
         engine.Register(new WsDiscoveryScanMethod());
+
+        // Die IPv6-Suchverfahren. Reihenfolge nach Aufwand fuer das Netz: erst
+        // das Verfahren, das nur nachliest, dann das eine Paket an alle. Beide
+        // laufen ohne erhoehte Rechte.
+        engine.Register(new Ipv6NeighborCacheScanMethod());
+        engine.Register(new Ipv6MulticastPingScanMethod());
+
+        // Die Router-Ankuendigung liefert die gueltigen Praefixe - und auf die
+        // setzen die beiden Rateverfahren darunter ihre Adressen. Steht darum
+        // vor ihnen.
+        engine.Register(new Ipv6RouterAdvertisementScanMethod());
+        engine.Register(new Ipv6MulticastGroupScanMethod());
+
+        engine.Register(new Ipv6LowByteSweepScanMethod());
+
+        // Muss nach allem stehen, was MAC-Adressen findet - ARP, Ping,
+        // Neighbor Cache. Es rechnet aus deren Funden Adressen aus und hat
+        // vorher nichts, womit es rechnen koennte.
+        engine.Register(new Ipv6Eui64ScanMethod());
         // Reihenfolge innerhalb der Phase = Reihenfolge hier. Die
         // Rueckwaertsaufloesung muss vor der Vorwaertsaufloesung stehen: erst
         // liefert sie zur Adresse den Namen, dann fragt die Vorwaerts-
