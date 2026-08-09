@@ -877,27 +877,20 @@ public partial class ShellView : Window
     /// nicht aufbauen.
     /// </para>
     /// </summary>
+    /// <summary>Die eingebettete Webansicht - nur vorhanden, wenn sie laufen kann.</summary>
+    private NativeWebView? _webTopology;
+
     private void PrepareTopologyView()
     {
         _webEngine = AvailableWebEngine();
 
-        if (_webEngine == WebEngine.WebKitGtk)
+        if (_webEngine == WebEngine.None)
         {
-            PreferWebKitGtk(webTopology);
-            return;
-        }
-
-        if (_webEngine == WebEngine.Native) return;
-
-        // Kein Unterbau: das Control ersatzlos entfernen und an seine Stelle
-        // schreiben, was fehlt und wie es zu beheben ist.
-        view_Topology.Children.Remove(webTopology);
-
-        view_Topology.Children.Add(new Border
-        {
-            Padding = new global::Avalonia.Thickness(24),
-            Child = new TextBlock
+            // Kein Unterbau: gar nicht erst erzeugen. An seine Stelle kommt,
+            // was fehlt und wie es zu beheben ist.
+            host_Topology.Children.Add(new TextBlock
             {
+                Margin = new global::Avalonia.Thickness(24),
                 Text = "No embedded web engine on this system, so the graph opens in your browser " +
                        "when you press Draw.\n\n" +
                        "To get it back inside this window, install WPE WebKit - on Debian and Ubuntu:\n" +
@@ -906,8 +899,18 @@ public partial class ShellView : Window
                 TextWrapping = global::Avalonia.Media.TextWrapping.Wrap,
                 Foreground = new SolidColorBrush(Color.Parse("#5C6F73")),
                 VerticalAlignment = VerticalAlignment.Top
-            }
-        });
+            });
+
+            return;
+        }
+
+        _webTopology = new NativeWebView();
+
+        // Ohne WPE, aber mit GTK: der dokumentierte Ersatzweg. Der Haken muss
+        // stehen, bevor das Control seinen Unterbau erzeugt - also jetzt.
+        if (_webEngine == WebEngine.WebKitGtk) PreferWebKitGtk(_webTopology);
+
+        host_Topology.Children.Add(_webTopology);
     }
 
     private static bool CanLoad(string library)
@@ -978,10 +981,10 @@ public partial class ShellView : Window
             // Der Unterbau steht seit dem Erzeugen des Fensters fest - er wird
             // hier nur noch benutzt. Ihn jetzt erst zu bestimmen waere zu
             // spaet: die Ansicht ist beim Umschalten laengst aufgebaut worden.
-            bool embedded = _webEngine != WebEngine.None;
+            bool embedded = _webTopology is not null;
 
             IWebViewHost host = embedded
-                ? new NativeWebViewHost(webTopology)
+                ? new NativeWebViewHost(_webTopology!)
                 : new SystemBrowserWebViewHost();
 
             bool online = _shell.Settings.UseOnlineTopologyLibrary;
