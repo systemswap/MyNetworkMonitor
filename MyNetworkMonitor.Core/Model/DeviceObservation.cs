@@ -68,6 +68,27 @@ namespace MyNetworkMonitor.Core.Model
         public List<string>? Aliases { get; init; }
 
         /// <summary>
+        /// Rest-TTL der Ping-Antwort. 0 heisst "nicht gemessen" - nur der Ping
+        /// fuellt das Feld, alle anderen Verfahren lassen es leer.
+        /// </summary>
+        public int Ttl { get; init; }
+
+        /// <summary>
+        /// Wo das Geraet am Netz haengt, sofern ein Switch danach gefragt
+        /// werden konnte. Kommt aus der SNMP-Abfrage, nicht vom Geraet selbst.
+        /// </summary>
+        public string? SwitchName { get; init; }
+        public string? SwitchPort { get; init; }
+        public string? Vlan { get; init; }
+
+        /// <summary>Titel der Weboberflaeche und Angaben aus ihrem Zertifikat.</summary>
+        public string? WebTitle { get; init; }
+        public string? CertificateSubject { get; init; }
+        public string? CertificateIssuer { get; init; }
+        public DateTimeOffset? CertificateExpires { get; init; }
+        public bool? CertificateIsSelfSigned { get; init; }
+
+        /// <summary>
         /// Erkannte Dienste. Der Zustand wird je Adressfamilie gefuehrt - das
         /// meldende Verfahren traegt nur die Seite ein, die es geprueft hat,
         /// die andere bleibt <c>null</c>. Aus dem spaeteren Vergleich beider

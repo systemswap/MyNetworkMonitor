@@ -333,24 +333,11 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         }
 
         /// <summary>
-        /// Ordnet einen Dienst seiner Gruppe zu - dieselbe Gliederung, die das
-        /// <c>ServiceType</c>-Enum bereits durch seine Reihenfolge vorgibt.
+        /// Ordnet einen Dienst seiner Gruppe zu. Die Zuordnung steht in
+        /// <see cref="ServiceCategories"/>, weil auch die Portsuche ueber alle
+        /// Ports sie braucht.
         /// </summary>
-        private static string CategoryOf(ServiceType service) => service switch
-        {
-            ServiceType.WebServices or ServiceType.DNS_TCP or ServiceType.DNS_UDP
-                or ServiceType.DHCP or ServiceType.SSH or ServiceType.FTP => "Network",
-
-            ServiceType.RDP or ServiceType.UltraVNC or ServiceType.BigFixRemote
-                or ServiceType.TeamViewer or ServiceType.Anydesk
-                or ServiceType.RustdeskServer or ServiceType.RustdeskClient => "Remote",
-
-            ServiceType.MSSQLServer or ServiceType.PostgreSQL or ServiceType.MariaDB
-                or ServiceType.MySQL or ServiceType.OracleDB or ServiceType.MongoDB
-                or ServiceType.InfluxDB2 => "Databases",
-
-            _ => "Other"
-        };
+        private static string CategoryOf(ServiceType service) => ServiceCategories.Of(service);
 
         private static string? NullIfBlank(string? value) =>
             string.IsNullOrWhiteSpace(value) ? null : value.Trim();

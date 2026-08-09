@@ -283,6 +283,12 @@ namespace MyNetworkMonitor
         public bool PingStatus { get { return _PingStatus; } set { _PingStatus = value; } }
         public string ResponseTime { get { return _ResponseTime; } set { _ResponseTime = value; } }
 
+        // Die Rest-TTL der Ping-Antwort. 0 heisst "nicht gemessen".
+        // Aus ihr laesst sich das Betriebssystem grob ableiten, ohne ein
+        // einziges zusaetzliches Paket zu senden - siehe TtlFingerprint.
+        private int _TTL = 0;
+        public int TTL { get { return _TTL; } set { _TTL = value; } }
+
 
         private bool _IsIPCam = false;
         private string _IPCamName = string.Empty;
