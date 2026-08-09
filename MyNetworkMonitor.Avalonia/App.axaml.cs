@@ -90,14 +90,61 @@ public partial class App : Application
 
         notice.Accepted += () =>
         {
-            var mainWindow = CreateMainWindow();
+            // Der try ist hier kein Zierrat. Schlaegt das Erzeugen des
+            // Hauptfensters fehl, wird es nie gezeigt - der Hinweis schliesst
+            // sich trotzdem, es bleibt kein Fenster offen, und die
+            // Standardregel (OnLastWindowClose) beendet die Anwendung. Fuer den
+            // Nutzer sieht das aus, als beende ein Klick auf OK das Programm,
+            // und zwar ohne jede Meldung.
+            try
+            {
+                var mainWindow = CreateMainWindow();
 
-            // MainWindow umhaengen, damit spaetere Dialoge das richtige
-            // Besitzerfenster finden (AvaloniaDialogService liest es aus).
-            desktop.MainWindow = mainWindow;
-            mainWindow.Show();
+                // MainWindow umhaengen, damit spaetere Dialoge das richtige
+                // Besitzerfenster finden (AvaloniaDialogService liest es aus).
+                desktop.MainWindow = mainWindow;
+                mainWindow.Show();
+            }
+            catch (Exception ex)
+            {
+                ShowStartupFailure(desktop, ex);
+            }
         };
 
         return notice;
+    }
+
+    /// <summary>
+    /// Zeigt, woran der Start gescheitert ist - in einem eigenen Fenster, weil
+    /// es zu diesem Zeitpunkt kein anderes mehr gibt.
+    /// <para>
+    /// Ohne dieses Fenster verschwindet die Anwendung wortlos, und der Fehler
+    /// ist nur noch auf der Konsole zu sehen - die beim Doppelklick niemand
+    /// offen hat. Der Text ist markierbar, damit er sich weiterreichen laesst.
+    /// </para>
+    /// </summary>
+    private static void ShowStartupFailure(IClassicDesktopStyleApplicationLifetime desktop, Exception error)
+    {
+        var window = new global::Avalonia.Controls.Window
+        {
+            Title = "MyNetworkMonitor could not start",
+            Width = 720,
+            Height = 420,
+            WindowStartupLocation = global::Avalonia.Controls.WindowStartupLocation.CenterScreen,
+            Content = new global::Avalonia.Controls.ScrollViewer
+            {
+                Padding = new global::Avalonia.Thickness(16),
+                Content = new global::Avalonia.Controls.SelectableTextBlock
+                {
+                    FontFamily = new global::Avalonia.Media.FontFamily("Consolas, Menlo, monospace"),
+                    FontSize = 12,
+                    TextWrapping = global::Avalonia.Media.TextWrapping.Wrap,
+                    Text = "The main window could not be opened.\n\n" + error
+                }
+            }
+        };
+
+        desktop.MainWindow = window;
+        window.Show();
     }
 }

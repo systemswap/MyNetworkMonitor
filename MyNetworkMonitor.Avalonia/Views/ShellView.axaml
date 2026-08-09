@@ -1958,7 +1958,14 @@
             </StackPanel>
           </Border>
 
-          <NativeWebView x:Name="webTopology"/>
+          <!--
+              Die Webansicht wird bewusst im Code eingehaengt, nicht hier.
+              NativeWebView setzt unter Linux auf WPE WebKit auf; fehlt das,
+              reisst schon das Erzeugen des Controls den Prozess mit. Was hier
+              steht, entsteht aber beim Laden des XAML - also bevor irgendetwas
+              geprueft werden koennte. Siehe PrepareTopologyView.
+          -->
+          <Panel x:Name="host_Topology"/>
         </DockPanel>
 
         <!-- ========== Noch nicht gebaute Ansichten ========== -->
