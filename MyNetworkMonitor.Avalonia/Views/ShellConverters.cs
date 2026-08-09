@@ -256,6 +256,19 @@ public sealed class DnsCountBrushConverter : IValueConverter
         throw new NotSupportedException();
 }
 
+/// <summary>
+/// Faerbt das Ablaufdatum eines Zertifikats. Abgelaufen wird rot - das ist
+/// genau der Fall, um dessentwillen die Zeile ueberhaupt gelesen wird.
+/// </summary>
+public sealed class CertificateExpiryBrushConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is true ? ShellPalette.DupAddrFg : ShellPalette.Ink;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
 /// <summary>Hintergrund des Dringlichkeitskaestchens in der Befundliste.</summary>
 public sealed class SeverityBackgroundConverter : IValueConverter
 {

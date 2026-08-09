@@ -225,6 +225,77 @@ namespace MyNetworkMonitor.Core.Model
         /// <summary>Freitextangaben der Module: SNMP, mDNS, SSDP, SMB, ONVIF.</summary>
         public Dictionary<string, string> Details { get; } = new(StringComparer.OrdinalIgnoreCase);
 
+        // ------------------------------------------------ Herkunft und Standort
+
+        /// <summary>
+        /// Die Rest-TTL der letzten Ping-Antwort. 0 heisst "nicht gemessen".
+        /// </summary>
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(OsGuess))]
+        [NotifyPropertyChangedFor(nameof(HasOsGuess))]
+        private int _ttl;
+
+        /// <summary>
+        /// Das vermutete Betriebssystem, aus der TTL abgeleitet. Bewusst
+        /// berechnet und nicht gespeichert: die Regel dahinter kann sich
+        /// aendern, die gemessene TTL nicht.
+        /// </summary>
+        public string? OsGuess => Network.TtlFingerprint.Describe(Ttl);
+
+        public bool HasOsGuess => OsGuess is not null;
+
+        /// <summary>Der Switch, an dem das Geraet haengt - aus der SNMP-Abfrage.</summary>
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(HasSwitchInfo))]
+        private string _switchName = string.Empty;
+
+        /// <summary>Der Port an diesem Switch, etwa "GigabitEthernet1/0/12".</summary>
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(HasSwitchInfo))]
+        private string _switchPort = string.Empty;
+
+        /// <summary>Das VLAN, in dem der Switchport liegt.</summary>
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(HasSwitchInfo))]
+        private string _vlan = string.Empty;
+
+        public bool HasSwitchInfo =>
+            SwitchName.Length > 0 || SwitchPort.Length > 0 || Vlan.Length > 0;
+
+        // ------------------------------------------------------ Weboberflaeche
+
+        /// <summary>Der Titel der Seite hinter dem offenen Webport.</summary>
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(HasWebInfo))]
+        private string _webTitle = string.Empty;
+
+        /// <summary>Auf wen das TLS-Zertifikat ausgestellt ist.</summary>
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(HasWebInfo))]
+        private string _certificateSubject = string.Empty;
+
+        /// <summary>Wer es ausgestellt hat.</summary>
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(HasWebInfo))]
+        private string _certificateIssuer = string.Empty;
+
+        /// <summary>Wann es ablaeuft. <c>null</c>, wenn keines gelesen wurde.</summary>
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(HasWebInfo))]
+        [NotifyPropertyChangedFor(nameof(CertificateIsExpired))]
+        private DateTimeOffset? _certificateExpires;
+
+        /// <summary>Das Zertifikat hat sich selbst ausgestellt.</summary>
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(HasWebInfo))]
+        private bool _certificateIsSelfSigned;
+
+        public bool CertificateIsExpired =>
+            CertificateExpires is { } until && until < DateTimeOffset.Now;
+
+        public bool HasWebInfo =>
+            WebTitle.Length > 0 || CertificateSubject.Length > 0;
+
         /// <summary>
         /// Was die einzelnen Namensserver zu diesem Geraet gesagt haben, falls
         /// der Quervergleich gelaufen ist. Bewusst nicht gespeichert: es ist
@@ -376,6 +447,11 @@ namespace MyNetworkMonitor.Core.Model
             OnPropertyChanged(nameof(LookupAddressText));
             OnPropertyChanged(nameof(AliasText));
             OnPropertyChanged(nameof(HasLookupMismatch));
+            OnPropertyChanged(nameof(OsGuess));
+            OnPropertyChanged(nameof(HasOsGuess));
+            OnPropertyChanged(nameof(HasSwitchInfo));
+            OnPropertyChanged(nameof(HasWebInfo));
+            OnPropertyChanged(nameof(CertificateIsExpired));
             OnPropertyChanged(nameof(HasConflict));
             OnPropertyChanged(nameof(ConflictRank));
         }
