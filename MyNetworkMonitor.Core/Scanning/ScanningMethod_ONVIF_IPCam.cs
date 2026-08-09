@@ -164,26 +164,41 @@ namespace MyNetworkMonitor
             {
                 udpClient.EnableBroadcast = true;
                 udpClient.MulticastLoopback = false;
+
+                // Ohne das hier ging die Anfrage ueber die Standardroute des
+                // Betriebssystems, nicht ueber das ausgewaehlte Interface -
+                // wie bei SSDP (siehe dort).
+                if (SupportMethods.SelectedNetworkInterfaceInfos.IPv4 is { } selectedInterface)
+                {
+                    udpClient.Client.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastInterface,
+                        selectedInterface.GetAddressBytes());
+                }
+
                 IPEndPoint multicastEP = new IPEndPoint(IPAddress.Parse(ONVIF_MULTICAST_IP), ONVIF_PORT);
 
                 // Mehrfache Multicast-Anfragen senden (3 Versuche mit Pause)
                 for (int i = 0; i < 3; i++)
                 {
+                    if (_cts.Token.IsCancellationRequested) break;
                     await udpClient.SendAsync(requestBytes, requestBytes.Length, multicastEP);
-                    await Task.Delay(500); // 500ms Pause zwischen den Anfragen
+                    await Task.Delay(500, _cts.Token); // 500ms Pause zwischen den Anfragen
                 }
 
-                //var endpoint = new IPEndPoint(IPAddress.Any, ONVIF_PORT);
-                var endpoint = new IPEndPoint(SupportMethods.SelectedNetworkInterfaceInfos.IPv4, ONVIF_PORT);
                 udpClient.Client.ReceiveTimeout = 5000; // 📌 5 Sekunden Empfangszeit
 
                 try
                 {
                     DateTime startTime = DateTime.UtcNow;
-                    while (DateTime.UtcNow - startTime < DISCOVERY_TIMEOUT)
+
+                    // Frueher wurde _cts.Token hier nirgends geprueft - StopScan()
+                    // setzte zwar den Abbruch, aber diese Schleife las ihn nie,
+                    // lief also bis zum vollen DISCOVERY_TIMEOUT weiter. "Stop"
+                    // wirkte damit nur auf dem Papier.
+                    while (DateTime.UtcNow - startTime < DISCOVERY_TIMEOUT
+                           && !_cts.Token.IsCancellationRequested)
                     {
                         var receiveTask = udpClient.ReceiveAsync();
-                        var completedTask = await Task.WhenAny(receiveTask, Task.Delay(100));
+                        var completedTask = await Task.WhenAny(receiveTask, Task.Delay(100, _cts.Token));
 
                         if (completedTask == receiveTask) // Antwort erhalten
                         {
@@ -342,7 +357,11 @@ namespace MyNetworkMonitor
 
         public async Task LoadStreamingAndMACInfo()
         {
-            using HttpClient client = new HttpClient();
+            // Wird aus der Empfangsschleife in Discover() heraus aufgerufen -
+            // ohne eigenes Zeitlimit haengt eine einzelne langsame Kamera hier
+            // bis zu HttpClients Standard von 100 Sekunden, waehrend die
+            // Schleife auf Antworten weiterer Kameras nicht mehr reagiert.
+            using HttpClient client = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
             try
             {
                 string mediaUrl = $"{XAddress}/media_service";

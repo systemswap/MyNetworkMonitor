@@ -1717,6 +1717,23 @@
                 </StackPanel>
               </Border>
 
+              <!-- MAC-Herstellerliste -->
+              <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
+                      BorderThickness="1" CornerRadius="4" Padding="16,14">
+                <StackPanel Spacing="10">
+                  <TextBlock Text="MAC VENDOR DATABASE" Classes="settingsHead"/>
+
+                  <StackPanel Spacing="5">
+                    <Button Content="Update from Wireshark" HorizontalAlignment="Left"
+                            FontSize="11" MinHeight="0" Padding="10,5"
+                            Command="{Binding UpdateMacVendorsCommand}"
+                            IsEnabled="{Binding !IsUpdatingMacVendors}"/>
+                    <TextBlock Classes="settingHint"
+                               Text="The bundled list only covers the classic 24-bit vendor blocks (MA-L). Wireshark's manuf file adds the newer 28- and 36-bit blocks (MA-M, MA-S) that many smaller and IoT manufacturers use today, so more devices get a real vendor name instead of &quot;Unknown&quot;. Needs internet access; takes effect on the next scan."/>
+                  </StackPanel>
+                </StackPanel>
+              </Border>
+
               <!-- Namensaufloesung -->
               <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
                       BorderThickness="1" CornerRadius="4" Padding="16,14">

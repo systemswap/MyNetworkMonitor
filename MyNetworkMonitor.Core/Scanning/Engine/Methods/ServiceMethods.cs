@@ -77,9 +77,10 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
     }
 
     /// <summary>
-    /// UDP-Lauscher am Ziel ermitteln. Das Modul arbeitet ohne eigene
-    /// Abbruchmoeglichkeit und synchron - der Lauf wird darum auf einen
-    /// Hintergrund-Thread gelegt, damit die Oberflaeche nicht stehenbleibt.
+    /// Prueft die eingestellte Portauswahl per UDP. Sendet ein leeres Paket je
+    /// Port und wertet aus, was zurueckkommt - siehe
+    /// <see cref="ScanningMethod_PortsUDP"/> dazu, was das findet und was
+    /// prinzipbedingt nicht.
     /// </summary>
     public sealed class UdpPortScanMethod : LegacyScanMethod
     {
@@ -90,31 +91,49 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             "The same idea as the TCP check, but for services that answer without setting " +
             "up a connection first: name resolution, time servers, network management, " +
             "video and voice transmission. Slower and less certain than the TCP check - " +
-            "silence can mean \"closed\" just as well as \"nobody felt like answering\". " +
-            "Worth ticking when you are specifically after such services, not as a " +
-            "routine first pass.";
+            "silence can mean \"closed\" just as well as \"nobody felt like answering\", and " +
+            "a service that only replies to a properly formed request stays invisible to an " +
+            "empty probe. Worth ticking when you are specifically after such services, not " +
+            "as a routine first pass.";
         public override ScanPhase Phase => ScanPhase.Services;
         public override FamilySupport Families => FamilySupport.IPv4;
 
-        public override ScanMethodAvailability CheckAvailability(ScanContext context) =>
-            context.HasTargetsOf(IpFamily.IPv4)
-                ? ScanMethodAvailability.Available
-                : ScanMethodAvailability.NotApplicable(NoIpv4Targets);
+        public override ScanMethodAvailability CheckAvailability(ScanContext context)
+        {
+            if (!context.HasTargetsOf(IpFamily.IPv4))
+            {
+                return ScanMethodAvailability.NotApplicable(NoIpv4Targets);
+            }
+
+            if (!context.Settings.ScanAllPorts && context.Settings.UdpPorts.Count == 0)
+            {
+                return ScanMethodAvailability.NotApplicable(
+                    "No ports selected. Pick ports under Manage, or switch on \"all ports\".");
+            }
+
+            return ScanMethodAvailability.Available;
+        }
 
         public override async Task ExecuteAsync(ScanContext context, CancellationToken cancellationToken)
         {
             LegacyTargets targets = BuildTargets(context);
             if (targets.Count == 0) return;
 
+            List<int> ports = context.Settings.ScanAllPorts
+                ? [.. Enumerable.Range(1, 65535)]
+                : [.. context.Settings.UdpPorts];
+
             ScanningMethod_PortsUDP udp = new();
 
             void OnFound(object? _, ScanTask_Finished_EventArgs e) => ReportResult(context, e.ipToScan, targets);
 
             udp.UDPPortScan_Task_Finished += OnFound;
+            using CancellationTokenRegistration reg = BridgeCancellation(cancellationToken, udp.StopScan);
 
             try
             {
-                await Task.Run(() => udp.Get_All_UPD_Listener_as_List(targets.Items), cancellationToken);
+                await udp.ScanUDPPortsAsync(targets.Items, ports,
+                    TimeSpan.FromMilliseconds(context.Settings.PortTimeoutMs));
             }
             finally
             {

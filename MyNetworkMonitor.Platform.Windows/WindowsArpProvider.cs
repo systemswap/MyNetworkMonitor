@@ -46,7 +46,13 @@ namespace MyNetworkMonitor.Platform.Windows
             foreach (var line in output.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries))
             {
                 var pieces = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
-                if (pieces.Length == 3)
+
+                // "3 Wortstuecke" allein reicht nicht - Ueberschriften- und
+                // Interface-Zeilen ("Interface: 192.168.1.5 --- 0xc") koennen
+                // je nach Windows-Version und Sprache zufaellig auch auf drei
+                // Stuecke aufgehen. Erst wenn das erste Stueck wirklich eine
+                // IP-Adresse ist, ist es ein Datensatz und keine Kopfzeile.
+                if (pieces.Length == 3 && IPAddress.TryParse(pieces[0], out _))
                 {
                     entries.Add(new ArpEntry { IpAddress = pieces[0], MacAddress = pieces[1] });
                 }
@@ -91,6 +97,17 @@ namespace MyNetworkMonitor.Platform.Windows
                 string output = await p.StandardOutput.ReadToEndAsync().WaitAsync(cancellationToken).ConfigureAwait(false);
                 await p.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
                 return output;
+            }
+            catch (OperationCanceledException)
+            {
+                // Sonst laeuft "arp -a" im Hintergrund weiter, obwohl der Scan
+                // laengst als abgebrochen gilt - kurzlebig genug, dass es
+                // selten auffiel, aber bei vielen Zielen in Folge unnoetig.
+                if (p is not null)
+                {
+                    try { p.Kill(entireProcessTree: true); } catch (InvalidOperationException) { /* bereits beendet */ }
+                }
+                throw;
             }
             finally
             {

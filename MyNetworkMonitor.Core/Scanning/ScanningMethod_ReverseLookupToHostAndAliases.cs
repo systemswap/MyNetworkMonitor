@@ -199,6 +199,27 @@ namespace MyNetworkMonitor
             });
         }
 
+        /// <summary>
+        /// Ein Client je einzelnem Namensserver, fuer den Deep-Scan - derselbe
+        /// Grund wie bei <see cref="ClientFor"/>, nur nach Server statt nach
+        /// Server-Zusammenstellung geschluesselt.
+        /// </summary>
+        private LookupClient SingleServerClientFor(NameServer dnsServer)
+        {
+            return _clients.GetOrAdd("single:" + dnsServer.Address, _ =>
+            {
+                LookupClientOptions options = new([dnsServer])
+                {
+                    Timeout = QueryTimeout,
+                    Retries = 1,
+                    UseCache = true,
+                    ThrowDnsErrors = false
+                };
+
+                return new LookupClient(options);
+            });
+        }
+
         private async Task ReverseLookupToHostAndAliases(IPToScan ipToScan, bool isDeepDNSServerScan)
         {
             if (_cts.Token.IsCancellationRequested) return; // 🔹 Abbruch vor dem Start prüfen
@@ -227,14 +248,28 @@ namespace MyNetworkMonitor
 
                 if (isDeepDNSServerScan)
                 {
-                    //alle DNS Server einzeln prüfen welcher diesen hostnamen auflösen kann
+                    // Alle DNS-Server einzeln pruefen, welcher diesen Hostnamen
+                    // aufloesen kann. Jeder Server bekommt sein eigenes
+                    // Zeitbudget statt sich eines mit der ersten Abfrage und
+                    // allen uebrigen Servern zu teilen - vorher lief das
+                    // gemeinsame CancelAfter(QueryTimeout) schon fuer die
+                    // Abfrage oben mit, und bei mehr als ein, zwei konfigurierten
+                    // Servern blieb fuer die spaeteren nichts mehr uebrig; sie
+                    // scheiterten dann lautlos an der bereits abgelaufenen Zeit,
+                    // nicht am fehlenden Eintrag. Der Client wird ausserdem
+                    // wiederverwendet statt bei jeder Adresse neu gebaut -
+                    // derselbe Grund wie bei ClientFor().
                     foreach (var dnsServer in client.NameServers)
                     {
                         try
                         {
-                            // Erstelle LookupClient mit spezifischem Nameserver
-                            var singleLookup = new LookupClient(dnsServer);
-                            var result = await singleLookup.GetHostEntryAsync(ipToScan.IPorHostname).WaitAsync(cts.Token);
+                            LookupClient singleLookup = SingleServerClientFor(dnsServer);
+
+                            using CancellationTokenSource serverCts =
+                                CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
+                            serverCts.CancelAfter(QueryTimeout);
+
+                            var result = await singleLookup.GetHostEntryAsync(ipToScan.IPorHostname).WaitAsync(serverCts.Token);
 
                             if (result != null)
                             {
