@@ -291,6 +291,15 @@ namespace MyNetworkMonitor.Core.ViewModels
                 ServiceDisplay.Grouped.Add(name);
             }
 
+            // Offene Ports ohne erkannten Dienst ("TCP 8080", "UDP 53", ...)
+            // sind der Fall, der die Spalte am haeufigsten sprengt - darum
+            // eigene Schalter, voreingestellt an, statt sie ueber die
+            // namentliche Liste einzeln abwaehlen zu muessen.
+            ServiceDisplay.GroupTcpPorts = _userSettings.GetBool("GroupTcpPorts", true);
+            ServiceDisplay.GroupUdpPorts = _userSettings.GetBool("GroupUdpPorts", true);
+            OnPropertyChanged(nameof(GroupTcpPorts));
+            OnPropertyChanged(nameof(GroupUdpPorts));
+
             OnPropertyChanged(nameof(GroupServices));
             BuildGroupableServices();
 
@@ -482,6 +491,41 @@ namespace MyNetworkMonitor.Core.ViewModels
 
                 ServiceDisplay.GroupSelected = value;
                 _userSettings?.SetBool("GroupServices", value);
+
+                OnPropertyChanged();
+                ServiceDisplay.NotifyChanged();
+            }
+        }
+
+        /// <summary>
+        /// Offene TCP-Ports ohne erkannten Dienst zu einem Chip "TCP Ports"
+        /// zusammenfassen, statt jeden einzeln zu zeigen.
+        /// </summary>
+        public bool GroupTcpPorts
+        {
+            get => ServiceDisplay.GroupTcpPorts;
+            set
+            {
+                if (ServiceDisplay.GroupTcpPorts == value) return;
+
+                ServiceDisplay.GroupTcpPorts = value;
+                _userSettings?.SetBool("GroupTcpPorts", value);
+
+                OnPropertyChanged();
+                ServiceDisplay.NotifyChanged();
+            }
+        }
+
+        /// <summary>Dasselbe fuer UDP-Ports, siehe <see cref="GroupTcpPorts"/>.</summary>
+        public bool GroupUdpPorts
+        {
+            get => ServiceDisplay.GroupUdpPorts;
+            set
+            {
+                if (ServiceDisplay.GroupUdpPorts == value) return;
+
+                ServiceDisplay.GroupUdpPorts = value;
+                _userSettings?.SetBool("GroupUdpPorts", value);
 
                 OnPropertyChanged();
                 ServiceDisplay.NotifyChanged();
