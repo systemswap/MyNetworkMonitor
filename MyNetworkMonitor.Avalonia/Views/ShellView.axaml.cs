@@ -119,6 +119,7 @@ public partial class ShellView : Window
         engine.Register(new ArpCacheScanMethod());
         engine.Register(new SsdpScanMethod());
         engine.Register(new MdnsScanMethod());
+        engine.Register(new WsDiscoveryScanMethod());
         // Reihenfolge innerhalb der Phase = Reihenfolge hier. Die
         // Rueckwaertsaufloesung muss vor der Vorwaertsaufloesung stehen: erst
         // liefert sie zur Adresse den Namen, dann fragt die Vorwaerts-
@@ -129,10 +130,15 @@ public partial class ShellView : Window
         engine.Register(new NetBiosScanMethod());
         engine.Register(new SnmpScanMethod());
         engine.Register(new OnvifScanMethod());
+        engine.Register(new SwitchPortScanMethod());
         engine.Register(new TcpPortScanMethod());
         engine.Register(new UdpPortScanMethod());
         engine.Register(new SmbVersionScanMethod());
         engine.Register(new ServiceDetectionScanMethod(ServiceXmlPath()));
+
+        // Nach dem Portscan und der Diensterkennung: dieses Verfahren fragt an
+        // den Ports nach, die die beiden vorher als offen gemeldet haben.
+        engine.Register(new WebIdentityScanMethod());
     }
 
     /// <summary>
@@ -772,6 +778,109 @@ public partial class ShellView : Window
     }
 
     /// <summary>
+    /// Welcher Unterbau der eingebetteten Webansicht auf diesem System zur
+    /// Verfuegung steht.
+    /// </summary>
+    private enum WebEngine
+    {
+        /// <summary>Kein Unterbau vorhanden - es bleibt nur der Browser.</summary>
+        None,
+
+        /// <summary>Der Normalfall: Windows WebView2 oder Linux mit WPE WebKit.</summary>
+        Native,
+
+        /// <summary>Linux ohne WPE, aber mit WebKitGTK - eingebettet ueber den Ersatzweg.</summary>
+        WebKitGtk
+    }
+
+    /// <summary>
+    /// Die nativen Bibliotheken, die die eingebettete Ansicht unter Linux
+    /// braucht.
+    /// <para>
+    /// <b>Das ist die Ursache des Absturzes unter Debian 13:</b> der Linux-Unterbau
+    /// von <c>NativeWebView</c> ist nicht WebKitGTK, sondern <b>WPE WebKit</b> -
+    /// die Namen stehen als P/Invoke-Ziele in
+    /// <c>Avalonia.Controls.WebView.dll</c>. Debian 13 hat die Pakete, aber
+    /// installiert sie nicht von sich aus; fehlen sie, scheitert der Ladevorgang
+    /// im nativen Teil und nimmt den Prozess mit, statt eine Ausnahme zu werfen,
+    /// die sich abfangen liesse. Darum wird vorher geprueft statt hinterher
+    /// aufgefangen.
+    /// </para>
+    /// </summary>
+    private static readonly string[] WpeLibraries =
+    [
+        "libWPEWebKit-2.0.so.1",
+        "libwpe-1.0.so.1",
+        "libWPEBackend-fdo-1.0.so.1"
+    ];
+
+    /// <summary>Die GTK-Webengine, der dokumentierte Ersatzweg unter Linux.</summary>
+    private static readonly string[] WebKitGtkLibraries =
+    [
+        "libwebkit2gtk-4.1.so.0",
+        "libwebkit2gtk-4.0.so.37"
+    ];
+
+    /// <summary>
+    /// Was in der Statuszeile steht, wenn der Graph im Browser geoeffnet wurde.
+    /// Nennt die Ursache und die Abhilfe beim Namen - "geht nicht" allein hilft
+    /// niemandem weiter.
+    /// </summary>
+    private const string NoEmbeddedViewHint =
+        "Opened in your browser: this system has no embedded web engine. " +
+        "To get the view back inside the window, install WPE WebKit - on Debian and " +
+        "Ubuntu that is: sudo apt install libwpewebkit-2.0-1 libwpe-1.0-1 libwpebackend-fdo-1.0-1";
+
+    /// <summary>
+    /// Bestimmt, womit die eingebettete Ansicht arbeiten kann.
+    /// <para>
+    /// Geprueft wird durch Laden der Bibliothek und nicht durch einen Versuch,
+    /// das Control zu erzeugen: der Fehlversuch beendet den Prozess, und ein
+    /// <c>try</c> darum herum hilft dagegen nicht.
+    /// </para>
+    /// </summary>
+    private static WebEngine AvailableWebEngine()
+    {
+        // Windows und macOS bringen ihre Engine mit.
+        if (!OperatingSystem.IsLinux()) return WebEngine.Native;
+
+        if (WpeLibraries.All(CanLoad)) return WebEngine.Native;
+        if (WebKitGtkLibraries.Any(CanLoad)) return WebEngine.WebKitGtk;
+
+        return WebEngine.None;
+    }
+
+    private static bool CanLoad(string library)
+    {
+        if (!System.Runtime.InteropServices.NativeLibrary.TryLoad(library, out nint handle)) return false;
+
+        System.Runtime.InteropServices.NativeLibrary.Free(handle);
+        return true;
+    }
+
+    /// <summary>
+    /// Schaltet die Ansicht auf den GTK-Unterbau um.
+    /// <para>
+    /// Der Schalter kommt ueber <c>EnvironmentRequested</c>: das Ereignis wird
+    /// gerufen, waehrend die Ansicht ihren Unterbau aufbaut, und die
+    /// Ereignisdaten sind je Plattform andere. Unter Linux sind es
+    /// <c>LinuxWpeWebViewEnvironmentRequestedEventArgs</c> - nur dort gibt es
+    /// <c>PreferWebKitGtkInstead</c>, darum die Pruefung auf den Typ statt auf
+    /// das Betriebssystem.
+    /// </para>
+    /// </summary>
+    private static void PreferWebKitGtk(NativeWebView view)
+    {
+        view.EnvironmentRequested += (_, args) =>
+        {
+            if (args is global::Avalonia.Platform.LinuxWpeWebViewEnvironmentRequestedEventArgs linux)
+            {
+                linux.PreferWebKitGtkInstead = true;
+            }
+        };
+    }
+
+    /// <summary>
     /// Zeichnet die Topologie aus dem aktuellen Bestand.
     /// <para>
     /// Bewusst auf Knopfdruck und nicht beim Aufschlagen der Ansicht: der
@@ -806,7 +915,22 @@ public partial class ShellView : Window
         {
             tb_TopologyHint.Text = $"Drawing {devices.Count} devices...";
 
-            NativeWebViewHost host = new(webTopology);
+            WebEngine engine = AvailableWebEngine();
+            bool embedded = engine != WebEngine.None;
+
+            // Ohne WPE, aber mit GTK: der dokumentierte Ersatzweg. Der Haken
+            // muss stehen, bevor die Ansicht ihren Unterbau erzeugt - danach
+            // ist die Entscheidung gefallen.
+            if (engine == WebEngine.WebKitGtk) PreferWebKitGtk(webTopology);
+
+            IWebViewHost host = embedded
+                ? new NativeWebViewHost(webTopology)
+                : new SystemBrowserWebViewHost();
+
+            // Ohne eingebettete Ansicht bleibt die Flaeche leer - dann soll dort
+            // wenigstens stehen, wohin der Graph gegangen ist.
+            webTopology.IsVisible = embedded;
+
             bool online = _shell.Settings.UseOnlineTopologyLibrary;
 
             if (services)
@@ -822,6 +946,8 @@ public partial class ShellView : Window
 
                 tb_TopologyHint.Text = "Duplicate addresses and names are drawn as coloured edges.";
             }
+
+            if (!embedded) tb_TopologyHint.Text += " " + NoEmbeddedViewHint;
         }
         catch (Exception ex)
         {

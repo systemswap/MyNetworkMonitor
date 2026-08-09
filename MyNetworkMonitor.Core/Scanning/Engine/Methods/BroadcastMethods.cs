@@ -149,6 +149,119 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
     }
 
     /// <summary>
+    /// WS-Discovery: die Rundfrage, auf die Windows-Rechner und Netzwerkdrucker
+    /// antworten.
+    /// <para>
+    /// Der Grund, warum es dieses Verfahren gibt: alle uebrigen finden nur
+    /// Geraete, die auf eine gezielte Anfrage antworten. Ein Windows-Rechner mit
+    /// Standardfirewall tut das nicht - er blockt ICMP, hat oft keinen
+    /// PTR-Eintrag und zeigt von aussen keine offenen Ports. Hier antwortet er,
+    /// weil Windows selbst darueber seine Netzwerkumgebung fuellt.
+    /// </para>
+    /// <para>
+    /// Meldet die Adresse als antwortend und traegt die Geraeteklasse ein.
+    /// Bindet den Empfangspunkt wie SSDP an die gewaehlte Netzkarte - darum
+    /// dieselbe Vorbedingung.
+    /// </para>
+    /// </summary>
+    public sealed class WsDiscoveryScanMethod : LegacyScanMethod
+    {
+        /// <summary>Wie lange auf Antworten gewartet wird.</summary>
+        public int ListenTimeMs { get; set; } = 5000;
+
+        public override string Id => "wsdiscovery";
+        public override string DisplayName => "WS-Discovery";
+
+        public override string Explanation =>
+            "Calls into the network the way Windows itself does when it fills its network " +
+            "neighbourhood, and notes who answers. This is the one method that finds the " +
+            "machines all the others miss: a Windows PC with its standard firewall does " +
+            "not answer a ping, has no name in DNS and shows no open ports - it is simply " +
+            "invisible to a normal scan. Here it answers. Network printers and scanners " +
+            "answer too, and say which of the two they are. Tick this when the device " +
+            "count looks too low for the size of the network.";
+
+        public override ScanPhase Phase => ScanPhase.Discovery;
+        public override FamilySupport Families => FamilySupport.IPv4;
+
+        // Eine Frage an alle, dann zuhoeren - es gibt keine Zielliste.
+        public override bool EnumeratesTargets => false;
+
+        public override ScanMethodAvailability CheckAvailability(ScanContext context) =>
+            SupportMethods.SelectedNetworkInterfaceInfos.IPv4 is null
+                ? ScanMethodAvailability.Blocked(
+                    "No network adapter selected. WS-Discovery has to send from a local IPv4 address.")
+                : ScanMethodAvailability.Available;
+
+        public override async Task ExecuteAsync(ScanContext context, CancellationToken cancellationToken)
+        {
+            System.Net.IPAddress? local = SupportMethods.SelectedNetworkInterfaceInfos.IPv4;
+            if (local is null) return;
+
+            ScanningMethod_WSDiscovery discovery = new();
+
+            void OnProgress(int c, int r, int t, ScanStatus s) => context.ReportProgress(c, r, t);
+
+            void OnFound(WsDiscoveryResult found)
+            {
+                if (!IpAddressAnalyzer.TryAnalyze(found.Address, out IpAddressInfo? info) || info is null) return;
+
+                Dictionary<string, string> details = new() { ["WS-Discovery"] = found.Info };
+
+                context.Report(new DeviceObservation
+                {
+                    Source = DisplayName,
+                    Address = info,
+
+                    // Der eigentliche Fund: die Adresse lebt. Genau das war
+                    // vorher nicht zu sehen.
+                    IsResponding = true,
+                    Details = details,
+                    Services = BuildService(found, info.Family)
+                });
+            }
+
+            discovery.ProgressUpdated += OnProgress;
+            discovery.WSDiscovery_DeviceFound += OnFound;
+            using CancellationTokenRegistration reg = BridgeCancellation(cancellationToken, discovery.StopScan);
+
+            try
+            {
+                await discovery.DiscoverAsync(local, ListenTimeMs);
+            }
+            finally
+            {
+                discovery.ProgressUpdated -= OnProgress;
+                discovery.WSDiscovery_DeviceFound -= OnFound;
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+
+        /// <summary>
+        /// Traegt den Fund auch in die Dienstspalte ein - Port 3702, wie SMB
+        /// und SNMP es an ihrer Stelle tun. Sonst stuende ein Geraet, das nur
+        /// hierueber gefunden wurde, ohne einen einzigen Dienst in der Tabelle
+        /// und saehe aus wie ein leerer Eintrag.
+        /// </summary>
+        private static List<DeviceServiceResult> BuildService(WsDiscoveryResult found, IpFamily family)
+        {
+            DeviceServiceResult entry = new()
+            {
+                ServiceName = "WS-Discovery",
+                Category = "Network",
+                Ports = [3702],
+                PortLog = found.Kind is null ? found.Info : $"{found.Kind}{Environment.NewLine}{found.Info}"
+            };
+
+            if (family == IpFamily.IPv6) entry.StatusIPv6 = PortStatus.IsRunning;
+            else entry.StatusIPv4 = PortStatus.IsRunning;
+
+            return [entry];
+        }
+    }
+
+    /// <summary>
     /// ONVIF-Suche nach IP-Kameras. Wie SSDP eine Rundfrage an alle statt
     /// einer Abfrage je Ziel.
     /// </summary>

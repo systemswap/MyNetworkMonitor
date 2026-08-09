@@ -1,7 +1,162 @@
+using MyNetworkMonitor.Core.Model;
 using MyNetworkMonitor.Core.Network;
 
 namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 {
+    /// <summary>
+    /// Fragt die Switches, an welchem Port welches Geraet haengt.
+    /// <para>
+    /// <b>Die Frage, die sonst niemand beantwortet:</b> alle uebrigen Verfahren
+    /// sagen, <em>dass</em> ein Geraet da ist. Dieses sagt, <em>wo</em> es
+    /// steckt - an welchem Switch, an welchem Port, in welchem VLAN. Das ist die
+    /// Angabe, mit der man tatsaechlich hingehen und ein Kabel ziehen kann.
+    /// </para>
+    /// <para>
+    /// Gefragt wird ueber SNMP und nicht durch Mithoeren von LLDP-Frames.
+    /// Mithoeren braeuchte npcap beziehungsweise <c>CAP_NET_RAW</c> und
+    /// verriete nur, woran der eigene Rechner haengt; der Switch dagegen fuehrt
+    /// die Zuordnung fuer alle seine Ports und gibt sie heraus, sobald die
+    /// Gemeinschaftskennung stimmt.
+    /// </para>
+    /// </summary>
+    public sealed class SwitchPortScanMethod : LegacyScanMethod
+    {
+        public override string Id => "switch.ports";
+        public override string DisplayName => "Switch port and VLAN";
+
+        public override string Explanation =>
+            "Asks the switches themselves which device is plugged into which port, and " +
+            "which VLAN that port belongs to. Every other method tells you that a device " +
+            "exists; this one tells you where it physically sits - the answer you need " +
+            "when something has to be unplugged, traced or moved. It also shows up devices " +
+            "sitting in a VLAN they were never meant to be in. Needs SNMP access to the " +
+            "switch, so set the community string under Settings if it is not \"public\".";
+
+        public override ScanPhase Phase => ScanPhase.Identification;
+        public override FamilySupport Families => FamilySupport.IPv4;
+
+        // Gefragt werden die Switches, nicht die Geraete - eine Zielliste der
+        // gefundenen Geraete gibt es hier also nicht zu kuerzen.
+        public override bool EnumeratesTargets => false;
+
+        public override ScanMethodAvailability CheckAvailability(ScanContext context) =>
+            SwitchAddresses(context).Count == 0
+                ? ScanMethodAvailability.NotApplicable(
+                    "No gateway known. The switch is asked at the gateway address of the selected ranges.")
+                : ScanMethodAvailability.Available;
+
+        public override async Task ExecuteAsync(ScanContext context, CancellationToken cancellationToken)
+        {
+            List<string> switches = SwitchAddresses(context);
+            if (switches.Count == 0) return;
+
+            ScanningMethod_SwitchPorts module = new()
+            {
+                Community = context.Settings.SnmpCommunity,
+                TimeoutMs = context.Settings.PortTimeoutMs
+            };
+
+            void OnProgress(int c, int r, int t, ScanStatus s) => context.ReportProgress(c, r, t);
+            void OnFound(SwitchPortResult found) => Report(context, found);
+
+            module.ProgressUpdated += OnProgress;
+            module.SwitchPortFound += OnFound;
+            using CancellationTokenRegistration reg = BridgeCancellation(cancellationToken, module.StopScan);
+
+            try
+            {
+                await module.ScanAsync(switches);
+            }
+            finally
+            {
+                module.ProgressUpdated -= OnProgress;
+                module.SwitchPortFound -= OnFound;
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+
+        /// <summary>
+        /// Welche Adressen als Switch befragt werden: die Gateways der Adapter,
+        /// die zu den gewaehlten Bereichen gehoeren.
+        /// <para>
+        /// Das Gateway ist nicht immer der Switch, an dem das Geraet haengt -
+        /// in kleinen Netzen aber fast immer, und in groesseren ist es der
+        /// Ausgangspunkt, von dem aus man weitersucht. Ein Verfahren, das
+        /// stattdessen jede gefundene Adresse mit SNMP anspraeche, waere ein
+        /// Portscan auf 161 und dauerte ein Vielfaches.
+        /// </para>
+        /// </summary>
+        private static List<string> SwitchAddresses(ScanContext context)
+        {
+            List<string> addresses = [];
+
+            foreach (ScopeRuntime runtime in context.Scopes)
+            {
+                if (runtime.Interface is null) continue;
+
+                IEnumerable<string> gateways = runtime.Interface
+                    .GetIPProperties().GatewayAddresses
+                    .Where(g => g.Address is not null)
+                    .Select(g => g.Address.ToString());
+
+                foreach (string gateway in gateways)
+                {
+                    // Nur IPv4: die Bridge-MIB wird ueber die v4-Adresse des
+                    // Switches abgefragt, und der Umbau auf v6 steht erst mit
+                    // den uebrigen Verfahren an.
+                    if (!IpAddressAnalyzer.TryAnalyze(gateway, out IpAddressInfo? info) || info is null) continue;
+                    if (info.Family != IpFamily.IPv4) continue;
+
+                    if (!addresses.Contains(info.Canonical, StringComparer.OrdinalIgnoreCase))
+                    {
+                        addresses.Add(info.Canonical);
+                    }
+                }
+            }
+
+            return addresses;
+        }
+
+        /// <summary>
+        /// Meldet den Fund ueber die MAC-Adresse.
+        /// <para>
+        /// Bewusst ohne IP-Adresse: der Switch kennt nur MAC-Adressen, und die
+        /// Zuordnung zum Geraet macht der Speicher ueber seine Kennungskaskade
+        /// ohnehin besser, als es hier gelaenge. Ein Geraet, das noch gar nicht
+        /// gefunden wurde, entsteht dabei neu - mit seinem Switchport als
+        /// erster Angabe. Das ist gewollt: es haengt am Netz, auch wenn es auf
+        /// nichts antwortet.
+        /// </para>
+        /// </summary>
+        private static void Report(ScanContext context, SwitchPortResult found)
+        {
+            if (found.ParsedMac is not { } mac) return;
+
+            List<string> lines =
+            [
+                $"Switch: {found.SwitchName} ({found.SwitchAddress})",
+                $"Port: {found.Port}"
+            ];
+
+            if (!string.IsNullOrWhiteSpace(found.Vlan)) lines.Add($"VLAN: {found.Vlan}");
+
+            context.Report(new DeviceObservation
+            {
+                Source = "Switch port and VLAN",
+                Mac = mac,
+
+                // Kein IsResponding: dass der Switch die MAC in seiner Tabelle
+                // fuehrt, heisst nur, dass sie kuerzlich gesprochen hat - nicht,
+                // dass sie uns geantwortet haette.
+                SwitchName = found.SwitchName,
+                SwitchPort = found.Port,
+                Vlan = found.Vlan,
+                Details = new Dictionary<string, string> { ["Switch port"] = string.Join(Environment.NewLine, lines) }
+            });
+        }
+    }
+
     /// <summary>Loest Hostnamen ueber DNS auf.</summary>
     public sealed class HostnameLookupScanMethod : LegacyScanMethod
     {

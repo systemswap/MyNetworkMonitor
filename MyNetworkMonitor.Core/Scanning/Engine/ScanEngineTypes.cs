@@ -168,6 +168,18 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
         /// <summary>Alle 65 536 Ports statt der Auswahl.</summary>
         [ObservableProperty] private bool _scanAllPorts;
 
+        /// <summary>
+        /// Die SNMP-Gemeinschaftskennung, mit der Switches und verwaltete
+        /// Geraete gefragt werden.
+        /// <para>
+        /// "public" ist die Werkseinstellung und in vielen Netzen lesend noch
+        /// gesetzt. Wo nicht, bleibt die Switchport-Abfrage ohne Ergebnis - ein
+        /// Fall, der bewusst still bleibt: eine Fehlermeldung je nicht
+        /// antwortendem Geraet waere hier ein Dauerrauschen.
+        /// </para>
+        /// </summary>
+        [ObservableProperty] private string _snmpCommunity = "public";
+
         /// <summary>Zu pruefende Dienste. Leer heisst: alle aktivierten.</summary>
         public List<ServiceType> Services { get; init; } = [];
 

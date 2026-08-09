@@ -326,6 +326,21 @@ namespace MyNetworkMonitor.Core.Model
                 }
             }
 
+            // Eine gemessene TTL ersetzt die vorherige, eine fehlende loescht
+            // nichts: nur der Ping fuellt das Feld, jede andere Sichtung traegt
+            // dort eine 0 und wuerde die Messung sonst wieder ausradieren.
+            if (o.Ttl > 0) device.Ttl = o.Ttl;
+
+            if (!string.IsNullOrWhiteSpace(o.SwitchName)) device.SwitchName = o.SwitchName;
+            if (!string.IsNullOrWhiteSpace(o.SwitchPort)) device.SwitchPort = o.SwitchPort;
+            if (!string.IsNullOrWhiteSpace(o.Vlan)) device.Vlan = o.Vlan;
+
+            if (!string.IsNullOrWhiteSpace(o.WebTitle)) device.WebTitle = o.WebTitle;
+            if (!string.IsNullOrWhiteSpace(o.CertificateSubject)) device.CertificateSubject = o.CertificateSubject;
+            if (!string.IsNullOrWhiteSpace(o.CertificateIssuer)) device.CertificateIssuer = o.CertificateIssuer;
+            if (o.CertificateExpires is not null) device.CertificateExpires = o.CertificateExpires;
+            if (o.CertificateIsSelfSigned is { } selfSigned) device.CertificateIsSelfSigned = selfSigned;
+
             if (o.Address is not null) ApplyAddress(device, o);
             if (o.Services is not null) ApplyServices(device, o);
         }

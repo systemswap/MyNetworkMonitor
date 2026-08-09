@@ -189,6 +189,11 @@ namespace MyNetworkMonitor
                 ipToScan.PingStatus = success;
                 ipToScan.UsedScanMethod = ScanMethod.Ping;
 
+                // Die Rest-TTL der Antwort. Sie liegt ohnehin im Paket - sie
+                // nicht zu lesen hiesse, eine Auskunft ueber das Betriebssystem
+                // wegzuwerfen, die nichts kostet. Auswertung in TtlFingerprint.
+                if (success) ipToScan.TTL = reply?.Options?.Ttl ?? 0;
+
                 // Nur eine echte Antwort zaehlt als Antwort. Mit "show unused"
                 // laeuft auch ein stummes Ziel bis hierher - es mitzuzaehlen
                 // machte aus der mittleren Zahl eine zweite Kopie der ersten

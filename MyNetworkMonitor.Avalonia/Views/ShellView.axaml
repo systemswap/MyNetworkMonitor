@@ -69,6 +69,7 @@
     <conv:ConflictBackgroundConverter x:Key="DupBg"/>
     <conv:ConflictForegroundConverter x:Key="DupFg"/>
     <conv:DnsCountBrushConverter x:Key="DnsCountBrush"/>
+    <conv:CertificateExpiryBrushConverter x:Key="ExpiryBrush"/>
     <conv:SeverityBackgroundConverter x:Key="SeverityBg"/>
     <conv:SeverityForegroundConverter x:Key="SeverityFg"/>
   </Window.Resources>
@@ -991,22 +992,84 @@
                       </StackPanel>
                     </Border>
 
+                    <!-- Wo das Geraet steckt. Steht weit oben, weil es die
+                         Angabe ist, mit der man tatsaechlich hingehen kann -
+                         alles Uebrige beschreibt nur, was es tut. -->
+                    <Border Padding="12,9" BorderBrush="#E3EBEC" BorderThickness="0,0,0,1"
+                            IsVisible="{Binding HasSwitchInfo}">
+                      <StackPanel>
+                        <SelectableTextBlock Text="WHERE IT IS PLUGGED IN" Classes="sectionHead"/>
+                        <Grid ColumnDefinitions="78,*" RowDefinitions="Auto,Auto,Auto">
+                          <SelectableTextBlock Grid.Row="0" Grid.Column="0" Text="Switch" Classes="kvKey"/>
+                          <SelectableTextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SwitchName}"
+                                     Classes="kvValue" TextWrapping="Wrap"/>
+                          <SelectableTextBlock Grid.Row="1" Grid.Column="0" Text="Port" Classes="kvKey"/>
+                          <SelectableTextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SwitchPort}"
+                                     Classes="kvValue" TextWrapping="Wrap"/>
+                          <SelectableTextBlock Grid.Row="2" Grid.Column="0" Text="VLAN" Classes="kvKey"/>
+                          <SelectableTextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Vlan}" Classes="kvValue"/>
+                        </Grid>
+                      </StackPanel>
+                    </Border>
+
+                    <!-- Die Weboberflaeche. Der Seitentitel ist oft die einzige
+                         Stelle, an der ein Geraet seinen Modellnamen nennt. -->
+                    <Border Padding="12,9" BorderBrush="#E3EBEC" BorderThickness="0,0,0,1"
+                            IsVisible="{Binding HasWebInfo}">
+                      <StackPanel>
+                        <SelectableTextBlock Text="WEB INTERFACE" Classes="sectionHead"/>
+                        <Grid ColumnDefinitions="78,*" RowDefinitions="Auto,Auto,Auto,Auto">
+                          <SelectableTextBlock Grid.Row="0" Grid.Column="0" Text="Title" Classes="kvKey"/>
+                          <SelectableTextBlock Grid.Row="0" Grid.Column="1" Text="{Binding WebTitle}"
+                                     Classes="kvValue" TextWrapping="Wrap"/>
+                          <SelectableTextBlock Grid.Row="1" Grid.Column="0" Text="Certificate" Classes="kvKey"/>
+                          <SelectableTextBlock Grid.Row="1" Grid.Column="1" Text="{Binding CertificateSubject}"
+                                     Classes="kvValue" TextWrapping="Wrap"/>
+                          <SelectableTextBlock Grid.Row="2" Grid.Column="0" Text="Issued by" Classes="kvKey"/>
+                          <SelectableTextBlock Grid.Row="2" Grid.Column="1" Text="{Binding CertificateIssuer}"
+                                     Classes="kvValue" TextWrapping="Wrap"/>
+
+                          <!-- Abgelaufen wird rot: das ist der Fall, um den es
+                               hier ueberhaupt geht. -->
+                          <SelectableTextBlock Grid.Row="3" Grid.Column="0" Text="Valid until" Classes="kvKey"/>
+                          <SelectableTextBlock Grid.Row="3" Grid.Column="1" Classes="kvValue"
+                                     Text="{Binding CertificateExpires, StringFormat={}{0:dd.MM.yyyy}}"
+                                     Foreground="{Binding CertificateIsExpired, Converter={StaticResource ExpiryBrush}}"/>
+                        </Grid>
+                      </StackPanel>
+                    </Border>
+
                     <!-- Identitaet -->
                     <Border Padding="12,9" BorderBrush="#E3EBEC" BorderThickness="0,0,0,1">
                       <StackPanel>
                         <SelectableTextBlock Text="IDENTITY" Classes="sectionHead"/>
-                        <Grid ColumnDefinitions="78,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+                        <Grid ColumnDefinitions="78,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
                           <SelectableTextBlock Grid.Row="0" Grid.Column="0" Text="Hostname" Classes="kvKey"/>
                           <SelectableTextBlock Grid.Row="0" Grid.Column="1" Text="{Binding HostName}" Classes="kvValue"/>
                           <SelectableTextBlock Grid.Row="1" Grid.Column="0" Text="MAC" Classes="kvKey"/>
                           <SelectableTextBlock Grid.Row="1" Grid.Column="1" Text="{Binding MacText}" Classes="kvValue"/>
-                          <SelectableTextBlock Grid.Row="2" Grid.Column="0" Text="Identified by" Classes="kvKey"/>
-                          <SelectableTextBlock Grid.Row="2" Grid.Column="1" Text="{Binding IdentityKey}" Classes="kvValue"/>
-                          <SelectableTextBlock Grid.Row="3" Grid.Column="0" Text="First seen" Classes="kvKey"/>
-                          <SelectableTextBlock Grid.Row="3" Grid.Column="1" Classes="kvValue"
+
+                          <!--
+                              Die Vermutung aus der Ping-TTL. Ausdruecklich als
+                              "Probably" beschriftet: die Anfangs-TTL laesst
+                              sich verstellen, und hinter einem NAT-Gateway kann
+                              eine fremde stehen. Als Feststellung waere die
+                              Zeile irrefuehrend, als Anhaltspunkt ist sie es
+                              nicht - und sie kostet kein einziges Paket.
+                          -->
+                          <SelectableTextBlock Grid.Row="2" Grid.Column="0" Text="Probably" Classes="kvKey"
+                                     IsVisible="{Binding HasOsGuess}"/>
+                          <SelectableTextBlock Grid.Row="2" Grid.Column="1" Text="{Binding OsGuess}"
+                                     Classes="kvValue" TextWrapping="Wrap"
+                                     IsVisible="{Binding HasOsGuess}"/>
+
+                          <SelectableTextBlock Grid.Row="3" Grid.Column="0" Text="Identified by" Classes="kvKey"/>
+                          <SelectableTextBlock Grid.Row="3" Grid.Column="1" Text="{Binding IdentityKey}" Classes="kvValue"/>
+                          <SelectableTextBlock Grid.Row="4" Grid.Column="0" Text="First seen" Classes="kvKey"/>
+                          <SelectableTextBlock Grid.Row="4" Grid.Column="1" Classes="kvValue"
                                      Text="{Binding FirstSeen, StringFormat={}{0:dd.MM.yyyy HH:mm}}"/>
-                          <SelectableTextBlock Grid.Row="4" Grid.Column="0" Text="Last seen" Classes="kvKey"/>
-                          <SelectableTextBlock Grid.Row="4" Grid.Column="1" Text="{Binding LastSeenText}" Classes="kvValue"/>
+                          <SelectableTextBlock Grid.Row="5" Grid.Column="0" Text="Last seen" Classes="kvKey"/>
+                          <SelectableTextBlock Grid.Row="5" Grid.Column="1" Text="{Binding LastSeenText}" Classes="kvValue"/>
                         </Grid>
                       </StackPanel>
                     </Border>
@@ -1507,6 +1570,17 @@
                               IsChecked="{Binding Settings.ScanAllPorts}"/>
                     <TextBlock Classes="settingHint"
                                Text="Ignores the port collection and tries every port. Finds services on unusual ports - and takes hours instead of minutes."/>
+                  </StackPanel>
+
+                  <!-- Ohne die richtige Kennung bleibt die Switchport-Abfrage
+                       ohne Ergebnis, und zwar stumm - darum steht der Hinweis
+                       darunter und nicht in einer Fehlermeldung. -->
+                  <StackPanel Spacing="3">
+                    <TextBlock Text="SNMP community" Classes="settingLabel"/>
+                    <TextBox Text="{Binding Settings.SnmpCommunity, Mode=TwoWay}"
+                             MaxWidth="240" HorizontalAlignment="Left"/>
+                    <TextBlock Classes="settingHint"
+                               Text="The read password for switches and managed devices. Needed by &quot;Switch port and VLAN&quot; to ask which device hangs on which port. Factory default is &quot;public&quot;; where that has been changed, the query stays empty."/>
                   </StackPanel>
 
                   <!-- Je Verfahren einzeln, nicht fuer den ganzen Lauf: Ping,

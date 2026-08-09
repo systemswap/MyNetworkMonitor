@@ -96,7 +96,12 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                     IsResponding = result.PingStatus,
                     GroupDescription = origin?.Scope.Scope.GroupDescription,
                     Domain = string.IsNullOrWhiteSpace(origin?.Scope.Scope.Domain) ? null : origin!.Scope.Scope.Domain,
-                    Details = details
+                    Details = details,
+
+                    // Die Rest-TTL liegt in jeder Antwort. Sie ist der einzige
+                    // Hinweis auf das Betriebssystem, den man bekommt, ohne ein
+                    // weiteres Paket zu senden.
+                    Ttl = result.TTL
                 });
             }
 

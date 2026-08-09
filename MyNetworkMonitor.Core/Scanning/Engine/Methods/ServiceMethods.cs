@@ -1,3 +1,4 @@
+using MyNetworkMonitor.Core.Model;
 using MyNetworkMonitor.Core.Network;
 
 namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
@@ -169,6 +170,144 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             }
 
             cancellationToken.ThrowIfCancellationRequested();
+        }
+    }
+
+    /// <summary>
+    /// Fragt eine offene Weboberflaeche, wer sie ist: Seitentitel,
+    /// Serverkennung und TLS-Zertifikat.
+    /// <para>
+    /// Laeuft bewusst in der Dienstphase und damit <b>nach</b> dem Portscan:
+    /// sind die offenen Ports des Ziels schon bekannt, wird genau dort
+    /// nachgefragt statt vier Ports auf Verdacht zu probieren.
+    /// </para>
+    /// </summary>
+    public sealed class WebIdentityScanMethod : LegacyScanMethod
+    {
+        public override string Id => "web.identity";
+        public override string DisplayName => "Web page and certificate";
+
+        public override string Explanation =>
+            "Opens the web page a device serves and reads who it says it is - the page " +
+            "title, the server software, and for encrypted pages the certificate. This is " +
+            "the difference between \"port 443 is open\" and \"this is a HP LaserJet whose " +
+            "certificate expired in 2019\". The certificate is worth it twice over: it " +
+            "often carries further host names for the device that do not appear in DNS at " +
+            "all, and an expired or self-signed one is reported as a finding.";
+
+        public override ScanPhase Phase => ScanPhase.Services;
+        public override FamilySupport Families => FamilySupport.IPv4;
+
+        public override ScanMethodAvailability CheckAvailability(ScanContext context) =>
+            context.HasTargetsOf(IpFamily.IPv4)
+                ? ScanMethodAvailability.Available
+                : ScanMethodAvailability.NotApplicable(NoIpv4Targets);
+
+        public override async Task ExecuteAsync(ScanContext context, CancellationToken cancellationToken)
+        {
+            LegacyTargets targets = BuildTargets(context);
+            if (targets.Count == 0) return;
+
+            List<string> addresses = [.. targets.Items.Select(t => t.IPorHostname).Where(t => !string.IsNullOrEmpty(t))];
+            if (addresses.Count == 0) return;
+
+            ScanningMethod_WebIdentity web = new() { TimeoutMs = context.Settings.PortTimeoutMs };
+
+            void OnProgress(int c, int r, int t, ScanStatus s) => context.ReportProgress(c, r, t);
+            void OnFound(WebIdentityResult found) => Report(context, found);
+
+            web.ProgressUpdated += OnProgress;
+            web.WebIdentityFound += OnFound;
+            using CancellationTokenRegistration reg = BridgeCancellation(cancellationToken, web.StopScan);
+
+            try
+            {
+                await web.ScanAsync(addresses, KnownWebPorts(context, addresses));
+            }
+            finally
+            {
+                web.ProgressUpdated -= OnProgress;
+                web.WebIdentityFound -= OnFound;
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+
+        /// <summary>
+        /// Die bereits als offen bekannten Webports je Ziel.
+        /// <para>
+        /// Ohne diesen Schritt klopfte das Verfahren an vier feste Ports, und
+        /// eine Oberflaeche auf 8081 bliebe unentdeckt, obwohl der Portscan sie
+        /// eine Phase vorher gefunden hat.
+        /// </para>
+        /// </summary>
+        private static Dictionary<string, List<int>> KnownWebPorts(
+            ScanContext context, List<string> addresses)
+        {
+            Dictionary<string, List<int>> known = new(StringComparer.OrdinalIgnoreCase);
+
+            lock (context.Store.SyncRoot)
+            {
+                foreach (string address in addresses)
+                {
+                    if (!IpAddressAnalyzer.TryAnalyze(address, out IpAddressInfo? info) || info is null) continue;
+
+                    Device? device = context.Store.FindByAddress(info);
+                    if (device is null) continue;
+
+                    List<int> ports = [.. device.OpenServices
+                        .SelectMany(s => s.Ports)
+                        .Where(LooksLikeWebPort)
+                        .Distinct()
+                        .Order()];
+
+                    if (ports.Count > 0) known[address] = ports;
+                }
+            }
+
+            return known;
+        }
+
+        /// <summary>
+        /// Was als Webport in Frage kommt. Die krummen Zahlen sind Absicht:
+        /// Geraeteoberflaechen sitzen fast nie auf 80, sondern auf 8080, 8443,
+        /// 8000 und Aehnlichem.
+        /// </summary>
+        private static bool LooksLikeWebPort(int port) =>
+            port is 80 or 443 or 280 or 591 or 593 or 981 or 1311 or 2480 or 4443 or 4444
+                or 7000 or 7001 or 8000 or 8008 or 8080 or 8081 or 8088 or 8090 or 8443
+                or 8888 or 9000 or 9090 or 9443 or 10000;
+
+        private static void Report(ScanContext context, WebIdentityResult found)
+        {
+            if (!IpAddressAnalyzer.TryAnalyze(found.Address, out IpAddressInfo? info) || info is null) return;
+
+            Dictionary<string, string> details = new() { ["Web interface"] = found.ToInfoText() };
+
+            context.Report(new DeviceObservation
+            {
+                Source = "Web page and certificate",
+                Address = info,
+                IsResponding = true,
+                Details = details,
+
+                WebTitle = found.Title,
+                CertificateSubject = found.CertificateSubject,
+                CertificateIssuer = found.CertificateIssuer,
+
+                // Als DateTimeOffset in der oertlichen Zeitzone: das Zertifikat
+                // traegt eine lokale Zeit, und eine falsche Umrechnung machte
+                // aus "laeuft heute ab" ein "abgelaufen".
+                CertificateExpires = found.CertificateExpires is { } expires
+                    ? new DateTimeOffset(expires)
+                    : null,
+
+                CertificateIsSelfSigned = found.CertificateExpires is null ? null : found.IsSelfSigned,
+
+                // Die Namen aus dem Zertifikat sind Namensvergaben wie jede
+                // andere - sie gehoeren in dieselbe Pruefung auf Dopplungen.
+                Aliases = found.AlternativeNames.Count > 0 ? found.AlternativeNames : null
+            });
         }
     }
 

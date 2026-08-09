@@ -170,6 +170,8 @@ namespace MyNetworkMonitor.Core.ViewModels
                 CollectDuplicates(found);
                 CollectServices(found);
                 CollectDnsCrossChecks(found);
+                CollectDhcpServers(found);
+                CollectCertificates(found);
             }
 
             CollectAdapters(found);
@@ -330,6 +332,83 @@ namespace MyNetworkMonitor.Core.ViewModels
                         Device = device
                     });
                 }
+            }
+        }
+
+        /// <summary>
+        /// Mehr als ein antwortender DHCP-Server im selben Netz.
+        /// <para>
+        /// Der Klassiker unter den schwer zu findenden Stoerungen: irgendwo
+        /// haengt ein mitgebrachter Router mit der falschen Seite am Netz und
+        /// verteilt Adressen. Betroffen ist immer nur, wer zufaellig zuerst von
+        /// ihm eine Antwort bekommt - darum melden sich einzelne Nutzer mit
+        /// "Internet geht nicht", waehrend eine Pruefung vom Arbeitsplatz des
+        /// Administrators nichts findet.
+        /// </para>
+        /// <para>
+        /// Zwei Server sind nicht immer falsch - Ausfallsicherheit wird genau so
+        /// gebaut. Darum eine Warnung und keine kritische Meldung; die
+        /// Entscheidung, ob der zweite dort hingehoert, kann nur der Betreiber
+        /// treffen. Aufgezaehlt werden sie deshalb alle beim Namen.
+        /// </para>
+        /// </summary>
+        private void CollectDhcpServers(List<Finding> found)
+        {
+            List<Device> servers = [.. _store.Devices.Where(HasDhcpService)];
+
+            if (servers.Count < 2) return;
+
+            string names = string.Join(", ", servers.Select(d => d.DisplayName));
+
+            foreach (Device device in servers)
+            {
+                found.Add(new Finding
+                {
+                    Severity = FindingSeverity.Warning,
+                    Category = FindingCategory.Services,
+                    Title = "More than one DHCP server answered",
+                    Detail = $"{servers.Count} DHCP servers replied in this network: {names}. " +
+                             "If that is not deliberate redundancy, one of them is handing out " +
+                             "addresses it should not.",
+                    Subject = device.DisplayName,
+                    Device = device
+                });
+            }
+        }
+
+        private static bool HasDhcpService(Device device) =>
+            device.OpenServices.Any(s =>
+                s.ServiceName.Contains("DHCP", StringComparison.OrdinalIgnoreCase));
+
+        /// <summary>
+        /// Was an den gelesenen TLS-Zertifikaten auffaellt.
+        /// <para>
+        /// Ein abgelaufenes Zertifikat ist der Grund, aus dem Nutzer lernen,
+        /// Sicherheitswarnungen wegzuklicken - und danach klicken sie auch die
+        /// echte weg. Selbst ausgestellt ist bei Geraeten dagegen der Normalfall
+        /// und allein noch keine Meldung wert; erst zusammen mit dem Ablauf
+        /// wird daraus eine.
+        /// </para>
+        /// </summary>
+        private void CollectCertificates(List<Finding> found)
+        {
+            foreach (Device device in _store.Devices.Where(d => d.CertificateIsExpired))
+            {
+                string since = device.CertificateExpires is { } expires
+                    ? expires.ToString("yyyy-MM-dd")
+                    : "an unknown date";
+
+                found.Add(new Finding
+                {
+                    Severity = FindingSeverity.Warning,
+                    Category = FindingCategory.Services,
+                    Title = "Expired TLS certificate",
+                    Detail = $"The web interface of {device.DisplayName} presents a certificate that " +
+                             $"expired on {since}" +
+                             (device.CertificateIsSelfSigned ? " and is self-signed." : "."),
+                    Subject = device.DisplayName,
+                    Device = device
+                });
             }
         }
 
