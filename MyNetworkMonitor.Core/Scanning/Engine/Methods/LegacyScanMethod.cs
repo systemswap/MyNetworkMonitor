@@ -329,6 +329,24 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                 services.Add(entry);
             }
 
+            // Dasselbe fuer UDP - bisher gingen offene UDP-Ports hier
+            // verloren und tauchten nur im CSV-Export auf, nicht in der
+            // Dienstspalte oder im Portfilter.
+            foreach (int open in r.UDP_OpenPorts.Where(p => !services.Any(s => s.Ports.Contains(p))))
+            {
+                DeviceServiceResult entry = new()
+                {
+                    ServiceName = $"UDP {open}",
+                    Category = "Open ports",
+                    Ports = [open]
+                };
+
+                if (family == IpFamily.IPv6) entry.StatusIPv6 = PortStatus.Open;
+                else entry.StatusIPv4 = PortStatus.Open;
+
+                services.Add(entry);
+            }
+
             return services.Count > 0 ? services : null;
         }
 
