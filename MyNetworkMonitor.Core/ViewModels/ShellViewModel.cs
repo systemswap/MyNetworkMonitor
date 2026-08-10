@@ -279,6 +279,16 @@ namespace MyNetworkMonitor.Core.ViewModels
             Settings.OverrideDnsServer = _userSettings.GetString("OverrideDnsServer");
             Settings.ReverseLookupConcurrency =
                 _userSettings.GetInt("ReverseLookupConcurrency", Settings.ReverseLookupConcurrency);
+
+            Settings.SatelliteListenEnabled =
+                _userSettings.GetBool("SatelliteListenEnabled", Settings.SatelliteListenEnabled);
+            Settings.SatelliteListenPort =
+                _userSettings.GetInt("SatelliteListenPort", Settings.SatelliteListenPort);
+            Settings.SatelliteModeEnabled =
+                _userSettings.GetBool("SatelliteModeEnabled", Settings.SatelliteModeEnabled);
+            Settings.MainScannerHost = _userSettings.GetString("MainScannerHost");
+            Settings.MainScannerPort =
+                _userSettings.GetInt("MainScannerPort", Settings.MainScannerPort);
             Settings.UseOnlineTopologyLibrary =
                 _userSettings.GetBool("UseOnlineTopologyLibrary", Settings.UseOnlineTopologyLibrary);
 
@@ -384,6 +394,21 @@ namespace MyNetworkMonitor.Core.ViewModels
                         break;
                     case nameof(ScanSettings.ReverseLookupConcurrency):
                         _userSettings.SetInt("ReverseLookupConcurrency", Settings.ReverseLookupConcurrency);
+                        break;
+                    case nameof(ScanSettings.SatelliteListenEnabled):
+                        _userSettings.SetBool("SatelliteListenEnabled", Settings.SatelliteListenEnabled);
+                        break;
+                    case nameof(ScanSettings.SatelliteListenPort):
+                        _userSettings.SetInt("SatelliteListenPort", Settings.SatelliteListenPort);
+                        break;
+                    case nameof(ScanSettings.SatelliteModeEnabled):
+                        _userSettings.SetBool("SatelliteModeEnabled", Settings.SatelliteModeEnabled);
+                        break;
+                    case nameof(ScanSettings.MainScannerHost):
+                        _userSettings.SetString("MainScannerHost", Settings.MainScannerHost);
+                        break;
+                    case nameof(ScanSettings.MainScannerPort):
+                        _userSettings.SetInt("MainScannerPort", Settings.MainScannerPort);
                         break;
                     case nameof(ScanSettings.UseOnlineTopologyLibrary):
                         _userSettings.SetBool("UseOnlineTopologyLibrary", Settings.UseOnlineTopologyLibrary);

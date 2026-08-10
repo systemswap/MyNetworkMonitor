@@ -15,6 +15,7 @@ namespace MyNetworkMonitor.Core.Services
         private static IWifiProvider? _wifi;
         private static IEnterpriseEnvironment? _enterprise;
         private static INeighborProvider? _neighbors;
+        private static IFirewallInspector? _firewall;
 
         public static void RegisterArp(IArpProvider provider) => _arp = provider;
         public static void RegisterNeighbors(INeighborProvider provider) => _neighbors = provider;
@@ -22,6 +23,7 @@ namespace MyNetworkMonitor.Core.Services
         public static void RegisterRegistry(IRegistryReader provider) => _registry = provider;
         public static void RegisterWifi(IWifiProvider provider) => _wifi = provider;
         public static void RegisterEnterprise(IEnterpriseEnvironment provider) => _enterprise = provider;
+        public static void RegisterFirewall(IFirewallInspector provider) => _firewall = provider;
 
         public static IArpProvider Arp => Require(_arp, nameof(IArpProvider));
         public static INeighborProvider Neighbors => Require(_neighbors, nameof(INeighborProvider));
@@ -29,6 +31,13 @@ namespace MyNetworkMonitor.Core.Services
         public static IRegistryReader Registry => Require(_registry, nameof(IRegistryReader));
         public static IWifiProvider Wifi => Require(_wifi, nameof(IWifiProvider));
         public static IEnterpriseEnvironment Enterprise => Require(_enterprise, nameof(IEnterpriseEnvironment));
+
+        /// <summary>
+        /// Liest die Firewall-Regeln. Ohne Registrierung eine Umsetzung, die
+        /// schlicht nichts meldet - die Firewall-Anzeige ist eine Hilfe, kein
+        /// Kernbestandteil, und darf nirgends etwas aufhalten.
+        /// </summary>
+        public static IFirewallInspector Firewall => _firewall ??= new NullFirewallInspector();
 
         // Fuer Aufrufer, die eine fehlende Registrierung selbst behandeln
         // wollen, statt eine Ausnahme zu bekommen - etwa die Scan-Verfahren,

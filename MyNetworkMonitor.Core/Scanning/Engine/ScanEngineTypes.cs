@@ -274,6 +274,33 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
         /// <summary>ARP-Cache vor dem Scan leeren.</summary>
         [ObservableProperty] private bool _clearArpCacheFirst;
 
+        // --- Satellitenbetrieb, siehe SATELLIT.md ----------------------------
+        //
+        // Die Ports sind Einstellungen und keine Konstanten: in manchen Netzen
+        // sind nur bestimmte erlaubt, und dann muss man ausweichen koennen.
+
+        /// <summary>Auf Satelliten horchen. Ohne das kommt keiner herein.</summary>
+        [ObservableProperty] private bool _satelliteListenEnabled;
+
+        /// <summary>Port, auf dem der Hauptscanner horcht.</summary>
+        [ObservableProperty] private int _satelliteListenPort = 27411;
+
+        /// <summary>
+        /// Diese Instanz als Satellit betreiben und sich zum Hauptscanner
+        /// hinausverbinden.
+        /// </summary>
+        [ObservableProperty] private bool _satelliteModeEnabled;
+
+        /// <summary>
+        /// Der Hauptscanner, zu dem sich diese Instanz als Satellit verbindet -
+        /// Name oder Adresse. Ein Name ist vorzuziehen: er ueberlebt einen
+        /// Adresswechsel, etwa wenn der Hauptscanner ein Laptop ist.
+        /// </summary>
+        [ObservableProperty] private string _mainScannerHost = string.Empty;
+
+        /// <summary>Port des Hauptscanners.</summary>
+        [ObservableProperty] private int _mainScannerPort = 27411;
+
         /// <summary>
         /// Die Bibliothek der 3D-Topologie vom CDN laden statt aus dem
         /// Programmordner. Dann ist die erzeugte Seite fuer sich allein
