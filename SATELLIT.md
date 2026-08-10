@@ -57,6 +57,16 @@ Daraus folgen drei Regeln:
 3. **Zurückgehaltene Ergebnisse gelten je Empfänger.** Wer den Auftrag gab,
    bekommt ihn zugestellt, sobald er wieder da ist — auch wenn der andere
    längst wieder verbunden ist.
+4. **Abbrechen darf jeder freigegebene Empfänger**, nicht nur der
+   Auftraggeber. Grund: ein hängender Auftrag sperrt den Satelliten für alle
+   (`Busy`), und wer gerade davorsitzt, soll ihn freibekommen, ohne den
+   Auftraggeber suchen zu müssen. Abschaltbar über die Einstellung
+   `AllowCancelFromAnyReceiver` am Satelliten — aus heißt: nur der
+   Auftraggeber darf abbrechen. Vorgabe: **an**.
+
+   Wird von fremder Seite abgebrochen, erfährt der Auftraggeber es: er bekommt
+   `Cancelled` mit der Auftragskennung und dem Namen dessen, der abgebrochen
+   hat. Ein Auftrag verschwindet nie unerklärt.
 
 Jeder Hauptscanner führt seine eigene Satellitenliste und gibt selbst frei;
 der Satellit merkt sich den Fingerabdruck **je Empfänger**. Eine Freigabe auf
@@ -92,11 +102,14 @@ seine Adresse ist damit ein Beobachtungswert, keine Einstellung.
 
 `GatewayPort` entfällt — ein Router hat keinen Port.
 
-**Das Gateway ist kein Satellitenfeld.** Es beschreibt das Netz und wird
-sofort gebraucht: heute leitet `LegacyScanMethod.GatewayDnsFallback` das
-Gateway vom **lokalen Adapter** ab. Für jeden Bereich in einem anderen VLAN
-ist das die falsche Adresse. Mit dem Feld am Bereich stimmt es, und TTL,
-Topologie und Rogue-DHCP bekommen ihren Bezugspunkt.
+**Das Gateway ist kein Satellitenfeld.** Es beschreibt das Netz und gibt TTL,
+Topologie und Rogue-DHCP ihren Bezugspunkt.
+
+Es ist eine **Übersteuerung, kein Ersatz**: bleibt das Feld leer, wird
+weiterhin das Gateway des lokalen Adapters genommen
+(`LegacyScanMethod.GatewayDnsFallback`) — auch wenn dasselbe für alle Bereiche
+gilt. In diesem Netz ist das richtig so. Das Feld dient dem Fall, dass ein
+Bereich einen anderen Router hat als der Adapter, über den gescannt wird.
 
 ---
 
@@ -209,6 +222,7 @@ Satellit → Hauptscanner:
 | `Progress` | Verfahren, gesendet/geantwortet/gesamt — speist die dreiteilige Anzeige |
 | `Accepted` / `Busy` | Auftrag angenommen, oder es läuft schon einer |
 | `Result` | Auftragskennung, **alle** Funde und Befunde, je Fund die Bereichskennung |
+| `Cancelled` | Auftragskennung und wer abgebrochen hat — geht an den Auftraggeber |
 | `Error` | Klartext, für den Nutzer verwendbar |
 | `Pong` | Antwort auf `Ping` |
 
@@ -240,9 +254,9 @@ klare Meldung.
 - Start mit `--satellite` (Windows-Dienst bzw. systemd unter Linux).
 - Ohne Oberfläche, Protokoll in eine Datei.
 - Konfiguration: die **Liste der Hauptscanner** (je Eintrag Name/Adresse und
-  Port), dazu ein eigener Anzeigename. Der Schlüssel entsteht beim ersten
-  Start von selbst, der Fingerabdruck je Empfänger kommt aus der ersten
-  freigegebenen Verbindung.
+  Port), ein eigener Anzeigename und `AllowCancelFromAnyReceiver` (Vorgabe
+  an). Der Schlüssel entsteht beim ersten Start von selbst, der Fingerabdruck
+  je Empfänger kommt aus der ersten freigegebenen Verbindung.
 - Rohsocket-Verfahren brauchen erhöhte Rechte — der Dienst läuft ohnehin
   erhöht, was ICMPv6 und ARP zugutekommt.
 
