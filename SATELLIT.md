@@ -212,7 +212,28 @@ Eine TCP-Verbindung, TLS darüber, Nachrichten als:
 Obergrenze je Nachricht 32 MiB — schützt vor einer kaputten Längenangabe und
 reicht für ein vollständiges Ergebnis mit Reserve.
 
-Port des Hauptscanners: fest vergeben, Vorschlag **27411**.
+### Ports sind einstellbar, nicht fest im Quelltext
+
+In manchen Netzen sind nur bestimmte Ports erlaubt. Darum ist **jeder** Port
+eine Einstellung, nirgends eine Konstante im Programm:
+
+| Port | Wo eingestellt | Vorgabe |
+|---|---|---|
+| Port, auf dem der Hauptscanner lauscht | Einstellungen des Hauptscanners | 27411 |
+| Port, zu dem der Satellit verbindet | je Eintrag in seiner Empfängerliste | 27411 |
+| Port zwischen Oberfläche und Dienst (localhost, Abschnitt 7) | Einstellungen | 27412 |
+
+Die Vorgabe 27411 ist nur ein Startwert — sie liegt außerhalb der üblichen
+Bereiche und ist nirgends vergeben. Weil der Satellit den Port **je
+Empfänger** führt, darf derselbe Satellit einen Hauptscanner auf 443 und
+einen anderen auf 27411 erreichen; das hilft dort, wo nur wenige Ports nach
+draußen dürfen.
+
+Ändert sich der Port des Hauptscanners, müssen die Satelliten davon erfahren.
+Damit sie nicht ins Leere laufen, wird die Änderung **erst nach dem letzten
+Verbindungsabbau wirksam** und der neue Port vorher über die bestehenden
+Verbindungen bekanntgegeben (`ListenPortChanged`) — sonst muss jeder Satellit
+von Hand nachgezogen werden.
 
 Satellit → Hauptscanner:
 
@@ -234,6 +255,7 @@ Hauptscanner → Satellit:
 | `Job` | Auftragskennung, Bereiche, vollständige `ScanSettings`, Verfahrensliste |
 | `Cancel` | Auftragskennung |
 | `ResultAck` | Ergebnis angekommen, darf gelöscht werden |
+| `ListenPortChanged` | neuer Port des Hauptscanners, für den nächsten Verbindungsaufbau |
 | `Ping` | Lebenszeichen |
 
 `Job` trägt die vollständigen `ScanSettings` — das ist die Umsetzung des
@@ -249,7 +271,37 @@ klare Meldung.
 
 ---
 
-## 7. Betrieb als Dienst
+## 7. Auch der Hauptscanner ist ein Dienst
+
+Der Hauptscanner muss erreichbar bleiben, wenn die Oberfläche geschlossen ist
+— sonst finden die Satelliten niemanden, sobald der Nutzer das Fenster
+zumacht, und ein Ergebnis, das nach Feierabend fertig wird, bleibt liegen.
+
+Daraus folgt, dass die Anwendung in **zwei Teile** zerfällt:
+
+| Teil | Aufgabe |
+|---|---|
+| **Dienst** | nimmt Satellitenverbindungen an, hält den Zeitplan, erteilt Aufträge, sammelt Ergebnisse, schreibt sie in den Bestand |
+| **Oberfläche** | hängt sich an den Dienst, zeigt an, stößt an, verwaltet |
+
+Die Oberfläche redet über **localhost** mit dem Dienst — dieselben Nachrichten
+wie in Abschnitt 6, nur ohne Netz dazwischen. Damit gibt es nur **einen**
+Weg, auf dem gescannt wird, und nicht zwei Wirklichkeiten.
+
+Offene Punkte dazu, die beim Bauen zu entscheiden sind:
+
+- **Ohne Dienst weiterarbeiten?** Die Oberfläche sollte auch dann laufen,
+  wenn kein Dienst installiert ist — dann scannt sie wie heute selbst und
+  kennt eben keine Satelliten. Sonst zwingt der Satellitenbetrieb jedem eine
+  Installation auf, der ihn gar nicht will.
+- **Wem gehört der Bestand?** Läuft der Dienst, schreibt er die
+  Scanergebnisse; die Oberfläche liest mit. Zwei Schreiber auf dieselbe Datei
+  wären ein Fehler mit Ansage.
+- **Der Zeitplan wandert in den Dienst.** Läuft er durch, gibt es kaum noch
+  etwas nachzuholen — die Nachholregel aus Abschnitt 9 greift dann nur noch,
+  wenn der Rechner selbst aus war.
+
+## 9. Betrieb als Dienst
 
 - Start mit `--satellite` (Windows-Dienst bzw. systemd unter Linux).
 - Ohne Oberfläche, Protokoll in eine Datei.
@@ -262,7 +314,7 @@ klare Meldung.
 
 ---
 
-## 8. Automatischer Scan
+## 10. Automatischer Scan
 
 Bereiche haben `AutomaticScan` samt Intervall. Der Zeitplan läuft beim
 **Hauptscanner** — der Satellit braucht keine eigene Bereichsverwaltung und
@@ -278,7 +330,7 @@ ausdrücklich flüchtig (`ScanScope.LastScanned`, „Nicht gespeichert").
 
 ---
 
-## 9. Offen
+## 11. Offen
 
 - Nichts mehr. Bei Baubeginn zu prüfen: ob die Bündelung „ein Auftrag je
   Satellit" mit der bestehenden Fortschrittsanzeige zusammengeht, die heute

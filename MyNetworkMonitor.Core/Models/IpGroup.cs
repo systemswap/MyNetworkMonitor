@@ -26,9 +26,23 @@ namespace MyNetworkMonitor.Core.Models
         [ObservableProperty] private string _lastIP = string.Empty;
         [ObservableProperty] private string _domain = string.Empty;
         [ObservableProperty] private string _dnsServers = string.Empty;
+        /// <summary>Der Router dieses Netzes. Siehe <see cref="Model.ScanScope.GatewayIP"/>.</summary>
         [ObservableProperty] private string _nmGatewayIP = string.Empty;
-        [ObservableProperty] private string _nmGatewayPort = string.Empty;
+
+        /// <summary>
+        /// Name des Satelliten, der diesen Bereich scannt - leer heisst: von
+        /// diesem Rechner aus. Siehe SATELLIT.md.
+        /// </summary>
+        [ObservableProperty] private string _scannedBy = string.Empty;
+
         [ObservableProperty] private bool _automaticScan;
         [ObservableProperty] private string _scanIntervalMinutes = string.Empty;
+
+        /// <summary>
+        /// Zeitpunkt des letzten Durchlaufs, als ISO-8601-Text - leer, wenn der
+        /// Bereich noch nie gelaufen ist. Gespeichert, weil der automatische
+        /// Scan verpasste Termine nachholt.
+        /// </summary>
+        [ObservableProperty] private string _lastScanned = string.Empty;
     }
 }

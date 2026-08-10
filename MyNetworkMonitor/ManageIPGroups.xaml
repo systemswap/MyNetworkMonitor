@@ -118,12 +118,12 @@
                      Text="{Binding EditDomain, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
             <CheckBox Grid.Column="9" Content="scan every xxx minutes" Margin="10,0,10,0" VerticalAlignment="Center" Height="16"
                       IsChecked="{Binding EditAutomaticScan, Mode=TwoWay}"/>
-            <Label Grid.Column="7" Content="IP where NM run as Gateway" HorizontalAlignment="Left" VerticalAlignment="Center" Height="26" Width="162" Margin="10,0,0,0"/>
-            <Label Grid.Column="8" Content="Gateway Port" HorizontalAlignment="Left" VerticalAlignment="Center" Width="82" Height="26" Margin="10,0,0,0"/>
+            <Label Grid.Column="7" Content="Gateway (router of this network)" HorizontalAlignment="Left" VerticalAlignment="Center" Height="26" Width="180" Margin="10,0,0,0"/>
+            <Label Grid.Column="8" Content="Scanned by" HorizontalAlignment="Left" VerticalAlignment="Center" Width="82" Height="26" Margin="10,0,0,0"/>
             <TextBox Grid.Column="7" HorizontalAlignment="Left" Margin="10,0,0,0" Grid.Row="1" TextWrapping="Wrap" VerticalAlignment="Center" Width="162" Height="18" TabIndex="8"
                      Text="{Binding EditNmGatewayIP, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
             <TextBox Grid.Column="8" HorizontalAlignment="Center" Grid.Row="1" TextWrapping="Wrap" VerticalAlignment="Center" Width="108" Height="18" TabIndex="9"
-                     Text="{Binding EditNmGatewayPort, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                     Text="{Binding EditScannedBy, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
             <Button Grid.Column="9" HorizontalAlignment="Center" VerticalAlignment="Center" Width="149" Height="20" TabIndex="9" Grid.Row="2"
                     Command="{Binding AddEntryCommand}" Background="#BFA4B1BF" OpacityMask="Black">
                 <Button.Resources>

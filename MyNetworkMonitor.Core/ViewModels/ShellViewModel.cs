@@ -1172,7 +1172,10 @@ namespace MyNetworkMonitor.Core.ViewModels
                     Domain = origin?.Domain ?? string.Empty,
                     DnsServers = origin?.DnsServers ?? string.Empty,
                     GatewayIP = origin?.GatewayIP ?? string.Empty,
-                    GatewayPort = origin?.GatewayPort ?? string.Empty,
+                    // Der Nachschlag erbt den Satelliten des Bereichs: sonst
+                    // liefe er von hier aus und damit ohne ARP, waehrend der
+                    // Bereich selbst aus dem Segment heraus gescannt wird.
+                    ScannedBy = origin?.ScannedBy ?? string.Empty,
                     Targets = [.. addresses]
                 });
             }

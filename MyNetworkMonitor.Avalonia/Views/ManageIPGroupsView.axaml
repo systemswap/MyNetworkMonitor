@@ -209,20 +209,22 @@
                             <TextBox Text="{Binding EditDnsServers}" Watermark="10.0.0.1, 10.0.0.2"/>
                         </StackPanel>
 
-                        <TextBlock Classes="sectionHeader" Text="NETWORK MONITOR GATEWAY" Margin="0,6,0,6"/>
+                        <TextBlock Classes="sectionHeader" Text="NETWORK" Margin="0,6,0,6"/>
 
-                        <Grid ColumnDefinitions="*,10,110">
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Classes="fieldLabel" Text="Gateway IP"/>
-                                <TextBox Text="{Binding EditNmGatewayIP}"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Classes="fieldLabel" Text="Port"/>
-                                <TextBox Text="{Binding EditNmGatewayPort}"/>
-                            </StackPanel>
-                        </Grid>
+                        <StackPanel>
+                            <TextBlock Classes="fieldLabel" Text="Gateway (optional)"/>
+                            <TextBox Text="{Binding EditNmGatewayIP}" Watermark="10.0.0.1"/>
+                            <TextBlock Classes="fieldLabel" Margin="0,3,0,0"
+                                       Text="The router of this network. Leave empty to use the gateway of the adapter this range is scanned through."/>
+                        </StackPanel>
 
                         <TextBlock Classes="sectionHeader" Text="SCANNING" Margin="0,6,0,6"/>
+
+                        <StackPanel>
+                            <TextBlock Classes="fieldLabel" Text="Scanned by (satellite)"/>
+                            <TextBox Text="{Binding EditScannedBy}" Watermark="empty = from this machine"/>
+                        </StackPanel>
+
 
                         <CheckBox Content="Entry is active" IsChecked="{Binding EditIsActive}"/>
                         <CheckBox Content="Scan automatically" IsChecked="{Binding EditAutomaticScan}"/>

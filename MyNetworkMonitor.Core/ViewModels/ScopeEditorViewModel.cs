@@ -280,9 +280,11 @@ namespace MyNetworkMonitor.Core.ViewModels
                 Domain = Selected.Domain,
                 DnsServers = Selected.DnsServers,
                 GatewayIP = Selected.GatewayIP,
-                GatewayPort = Selected.GatewayPort,
+                ScannedBy = Selected.ScannedBy,
                 AutomaticScan = Selected.AutomaticScan,
                 ScanIntervalMinutes = Selected.ScanIntervalMinutes,
+                // LastScanned wird bewusst nicht mitkopiert: die Kopie ist noch
+                // nie gelaufen, sonst gaelte sie sofort als frisch gescannt.
                 IsSelected = false
             };
 
