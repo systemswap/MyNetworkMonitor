@@ -35,7 +35,7 @@ namespace MyNetworkMonitor.Core.ViewModels
         [ObservableProperty] private string _editDomain = string.Empty;
         [ObservableProperty] private string _editDnsServers = string.Empty;
         [ObservableProperty] private string _editNmGatewayIP = string.Empty;
-        [ObservableProperty] private string _editNmGatewayPort = string.Empty;
+        [ObservableProperty] private string _editScannedBy = string.Empty;
         [ObservableProperty] private bool _editAutomaticScan;
         [ObservableProperty] private string _editScanIntervalMinutes = string.Empty;
 
@@ -121,7 +121,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             EditDomain = group.Domain;
             EditDnsServers = group.DnsServers;
             EditNmGatewayIP = group.NmGatewayIP;
-            EditNmGatewayPort = group.NmGatewayPort;
+            EditScannedBy = group.ScannedBy;
             EditAutomaticScan = group.AutomaticScan;
             EditScanIntervalMinutes = group.ScanIntervalMinutes;
 
@@ -142,7 +142,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             EditDomain = string.Empty;
             EditDnsServers = string.Empty;
             EditNmGatewayIP = string.Empty;
-            EditNmGatewayPort = string.Empty;
+            EditScannedBy = string.Empty;
             EditAutomaticScan = false;
             EditScanIntervalMinutes = string.Empty;
 
@@ -244,7 +244,7 @@ namespace MyNetworkMonitor.Core.ViewModels
                 Domain = SelectedGroup.Domain,
                 DnsServers = SelectedGroup.DnsServers,
                 NmGatewayIP = SelectedGroup.NmGatewayIP,
-                NmGatewayPort = SelectedGroup.NmGatewayPort,
+                ScannedBy = SelectedGroup.ScannedBy,
                 AutomaticScan = SelectedGroup.AutomaticScan,
                 ScanIntervalMinutes = SelectedGroup.ScanIntervalMinutes
             };
@@ -386,7 +386,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             g.Domain = EditDomain;
             g.DnsServers = EditDnsServers;
             g.NmGatewayIP = EditNmGatewayIP;
-            g.NmGatewayPort = EditNmGatewayPort;
+            g.ScannedBy = EditScannedBy;
             g.AutomaticScan = EditAutomaticScan;
             g.ScanIntervalMinutes = EditScanIntervalMinutes;
         }

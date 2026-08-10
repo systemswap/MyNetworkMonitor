@@ -89,9 +89,17 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                 // nachgelagerten Server. Kennt das Gateway die Namen nicht,
                 // bleibt die Adresse einfach ohne PTR-Ergebnis - bewusst kein
                 // weiterer Rueckfall auf den System-Resolver.
+                // Der am Bereich hinterlegte Router sticht den des Adapters -
+                // fuer den Fall, dass ein Bereich hinter einem anderen Router
+                // haengt als der, ueber den gescannt wird. Ist dort nichts
+                // eingetragen, bleibt es beim Adapter, auch wenn derselbe fuer
+                // alle Bereiche gilt.
                 if (dnsServers.Count == 0)
                 {
-                    string? gateway = GatewayDnsFallback(target.Scope.Interface);
+                    string? gateway = scope.HasOwnGateway
+                        ? scope.GatewayIP.Trim()
+                        : GatewayDnsFallback(target.Scope.Interface);
+
                     if (gateway is not null) dnsServers = [gateway];
                 }
 
@@ -105,7 +113,6 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                     Domain = scope.Domain,
                     DNSServerList = dnsServers,
                     NMGatewayIP = scope.GatewayIP,
-                    NMGatewayPort = scope.GatewayPort,
                     TCPPortsToScan = [.. context.Settings.TcpPorts],
                     UDPPortsToScan = [.. context.Settings.UdpPorts]
                 });
