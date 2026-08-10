@@ -31,6 +31,7 @@ public partial class App : Application
         PlatformServices.RegisterEnterprise(new WindowsEnterpriseEnvironment());
         PlatformServices.RegisterWifi(new ScanningMethod_WiFi());
         PlatformServices.RegisterNeighbors(new WindowsNeighborProvider());
+        PlatformServices.RegisterFirewall(new WindowsFirewallInspector());
 #else
         PlatformServices.RegisterArp(new LinuxArpProvider());
         PlatformServices.RegisterRouting(new LinuxRoutingProvider());
