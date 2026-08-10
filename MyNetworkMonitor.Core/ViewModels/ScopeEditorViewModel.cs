@@ -135,12 +135,22 @@ namespace MyNetworkMonitor.Core.ViewModels
 
                 if (!File.Exists(xmlPath)) return;
 
-                IPGroupData data = new();
-                data.IPGroupsDT.ReadXml(xmlPath);
+                // Die Tabelle mit *dem* Schema aufbauen, in dem auch
+                // gespeichert wird - nicht mit dem alten IPGroupData.
+                //
+                // ReadXml traegt in eine Tabelle, die schon Spalten hat, keine
+                // unbekannten nach: was die Tabelle nicht kennt, faellt beim
+                // Lesen weg. IPGroupData kennt weder ScannedBy noch
+                // LastScanned. Beide standen also in der Datei, kamen aber nie
+                // zurueck - die Zuordnung eines Bereichs zu einem Satelliten
+                // ueberlebte keinen Neustart, und der Bereich wurde danach
+                // wieder still von hier aus gescannt.
+                System.Data.DataTable data = IpGroupTable.CreateTable();
+                data.ReadXml(xmlPath);
 
                 int index = 1;
 
-                foreach (IpGroup group in IpGroupTable.ReadRows(data.IPGroupsDT))
+                foreach (IpGroup group in IpGroupTable.ReadRows(data))
                 {
                     ScanScope scope = ScanScope.FromIpGroup(group);
                     scope.Index = index++;

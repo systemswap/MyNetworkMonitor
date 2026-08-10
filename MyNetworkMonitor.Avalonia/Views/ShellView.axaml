@@ -84,6 +84,70 @@
       <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
 
+    <!--
+        Die feste Hoehe oben trifft jedes TextBox - auch das, das im
+        NumericUpDown steckt. Dort schneidet sie die Ziffern oben und unten ab,
+        weil das Steuerelement seine eigene Umrandung und die beiden
+        Pfeilknoepfe darauf setzt und dem Feld darin weniger uebrig bleibt als
+        die 22 Punkte. Fuer diesen Fall die Hoehe wieder freigeben und sie am
+        NumericUpDown selbst setzen.
+    -->
+    <!--
+        Die Reiter der Satellitenansicht - dieselbe Sprache wie die
+        Navigationsleiste links: dunkler Grund, gedaempfte Schrift, und die
+        Auswahl traegt den tuerkisen Strich der Marke.
+
+        Mit eigener Vorlage statt nur ein paar Settern: Fluent zeichnet unter
+        dem gewaehlten Reiter eine blaue Markierung (den "Pipe"), die sich
+        ueber Eigenschaften nicht zuverlaessig wegbekommen laesst. Die Vorlage
+        hat sie gar nicht erst.
+    -->
+    <Style Selector="TabItem">
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="MinHeight" Value="0"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="Margin" Value="0"/>
+      <Setter Property="Foreground" Value="#8DA5AA"/>
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border x:Name="TabBorder" Background="Transparent"
+                  BorderBrush="Transparent" BorderThickness="0,0,0,2"
+                  Padding="18,8">
+            <ContentPresenter Content="{TemplateBinding Header}"
+                              VerticalAlignment="Center"/>
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+
+    <Style Selector="TabItem:pointerover /template/ Border#TabBorder">
+      <Setter Property="Background" Value="#182A2E"/>
+    </Style>
+
+    <Style Selector="TabItem:selected /template/ Border#TabBorder">
+      <Setter Property="Background" Value="{StaticResource RailActive}"/>
+      <Setter Property="BorderBrush" Value="#17A38A"/>
+    </Style>
+
+    <Style Selector="TabItem:selected">
+      <Setter Property="Foreground" Value="#E6F2F3"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+
+    <Style Selector="NumericUpDown">
+      <Setter Property="MinHeight" Value="0"/>
+      <Setter Property="Height" Value="24"/>
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+
+    <Style Selector="NumericUpDown /template/ TextBox">
+      <Setter Property="Height" Value="NaN"/>
+      <Setter Property="MinHeight" Value="0"/>
+      <Setter Property="VerticalAlignment" Value="Stretch"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+
     <Style Selector="Button">
       <Setter Property="MinHeight" Value="0"/>
       <Setter Property="MinWidth" Value="0"/>
@@ -1384,10 +1448,16 @@
                           als "nicht gescannt" ausgewiesen, ohne dass man den
                           Grund saehe. Der leere Eintrag ganz oben bedeutet
                           "von diesem Rechner aus".
+
+                          Die Namensliste haengt am Fenster und nicht an
+                          diesem Bereich: der DataContext ist hier der
+                          ScopeEditor, und der kennt die Satelliten nicht.
+                          Ohne den Umweg ueber ShellRoot bleibt die Auswahl
+                          leer, obwohl Satelliten verbunden sind.
                       -->
                       <ComboBox Grid.Row="0" Grid.Column="1" Width="190"
                                 HorizontalAlignment="Left"
-                                ItemsSource="{Binding SatelliteEditor.NamesForPicker}"
+                                ItemsSource="{Binding #ShellRoot.DataContext.SatelliteEditor.NamesForPicker}"
                                 SelectedItem="{Binding Selected.ScannedBy}"/>
                     </Grid>
 
@@ -1575,289 +1645,615 @@
 
         <!-- ========== Ansicht: Satelliten ========== -->
         <!--
-            Liste links, Maske rechts - dasselbe Muster wie bei den Bereichen.
-            Adresse und Port fehlen absichtlich: der Satellit verbindet sich
-            hierher, seine Herkunft ist Beobachtung und keine Einstellung.
+            Zwei Betriebsarten, zwei Reiter - und in jedem der Ablauf von oben
+            nach unten durchnummeriert.
+
+            Der Grund fuer die Trennung: dieselbe Anwendung ist einmal der
+            Hauptscanner, der Ergebnisse einsammelt, und einmal der Satellit,
+            der sie liefert. Beides in einer Maske nebeneinander hat verwirrt -
+            der Freigabeknopf etwa gehoert ausschliesslich auf die Hauptscanner-
+            Seite, denn am Satelliten gibt es nichts freizugeben. Auf einer
+            Anlage braucht man ohnehin fast immer nur einen der beiden Reiter.
+
             Siehe SATELLIT.md.
         -->
-        <DockPanel x:Name="view_Satellites" IsVisible="False" LastChildFill="True"
-                   Background="{StaticResource Workspace}">
+        <!--
+            Der Grund des TabControl ist der dunkle Ton der Navigationsleiste -
+            damit traegt der Reiterstreifen oben dieselbe Farbe. Die Flaeche
+            darunter bekommt ihren hellen Grund von den beiden DockPanels, sonst
+            waere auch der Arbeitsbereich dunkel.
+        -->
+        <TabControl x:Name="view_Satellites" IsVisible="False"
+                    Background="{StaticResource Rail}" BorderThickness="0" Padding="0">
 
-          <Border DockPanel.Dock="Top" Background="{StaticResource Panel}"
-                  BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1" Padding="12,8">
-            <Grid ColumnDefinitions="*,Auto">
-              <TextBlock Grid.Column="0" VerticalAlignment="Center" FontSize="10.5"
-                         Foreground="{StaticResource Dim}" TextWrapping="Wrap" MaxWidth="620"
-                         HorizontalAlignment="Left"
-                         Text="A satellite is this application running as a service in another network segment. It connects to this machine on its own, announces its name and waits to be approved - there is nothing to type in here. Not in service yet: no satellite can connect, so this list stays empty and every range is scanned from here."/>
+          <!-- ================================================== HAUPTSCANNER -->
+          <TabItem Header="Host mode  ·  collect results">
+            <DockPanel LastChildFill="True" Background="{StaticResource Workspace}">
 
-              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
-                <Button Content="Approve" Command="{Binding SatelliteEditor.ApproveCommand}"
-                        Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
-                        FontSize="10.5"/>
-                <Button Content="Revoke" Command="{Binding SatelliteEditor.RevokeCommand}"
-                        Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
-                        FontSize="10.5"/>
-                <!--
-                    Stoppt genau diesen Satelliten. Der Stopp-Knopf im
-                    Kommandobalken betrifft nur den oertlichen Lauf.
-                -->
-                <Button Content="Stop job" Command="{Binding SatelliteEditor.StopJobCommand}"
-                        IsEnabled="{Binding SatelliteEditor.Selected.IsBusy}"
-                        Background="White" BorderBrush="#E2B6B1" BorderThickness="1"
-                        Foreground="{StaticResource Crit}" FontSize="10.5"/>
-                <Button Content="Delete" Command="{Binding SatelliteEditor.DeleteCommand}"
-                        Background="White" BorderBrush="#E2B6B1" BorderThickness="1"
-                        Foreground="{StaticResource Crit}" FontSize="10.5"/>
-              </StackPanel>
-            </Grid>
-          </Border>
-
-          <Border DockPanel.Dock="Bottom" Background="{StaticResource Panel}"
-                  BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="12,6">
-            <Grid ColumnDefinitions="*,Auto">
-              <TextBlock Grid.Column="0" Text="{Binding SatelliteEditor.Status}" FontSize="10"
-                         Foreground="{StaticResource Dimmer}" VerticalAlignment="Center"/>
-              <TextBlock Grid.Column="1" Text="{Binding SatelliteEditor.LinkStatus}" FontSize="10"
-                         Foreground="{StaticResource Teal}" VerticalAlignment="Center"/>
-            </Grid>
-          </Border>
-
-          <!-- Betrieb: horchen, Port, Firewall, eigener Satellitenbetrieb -->
-          <ScrollViewer DockPanel.Dock="Right" Width="430" Padding="16,14"
-                        Background="{StaticResource Workspace}"
-                        BorderBrush="{StaticResource Line}" BorderThickness="1,0,0,0">
-            <StackPanel Spacing="14">
-
-              <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
-                      BorderThickness="1" CornerRadius="4" Padding="16,14">
-                <StackPanel Spacing="10">
-                  <TextBlock Text="LISTEN FOR SATELLITES" Classes="settingsHead"/>
-
-                  <CheckBox Content="Accept satellite connections"
-                            IsChecked="{Binding Settings.SatelliteListenEnabled}"/>
-
-                  <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
-                    <TextBlock Grid.Column="0" Text="Port" Classes="settingLabel"/>
-                    <NumericUpDown Grid.Column="1" Width="130" HorizontalAlignment="Left"
-                                   Minimum="1" Maximum="65535" Increment="1"
-                                   FormatString="0"
-                                   Value="{Binding Settings.SatelliteListenPort}"/>
-                  </Grid>
-
-                  <TextBlock Classes="settingHint"
-                            Text="Satellites connect to this machine, so this port has to be reachable from the outside. Pick it freely - the list below only tells you where you would get through without a new firewall rule."/>
-
-                  <StackPanel Spacing="4">
-                    <TextBlock Text="Own fingerprint" Classes="settingLabel"/>
-                    <SelectableTextBlock Classes="mono" FontSize="9.5" TextWrapping="Wrap"
-                                         Foreground="{StaticResource Dim}"
-                                         Text="{Binding SatelliteEditor.OwnFingerprint}"/>
-                  </StackPanel>
-                </StackPanel>
+              <Border DockPanel.Dock="Top" Background="{StaticResource Panel}"
+                      BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1" Padding="14,9">
+                <TextBlock FontSize="10.5" Foreground="{StaticResource Dim}" TextWrapping="Wrap"
+                           Text="This machine hands out scan jobs and collects the results. Satellites connect to it on their own - you never type an address here. Work through the four steps from left to right."/>
               </Border>
 
-              <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
-                      BorderThickness="1" CornerRadius="4" Padding="16,14">
-                <StackPanel Spacing="10">
-                  <TextBlock Text="FIREWALL" Classes="settingsHead"/>
-
-                  <StackPanel Orientation="Horizontal" Spacing="6">
-                    <Button Content="Refresh" Click="bt_FirewallRefresh_Click"
-                            Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
-                            FontSize="10.5"/>
-                    <Button Content="Open my port" Click="bt_FirewallAllow_Click"
-                            IsEnabled="{Binding SatelliteEditor.CanCreateFirewallRule}"
-                            Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
-                            FontSize="10.5"/>
-                    <Button Content="Remove my rule" Click="bt_FirewallRemove_Click"
-                            IsEnabled="{Binding SatelliteEditor.CanCreateFirewallRule}"
-                            Background="White" BorderBrush="#E2B6B1" BorderThickness="1"
-                            Foreground="{StaticResource Crit}" FontSize="10.5"/>
-                  </StackPanel>
-
-                  <TextBlock Text="{Binding SatelliteEditor.FirewallStatus}" Classes="settingHint"/>
-
-                  <ListBox ItemsSource="{Binding SatelliteEditor.AllowedInboundPorts}"
-                           MaxHeight="150" FontSize="10.5" Background="Transparent"
-                           BorderBrush="{StaticResource Line}" BorderThickness="1"/>
-
-                  <TextBlock Classes="settingHint"
-                            Text="Without elevated rights only ports are listed that are open for any application - those are the ones you can use as they are. As administrator you also see the rest and may create your own rule, bound to this application alone."/>
-                </StackPanel>
+              <Border DockPanel.Dock="Bottom" Background="{StaticResource Panel}"
+                      BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="14,6">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Grid.Column="0" Text="{Binding SatelliteEditor.Status}" FontSize="10"
+                             Foreground="{StaticResource Dimmer}" VerticalAlignment="Center"/>
+                  <TextBlock Grid.Column="1" Text="{Binding SatelliteEditor.LinkStatus}" FontSize="10"
+                             Foreground="{StaticResource Teal}" VerticalAlignment="Center"/>
+                </Grid>
               </Border>
 
-              <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
-                      BorderThickness="1" CornerRadius="4" Padding="16,14">
-                <StackPanel Spacing="10">
-                  <TextBlock Text="RUN AS A SATELLITE" Classes="settingsHead"/>
+              <Grid ColumnDefinitions="450,1,*">
 
-                  <Grid ColumnDefinitions="90,*" RowDefinitions="Auto,Auto"
-                        ColumnSpacing="10" RowSpacing="8">
-                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Main scanner" Classes="settingLabel"/>
-                    <TextBox Grid.Row="0" Grid.Column="1"
-                             Text="{Binding Settings.MainScannerHost}"
-                             Watermark="host name or address"/>
+                <!-- Schritt 1 und 2: horchen, dann freigeben -->
+                <DockPanel Grid.Column="0" LastChildFill="True" Margin="14,14,14,14">
 
-                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Port" Classes="settingLabel"/>
-                    <NumericUpDown Grid.Row="1" Grid.Column="1" Width="130" HorizontalAlignment="Left"
-                                   Minimum="1" Maximum="65535" Increment="1" FormatString="0"
-                                   Value="{Binding Settings.MainScannerPort}"/>
-                  </Grid>
+                  <Border DockPanel.Dock="Top"
+                          Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
+                          BorderThickness="1" CornerRadius="4" Padding="16,14" Margin="0,0,0,14">
+                    <StackPanel Spacing="10">
+                      <TextBlock Text="1   LISTEN" Classes="settingsHead"/>
 
-                  <StackPanel Orientation="Horizontal" Spacing="6">
-                    <Button Content="Connect" Click="bt_SatelliteConnect_Click"
-                            Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
-                            FontSize="10.5"/>
-                    <Button Content="Disconnect" Click="bt_SatelliteDisconnect_Click"
-                            Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
-                            FontSize="10.5"/>
-                  </StackPanel>
+                      <CheckBox Content="Accept satellite connections"
+                                IsChecked="{Binding Settings.SatelliteListenEnabled}"/>
 
-                  <TextBlock Text="{Binding SatelliteEditor.ClientStatus}" Classes="settingHint"/>
+                      <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
+                        <TextBlock Grid.Column="0" Text="Port" Classes="settingLabel"/>
+                        <NumericUpDown Grid.Column="1" Width="130" HorizontalAlignment="Left"
+                                       Minimum="1" Maximum="65535" Increment="1" FormatString="0"
+                                       Value="{Binding Settings.SatelliteListenPort}"/>
+                      </Grid>
 
-                  <CheckBox Content="Any approved main scanner may stop a job"
-                            IsChecked="{Binding Settings.AllowCancelFromAnyReceiver}"/>
+                      <TextBlock Classes="settingHint"
+                                 Text="Satellites connect to this machine, so this port must be reachable from their network. Changing it takes effect after a restart."/>
 
-                  <TextBlock Classes="settingHint"
-                            Text="Applies while this machine runs as a satellite. On, because a stuck job blocks it for everyone and whoever is at a screen should be able to free it. Off means only the main scanner that started the job may stop it."/>
+                      <StackPanel Spacing="3">
+                        <TextBlock Text="This machine's key" Classes="settingLabel"/>
+                        <SelectableTextBlock Classes="mono" FontSize="9" TextWrapping="Wrap"
+                                             Foreground="{StaticResource Dim}"
+                                             Text="{Binding SatelliteEditor.OwnFingerprint}"/>
+                      </StackPanel>
 
-                  <TextBlock Classes="settingHint"
-                            Text="This machine then connects out to that main scanner and waits there to be approved. A host name is better than an address: it survives the main scanner changing its IP."/>
-                </StackPanel>
-              </Border>
-            </StackPanel>
-          </ScrollViewer>
-
-          <Grid ColumnDefinitions="380,1,*">
-
-            <DataGrid Grid.Column="0" ItemsSource="{Binding SatelliteEditor.All}"
-                      SelectedItem="{Binding SatelliteEditor.Selected}"
-                      AutoGenerateColumns="False" IsReadOnly="True"
-                      CanUserResizeColumns="True" SelectionMode="Single">
-              <DataGrid.Columns>
-                <DataGridTextColumn Header="SATELLITE" Binding="{Binding Name}" Width="*"/>
-                <DataGridTextColumn Header="STATE" Binding="{Binding StatusText}" Width="Auto" MinWidth="120"/>
-              </DataGrid.Columns>
-            </DataGrid>
-
-            <Border Grid.Column="1" Background="{StaticResource Line}"/>
-
-            <ScrollViewer Grid.Column="2" Padding="18"
-                          IsVisible="{Binding SatelliteEditor.Selected, Converter={x:Static ObjectConverters.IsNotNull}}">
-              <StackPanel Spacing="14" MaxWidth="520" HorizontalAlignment="Left">
-
-                <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
-                        BorderThickness="1" CornerRadius="4" Padding="16,14">
-                  <StackPanel Spacing="11">
-                    <TextBlock Text="SATELLITE" Classes="settingsHead"/>
-
-                    <Grid ColumnDefinitions="130,*" RowDefinitions="Auto,Auto"
-                          ColumnSpacing="10" RowSpacing="8">
                       <!--
-                          Der Name kommt vom Satelliten selbst und ist darum
-                          Anzeige, kein Eingabefeld: haende man ihn hier
-                          um, zeigte er beim naechsten Verbinden wieder seinen
-                          eigenen, und die Bereiche zeigten ins Leere.
+                          Die Firewall ist Hilfsmittel, nicht Ablaufschritt -
+                          darum eingeklappt. Wer durchkommt, oeffnet sie nie.
                       -->
-                      <TextBlock Grid.Row="0" Grid.Column="0" Text="Name" Classes="settingLabel"/>
-                      <TextBlock Grid.Row="0" Grid.Column="1" VerticalAlignment="Center"
-                                 FontSize="12" FontWeight="SemiBold"
-                                 Text="{Binding SatelliteEditor.Selected.Name}"/>
+                      <Expander Header="Firewall" FontSize="10.5">
+                        <StackPanel Spacing="8" Margin="0,8,0,0">
+                          <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Button Content="Refresh" Click="bt_FirewallRefresh_Click"
+                                    Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
+                                    FontSize="10.5"/>
+                            <Button Content="Open my port" Click="bt_FirewallAllow_Click"
+                                    IsEnabled="{Binding SatelliteEditor.CanCreateFirewallRule}"
+                                    Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
+                                    FontSize="10.5"/>
+                            <Button Content="Remove my rule" Click="bt_FirewallRemove_Click"
+                                    IsEnabled="{Binding SatelliteEditor.CanCreateFirewallRule}"
+                                    Background="White" BorderBrush="#E2B6B1" BorderThickness="1"
+                                    Foreground="{StaticResource Crit}" FontSize="10.5"/>
+                          </StackPanel>
 
-                      <TextBlock Grid.Row="1" Grid.Column="0" Text="Note" Classes="settingLabel"/>
-                      <TextBox Grid.Row="1" Grid.Column="1"
-                               Text="{Binding SatelliteEditor.Selected.Note}"
-                               Watermark="where it stands, what it covers"/>
-                    </Grid>
+                          <TextBlock Text="{Binding SatelliteEditor.FirewallStatus}" Classes="settingHint"/>
 
-                    <TextBlock Classes="settingHint"
-                               Text="The satellite reports its own name when it connects - that is the name a range points at under &quot;Scanned by&quot;. Only the note is yours to fill in."/>
+                          <ListBox x:Name="lst_AllowedPorts"
+                                   ItemsSource="{Binding SatelliteEditor.AllowedInboundPorts}"
+                                   SelectionChanged="lst_AllowedPorts_SelectionChanged"
+                                   MaxHeight="130" FontSize="10.5" Background="Transparent"
+                                   BorderBrush="{StaticResource Line}" BorderThickness="1"/>
+
+                          <TextBlock Classes="settingHint"
+                                     Text="Click an entry to use that port above. Without administrator rights only ports open for any application are listed - those work as they are. As administrator you may also create a rule bound to this application alone."/>
+                        </StackPanel>
+                      </Expander>
+                    </StackPanel>
+                  </Border>
+
+                  <Border DockPanel.Dock="Top"
+                          Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
+                          BorderThickness="1,1,1,0" CornerRadius="4,4,0,0" Padding="16,14,16,10">
+                    <StackPanel Spacing="9">
+                      <TextBlock Text="2   APPROVE" Classes="settingsHead"/>
+
+                      <TextBlock Classes="settingHint"
+                                 Text="A satellite that connects for the first time appears below and waits. It gets no jobs until you approve it - one click, and from then on it is known by its key, not by its address."/>
+
+                      <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Button Content="Approve" Command="{Binding SatelliteEditor.ApproveCommand}"
+                                IsEnabled="{Binding SatelliteEditor.Selected.NeedsApproval}"
+                                Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
+                                FontSize="10.5"/>
+                        <Button Content="Revoke" Command="{Binding SatelliteEditor.RevokeCommand}"
+                                IsEnabled="{Binding SatelliteEditor.Selected.Approved}"
+                                Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
+                                FontSize="10.5"/>
+                        <Button Content="Delete" Command="{Binding SatelliteEditor.DeleteCommand}"
+                                Background="White" BorderBrush="#E2B6B1" BorderThickness="1"
+                                Foreground="{StaticResource Crit}" FontSize="10.5"/>
+                      </StackPanel>
+                    </StackPanel>
+                  </Border>
+
+                  <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
+                          BorderThickness="1,0,1,1" CornerRadius="0,0,4,4">
+                    <DataGrid ItemsSource="{Binding SatelliteEditor.All}"
+                              SelectedItem="{Binding SatelliteEditor.Selected}"
+                              AutoGenerateColumns="False" IsReadOnly="True"
+                              CanUserResizeColumns="True" SelectionMode="Single"
+                              Background="Transparent">
+                      <DataGrid.Columns>
+                        <DataGridTextColumn Header="SATELLITE" Binding="{Binding Name}" Width="*"/>
+                        <DataGridTextColumn Header="STATE" Binding="{Binding StatusText}"
+                                            Width="Auto" MinWidth="130"/>
+                      </DataGrid.Columns>
+                    </DataGrid>
+                  </Border>
+                </DockPanel>
+
+                <Border Grid.Column="1" Background="{StaticResource Line}"/>
+
+                <!-- Schritt 3 und 4: zuweisen, dann zusehen -->
+                <ScrollViewer Grid.Column="2" Padding="16,14">
+                  <StackPanel Spacing="14" MaxWidth="560" HorizontalAlignment="Left">
+
+                    <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
+                            BorderThickness="1" CornerRadius="4" Padding="16,14"
+                            IsVisible="{Binding SatelliteEditor.Selected, Converter={x:Static ObjectConverters.IsNotNull}}">
+                      <StackPanel Spacing="11">
+                        <TextBlock Text="3   ASSIGN RANGES" Classes="settingsHead"/>
+
+                        <Grid ColumnDefinitions="130,*" RowDefinitions="Auto,Auto"
+                              ColumnSpacing="10" RowSpacing="8">
+                          <!--
+                              Der Name kommt vom Satelliten selbst und ist darum
+                              Anzeige, kein Eingabefeld: haende man ihn hier um,
+                              zeigte er beim naechsten Verbinden wieder seinen
+                              eigenen, und die Bereiche zeigten ins Leere.
+                          -->
+                          <TextBlock Grid.Row="0" Grid.Column="0" Text="Name" Classes="settingLabel"/>
+                          <TextBlock Grid.Row="0" Grid.Column="1" VerticalAlignment="Center"
+                                     FontSize="12" FontWeight="SemiBold"
+                                     Text="{Binding SatelliteEditor.Selected.Name}"/>
+
+                          <TextBlock Grid.Row="1" Grid.Column="0" Text="Note" Classes="settingLabel"/>
+                          <TextBox Grid.Row="1" Grid.Column="1"
+                                   Text="{Binding SatelliteEditor.Selected.Note}"
+                                   Watermark="where it stands, what it covers"/>
+                        </Grid>
+
+                        <TextBlock Classes="settingHint"
+                                   Text="Open Ranges, pick a range and set &quot;Scanned by&quot; to this name. That range is then scanned from inside its segment - and never from here as well."/>
+
+                        <StackPanel Spacing="4">
+                          <TextBlock Text="Ranges pointing at this satellite" Classes="settingLabel"/>
+                          <ListBox ItemsSource="{Binding SatelliteEditor.RangesOfSelected}"
+                                   MinHeight="56" MaxHeight="130" FontSize="10.5"
+                                   Background="Transparent"
+                                   BorderBrush="{StaticResource Line}" BorderThickness="1"/>
+                          <TextBlock Classes="settingHint"
+                                     Text="Empty means this satellite gets no work yet."/>
+                        </StackPanel>
+
+                        <Border Background="{StaticResource CritSoft}" CornerRadius="3" Padding="9,6"
+                                IsVisible="{Binding SatelliteEditor.Selected.NeedsApproval}">
+                          <TextBlock FontSize="10.5" TextWrapping="Wrap"
+                                     Foreground="{StaticResource Crit}"
+                                     Text="Not approved yet - go back to step 2. Until then it receives no jobs, and its ranges are reported as not scanned."/>
+                        </Border>
+
+                        <Expander Header="Identity and last contact" FontSize="10.5">
+                          <StackPanel Spacing="7" Margin="0,8,0,0">
+                            <StackPanel Spacing="2">
+                              <TextBlock Text="Key" Classes="settingLabel"/>
+                              <SelectableTextBlock Classes="mono" FontSize="9" TextWrapping="Wrap"
+                                                   Foreground="{StaticResource Dim}"
+                                                   Text="{Binding SatelliteEditor.Selected.Fingerprint}"/>
+                            </StackPanel>
+
+                            <Grid ColumnDefinitions="130,*" RowDefinitions="Auto,Auto,Auto"
+                                  ColumnSpacing="10" RowSpacing="5">
+                              <TextBlock Grid.Row="0" Grid.Column="0" Text="Last seen" Classes="settingLabel"/>
+                              <TextBlock Grid.Row="0" Grid.Column="1" FontSize="11"
+                                         Text="{Binding SatelliteEditor.Selected.LastSeen}"/>
+
+                              <TextBlock Grid.Row="1" Grid.Column="0" Text="Version" Classes="settingLabel"/>
+                              <TextBlock Grid.Row="1" Grid.Column="1" FontSize="11"
+                                         Text="{Binding SatelliteEditor.Selected.Version}"/>
+
+                              <TextBlock Grid.Row="2" Grid.Column="0" Text="Came from" Classes="settingLabel"/>
+                              <TextBlock Grid.Row="2" Grid.Column="1" FontSize="11" TextWrapping="Wrap"
+                                         Text="{Binding SatelliteEditor.Selected.RemoteAddress}"/>
+                            </Grid>
+
+                            <TextBlock Classes="settingHint"
+                                       Text="A satellite is recognised by the key, not by the address - it may move or change IP without losing its approval."/>
+                          </StackPanel>
+                        </Expander>
+                      </StackPanel>
+                    </Border>
+
+                    <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
+                            BorderThickness="1" CornerRadius="4" Padding="16,14"
+                            IsVisible="{Binding SatelliteEditor.Selected, Converter={x:Static ObjectConverters.IsNotNull}}">
+                      <StackPanel Spacing="10">
+                        <TextBlock Text="4   RUN AND WATCH" Classes="settingsHead"/>
+
+                        <TextBlock Classes="settingHint"
+                                   Text="Start the scan as usual from the command bar at the top. Ranges with a satellite go to that satellite in one single job; everything else runs from here."/>
+
+                        <StackPanel Spacing="8" IsVisible="{Binding SatelliteEditor.Selected.IsBusy}">
+                          <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" FontSize="11" FontWeight="SemiBold"
+                                       Text="{Binding SatelliteEditor.Selected.ProgressCurrent}"/>
+                            <TextBlock Grid.Column="1" FontSize="11" Foreground="{StaticResource Teal}">
+                              <Run Text="{Binding SatelliteEditor.Selected.ProgressPercent}"/><Run Text=" %"/>
+                            </TextBlock>
+                          </Grid>
+
+                          <ProgressBar Minimum="0" Maximum="100" Height="6"
+                                       Value="{Binding SatelliteEditor.Selected.ProgressPercent}"/>
+
+                          <StackPanel Spacing="2">
+                            <TextBlock Text="Done" Classes="settingLabel"/>
+                            <TextBlock FontSize="10.5" TextWrapping="Wrap"
+                                       Text="{Binding SatelliteEditor.Selected.ProgressDone}"/>
+                          </StackPanel>
+
+                          <StackPanel Spacing="2">
+                            <TextBlock Text="Still to come" Classes="settingLabel"/>
+                            <TextBlock FontSize="10.5" TextWrapping="Wrap"
+                                       Text="{Binding SatelliteEditor.Selected.ProgressPending}"/>
+                          </StackPanel>
+                        </StackPanel>
+
+                        <TextBlock Classes="settingHint"
+                                   IsVisible="{Binding !SatelliteEditor.Selected.IsBusy}"
+                                   Text="No job running on this satellite."/>
+
+                        <!--
+                            Stoppt genau diesen Satelliten. Der Stopp-Knopf im
+                            Kommandobalken betrifft nur den oertlichen Lauf.
+                        -->
+                        <Button Content="Stop this satellite's job" HorizontalAlignment="Left"
+                                Command="{Binding SatelliteEditor.StopJobCommand}"
+                                IsEnabled="{Binding SatelliteEditor.Selected.IsBusy}"
+                                Background="White" BorderBrush="#E2B6B1" BorderThickness="1"
+                                Foreground="{StaticResource Crit}" FontSize="10.5"/>
+                      </StackPanel>
+                    </Border>
+
+                    <TextBlock Classes="settingHint" MaxWidth="520" HorizontalAlignment="Left"
+                               IsVisible="{Binding SatelliteEditor.Selected, Converter={x:Static ObjectConverters.IsNull}}"
+                               Text="Pick a satellite on the left to see which ranges it covers and how a running job is doing. The list stays empty until one connects for the first time."/>
                   </StackPanel>
-                </Border>
+                </ScrollViewer>
+              </Grid>
+            </DockPanel>
+          </TabItem>
 
-                <!--
-                    Nur sichtbar, solange ein Auftrag laeuft: es geht darum zu
-                    sehen, dass der Satellit arbeitet und woran - nicht darum,
-                    die oertliche Anzeige nachzustellen.
-                -->
-                <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
-                        BorderThickness="1" CornerRadius="4" Padding="16,14"
-                        IsVisible="{Binding SatelliteEditor.Selected.IsBusy}">
-                  <StackPanel Spacing="10">
-                    <TextBlock Text="RUNNING JOB" Classes="settingsHead"/>
+          <!-- ==================================================== SATELLIT -->
+          <TabItem Header="Satellite mode  ·  scan for others">
+            <DockPanel LastChildFill="True" Background="{StaticResource Workspace}">
 
-                    <Grid ColumnDefinitions="*,Auto">
-                      <TextBlock Grid.Column="0" FontSize="11" VerticalAlignment="Center"
-                                 Text="{Binding SatelliteEditor.Selected.ProgressCurrent}"/>
-                      <TextBlock Grid.Column="1" Classes="mono" FontSize="12" FontWeight="SemiBold"
-                                 Foreground="{StaticResource Teal}" VerticalAlignment="Center">
-                        <Run Text="{Binding SatelliteEditor.Selected.ProgressPercent}"/><Run Text=" %"/>
+              <Border DockPanel.Dock="Top" Background="{StaticResource Panel}"
+                      BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1" Padding="14,9">
+                <TextBlock FontSize="10.5" Foreground="{StaticResource Dim}" TextWrapping="Wrap"
+                           Text="This machine scans its own network segment on behalf of others and sends the result back. It connects out and listens on nothing. There is no approval to give here - that happens over there, on each main scanner."/>
+              </Border>
+
+              <!--
+                  Der laufende Auftrag steht ganz oben und immer sichtbar, auch
+                  wenn keiner laeuft: die Frage "arbeitet die Anlage gerade, und
+                  fuer wen" ist beim Satelliten die wichtigste. Bei mehreren
+                  Empfaengern nimmt er nur einen Auftrag zur Zeit an - ohne diese
+                  Zeile bliebe unerklaerlich, warum der zweite Hauptscanner ein
+                  "busy" bekommt.
+              -->
+              <Border DockPanel.Dock="Top" Padding="14,12"
+                      Background="{StaticResource Panel}"
+                      BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="14">
+                  <StackPanel Grid.Column="0" Spacing="7">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                      <TextBlock Text="CURRENT JOB" Classes="settingsHead" VerticalAlignment="Center"/>
+
+                      <!--
+                          Woher die Zahlen stammen. Ohne das saehe ein Auftrag
+                          des Dienstes so aus, als haette dieses Fenster ihn
+                          angenommen - und der Stopp-Knopf griffe scheinbar
+                          ins Leere.
+                      -->
+                      <Border Background="{StaticResource TealSoft}" CornerRadius="2" Padding="6,1"
+                              VerticalAlignment="Center"
+                              IsVisible="{Binding SatelliteEditor.IsShowingService}">
+                        <TextBlock FontSize="9.5" Foreground="{StaticResource Teal}"
+                                   Text="live from the service"/>
+                      </Border>
+
+                      <Border Background="{StaticResource CritSoft}" CornerRadius="2" Padding="6,1"
+                              VerticalAlignment="Center"
+                              IsVisible="{Binding SatelliteEditor.ServiceUnreachable}">
+                        <TextBlock FontSize="9.5" Foreground="{StaticResource Crit}"
+                                   Text="service running, but not answering"/>
+                      </Border>
+                    </StackPanel>
+
+                    <TextBlock FontSize="11" Foreground="{StaticResource Dim}"
+                               IsVisible="{Binding !SatelliteEditor.IsRunningLocalJob}"
+                               Text="Idle - waiting for a main scanner to send a job."/>
+
+                    <StackPanel Spacing="7" IsVisible="{Binding SatelliteEditor.IsRunningLocalJob}">
+                      <TextBlock FontSize="12" TextWrapping="Wrap">
+                        <Run Text="Scanning for "/><Run FontWeight="SemiBold"
+                             Text="{Binding SatelliteEditor.LocalJobHost}"/><Run Text="  ·  job "/><Run
+                             Classes="mono" Text="{Binding SatelliteEditor.LocalJobId}"/>
                       </TextBlock>
-                    </Grid>
 
-                    <ProgressBar Minimum="0" Maximum="100" Height="6"
-                                 Value="{Binding SatelliteEditor.Selected.ProgressPercent}"/>
+                      <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Grid.Column="0" FontSize="11" FontWeight="SemiBold"
+                                   Text="{Binding SatelliteEditor.LocalJobCurrent}"/>
+                        <TextBlock Grid.Column="1" FontSize="11" Foreground="{StaticResource Teal}">
+                          <Run Text="{Binding SatelliteEditor.LocalJobPercent}"/><Run Text=" %"/>
+                        </TextBlock>
+                      </Grid>
 
-                    <Grid ColumnDefinitions="70,*" RowDefinitions="Auto,Auto"
-                          ColumnSpacing="10" RowSpacing="4">
-                      <TextBlock Grid.Row="0" Grid.Column="0" Text="Done" Classes="settingLabel"/>
-                      <TextBlock Grid.Row="0" Grid.Column="1" FontSize="10.5" TextWrapping="Wrap"
-                                 Text="{Binding SatelliteEditor.Selected.ProgressDone}"/>
+                      <ProgressBar Minimum="0" Maximum="100" Height="6"
+                                   Value="{Binding SatelliteEditor.LocalJobPercent}"/>
 
-                      <TextBlock Grid.Row="1" Grid.Column="0" Text="Pending" Classes="settingLabel"/>
-                      <TextBlock Grid.Row="1" Grid.Column="1" FontSize="10.5" TextWrapping="Wrap"
-                                 Foreground="{StaticResource Dim}"
-                                 Text="{Binding SatelliteEditor.Selected.ProgressPending}"/>
-                    </Grid>
+                      <TextBlock FontSize="10" Foreground="{StaticResource Dimmer}" TextWrapping="Wrap">
+                        <Run Text="done: "/><Run Text="{Binding SatelliteEditor.LocalJobDone}"/>
+                      </TextBlock>
+                      <TextBlock FontSize="10" Foreground="{StaticResource Dimmer}" TextWrapping="Wrap">
+                        <Run Text="still to come: "/><Run Text="{Binding SatelliteEditor.LocalJobPending}"/>
+                      </TextBlock>
+                    </StackPanel>
                   </StackPanel>
-                </Border>
 
-                <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
-                        BorderThickness="1" CornerRadius="4" Padding="16,14">
-                  <StackPanel Spacing="11">
-                    <TextBlock Text="IDENTITY" Classes="settingsHead"/>
+                  <Button Grid.Column="1" VerticalAlignment="Top" Content="Stop the job"
+                          Command="{Binding SatelliteEditor.StopLocalJobCommand}"
+                          IsEnabled="{Binding SatelliteEditor.IsRunningLocalJob}"
+                          Background="White" BorderBrush="#E2B6B1" BorderThickness="1"
+                          Foreground="{StaticResource Crit}" FontSize="10.5"/>
+                </Grid>
+              </Border>
 
-                    <Grid ColumnDefinitions="130,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto"
-                          ColumnSpacing="10" RowSpacing="6">
-                      <TextBlock Grid.Row="0" Grid.Column="0" Text="State" Classes="settingLabel"/>
-                      <TextBlock Grid.Row="0" Grid.Column="1" VerticalAlignment="Center"
-                                 FontSize="11" Text="{Binding SatelliteEditor.Selected.StatusText}"/>
+              <Border DockPanel.Dock="Bottom" Background="{StaticResource Panel}"
+                      BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="14,6">
+                <TextBlock Text="{Binding SatelliteEditor.ClientStatus}" FontSize="10"
+                           Foreground="{StaticResource Teal}" VerticalAlignment="Center"/>
+              </Border>
 
-                      <TextBlock Grid.Row="1" Grid.Column="0" Text="Fingerprint" Classes="settingLabel"/>
-                      <SelectableTextBlock Grid.Row="1" Grid.Column="1" Classes="mono" FontSize="10"
-                                           TextWrapping="Wrap" VerticalAlignment="Center"
-                                           Text="{Binding SatelliteEditor.Selected.Fingerprint}"/>
+              <Grid ColumnDefinitions="*,1,380">
 
-                      <TextBlock Grid.Row="2" Grid.Column="0" Text="Last seen" Classes="settingLabel"/>
-                      <TextBlock Grid.Row="2" Grid.Column="1" VerticalAlignment="Center" FontSize="11"
-                                 Text="{Binding SatelliteEditor.Selected.LastSeen}"/>
+                <ScrollViewer Grid.Column="0" Padding="16,14">
+                  <StackPanel Spacing="14">
 
-                      <TextBlock Grid.Row="3" Grid.Column="0" Text="Version" Classes="settingLabel"/>
-                      <TextBlock Grid.Row="3" Grid.Column="1" VerticalAlignment="Center" FontSize="11"
-                                 Text="{Binding SatelliteEditor.Selected.Version}"/>
+                    <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
+                            BorderThickness="1" CornerRadius="4" Padding="16,14">
+                      <StackPanel Spacing="9">
+                        <TextBlock Text="1   THIS MACHINE" Classes="settingsHead"/>
 
-                      <TextBlock Grid.Row="4" Grid.Column="0" Text="Last address" Classes="settingLabel"/>
-                      <TextBlock Grid.Row="4" Grid.Column="1" VerticalAlignment="Center" FontSize="11"
-                                 Classes="mono"
-                                 Text="{Binding SatelliteEditor.Selected.RemoteAddress}"/>
-                    </Grid>
+                        <Grid ColumnDefinitions="110,*" ColumnSpacing="10">
+                          <TextBlock Grid.Column="0" Text="Announces itself as" Classes="settingLabel"
+                                     TextWrapping="Wrap"/>
+                          <TextBlock Grid.Column="1" VerticalAlignment="Center"
+                                     FontSize="13" FontWeight="SemiBold"
+                                     Text="{Binding SatelliteEditor.OwnName}"/>
+                        </Grid>
 
-                    <TextBlock Classes="settingHint"
-                               Text="A satellite identifies itself by the fingerprint of its key, not by its address - so it may move or change IP without losing its approval. These values are filled in by the satellite itself the first time it connects."/>
+                        <TextBlock Classes="settingHint"
+                                   Text="That is the name a range points at under &quot;Scanned by&quot; on the main scanner. It is the machine name and is not typed anywhere - neither here nor there."/>
 
-                    <Border Background="#F2EDDF" CornerRadius="3" Padding="9,6"
-                            IsVisible="{Binding SatelliteEditor.Selected.NeedsApproval}">
-                      <TextBlock FontSize="10.5" TextWrapping="Wrap"
-                                 Foreground="{StaticResource Warn}"
-                                 Text="This satellite has announced itself but is not approved. It gets no jobs until you approve it."/>
+                        <StackPanel Spacing="3">
+                          <TextBlock Text="This machine's key" Classes="settingLabel"/>
+                          <SelectableTextBlock Classes="mono" FontSize="9" TextWrapping="Wrap"
+                                               Foreground="{StaticResource Dim}"
+                                               Text="{Binding SatelliteEditor.OwnFingerprint}"/>
+                          <TextBlock Classes="settingHint"
+                                     Text="This is what a main scanner approves. It appears there by itself on the first connection."/>
+                        </StackPanel>
+                      </StackPanel>
+                    </Border>
+
+                    <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
+                            BorderThickness="1" CornerRadius="4" Padding="16,14">
+                      <StackPanel Spacing="10">
+                        <TextBlock Text="2   CONNECT TO YOUR MAIN SCANNERS" Classes="settingsHead"/>
+
+                        <TextBlock Classes="settingHint"
+                                   Text="More than one is normal and intended - a laptop and a server, for example. This machine holds a connection to every one of them at the same time, each approved separately and each reconnecting on its own. If one is switched off, the others carry on."/>
+
+                        <Grid ColumnDefinitions="320,*" ColumnSpacing="16">
+
+                          <StackPanel Grid.Column="0" Spacing="8">
+                            <ListBox x:Name="lst_Hosts"
+                                     ItemsSource="{Binding SatelliteEditor.Hosts}"
+                                     SelectedItem="{Binding SatelliteEditor.SelectedHost}"
+                                     MinHeight="96" MaxHeight="150" FontSize="10.5"
+                                     Background="Transparent"
+                                     BorderBrush="{StaticResource Line}" BorderThickness="1">
+                              <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                  <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                                    <!--
+                                        Gefuellt = verbunden und freigegeben,
+                                        hohl = verbunden, wartet noch auf die
+                                        Freigabe, nichts = keine Verbindung.
+                                    -->
+                                    <Panel Grid.Column="0" Width="8" Height="8" VerticalAlignment="Center">
+                                      <Ellipse Width="7" Height="7" Fill="{StaticResource Teal}"
+                                               IsVisible="{Binding IsApproved}"/>
+                                      <Ellipse Width="7" Height="7" StrokeThickness="1.5"
+                                               Stroke="{StaticResource Teal}"
+                                               IsVisible="{Binding IsWaitingForApproval}"/>
+                                    </Panel>
+                                    <TextBlock Grid.Column="1" Text="{Binding Display}" VerticalAlignment="Center"/>
+                                    <CheckBox Grid.Column="2" IsChecked="{Binding Enabled}" MinWidth="0"
+                                              ToolTip.Tip="Connect to this main scanner"/>
+                                  </Grid>
+                                </DataTemplate>
+                              </ListBox.ItemTemplate>
+                            </ListBox>
+
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                              <Button Content="Add" Command="{Binding SatelliteEditor.AddHostCommand}"
+                                      Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
+                                      FontSize="10.5"/>
+                              <Button Content="Remove" Command="{Binding SatelliteEditor.RemoveHostCommand}"
+                                      Background="White" BorderBrush="#E2B6B1" BorderThickness="1"
+                                      Foreground="{StaticResource Crit}" FontSize="10.5"/>
+                              <Button Content="Connect all" Click="bt_SatelliteConnect_Click"
+                                      IsEnabled="{Binding SatelliteEditor.CanConnectFromWindow}"
+                                      Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
+                                      FontSize="10.5"/>
+                              <Button Content="Disconnect all" Click="bt_SatelliteDisconnect_Click"
+                                      Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
+                                      FontSize="10.5"/>
+                            </StackPanel>
+
+                            <TextBlock Classes="settingHint"
+                                       Text="The tick decides whether a receiver is used at all - untick the laptop while you are away and its entry stays."/>
+                          </StackPanel>
+
+                          <StackPanel Grid.Column="1" Spacing="8"
+                                      IsVisible="{Binding SatelliteEditor.SelectedHost, Converter={x:Static ObjectConverters.IsNotNull}}">
+
+                            <Grid ColumnDefinitions="100,*" RowDefinitions="Auto,Auto,Auto"
+                                  ColumnSpacing="10" RowSpacing="6">
+                              <TextBlock Grid.Row="0" Grid.Column="0" Text="Name or address"
+                                         Classes="settingLabel" TextWrapping="Wrap"/>
+                              <TextBox Grid.Row="0" Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left"
+                                       Text="{Binding SatelliteEditor.SelectedHost.Host}"
+                                       Watermark="host name or address"/>
+
+                              <TextBlock Grid.Row="1" Grid.Column="0" Text="Port" Classes="settingLabel"/>
+                              <NumericUpDown Grid.Row="1" Grid.Column="1" Width="130" HorizontalAlignment="Left"
+                                             Minimum="1" Maximum="65535" Increment="1" FormatString="0"
+                                             Value="{Binding SatelliteEditor.SelectedHost.Port}"/>
+
+                              <TextBlock Grid.Row="2" Grid.Column="0" Text="Note" Classes="settingLabel"/>
+                              <TextBox Grid.Row="2" Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left"
+                                       Text="{Binding SatelliteEditor.SelectedHost.Note}"
+                                       Watermark="e.g. laptop, server"/>
+                            </Grid>
+
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                              <Button Content="Connect" Command="{Binding SatelliteEditor.ConnectHostCommand}"
+                                      IsEnabled="{Binding SatelliteEditor.CanConnectFromWindow}"
+                                      Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
+                                      FontSize="10.5"/>
+                              <Button Content="Disconnect" Command="{Binding SatelliteEditor.DisconnectHostCommand}"
+                                      Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
+                                      FontSize="10.5"/>
+                            </StackPanel>
+
+                            <TextBlock FontSize="10.5" TextWrapping="Wrap"
+                                       Foreground="{StaticResource Dim}"
+                                       Text="{Binding SatelliteEditor.SelectedHost.Status}"/>
+
+                            <Border Background="#FFF6E6" BorderBrush="#E8CE9B" BorderThickness="1"
+                                    CornerRadius="3" Padding="9,6"
+                                    IsVisible="{Binding SatelliteEditor.SelectedHost.IsWaitingForApproval}">
+                              <TextBlock FontSize="10.5" TextWrapping="Wrap" Foreground="#7A5A18"
+                                         Text="Connected, waiting to be approved over there. Nothing to do here - someone has to press Approve on that main scanner, in its Host mode tab, step 2."/>
+                            </Border>
+
+                            <StackPanel Spacing="2"
+                                        IsVisible="{Binding SatelliteEditor.SelectedHost.PinnedFingerprint,
+                                                            Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                              <TextBlock Text="Remembered key of this main scanner" Classes="settingLabel"/>
+                              <SelectableTextBlock Classes="mono" FontSize="9" TextWrapping="Wrap"
+                                                   Foreground="{StaticResource Dim}"
+                                                   Text="{Binding SatelliteEditor.SelectedHost.PinnedFingerprint}"/>
+                              <TextBlock Classes="settingHint"
+                                         Text="Taken over on the first connection. If it ever changes, this machine refuses to work - that is not the same main scanner any more."/>
+                            </StackPanel>
+                          </StackPanel>
+                        </Grid>
+                      </StackPanel>
                     </Border>
                   </StackPanel>
-                </Border>
-              </StackPanel>
-            </ScrollViewer>
-          </Grid>
-        </DockPanel>
+                </ScrollViewer>
+
+                <Border Grid.Column="1" Background="{StaticResource Line}"/>
+
+                <ScrollViewer Grid.Column="2" Padding="16,14"
+                              Background="{StaticResource Workspace}">
+                  <StackPanel Spacing="14">
+
+                    <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
+                            BorderThickness="1" CornerRadius="4" Padding="16,14">
+                      <StackPanel Spacing="9">
+                        <TextBlock Text="3   WHO MAY STOP A JOB" Classes="settingsHead"/>
+
+                        <CheckBox Content="Any approved main scanner may stop it"
+                                  IsChecked="{Binding Settings.AllowCancelFromAnyReceiver}"/>
+
+                        <TextBlock Classes="settingHint"
+                                   Text="On, because a stuck job blocks this machine for every main scanner, and whoever is at a screen should be able to free it. Off means only the one that started the job may stop it. The Stop button above always works - it is this machine's own."/>
+                      </StackPanel>
+                    </Border>
+
+                    <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
+                            BorderThickness="1" CornerRadius="4" Padding="16,14">
+                      <StackPanel Spacing="10">
+                        <TextBlock Text="4   KEEP RUNNING WITHOUT THIS WINDOW" Classes="settingsHead"/>
+
+                        <TextBlock Text="{Binding SatelliteEditor.ServiceStatusText}" Classes="settingHint"/>
+
+                        <WrapPanel ItemSpacing="6" LineSpacing="6"
+                                   IsEnabled="{Binding SatelliteEditor.IsServiceSupported}">
+                          <Button Content="Set up" Command="{Binding SatelliteEditor.InstallServiceCommand}"
+                                  Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
+                                  FontSize="10.5"/>
+                          <Button Content="Start" Command="{Binding SatelliteEditor.StartServiceCommand}"
+                                  IsEnabled="{Binding SatelliteEditor.IsServiceInstalled}"
+                                  Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
+                                  FontSize="10.5"/>
+                          <Button Content="Stop" Command="{Binding SatelliteEditor.StopServiceCommand}"
+                                  IsEnabled="{Binding SatelliteEditor.IsServiceRunning}"
+                                  Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
+                                  FontSize="10.5"/>
+                          <Button Content="Remove" Command="{Binding SatelliteEditor.UninstallServiceCommand}"
+                                  IsEnabled="{Binding SatelliteEditor.IsServiceInstalled}"
+                                  Background="White" BorderBrush="#E2B6B1" BorderThickness="1"
+                                  Foreground="{StaticResource Crit}" FontSize="10.5"/>
+                          <Button Content="Refresh" Command="{Binding SatelliteEditor.RefreshServiceCommand}"
+                                  Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
+                                  FontSize="10.5"/>
+                        </WrapPanel>
+
+                        <TextBlock Classes="settingHint"
+                                   Text="Without a service this machine is a satellite only while this window is open. Set up runs it as a service that starts with the machine, keeps every connection open and comes back on its own after a restart or a crash. Setting it up and removing it need administrator rights - Windows will ask."/>
+
+                        <Border Background="{StaticResource TealSoft}" CornerRadius="3" Padding="9,6"
+                                IsVisible="{Binding SatelliteEditor.IsServiceRunning}">
+                          <StackPanel Spacing="8">
+                            <TextBlock FontSize="10.5" TextWrapping="Wrap"
+                                       Foreground="{StaticResource Teal}"
+                                       Text="The service is doing the work, and this window is watching it live over a local pipe. It does not connect out itself while the service runs - two connections with the same key would push each other off."/>
+
+                            <Button Content="Apply the host list to the service"
+                                    HorizontalAlignment="Left"
+                                    Command="{Binding SatelliteEditor.ApplyToServiceCommand}"
+                                    Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
+                                    FontSize="10.5"/>
+
+                            <TextBlock Classes="settingHint"
+                                       Text="Changed a receiver on the left? This makes the service read the list again and reconnect - no restart needed."/>
+                          </StackPanel>
+                        </Border>
+                      </StackPanel>
+                    </Border>
+                  </StackPanel>
+                </ScrollViewer>
+              </Grid>
+            </DockPanel>
+          </TabItem>
+        </TabControl>
 
         <!-- ========== Ansicht: Einstellungen ========== -->
         <!--
