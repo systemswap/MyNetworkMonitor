@@ -1,9 +1,12 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Security.Cryptography.X509Certificates;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MyNetworkMonitor.Core.Models;
 using MyNetworkMonitor.Core.Persistence;
+using MyNetworkMonitor.Core.SatelliteLink;
+using MyNetworkMonitor.Core.Services;
 
 namespace MyNetworkMonitor.Core.ViewModels
 {
@@ -121,6 +124,214 @@ namespace MyNetworkMonitor.Core.ViewModels
             {
                 Status = $"Satellites could not be saved: {ex.Message}";
             }
+        }
+
+        // ------------------------------------------------ Betrieb: Lauscher
+
+        /// <summary>Name der Firewall-Regel, die diese Anwendung sich selbst anlegt.</summary>
+        public const string FirewallRuleName = "MyNetworkMonitor - satellites (inbound)";
+
+        private SatelliteListener? _listener;
+        private SatelliteClient? _client;
+        private X509Certificate2? _certificate;
+        private string _appVersion = string.Empty;
+
+        /// <summary>
+        /// Wie eine Aktion auf den Oberflaechen-Thread kommt. Die Ereignisse
+        /// von Lauscher und Verbinder treffen auf Hintergrund-Threads ein, und
+        /// die Liste haengt an der Anzeige. Die Ansicht setzt das auf ihren
+        /// Dispatcher; ohne Zuweisung laeuft es geradeaus, was fuer Tests
+        /// genau richtig ist.
+        /// </summary>
+        public Action<Action> Post { get; set; } = action => action();
+
+        [ObservableProperty] private bool _isListening;
+        [ObservableProperty] private string _linkStatus = "Not listening.";
+        [ObservableProperty] private string _ownFingerprint = string.Empty;
+
+        /// <summary>Der eigene Schluessel - entsteht beim ersten Zugriff.</summary>
+        private X509Certificate2 Certificate(string settingsFolder)
+        {
+            _certificate ??= SatelliteIdentity.GetOrCreate(settingsFolder, Environment.MachineName);
+            OwnFingerprint = SatelliteIdentity.ForDisplay(SatelliteIdentity.Fingerprint(_certificate));
+            return _certificate;
+        }
+
+        /// <summary>
+        /// Faengt an, auf Satelliten zu horchen. Freigegeben ist, wessen
+        /// Fingerabdruck in der Liste steht und angehakt ist.
+        /// </summary>
+        public void StartListening(string settingsFolder, int port, string appVersion)
+        {
+            StopListening();
+
+            _appVersion = appVersion ?? string.Empty;
+
+            try
+            {
+                _listener = new SatelliteListener(
+                    Certificate(settingsFolder),
+                    fingerprint => All.Any(s => s.Approved &&
+                        string.Equals(s.Fingerprint, fingerprint, StringComparison.OrdinalIgnoreCase)),
+                    _appVersion);
+            }
+            catch (Exception ex)
+            {
+                LinkStatus = $"Could not prepare the key: {ex.Message}";
+                return;
+            }
+
+            _listener.Announced += (_, e) => Post(() =>
+                Announce(e.Name, e.Fingerprint, e.AppVersion, e.Os, e.RemoteAddress));
+
+            _listener.Disconnected += (_, fingerprint) => Post(() =>
+            {
+                Satellite? gone = All.FirstOrDefault(s =>
+                    string.Equals(s.Fingerprint, fingerprint, StringComparison.OrdinalIgnoreCase));
+
+                if (gone is not null) gone.IsConnected = false;
+            });
+
+            _listener.Failed += (_, text) => Post(() => LinkStatus = text);
+
+            _listener.Start(port);
+
+            IsListening = _listener.IsListening;
+            LinkStatus = IsListening
+                ? $"Listening on port {port}. Satellites can connect."
+                : $"Could not listen on port {port}.";
+        }
+
+        public void StopListening()
+        {
+            _listener?.Stop();
+            _listener = null;
+
+            foreach (Satellite s in All) s.IsConnected = false;
+
+            IsListening = false;
+            LinkStatus = "Not listening.";
+        }
+
+        // ----------------------------------------------- Betrieb: Satellit
+
+        [ObservableProperty] private string _clientStatus = "Not connected.";
+        [ObservableProperty] private bool _isConnectedAsSatellite;
+
+        /// <summary>
+        /// Verbindet diese Instanz als Satellit zu einem Hauptscanner. Der
+        /// Verbindungsversuch laeuft weiter, bis er abgebrochen wird - siehe
+        /// SATELLIT.md, Abschnitt 1.
+        /// </summary>
+        public void ConnectAsSatellite(string settingsFolder, string host, int port, string appVersion, string ownName)
+        {
+            DisconnectAsSatellite();
+
+            if (string.IsNullOrWhiteSpace(host))
+            {
+                ClientStatus = "No main scanner set - enter a host name or an address first.";
+                return;
+            }
+
+            try
+            {
+                _client = new SatelliteClient(Certificate(settingsFolder), ownName, appVersion);
+            }
+            catch (Exception ex)
+            {
+                ClientStatus = $"Could not prepare the key: {ex.Message}";
+                return;
+            }
+
+            _client.StateChanged += (_, s) => Post(() =>
+            {
+                ClientStatus = s.Text;
+                IsConnectedAsSatellite = s.State == SatelliteLinkState.Connected;
+            });
+
+            _client.Start(host, port);
+        }
+
+        public void DisconnectAsSatellite()
+        {
+            _client?.Stop();
+            _client = null;
+
+            IsConnectedAsSatellite = false;
+            ClientStatus = "Not connected.";
+        }
+
+        // ------------------------------------------------------- Firewall
+
+        /// <summary>
+        /// Eingehend erlaubte Ports, wie die oertliche Firewall sie meldet -
+        /// als Hilfe bei der Portwahl, nicht als Einschraenkung.
+        /// </summary>
+        public ObservableCollection<string> AllowedInboundPorts { get; } = [];
+
+        [ObservableProperty] private bool _canCreateFirewallRule;
+        [ObservableProperty] private string _firewallStatus = string.Empty;
+
+        /// <summary>
+        /// Liest die Firewall neu.
+        /// <para>
+        /// Ohne erhoehte Rechte werden nur Ports gezeigt, die an <em>kein</em>
+        /// Programm gebunden sind - nur die lassen sich ohne neue Regel
+        /// benutzen. Eine Regel, die einer anderen Anwendung gehoert, nuetzt
+        /// dieser hier nichts, und sie aufzufuehren waere eine falsche
+        /// Verheissung.
+        /// </para>
+        /// </summary>
+        public void RefreshFirewall()
+        {
+            AllowedInboundPorts.Clear();
+
+            IFirewallInspector firewall = PlatformServices.Firewall;
+            CanCreateFirewallRule = firewall.CanCreateRule;
+
+            if (!firewall.IsSupported)
+            {
+                FirewallStatus = "The firewall cannot be read on this platform - pick a port and try it.";
+                return;
+            }
+
+            IReadOnlyList<AllowedInboundPort> all = firewall.ReadAllowedInbound();
+
+            IEnumerable<AllowedInboundPort> usable = CanCreateFirewallRule
+                ? all
+                : all.Where(p => p.AnyProgram);
+
+            foreach (AllowedInboundPort p in usable)
+            {
+                AllowedInboundPorts.Add(
+                    $"{p.Protocol} {p.Ports}{(p.AnyProgram ? string.Empty : "  (only for " + p.RuleName + ")")}");
+            }
+
+            FirewallStatus = AllowedInboundPorts.Count == 0
+                ? CanCreateFirewallRule
+                    ? "No inbound port is open yet. Pick one and create the rule."
+                    : "No inbound port is open that any application may use. Ask for a rule, or run as administrator to create one."
+                : CanCreateFirewallRule
+                    ? $"{AllowedInboundPorts.Count} inbound port(s) allowed. You may also create your own rule."
+                    : $"{AllowedInboundPorts.Count} inbound port(s) are open for any application - one of these works without a new rule.";
+        }
+
+        /// <summary>Legt die eigene Regel fuer den angegebenen Port an.</summary>
+        public void CreateFirewallRule(int port)
+        {
+            FirewallChangeResult result = PlatformServices.Firewall.AllowInboundTcp(port, FirewallRuleName);
+            FirewallStatus = result.Message;
+
+            if (result.Success) RefreshFirewall();
+        }
+
+        /// <summary>Entfernt die eigene Regel wieder.</summary>
+        public void RemoveFirewallRule()
+        {
+            FirewallChangeResult result = PlatformServices.Firewall.RemoveRule(FirewallRuleName);
+            FirewallStatus = result.Message;
+
+            if (result.Success) RefreshFirewall();
         }
 
         // ----------------------------------------------------------- Befehle
