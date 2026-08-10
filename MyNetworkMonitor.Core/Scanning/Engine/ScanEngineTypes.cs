@@ -220,6 +220,24 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
         [ObservableProperty] private string? _overrideDnsServer;
 
         /// <summary>
+        /// Wie viele Adressen die Rueckwaertsaufloesung gleichzeitig abfragt.
+        /// <para>
+        /// Die Vorgabe 8 ist auf einen Heimrouter zugeschnitten: der verliert
+        /// unter einem Schwall gleichzeitiger PTR-Anfragen die meisten
+        /// UDP-Pakete, bevor die Zeitgrenze ablaeuft - bei 50 kamen an einem
+        /// echten /24 nur 4 von 32 Geraeten zurueck, bei 8 alle.
+        /// </para>
+        /// <para>
+        /// Ein richtiger Namensserver im Firmennetz steckt dagegen 32 oder 64
+        /// muehelos weg, und genau dort faellt die Vorgabe als Bremse auf: eine
+        /// Adresse, die gar nicht beantwortet wird, kostet das volle Budget aus
+        /// Zeitlimit mal Wiederholungen, und davon laufen eben nur acht
+        /// nebeneinander. Darum einstellbar statt fest.
+        /// </para>
+        /// </summary>
+        [ObservableProperty] private int _reverseLookupConcurrency = 8;
+
+        /// <summary>
         /// Nach der Namensaufloesung jede Adresse gegen <b>jeden</b> bekannten
         /// Namensserver einzeln pruefen und die Antworten vergleichen.
         /// <para>

@@ -151,8 +151,22 @@ namespace MyNetworkMonitor
 
 
 
-        /// <summary>Wie viele Adressen gleichzeitig abgefragt werden. Siehe Kommentar oben an der Semaphore.</summary>
-        private const int MaxConcurrentLookups = 8;
+        /// <summary>
+        /// Wie viele Adressen gleichzeitig abgefragt werden. Siehe Kommentar
+        /// oben an der Semaphore.
+        /// <para>
+        /// Kein fester Wert mehr: die 8 sind die schonende Vorgabe fuer einen
+        /// Heimrouter, ein Namensserver im Firmennetz vertraegt ein Vielfaches.
+        /// Gesetzt wird das aus den Einstellungen.
+        /// </para>
+        /// </summary>
+        public int MaxConcurrentLookups
+        {
+            get => _maxConcurrentLookups;
+            set => _maxConcurrentLookups = value > 0 ? value : 1;
+        }
+
+        private int _maxConcurrentLookups = 8;
 
         /// <summary>Wie oft eine ausbleibende Antwort erneut angefragt wird, bevor die Adresse als "kein PTR" gilt.</summary>
         private const int QueryRetries = 3;
