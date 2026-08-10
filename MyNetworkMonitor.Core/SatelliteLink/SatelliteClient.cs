@@ -56,6 +56,22 @@ namespace MyNetworkMonitor.Core.SatelliteLink
         /// <summary>Meldet sich, wenn ein Fingerabdruck neu uebernommen wurde.</summary>
         public event EventHandler<string>? FingerprintPinned;
 
+        /// <summary>
+        /// Fuehrt einen Auftrag aus und liefert den gefundenen Bestand als
+        /// JSON zurueck.
+        /// <para>
+        /// Als Rueckruf und nicht als Abhaengigkeit: der Transport soll die
+        /// Scan-Engine nicht kennen. So bleibt er fuer sich testbar, und wer
+        /// ihn benutzt, entscheidet, was ein Auftrag bewirkt.
+        /// </para>
+        /// </summary>
+        public Func<string, IProgress<ProgressPayload>, CancellationToken, Task<string>>? JobRunner { get; set; }
+
+        /// <summary>Laeuft gerade ein Auftrag - und welcher.</summary>
+        public string? CurrentJobId { get; private set; }
+
+        private CancellationTokenSource? _jobCts;
+
         public SatelliteLinkState State { get; private set; } = SatelliteLinkState.Idle;
 
         /// <summary>
@@ -223,12 +239,135 @@ namespace MyNetworkMonitor.Core.SatelliteLink
                         Report(SatelliteLinkState.Failed, message.Text ?? "Refused by the main scanner.");
                         return;
 
-                    // Auftrag und Abbruch kommen, sobald die Ausfuehrung
-                    // gebaut ist - siehe SATELLIT.md.
+                    case MessageType.Job:
+                        await StartJobAsync(channel, message, token);
+                        break;
+
+                    case MessageType.Cancel:
+                        // Abbrechen darf jeder freigegebene Empfaenger, nicht
+                        // nur der Auftraggeber - ein haengender Auftrag sperrt
+                        // den Satelliten sonst fuer alle.
+                        if (CurrentJobId is not null &&
+                            (message.JobId is null || message.JobId == CurrentJobId))
+                        {
+                            _jobCts?.Cancel();
+                        }
+                        break;
+
                     default:
                         break;
                 }
             }
+        }
+
+        /// <summary>
+        /// Nimmt einen Auftrag an und laesst ihn im Hintergrund laufen.
+        /// <para>
+        /// Im Hintergrund, damit die Verbindung waehrenddessen ansprechbar
+        /// bleibt: sonst kaeme waehrend eines langen Scans weder ein Abbruch
+        /// noch ein Lebenszeichen durch.
+        /// </para>
+        /// </summary>
+        private async Task StartJobAsync(MessageChannel channel, SatelliteMessage message, CancellationToken token)
+        {
+            string jobId = message.JobId ?? MessageChannel.NewJobId();
+
+            if (CurrentJobId is not null)
+            {
+                await channel.SendAsync(new SatelliteMessage
+                {
+                    Type = MessageType.Busy,
+                    ProtocolVersion = SatelliteListener.ProtocolVersion,
+                    JobId = CurrentJobId,
+                    Text = $"A job is already running ({CurrentJobId})."
+                }, token);
+                return;
+            }
+
+            if (JobRunner is null)
+            {
+                await channel.SendAsync(new SatelliteMessage
+                {
+                    Type = MessageType.Error,
+                    ProtocolVersion = SatelliteListener.ProtocolVersion,
+                    JobId = jobId,
+                    Text = "This instance cannot run jobs - no scan engine is attached."
+                }, token);
+                return;
+            }
+
+            CurrentJobId = jobId;
+            _jobCts = CancellationTokenSource.CreateLinkedTokenSource(token);
+
+            await channel.SendAsync(new SatelliteMessage
+            {
+                Type = MessageType.Accepted,
+                ProtocolVersion = SatelliteListener.ProtocolVersion,
+                JobId = jobId
+            }, token);
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    Progress<ProgressPayload> progress = new(p =>
+                    {
+                        // Fortschritt ist fluechtig: geht er verloren, fehlt nur
+                        // die Anzeige. Darum ohne Warten und ohne Aufhebens.
+                        _ = channel.SendAsync(new SatelliteMessage
+                        {
+                            Type = MessageType.Progress,
+                            ProtocolVersion = SatelliteListener.ProtocolVersion,
+                            JobId = jobId,
+                            Progress = p
+                        }, CancellationToken.None);
+                    });
+
+                    string devices = await JobRunner(message.Text ?? string.Empty, progress, _jobCts.Token);
+
+                    await channel.SendAsync(new SatelliteMessage
+                    {
+                        Type = MessageType.Result,
+                        ProtocolVersion = SatelliteListener.ProtocolVersion,
+                        JobId = jobId,
+                        Devices = devices
+                    }, CancellationToken.None);
+                }
+                catch (OperationCanceledException)
+                {
+                    await TrySend(channel, new SatelliteMessage
+                    {
+                        Type = MessageType.Cancelled,
+                        ProtocolVersion = SatelliteListener.ProtocolVersion,
+                        JobId = jobId
+                    });
+                }
+                catch (Exception ex)
+                {
+                    await TrySend(channel, new SatelliteMessage
+                    {
+                        Type = MessageType.Error,
+                        ProtocolVersion = SatelliteListener.ProtocolVersion,
+                        JobId = jobId,
+                        Text = ex.Message
+                    });
+                }
+                finally
+                {
+                    CurrentJobId = null;
+                    _jobCts?.Dispose();
+                    _jobCts = null;
+                }
+            }, CancellationToken.None);
+        }
+
+        /// <summary>
+        /// Sendet, ohne dass ein Fehlschlag den Aufrufer stoert - fuer
+        /// Abschlussmeldungen, bei denen die Verbindung schon weg sein kann.
+        /// </summary>
+        private static async Task TrySend(MessageChannel channel, SatelliteMessage message)
+        {
+            try { await channel.SendAsync(message, CancellationToken.None); } catch { }
         }
 
         private void Report(SatelliteLinkState state, string text)

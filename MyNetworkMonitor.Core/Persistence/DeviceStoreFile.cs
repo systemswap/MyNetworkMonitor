@@ -89,6 +89,42 @@ namespace MyNetworkMonitor.Core.Persistence
         private const int MinimumMeaningfulSize = 8;
 
         /// <summary>
+        /// Denselben Bestand als Zeichenkette statt in eine Datei - fuer das
+        /// Ergebnis, das ein Satellit zurueckschickt.
+        /// <para>
+        /// Bewusst dieselbe Abbildung wie beim Speichern: eine zweite waere bei
+        /// jeder neuen Geraeteeigenschaft nachzuziehen, und genau das vergisst
+        /// man.
+        /// </para>
+        /// </summary>
+        public static string ToJson(DeviceStore store)
+        {
+            ArgumentNullException.ThrowIfNull(store);
+
+            List<DeviceRecord> records;
+            lock (store.SyncRoot)
+            {
+                records = [.. store.Devices.Select(ToRecord)];
+            }
+
+            return JsonSerializer.Serialize(records, Options);
+        }
+
+        /// <summary>
+        /// Liest Geraete aus einer Zeichenkette, ohne sie irgendwo einzutragen.
+        /// Der Aufrufer entscheidet, ob er sie ersetzt oder einmischt.
+        /// </summary>
+        public static List<Device> FromJson(string json)
+        {
+            if (string.IsNullOrWhiteSpace(json)) return [];
+
+            List<DeviceRecord>? records = JsonSerializer.Deserialize<List<DeviceRecord>>(json, Options);
+            if (records is null) return [];
+
+            return [.. records.Select(ToDevice).Where(d => d is not null)!];
+        }
+
+        /// <summary>
         /// Laedt den Bestand in einen leeren Store. Gibt zurueck, wie viele
         /// Geraete gelesen wurden.
         /// </summary>
