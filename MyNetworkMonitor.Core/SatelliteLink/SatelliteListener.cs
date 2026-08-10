@@ -58,6 +58,18 @@ namespace MyNetworkMonitor.Core.SatelliteLink
         /// <summary>Etwas ist schiefgegangen - Klartext fuer die Statuszeile.</summary>
         public event EventHandler<string>? Failed;
 
+        /// <summary>Ein Satellit meldet Fortschritt: Fingerabdruck und Stand.</summary>
+        public event EventHandler<(string Fingerprint, ProgressPayload Progress)>? ProgressReported;
+
+        /// <summary>
+        /// Ein Auftrag ist fertig: Fingerabdruck, Auftragskennung und der
+        /// gefundene Bestand als JSON.
+        /// </summary>
+        public event EventHandler<(string Fingerprint, string JobId, string Devices)>? ResultReceived;
+
+        /// <summary>Ein Auftrag endete ohne Ergebnis - abgebrochen oder gescheitert.</summary>
+        public event EventHandler<(string Fingerprint, string Text)>? JobEnded;
+
         public bool IsListening => _listener is not null;
         public int Port { get; private set; }
 
@@ -239,8 +251,40 @@ namespace MyNetworkMonitor.Core.SatelliteLink
                             }, token);
                             break;
 
-                        // Auftrag, Fortschritt und Ergebnis kommen, sobald die
-                        // Ausfuehrung gebaut ist - siehe SATELLIT.md.
+                        case MessageType.Progress:
+                            if (message.Progress is not null)
+                            {
+                                ProgressReported?.Invoke(this, (session.Fingerprint, message.Progress));
+                            }
+                            break;
+
+                        case MessageType.Result:
+                            ResultReceived?.Invoke(this,
+                                (session.Fingerprint, message.JobId ?? string.Empty, message.Devices ?? "[]"));
+
+                            // Empfang bestaetigen, damit der Satellit das
+                            // Ergebnis loslassen darf.
+                            await session.Channel.SendAsync(new SatelliteMessage
+                            {
+                                Type = MessageType.ResultAck,
+                                ProtocolVersion = ProtocolVersion,
+                                JobId = message.JobId
+                            }, token);
+                            break;
+
+                        case MessageType.Busy:
+                            JobEnded?.Invoke(this, (session.Fingerprint,
+                                message.Text ?? "The satellite is already running a job."));
+                            break;
+
+                        case MessageType.Cancelled:
+                            JobEnded?.Invoke(this, (session.Fingerprint, "Job cancelled."));
+                            break;
+
+                        case MessageType.Error:
+                            JobEnded?.Invoke(this, (session.Fingerprint, message.Text ?? "The satellite reported an error."));
+                            break;
+
                         default:
                             break;
                     }
@@ -254,6 +298,41 @@ namespace MyNetworkMonitor.Core.SatelliteLink
                 session.Dispose();
                 Disconnected?.Invoke(this, session.Fingerprint);
             }
+        }
+
+        /// <summary>
+        /// Schickt einen Auftrag an einen verbundenen Satelliten. Gibt die
+        /// Auftragskennung zurueck, oder <c>null</c>, wenn er nicht verbunden
+        /// ist.
+        /// </summary>
+        public async Task<string?> SendJobAsync(string fingerprint, string jobText, CancellationToken token)
+        {
+            if (!_sessions.TryGetValue(fingerprint, out SatelliteSession? session)) return null;
+
+            string jobId = MessageChannel.NewJobId();
+
+            await session.Channel.SendAsync(new SatelliteMessage
+            {
+                Type = MessageType.Job,
+                ProtocolVersion = ProtocolVersion,
+                JobId = jobId,
+                Text = jobText
+            }, token);
+
+            return jobId;
+        }
+
+        /// <summary>Bricht den laufenden Auftrag eines Satelliten ab.</summary>
+        public async Task CancelAsync(string fingerprint, string? jobId, CancellationToken token)
+        {
+            if (!_sessions.TryGetValue(fingerprint, out SatelliteSession? session)) return;
+
+            await session.Channel.SendAsync(new SatelliteMessage
+            {
+                Type = MessageType.Cancel,
+                ProtocolVersion = ProtocolVersion,
+                JobId = jobId
+            }, token);
         }
 
         public async ValueTask DisposeAsync()

@@ -62,6 +62,34 @@ namespace MyNetworkMonitor.Core.Models
         /// </summary>
         [ObservableProperty] private bool _isConnected;
 
+        // --- Laufender Auftrag, nichts davon wird gespeichert ----------------
+
+        /// <summary>Kennung des laufenden Auftrags, oder leer.</summary>
+        [ObservableProperty] private string _jobId = string.Empty;
+
+        /// <summary>0 bis 100 - damit man sieht, dass er arbeitet.</summary>
+        [ObservableProperty] private int _progressPercent;
+
+        /// <summary>Das Verfahren, das gerade laeuft.</summary>
+        [ObservableProperty] private string _progressCurrent = string.Empty;
+
+        /// <summary>Was schon fertig ist.</summary>
+        [ObservableProperty] private string _progressDone = string.Empty;
+
+        /// <summary>Was noch aussteht.</summary>
+        [ObservableProperty] private string _progressPending = string.Empty;
+
+        /// <summary>Es laeuft gerade ein Auftrag.</summary>
+        public bool IsBusy => !string.IsNullOrEmpty(JobId);
+
+        partial void OnJobIdChanged(string value)
+        {
+            OnPropertyChanged(nameof(IsBusy));
+            RaiseStatus();
+        }
+
+        partial void OnProgressPercentChanged(int value) => OnPropertyChanged(nameof(StatusText));
+
         /// <summary>
         /// Was mit diesem Eintrag gerade los ist - ein Satz fuer die Liste,
         /// damit man den Zustand nicht aus vier Feldern zusammenreimen muss.
@@ -70,6 +98,7 @@ namespace MyNetworkMonitor.Core.Models
         {
             get
             {
+                if (IsBusy) return $"{ProgressPercent}%  {ProgressCurrent}".TrimEnd();
                 if (IsConnected && Approved) return "Connected";
                 if (IsConnected) return "Waiting for approval";
                 if (string.IsNullOrWhiteSpace(Fingerprint)) return "Never connected";
