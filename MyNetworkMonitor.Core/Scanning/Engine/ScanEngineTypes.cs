@@ -302,6 +302,17 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
         [ObservableProperty] private int _mainScannerPort = 27411;
 
         /// <summary>
+        /// Als Satellit: jeder freigegebene Hauptscanner darf einen laufenden
+        /// Auftrag abbrechen, nicht nur der, der ihn gestartet hat.
+        /// <para>
+        /// Vorgabe an, weil ein haengender Auftrag den Satelliten fuer alle
+        /// sperrt und wer davorsitzt ihn freibekommen soll. Aus heisst: nur der
+        /// Auftraggeber.
+        /// </para>
+        /// </summary>
+        [ObservableProperty] private bool _allowCancelFromAnyReceiver = true;
+
+        /// <summary>
         /// Die Bibliothek der 3D-Topologie vom CDN laden statt aus dem
         /// Programmordner. Dann ist die erzeugte Seite fuer sich allein
         /// weitergebbar - dafuer braucht sie eine Internetverbindung.

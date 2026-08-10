@@ -298,6 +298,10 @@ namespace MyNetworkMonitor.Core.ViewModels
             Settings.MainScannerHost = _userSettings.GetString("MainScannerHost");
             Settings.MainScannerPort =
                 _userSettings.GetInt("MainScannerPort", Settings.MainScannerPort);
+            Settings.AllowCancelFromAnyReceiver =
+                _userSettings.GetBool("AllowCancelFromAnyReceiver", Settings.AllowCancelFromAnyReceiver);
+
+            SatelliteEditor.AllowCancelFromAnyReceiver = Settings.AllowCancelFromAnyReceiver;
             Settings.UseOnlineTopologyLibrary =
                 _userSettings.GetBool("UseOnlineTopologyLibrary", Settings.UseOnlineTopologyLibrary);
 
@@ -418,6 +422,13 @@ namespace MyNetworkMonitor.Core.ViewModels
                         break;
                     case nameof(ScanSettings.MainScannerPort):
                         _userSettings.SetInt("MainScannerPort", Settings.MainScannerPort);
+                        break;
+                    case nameof(ScanSettings.AllowCancelFromAnyReceiver):
+                        _userSettings.SetBool("AllowCancelFromAnyReceiver", Settings.AllowCancelFromAnyReceiver);
+
+                        // Sofort wirksam, nicht erst beim naechsten Start: die
+                        // Einstellung soll greifen, waehrend gerade etwas haengt.
+                        SatelliteEditor.AllowCancelFromAnyReceiver = Settings.AllowCancelFromAnyReceiver;
                         break;
                     case nameof(ScanSettings.UseOnlineTopologyLibrary):
                         _userSettings.SetBool("UseOnlineTopologyLibrary", Settings.UseOnlineTopologyLibrary);
@@ -1319,6 +1330,12 @@ namespace MyNetworkMonitor.Core.ViewModels
 
             _engine.MethodFinished += OnFinished;
 
+            // Der Abbruch muss die Engine anhalten, nicht nur das Warten
+            // beenden. Ohne das liefe der Scan nach einem Stopp weiter, waehrend
+            // oben schon "abgebrochen" gemeldet wird - genau so, wie es der
+            // oertliche Stopp-Knopf mit _engine.Stop() macht.
+            using CancellationTokenRegistration stopOnCancel = token.Register(() => _engine.Stop());
+
             try
             {
                 progress.Report(new ProgressPayload
@@ -1336,6 +1353,12 @@ namespace MyNetworkMonitor.Core.ViewModels
             {
                 _engine.MethodFinished -= OnFinished;
             }
+
+            // Nach einem Abbruch nichts zurueckliefern, sondern abbrechen: ein
+            // halbes Ergebnis saehe aus wie ein vollstaendiges, und der
+            // Auftraggeber wuerde daraus schliessen, im Segment stuenden nur
+            // diese Geraete.
+            token.ThrowIfCancellationRequested();
 
             progress.Report(new ProgressPayload { Percent = 100, Done = string.Join(", ", completed) });
 
@@ -1776,6 +1799,10 @@ namespace MyNetworkMonitor.Core.ViewModels
                 _portSearch.StopScan();
             }
 
+            // Satelliten bleiben hier aussen vor: ihr Auftrag wird einzeln in
+            // der Satellitenverwaltung gestoppt. Ein Knopf, der alle Segmente
+            // auf einmal abraeumt, waere zu grob - meist will man genau den
+            // einen freibekommen, der haengt.
             StatusText = "Cancelling...";
         }
 
