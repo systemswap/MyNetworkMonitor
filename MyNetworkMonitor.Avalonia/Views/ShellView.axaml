@@ -640,6 +640,8 @@
                        Content="⋮   Ports" IsCheckedChanged="Nav_Checked" Tag="Ports"/>
           <RadioButton x:Name="nav_Services" Classes="nav" GroupName="nav"
                        Content="◇   Services" IsCheckedChanged="Nav_Checked" Tag="Services"/>
+          <RadioButton x:Name="nav_Satellites" Classes="nav" GroupName="nav"
+                       Content="◎   Satellites" IsCheckedChanged="Nav_Checked" Tag="Satellites"/>
           <RadioButton x:Name="nav_Names" Classes="nav" GroupName="nav"
                        Content="✎   Names" IsCheckedChanged="Nav_Checked" Tag="Names"/>
 
@@ -1375,13 +1377,22 @@
                     <Grid ColumnDefinitions="130,*" RowDefinitions="Auto"
                           ColumnSpacing="10">
                       <TextBlock Grid.Row="0" Grid.Column="0" Text="Scanned by" Classes="settingLabel"/>
-                      <TextBox Grid.Row="0" Grid.Column="1" Width="190"
-                               HorizontalAlignment="Left" Text="{Binding Selected.ScannedBy}"
-                               Watermark="from this machine"/>
+
+                      <!--
+                          Auswahl statt Textfeld: ein vertippter Name zeigt auf
+                          keinen Satelliten, und der Bereich wuerde beim Lauf
+                          als "nicht gescannt" ausgewiesen, ohne dass man den
+                          Grund saehe. Der leere Eintrag ganz oben bedeutet
+                          "von diesem Rechner aus".
+                      -->
+                      <ComboBox Grid.Row="0" Grid.Column="1" Width="190"
+                                HorizontalAlignment="Left"
+                                ItemsSource="{Binding SatelliteEditor.NamesForPicker}"
+                                SelectedItem="{Binding Selected.ScannedBy}"/>
                     </Grid>
 
                     <TextBlock Classes="settingHint"
-                               Text="Name of the satellite that scans this range - an instance running as a service inside that segment. Empty means this machine does it. Not in service yet: the value is kept, but every range is still scanned from here."/>
+                               Text="The satellite that scans this range - an instance running as a service inside that segment. Empty means this machine does it. Manage the list under Satellites. Not in service yet: the value is kept, but every range is still scanned from here."/>
                   </StackPanel>
                 </Border>
 
@@ -1560,6 +1571,137 @@
               </DataGridTemplateColumn>
             </DataGrid.Columns>
           </DataGrid>
+        </DockPanel>
+
+        <!-- ========== Ansicht: Satelliten ========== -->
+        <!--
+            Liste links, Maske rechts - dasselbe Muster wie bei den Bereichen.
+            Adresse und Port fehlen absichtlich: der Satellit verbindet sich
+            hierher, seine Herkunft ist Beobachtung und keine Einstellung.
+            Siehe SATELLIT.md.
+        -->
+        <DockPanel x:Name="view_Satellites" IsVisible="False" LastChildFill="True"
+                   Background="{StaticResource Workspace}">
+
+          <Border DockPanel.Dock="Top" Background="{StaticResource Panel}"
+                  BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1" Padding="12,8">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Grid.Column="0" VerticalAlignment="Center" FontSize="10.5"
+                         Foreground="{StaticResource Dim}" TextWrapping="Wrap" MaxWidth="620"
+                         HorizontalAlignment="Left"
+                         Text="A satellite is this application running as a service in another network segment. It connects to this machine on its own, announces its name and waits to be approved - there is nothing to type in here. Not in service yet: no satellite can connect, so this list stays empty and every range is scanned from here."/>
+
+              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                <Button Content="Approve" Command="{Binding SatelliteEditor.ApproveCommand}"
+                        Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
+                        FontSize="10.5"/>
+                <Button Content="Revoke" Command="{Binding SatelliteEditor.RevokeCommand}"
+                        Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
+                        FontSize="10.5"/>
+                <Button Content="Delete" Command="{Binding SatelliteEditor.DeleteCommand}"
+                        Background="White" BorderBrush="#E2B6B1" BorderThickness="1"
+                        Foreground="{StaticResource Crit}" FontSize="10.5"/>
+              </StackPanel>
+            </Grid>
+          </Border>
+
+          <Border DockPanel.Dock="Bottom" Background="{StaticResource Panel}"
+                  BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="12,6">
+            <TextBlock Text="{Binding SatelliteEditor.Status}" FontSize="10"
+                       Foreground="{StaticResource Dimmer}" VerticalAlignment="Center"/>
+          </Border>
+
+          <Grid ColumnDefinitions="380,1,*">
+
+            <DataGrid Grid.Column="0" ItemsSource="{Binding SatelliteEditor.All}"
+                      SelectedItem="{Binding SatelliteEditor.Selected}"
+                      AutoGenerateColumns="False" IsReadOnly="True"
+                      CanUserResizeColumns="True" SelectionMode="Single">
+              <DataGrid.Columns>
+                <DataGridTextColumn Header="SATELLITE" Binding="{Binding Name}" Width="*"/>
+                <DataGridTextColumn Header="STATE" Binding="{Binding StatusText}" Width="Auto" MinWidth="120"/>
+              </DataGrid.Columns>
+            </DataGrid>
+
+            <Border Grid.Column="1" Background="{StaticResource Line}"/>
+
+            <ScrollViewer Grid.Column="2" Padding="18"
+                          IsVisible="{Binding SatelliteEditor.Selected, Converter={x:Static ObjectConverters.IsNotNull}}">
+              <StackPanel Spacing="14" MaxWidth="520" HorizontalAlignment="Left">
+
+                <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
+                        BorderThickness="1" CornerRadius="4" Padding="16,14">
+                  <StackPanel Spacing="11">
+                    <TextBlock Text="SATELLITE" Classes="settingsHead"/>
+
+                    <Grid ColumnDefinitions="130,*" RowDefinitions="Auto,Auto"
+                          ColumnSpacing="10" RowSpacing="8">
+                      <!--
+                          Der Name kommt vom Satelliten selbst und ist darum
+                          Anzeige, kein Eingabefeld: haende man ihn hier
+                          um, zeigte er beim naechsten Verbinden wieder seinen
+                          eigenen, und die Bereiche zeigten ins Leere.
+                      -->
+                      <TextBlock Grid.Row="0" Grid.Column="0" Text="Name" Classes="settingLabel"/>
+                      <TextBlock Grid.Row="0" Grid.Column="1" VerticalAlignment="Center"
+                                 FontSize="12" FontWeight="SemiBold"
+                                 Text="{Binding SatelliteEditor.Selected.Name}"/>
+
+                      <TextBlock Grid.Row="1" Grid.Column="0" Text="Note" Classes="settingLabel"/>
+                      <TextBox Grid.Row="1" Grid.Column="1"
+                               Text="{Binding SatelliteEditor.Selected.Note}"
+                               Watermark="where it stands, what it covers"/>
+                    </Grid>
+
+                    <TextBlock Classes="settingHint"
+                               Text="The satellite reports its own name when it connects - that is the name a range points at under &quot;Scanned by&quot;. Only the note is yours to fill in."/>
+                  </StackPanel>
+                </Border>
+
+                <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
+                        BorderThickness="1" CornerRadius="4" Padding="16,14">
+                  <StackPanel Spacing="11">
+                    <TextBlock Text="IDENTITY" Classes="settingsHead"/>
+
+                    <Grid ColumnDefinitions="130,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto"
+                          ColumnSpacing="10" RowSpacing="6">
+                      <TextBlock Grid.Row="0" Grid.Column="0" Text="State" Classes="settingLabel"/>
+                      <TextBlock Grid.Row="0" Grid.Column="1" VerticalAlignment="Center"
+                                 FontSize="11" Text="{Binding SatelliteEditor.Selected.StatusText}"/>
+
+                      <TextBlock Grid.Row="1" Grid.Column="0" Text="Fingerprint" Classes="settingLabel"/>
+                      <SelectableTextBlock Grid.Row="1" Grid.Column="1" Classes="mono" FontSize="10"
+                                           TextWrapping="Wrap" VerticalAlignment="Center"
+                                           Text="{Binding SatelliteEditor.Selected.Fingerprint}"/>
+
+                      <TextBlock Grid.Row="2" Grid.Column="0" Text="Last seen" Classes="settingLabel"/>
+                      <TextBlock Grid.Row="2" Grid.Column="1" VerticalAlignment="Center" FontSize="11"
+                                 Text="{Binding SatelliteEditor.Selected.LastSeen}"/>
+
+                      <TextBlock Grid.Row="3" Grid.Column="0" Text="Version" Classes="settingLabel"/>
+                      <TextBlock Grid.Row="3" Grid.Column="1" VerticalAlignment="Center" FontSize="11"
+                                 Text="{Binding SatelliteEditor.Selected.Version}"/>
+
+                      <TextBlock Grid.Row="4" Grid.Column="0" Text="Last address" Classes="settingLabel"/>
+                      <TextBlock Grid.Row="4" Grid.Column="1" VerticalAlignment="Center" FontSize="11"
+                                 Classes="mono"
+                                 Text="{Binding SatelliteEditor.Selected.RemoteAddress}"/>
+                    </Grid>
+
+                    <TextBlock Classes="settingHint"
+                               Text="A satellite identifies itself by the fingerprint of its key, not by its address - so it may move or change IP without losing its approval. These values are filled in by the satellite itself the first time it connects."/>
+
+                    <Border Background="#F2EDDF" CornerRadius="3" Padding="9,6"
+                            IsVisible="{Binding SatelliteEditor.Selected.NeedsApproval}">
+                      <TextBlock FontSize="10.5" TextWrapping="Wrap"
+                                 Foreground="{StaticResource Warn}"
+                                 Text="This satellite has announced itself but is not approved. It gets no jobs until you approve it."/>
+                    </Border>
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+            </ScrollViewer>
+          </Grid>
         </DockPanel>
 
         <!-- ========== Ansicht: Einstellungen ========== -->

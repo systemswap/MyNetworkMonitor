@@ -194,6 +194,11 @@ public partial class ShellView : Window
     /// </summary>
     private void LoadScopes()
     {
+        // Die Satelliten zuerst: die Bereichsmaske bietet ihre Namen zur
+        // Auswahl an, und eine Auswahl, die beim Laden des Bereichs noch leer
+        // ist, verwirft dessen gespeicherten Wert.
+        _shell.SatelliteEditor.Load(SettingsFolder());
+
         _shell.ScopeEditor.Load(System.IO.Path.Combine(SettingsFolder(), "ipGroups.xml"));
         _shell.RefreshAvailability();
     }
@@ -764,6 +769,7 @@ public partial class ShellView : Window
         view_Scopes.IsVisible = section == ShellSection.Scopes;
         view_Ports.IsVisible = section == ShellSection.Ports;
         view_Services.IsVisible = section == ShellSection.Services;
+        view_Satellites.IsVisible = section == ShellSection.Satellites;
         view_Settings.IsVisible = section == ShellSection.Settings;
         view_Network.IsVisible = section == ShellSection.Network;
         view_Findings.IsVisible = section == ShellSection.Findings;
@@ -1209,6 +1215,11 @@ public partial class ShellView : Window
         _shell.ScopeEditor.SaveNow();
         _shell.PortEditor.SaveNow();
         _shell.ServiceEditor.SaveNow();
+
+        // Die Satelliten schreiben bei jeder Aenderung sofort - kein
+        // Zeitgeber, keine Verzoegerung, weil die Liste kurz ist. Der Aufruf
+        // hier ist der Gurt fuer den Fall, dass doch etwas offen blieb.
+        _shell.SatelliteEditor.Save();
 
         // Der Bestand zuletzt: er ist der groesste Brocken, und wenn dabei
         // etwas schiefgeht, sind die Einstellungen wenigstens schon sicher.
