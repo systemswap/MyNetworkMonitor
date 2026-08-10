@@ -108,7 +108,13 @@ namespace MyNetworkMonitor
             //}
 
 
-            SemaphoreSlim semaphore = new SemaphoreSlim(50); // Begrenze parallele Tasks auf 10
+            // War 50: ein Heim-DNS-Server (Router oder NAS) verliert unter einem
+            // Burst von 50 gleichzeitigen PTR-Anfragen die meisten UDP-Pakete,
+            // bevor die Zeitgrenze ablaeuft. Live gemessen an einem echten /24
+            // mit ca. 33 Geraeten: bei 50 kamen 4 Treffer zurueck, bei 8 (mit den
+            // unten angepassten Zeiten) alle 32 erreichbaren - und das in einem
+            // Bruchteil der Zeit, die eine rein sequentielle Abfrage braeuchte.
+            SemaphoreSlim semaphore = new SemaphoreSlim(MaxConcurrentLookups);
 
             foreach (IPToScan ip in IPs)
             {
@@ -145,13 +151,31 @@ namespace MyNetworkMonitor
 
 
 
+        /// <summary>Wie viele Adressen gleichzeitig abgefragt werden. Siehe Kommentar oben an der Semaphore.</summary>
+        private const int MaxConcurrentLookups = 8;
+
+        /// <summary>Wie oft eine ausbleibende Antwort erneut angefragt wird, bevor die Adresse als "kein PTR" gilt.</summary>
+        private const int QueryRetries = 3;
+
         /// <summary>
-        /// Wie lange auf eine Antwort gewartet wird. Kurz gehalten: eine
-        /// Rueckwaertsaufloesung, die zwei Sekunden braucht, wird auch nach
-        /// zehn nicht besser, und bei einem ganzen Netz summiert sich jede
-        /// Sekunde ueber hunderte Adressen.
+        /// Wie lange je Versuch auf eine Antwort gewartet wird. Kurz gehalten:
+        /// eine einzelne Rueckwaertsaufloesung, die zwei Sekunden braucht, wird
+        /// auch nach zehn nicht besser - stattdessen zaehlt <see cref="QueryRetries"/>
+        /// mehr als ein langes Warten, weil ein Heim-DNS-Server verlorene Pakete
+        /// eher durch eine zweite Chance kurz danach wettmacht als durch mehr
+        /// Geduld beim ersten Versuch.
         /// </summary>
-        private static readonly TimeSpan QueryTimeout = TimeSpan.FromSeconds(2);
+        private static readonly TimeSpan QueryTimeout = TimeSpan.FromSeconds(1);
+
+        /// <summary>
+        /// Gesamtbudget je Adresse, ueber alle Wiederholungen hinweg. Der
+        /// aeussere Abbruch (<see cref="CancellationTokenSource.CancelAfter"/>)
+        /// muss dafuer mehr Zeit einraeumen als <see cref="QueryTimeout"/> allein -
+        /// sonst reisst er die Abfrage schon beim ersten Versuch ab, und die im
+        /// Client konfigurierten Wiederholungen kommen nie zum Zug.
+        /// </summary>
+        private static readonly TimeSpan QueryBudget =
+            QueryTimeout * (QueryRetries + 1) + TimeSpan.FromMilliseconds(500);
 
         /// <summary>
         /// Ein Client je Namensserver-Zusammenstellung, ueber den ganzen Lauf
@@ -188,7 +212,7 @@ namespace MyNetworkMonitor
                 }
 
                 options.Timeout = QueryTimeout;
-                options.Retries = 1;
+                options.Retries = QueryRetries;
                 options.UseCache = true;
 
                 // Ein fehlender Eintrag ist eine Antwort, kein Fehler. Als
@@ -211,7 +235,7 @@ namespace MyNetworkMonitor
                 LookupClientOptions options = new([dnsServer])
                 {
                     Timeout = QueryTimeout,
-                    Retries = 1,
+                    Retries = QueryRetries,
                     UseCache = true,
                     ThrowDnsErrors = false
                 };
@@ -229,7 +253,11 @@ namespace MyNetworkMonitor
                 LookupClient client = ClientFor(ipToScan);
 
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
-                cts.CancelAfter(QueryTimeout);
+                // Muss QueryBudget sein, nicht QueryTimeout: sonst reisst dieser
+                // aeussere Abbruch die Abfrage schon nach dem ersten Versuch ab,
+                // noch bevor der Client unten selbst zum zweiten kommt - genau
+                // das hat die konfigurierten Retries bisher wirkungslos gemacht.
+                cts.CancelAfter(QueryBudget);
 
                 // Die abgeschickte Abfrage zaehlt. Neben "geantwortet" und
                 // "gesamt" ergibt das die dreiteilige Anzeige, an der man sieht,
@@ -267,7 +295,7 @@ namespace MyNetworkMonitor
 
                             using CancellationTokenSource serverCts =
                                 CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
-                            serverCts.CancelAfter(QueryTimeout);
+                            serverCts.CancelAfter(QueryBudget);
 
                             var result = await singleLookup.GetHostEntryAsync(ipToScan.IPorHostname).WaitAsync(serverCts.Token);
 
