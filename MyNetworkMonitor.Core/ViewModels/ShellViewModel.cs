@@ -121,6 +121,14 @@ namespace MyNetworkMonitor.Core.ViewModels
 
             // Als Hauptscanner: ein Ergebnis eines Satelliten einmischen.
             SatelliteEditor.ResultArrived += (_, e) => MergeSatelliteResult(e.SatelliteName, e.DevicesJson);
+
+            // Die Satellitenansicht zeigt zu jedem Satelliten, welche Bereiche
+            // auf ihn zeigen. Die Bereiche gehoeren hierher, nicht dorthin -
+            // darum wird die Liste von hier aus nachgefuehrt.
+            SatelliteEditor.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(SatelliteEditorViewModel.Selected)) RefreshRangesOfSatellite();
+            };
             NetworkView = new NetworkViewModel();
             FindingsView = new FindingsViewModel(store);
 
@@ -485,7 +493,7 @@ namespace MyNetworkMonitor.Core.ViewModels
         /// eines, das erkennbar gesperrt ist.
         /// </summary>
         public bool CanCrossCheckDns =>
-            Methods.Any(m => m.IsSelected && IsDnsMethod(m.Id));
+            Methods.Any(m => m.IsEffective && IsDnsMethod(m.Id));
 
         /// <summary>
         /// Liest den zuletzt gesicherten Bestand. Ohne Datei bleibt es bei der
@@ -853,7 +861,11 @@ namespace MyNetworkMonitor.Core.ViewModels
 
             foreach (ScanMethodChoice choice in Methods)
             {
-                choice.IsSelected = choice.IsEnabled && profile.MethodIds.Contains(choice.Id);
+                // Ohne Ruecksicht auf die Verfuegbarkeit: das Profil sagt, was
+                // gewuenscht ist. Was davon gerade laufen kann, entscheidet
+                // IsEffective - und sobald es wieder kann, ist es von selbst
+                // wieder dabei.
+                choice.IsSelected = profile.MethodIds.Contains(choice.Id);
             }
 
             // Kein Umfang schaltet den DNS-Quervergleich ein. Er fragt jede
@@ -915,7 +927,11 @@ namespace MyNetworkMonitor.Core.ViewModels
 
         public int SelectedScopeCount => SelectedScopes.Count();
 
-        public int SelectedMethodCount => Methods.Count(m => m.IsSelected);
+        /// <summary>
+        /// Wie viele Verfahren ein Lauf jetzt tatsaechlich ausfuehren wuerde -
+        /// angehakt <em>und</em> lauffaehig.
+        /// </summary>
+        public int SelectedMethodCount => Methods.Count(m => m.IsEffective);
 
         /// <summary>
         /// Zaehler und Schaetzung werden gemeinsam berechnet, weil beide
@@ -956,7 +972,7 @@ namespace MyNetworkMonitor.Core.ViewModels
                 long targets = TargetCount;
                 if (targets == 0) return TimeSpan.Zero;
 
-                int methods = Math.Max(1, Methods.Count(m => m.IsSelected && !m.IsPassive));
+                int methods = Math.Max(1, Methods.Count(m => m.IsEffective && !m.IsPassive));
 
                 // Erfahrungswert: rund 40 Ziele je Sekunde und Verfahren,
                 // weil parallel gearbeitet wird.
@@ -1252,6 +1268,9 @@ namespace MyNetworkMonitor.Core.ViewModels
         /// </summary>
         private async Task DispatchToSatellitesAsync(List<ScanScope> remote)
         {
+            List<string> scanning = [];
+            List<string> missing = [];
+
             foreach (IGrouping<string, ScanScope> group in
                      remote.GroupBy(s => s.ScannedBy, StringComparer.OrdinalIgnoreCase))
             {
@@ -1264,19 +1283,128 @@ namespace MyNetworkMonitor.Core.ViewModels
                     // stillschweigend oertlich gescannt - sonst stuenden im
                     // Ergebnis Zahlen, die anders zustande kamen als
                     // angenommen.
-                    StatusText = $"\"{group.Key}\" is not connected - its ranges were not scanned.";
+                    missing.Add(group.Key);
                     continue;
                 }
 
                 string jobText = JobRequest.Format(
                     [.. group],
-                    Methods.Where(m => m.IsSelected).Select(m => m.Method.Id),
+                    Methods.Where(m => m.IsEffective).Select(m => m.Method.Id),
                     Settings.TcpPorts,
                     Settings.UdpPorts,
-                    Settings.PortTimeoutMs);
+                    Settings.PortTimeoutMs,
 
-                await SatelliteEditor.SendJobAsync(satellite, jobText, CancellationToken.None);
+                    // "Nur abfragen, was schon dasteht" muss mit: sonst laeuft
+                    // derselbe Haken oertlich und beim Satelliten verschieden.
+                    Settings.OnlyKnownTargets
+                        ? Methods.Where(m => m.CanRestrictToKnown).Select(m => m.Id)
+                        : Settings.OnlyKnownTargetsFor);
+
+                if (await SatelliteEditor.SendJobAsync(satellite, jobText, CancellationToken.None))
+                {
+                    scanning.Add(satellite.Name);
+                }
+                else
+                {
+                    missing.Add(group.Key);
+                }
             }
+
+            SatelliteScanNote = Describe(scanning, missing);
+        }
+
+        /// <summary>
+        /// Ein Satz fuer die Statuszeile darueber, was gerade bei den
+        /// Satelliten laeuft. Leer, wenn keiner beteiligt ist.
+        /// <para>
+        /// Steht als eigene Eigenschaft und nicht nur als einmalig gesetzter
+        /// Text, weil der oertliche Lauf die Statuszeile waehrenddessen
+        /// weiterschreibt: ohne diesen Merker waere der Hinweis nach dem ersten
+        /// Verfahren wieder weg, obwohl der Satellit noch arbeitet.
+        /// </para>
+        /// </summary>
+        public string SatelliteScanNote { get; private set; } = string.Empty;
+
+        /// <summary>Was uebersprungen oder ersatzweise oertlich gescannt wurde.</summary>
+        private string _skippedNote = string.Empty;
+
+        /// <summary>
+        /// Setzt die Statuszeile aus dem eigentlichen Befund und dem, was es
+        /// ueber die Satelliten zu sagen gibt - an einer Stelle, damit die
+        /// Hinweise nicht an drei Orten getrennt zusammengebaut werden.
+        /// </summary>
+        private string WithSatelliteNotes(string main) =>
+            string.Join("  ·  ", new[] { main, SatelliteScanNote, _skippedNote }
+                .Where(t => !string.IsNullOrWhiteSpace(t)));
+
+        /// <summary>
+        /// Rueckfragen an den Nutzer. Setzt die Ansicht.
+        /// <para>
+        /// Ohne gesetzten Dienst - im Dienstbetrieb und in Tests - wird nicht
+        /// gefragt, und die Antwort gilt als "nein". Das ist die sichere Seite:
+        /// lieber ein Bereich nicht gescannt als einer mit falschen Zahlen, und
+        /// vor einem Dienst sitzt niemand, der antworten koennte.
+        /// </para>
+        /// </summary>
+        public IDialogService? Dialogs { get; set; }
+
+        /// <summary>
+        /// Ist dieser Satellit gerade ansprechbar - verbunden und freigegeben?
+        /// </summary>
+        private bool IsSatelliteReady(string name) =>
+            SatelliteEditor.All.Any(s =>
+                string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase) &&
+                s.IsConnected && s.Approved);
+
+        /// <summary>
+        /// Fragt nach, was mit Bereichen geschehen soll, deren Satellit nicht
+        /// erreichbar ist.
+        /// <para>
+        /// Gefragt wird, statt still zu entscheiden: von hier aus gescannt
+        /// kommt ein anderes Ergebnis heraus - kein ARP, alles ueber den
+        /// Router, laengere Laufzeiten. Das kann im Einzelfall trotzdem
+        /// gewuenscht sein, aber es ist eine Entscheidung und keine
+        /// Nebenwirkung. Darum steht der Unterschied auch im Text.
+        /// </para>
+        /// </summary>
+        private async Task<bool> AskToScanLocallyAsync(List<ScanScope> orphaned)
+        {
+            if (Dialogs is null) return false;
+
+            List<string> names = [.. orphaned
+                .Select(s => s.ScannedBy)
+                .Distinct(StringComparer.OrdinalIgnoreCase)];
+
+            string who = names.Count == 1
+                ? $"Satellite \"{names[0]}\" is not connected."
+                : $"{names.Count} satellites are not connected ({string.Join(", ", names)}).";
+
+            string ranges = string.Join(Environment.NewLine,
+                orphaned.Select(s => $"   {s.GroupDescription}   {s.FirstIP} - {s.LastIP}"));
+
+            string message =
+                $"{who}{Environment.NewLine}{Environment.NewLine}" +
+                $"Scan these ranges from this machine instead?{Environment.NewLine}{Environment.NewLine}" +
+                $"{ranges}{Environment.NewLine}{Environment.NewLine}" +
+                "Note that the result will not be the same. From here there is no ARP - it does not cross a router - " +
+                "everything goes the long way through the router, and response times are longer. Devices that only " +
+                $"answer to ARP will be missing.{Environment.NewLine}{Environment.NewLine}" +
+                "No means these ranges are left out of this run.";
+
+            return await Dialogs.ConfirmAsync(message, "Satellite not connected");
+        }
+
+        private static string Describe(List<string> scanning, List<string> missing)
+        {
+            List<string> parts = [];
+
+            if (scanning.Count == 1) parts.Add($"Satellite \"{scanning[0]}\" is scanning");
+            else if (scanning.Count > 1) parts.Add($"{scanning.Count} satellites are scanning ({string.Join(", ", scanning)})");
+
+            if (missing.Count == 1) parts.Add($"\"{missing[0]}\" is not connected - its ranges were not scanned");
+            else if (missing.Count > 1) parts.Add($"{missing.Count} satellites are not connected - their ranges were not scanned");
+
+            return string.Join(" · ", parts);
         }
 
         /// <summary>
@@ -1301,9 +1429,14 @@ namespace MyNetworkMonitor.Core.ViewModels
             settings.TcpPorts.AddRange(job.TcpPorts.Count > 0 ? job.TcpPorts : Settings.TcpPorts);
             settings.UdpPorts.AddRange(job.UdpPorts.Count > 0 ? job.UdpPorts : Settings.UdpPorts);
 
+            // Die Beschraenkung kommt aus dem Auftrag, nicht aus den eigenen
+            // Einstellungen: es zaehlt, was der Hauptscanner angehakt hat, und
+            // nicht, was jemand am Satelliten einmal eingestellt hat.
+            foreach (string id in job.OnlyKnownFor) settings.OnlyKnownTargetsFor.Add(id);
+
             List<IScanMethod> methods = job.MethodIds.Count > 0
                 ? [.. _engine.Methods.Where(m => job.MethodIds.Contains(m.Id, StringComparer.OrdinalIgnoreCase))]
-                : [.. Methods.Where(m => m.IsSelected).Select(m => m.Method)];
+                : [.. Methods.Where(m => m.IsEffective).Select(m => m.Method)];
 
             DeviceStore jobStore = new();
 
@@ -1365,6 +1498,31 @@ namespace MyNetworkMonitor.Core.ViewModels
             return DeviceStoreFile.ToJson(jobStore);
         }
 
+        /// <summary>
+        /// Traegt nach, welche Bereiche auf den gerade gewaehlten Satelliten
+        /// zeigen - fuer die Anzeige in der Satellitenverwaltung.
+        /// </summary>
+        public void RefreshRangesOfSatellite()
+        {
+            SatelliteEditor.RangesOfSelected.Clear();
+
+            string? name = SatelliteEditor.Selected?.Name;
+            if (string.IsNullOrWhiteSpace(name)) return;
+
+            foreach (ScanScope scope in Scopes.Where(s =>
+                         string.Equals(s.ScannedBy, name, StringComparison.OrdinalIgnoreCase)))
+            {
+                string where = scope.Kind switch
+                {
+                    ScanScopeKind.IPv4Range => $"{scope.FirstIP} - {scope.LastIP}",
+                    ScanScopeKind.IPv6Prefix => $"{scope.Prefix}/{scope.PrefixLength}",
+                    _ => scope.DeviceDescription
+                };
+
+                SatelliteEditor.RangesOfSelected.Add($"{scope.GroupDescription}   {where}");
+            }
+        }
+
         /// <summary>Mischt ein Ergebnis ein, das ein Satellit geschickt hat.</summary>
         public void MergeSatelliteResult(string satelliteName, string devicesJson)
         {
@@ -1399,7 +1557,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             // des vorherigen Laufs, als haetten sie gerade gearbeitet.
             foreach (ScanMethodChoice method in Methods) method.ResetProgress();
 
-            List<ScanMethodChoice> chosen = [.. Methods.Where(m => m.IsSelected)];
+            List<ScanMethodChoice> chosen = [.. Methods.Where(m => m.IsEffective)];
             List<string> methods = [.. chosen.Select(m => m.Id)];
 
             // Der Ablaufplan steht vor dem Start fest - die Statuszeile kann
@@ -1440,28 +1598,97 @@ namespace MyNetworkMonitor.Core.ViewModels
                     List<ScanScope> remote = [.. scopes.Where(s => s.IsScannedRemotely)];
                     List<ScanScope> local = [.. scopes.Where(s => !s.IsScannedRemotely)];
 
-                    if (remote.Count > 0) await DispatchToSatellitesAsync(remote);
+                    SatelliteScanNote = string.Empty;
+                    _skippedNote = string.Empty;
 
-                    ScanRunResult result = await Task.Run(() =>
-                        _engine.RunAsync(local, methods, Settings, _store));
-
-                    // Ab hier wieder auf dem Oberflaechen-Thread. Erst jetzt die
-                    // Doppelbelegungen bestimmen: die Auswertung schreibt
-                    // gebundene Eigenschaften am Geraet, und sie will den
-                    // vollstaendigen Bestand sehen - waehrend des Laufs waere
-                    // jeder Befund vorlaeufig.
-                    lock (_store.SyncRoot)
+                    if (remote.Count > 0)
                     {
-                        result.ConflictCount = DuplicateDetector.Analyze(_store.Devices);
+                        // Zuerst die, deren Satellit gar nicht da ist. Sie
+                        // stillschweigend zu ueberspringen war die bisherige
+                        // Regel; jetzt entscheidet der Nutzer, ob sie
+                        // ersatzweise von hier laufen sollen.
+                        List<ScanScope> orphaned = [.. remote.Where(s => !IsSatelliteReady(s.ScannedBy))];
+
+                        if (orphaned.Count > 0)
+                        {
+                            remote = [.. remote.Except(orphaned)];
+
+                            if (await AskToScanLocallyAsync(orphaned))
+                            {
+                                local.AddRange(orphaned);
+                                _skippedNote = orphaned.Count == 1
+                                    ? "1 range whose satellite is offline was scanned from here"
+                                    : $"{orphaned.Count} ranges whose satellites are offline were scanned from here";
+                            }
+                            else
+                            {
+                                _skippedNote = orphaned.Count == 1
+                                    ? "1 range was left out - its satellite is not connected"
+                                    : $"{orphaned.Count} ranges were left out - their satellites are not connected";
+                            }
+                        }
                     }
 
-                    StatusText = Describe(result);
-
-                    // Der Quervergleich haengt am Ergebnis des Laufs und
-                    // laeuft darum danach, nicht als eigenes Verfahren mittendrin.
-                    if (Settings.CrossCheckDnsServers && !result.WasCancelled)
+                    if (remote.Count > 0)
                     {
-                        await CrossCheckDnsAsync(scopes);
+                        await DispatchToSatellitesAsync(remote);
+
+                        // Sofort sichtbar machen: der Satellit arbeitet ab
+                        // jetzt, und bei einem reinen Satellitenlauf ist das
+                        // die einzige Meldung, die es zu sehen gibt.
+                        if (SatelliteScanNote.Length > 0) StatusText = WithSatelliteNotes(string.Empty);
+                    }
+
+                    if (local.Count == 0)
+                    {
+                        // Die Engine gar nicht erst anwerfen, wenn hier nichts
+                        // zu tun ist.
+                        //
+                        // Ohne diese Sperre liefe sie mit einer leeren
+                        // Bereichsliste - und die Rundruf-Verfahren (SSDP,
+                        // mDNS, WS-Discovery) fragen nicht nach Zielen,
+                        // sondern schicken ihr Paket an alle auf den oertlichen
+                        // Adaptern. Sie faenden also Geraete *hier*, obwohl
+                        // jeder gewaehlte Bereich einem Satelliten gehoert.
+                        // Genau das darf nicht passieren: ein Bereich laeuft
+                        // entweder oertlich oder ueber einen Satelliten
+                        // (SATELLIT.md, Abschnitt 3).
+                        StatusText = WithSatelliteNotes("Nothing runs from this machine");
+                    }
+                    else
+                    {
+                        ScanRunResult result = await Task.Run(() =>
+                            _engine.RunAsync(local, methods, Settings, _store));
+
+                        // Ab hier wieder auf dem Oberflaechen-Thread. Erst jetzt die
+                        // Doppelbelegungen bestimmen: die Auswertung schreibt
+                        // gebundene Eigenschaften am Geraet, und sie will den
+                        // vollstaendigen Bestand sehen - waehrend des Laufs waere
+                        // jeder Befund vorlaeufig.
+                        lock (_store.SyncRoot)
+                        {
+                            result.ConflictCount = DuplicateDetector.Analyze(_store.Devices);
+                        }
+
+                        // Der oertliche Lauf ist durch - der Satellit meist
+                        // noch nicht. Sein Hinweis bleibt darum hinten dran
+                        // stehen, sonst sieht der Lauf beendet aus, waehrend
+                        // ein Teil der Bereiche noch gescannt wird.
+                        StatusText = WithSatelliteNotes(Describe(result));
+
+                        // Der Quervergleich haengt am Ergebnis des Laufs und
+                        // laeuft darum danach, nicht als eigenes Verfahren mittendrin.
+                        //
+                        // Ueber "local" und nicht ueber alle Bereiche: die
+                        // Namensserver eines Satellitenbereichs stehen in
+                        // dessen Segment. Von hier aus befragt, laufen sie ins
+                        // Leere oder - schlimmer - antwortet ein gleichnamiger
+                        // Server hier, und der Vergleich meldete eine
+                        // Abweichung, die es gar nicht gibt.
+                        if (Settings.CrossCheckDnsServers && !result.WasCancelled)
+                        {
+                            await CrossCheckDnsAsync(local);
+                        }
                     }
 
                     // Die Regeln laufen von selbst, sobald der Lauf durch ist -

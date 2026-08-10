@@ -21,9 +21,9 @@
       Setzt die Zaehlung des bisherigen WPF-Projekts fort (dort zuletzt 4.6.3.12),
       damit die veroeffentlichten Versionen aufsteigend bleiben.
     -->
-    <Version>6.0.0.8</Version>
-    <AssemblyVersion>6.0.0.8</AssemblyVersion>
-    <FileVersion>6.0.0.8</FileVersion>
+    <Version>7.0.0.1</Version>
+    <AssemblyVersion>7.0.0.1</AssemblyVersion>
+    <FileVersion>7.0.0.1</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -45,6 +45,14 @@
 
   <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
     <ProjectReference Include="..\MyNetworkMonitor.Platform.Windows\MyNetworkMonitor.Platform.Windows.csproj" />
+    <!--
+      Damit sich dieselbe Anwendung im Satellitenbetrieb als Windows-Dienst
+      betreiben laesst. Das Paket bringt die Anbindung an die
+      Dienstverwaltung mit; ohne sie wuerde der Prozess nach einer halben
+      Minute abgeschossen, weil er sich nie als gestartet meldet.
+    -->
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.0" />
   </ItemGroup>
 
   <!--

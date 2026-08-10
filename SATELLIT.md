@@ -13,7 +13,14 @@ der Weg kurz ist und keine Firewall dazwischen steht.
 Anwendung ferngesteuert. Jede Option, die örtlich einstellbar ist, muss sich
 auch aus der Ferne auslösen lassen.
 
-Stand: Entwurf, noch nichts gebaut. Version 6.0.0.7.
+Stand: gebaut sind Transport, Anmeldung, Auftragsausfuehrung, die Liste der
+Hauptscanner je Satellit, der Betrieb als Windows-Dienst und die Steuerpipe,
+ueber die die Oberflaeche dem Dienst zusieht. Ueber die Leitung geht jetzt
+auch, welche Verfahren sich auf schon gefundene Geraete beschraenken sollen.
+Offen sind das Zwischenlagern eines Ergebnisses auf der Platte (Abschnitt 5),
+Lebenszeichen und `ListenPortChanged` (Abschnitt 6), die Bestandshoheit beim
+Hauptscanner (Abschnitt 7) und der Zeitplan (Abschnitt 10).
+Version 7.0.0.1.
 
 ---
 

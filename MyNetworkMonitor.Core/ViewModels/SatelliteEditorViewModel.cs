@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.Input;
 using MyNetworkMonitor.Core.Models;
 using MyNetworkMonitor.Core.Persistence;
 using MyNetworkMonitor.Core.SatelliteLink;
+using MyNetworkMonitor.Core.ServiceLink;
 using MyNetworkMonitor.Core.Services;
 
 namespace MyNetworkMonitor.Core.ViewModels
@@ -24,7 +25,29 @@ namespace MyNetworkMonitor.Core.ViewModels
     public partial class SatelliteEditorViewModel : ObservableObject
     {
         private string _filePath = string.Empty;
+        private string _hostsPath = string.Empty;
         private bool _loading;
+
+        /// <summary>
+        /// Ob in dieser Instanz ueberhaupt etwas an den Listen geaendert wurde.
+        /// <para>
+        /// Beide Dateien liegen maschinenweit, und auf einem Rechner koennen
+        /// zwei Instanzen laufen - der Hauptscanner hat keine Empfaenger, der
+        /// Satellit keine Satelliten. Ohne diese Merker schriebe jede von
+        /// beiden der anderen ihre Liste leer, sobald sie sich schliesst.
+        /// Beobachtet als <c>mainScanners.json</c> mit dem Inhalt <c>[]</c>,
+        /// woraufhin der Dienst keinen Hauptscanner mehr fand.
+        /// </para>
+        /// </summary>
+        private bool _satellitesChanged;
+
+        private bool _hostsChanged;
+
+        /// <summary>
+        /// Wo Schluessel, Satellitenliste und Hostliste liegen - maschinenweit,
+        /// damit der Dienst dieselben Dateien liest wie die Oberflaeche.
+        /// </summary>
+        private static string StateFolder => AppPaths.MachineFolder;
 
         /// <summary>Alle Satelliten - die Liste, an der auch die Bereichsmaske haengt.</summary>
         public ObservableCollection<Satellite> All { get; } = [];
@@ -42,8 +65,33 @@ namespace MyNetworkMonitor.Core.ViewModels
         /// <summary>Meldet sich, wenn ein Name hinzukam, wegfiel oder sich aenderte.</summary>
         public event Action? NamesChanged;
 
+        /// <summary>
+        /// Die Hauptscanner, zu denen sich <em>diese</em> Anlage hinausverbindet
+        /// - Laptop, Server, was es sonst noch gibt. Zu allen gleichzeitig,
+        /// jede Verbindung fuer sich (SATELLIT.md, Abschnitt 1).
+        /// </summary>
+        public ObservableCollection<MainScanner> Hosts { get; } = [];
+
+        [ObservableProperty] private MainScanner? _selectedHost;
+
         public SatelliteEditorViewModel()
         {
+            Hosts.CollectionChanged += (_, e) =>
+            {
+                foreach (MainScanner h in e.OldItems?.OfType<MainScanner>() ?? [])
+                {
+                    h.PropertyChanged -= OnHostEdited;
+                }
+                foreach (MainScanner h in e.NewItems?.OfType<MainScanner>() ?? [])
+                {
+                    h.PropertyChanged += OnHostEdited;
+                }
+
+                if (!_loading) _hostsChanged = true;
+
+                SaveHosts();
+            };
+
             All.CollectionChanged += (_, e) =>
             {
                 foreach (Satellite s in e.OldItems?.OfType<Satellite>() ?? [])
@@ -54,6 +102,8 @@ namespace MyNetworkMonitor.Core.ViewModels
                 {
                     s.PropertyChanged += OnSatelliteEdited;
                 }
+
+                if (!_loading) _satellitesChanged = true;
 
                 RefreshNames();
                 Save();
@@ -68,7 +118,42 @@ namespace MyNetworkMonitor.Core.ViewModels
 
             if (e.PropertyName == nameof(Satellite.Name)) RefreshNames();
 
+            _satellitesChanged = true;
             Save();
+        }
+
+        /// <summary>
+        /// Ein Empfaenger wurde bearbeitet. Der laufende Zustand loest kein
+        /// Schreiben aus - sonst schriebe jede Statuszeile die Datei neu.
+        /// </summary>
+        private void OnHostEdited(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName is nameof(MainScanner.IsConnected)
+                               or nameof(MainScanner.IsApproved)
+                               or nameof(MainScanner.IsActive)
+                               or nameof(MainScanner.Status)
+                               or nameof(MainScanner.Display))
+            {
+                return;
+            }
+
+            _hostsChanged = true;
+            SaveHosts();
+        }
+
+        /// <summary>Schreibt die Hostliste.</summary>
+        public void SaveHosts()
+        {
+            if (_loading || string.IsNullOrEmpty(_hostsPath) || !_hostsChanged) return;
+
+            try
+            {
+                MainScannerFile.Save(Hosts, _hostsPath);
+            }
+            catch (Exception ex)
+            {
+                ClientStatus = $"The list of main scanners could not be saved: {ex.Message}";
+            }
         }
 
         private void RefreshNames()
@@ -89,15 +174,36 @@ namespace MyNetworkMonitor.Core.ViewModels
 
         // ------------------------------------------------------------- Laden
 
-        public void Load(string settingsFolder)
+        /// <summary>
+        /// Laedt Satellitenliste und Hostliste.
+        /// </summary>
+        /// <param name="userSettingsFolder">
+        /// Der bisherige Ort der Einstellungen. Wird nur noch gebraucht, um
+        /// einen vorhandenen Schluessel samt Freigaben in den maschinenweiten
+        /// Ordner zu uebernehmen - danach liest und schreibt alles dort.
+        /// </param>
+        public void Load(string userSettingsFolder)
         {
-            _filePath = Path.Combine(settingsFolder, SatelliteFile.DefaultFileName);
+            // Erst auflegen, dann neu lesen. Die Liste wird gleich ersetzt;
+            // was noch an einem alten Eintrag haengt, haette danach keinen
+            // Eintrag mehr, liefe aber weiter.
+            DisconnectAllHosts();
+
+            AppPaths.MigrateSatelliteState(userSettingsFolder);
+
+            _filePath = Path.Combine(StateFolder, SatelliteFile.DefaultFileName);
+            _hostsPath = Path.Combine(StateFolder, MainScannerFile.DefaultFileName);
             _loading = true;
 
             try
             {
                 All.Clear();
                 foreach (Satellite s in SatelliteFile.Load(_filePath)) All.Add(s);
+
+                Hosts.Clear();
+                foreach (MainScanner h in MainScannerFile.Load(_hostsPath)) Hosts.Add(h);
+
+                SelectedHost ??= Hosts.FirstOrDefault();
 
                 Status = All.Count == 0
                     ? "No satellites yet."
@@ -114,7 +220,7 @@ namespace MyNetworkMonitor.Core.ViewModels
 
         public void Save()
         {
-            if (_loading || string.IsNullOrEmpty(_filePath)) return;
+            if (_loading || string.IsNullOrEmpty(_filePath) || !_satellitesChanged) return;
 
             try
             {
@@ -132,7 +238,6 @@ namespace MyNetworkMonitor.Core.ViewModels
         public const string FirewallRuleName = "MyNetworkMonitor - satellites (inbound)";
 
         private SatelliteListener? _listener;
-        private SatelliteClient? _client;
         private X509Certificate2? _certificate;
         private string _appVersion = string.Empty;
 
@@ -149,10 +254,15 @@ namespace MyNetworkMonitor.Core.ViewModels
         [ObservableProperty] private string _linkStatus = "Not listening.";
         [ObservableProperty] private string _ownFingerprint = string.Empty;
 
-        /// <summary>Der eigene Schluessel - entsteht beim ersten Zugriff.</summary>
-        private X509Certificate2 Certificate(string settingsFolder)
+        /// <summary>
+        /// Der eigene Schluessel - entsteht beim ersten Zugriff, maschinenweit
+        /// abgelegt, damit Dienst und Oberflaeche dieselbe Kennung tragen.
+        /// </summary>
+        private X509Certificate2 Certificate()
         {
-            _certificate ??= SatelliteIdentity.GetOrCreate(settingsFolder, Environment.MachineName);
+            _certificate ??= SatelliteIdentity.GetOrCreate(
+                AppPaths.EnsureMachineFolder(), Environment.MachineName);
+
             OwnFingerprint = SatelliteIdentity.ForDisplay(SatelliteIdentity.Fingerprint(_certificate));
             return _certificate;
         }
@@ -161,7 +271,7 @@ namespace MyNetworkMonitor.Core.ViewModels
         /// Faengt an, auf Satelliten zu horchen. Freigegeben ist, wessen
         /// Fingerabdruck in der Liste steht und angehakt ist.
         /// </summary>
-        public void StartListening(string settingsFolder, int port, string appVersion)
+        public void StartListening(int port, string appVersion)
         {
             StopListening();
 
@@ -170,7 +280,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             try
             {
                 _listener = new SatelliteListener(
-                    Certificate(settingsFolder),
+                    Certificate(),
                     fingerprint => All.Any(s => s.Approved &&
                         string.Equals(s.Fingerprint, fingerprint, StringComparison.OrdinalIgnoreCase)),
                     _appVersion);
@@ -352,51 +462,308 @@ namespace MyNetworkMonitor.Core.ViewModels
         public Func<string, IProgress<ProgressPayload>, CancellationToken, Task<string>>? JobRunner { get; set; }
 
         /// <summary>
-        /// Verbindet diese Instanz als Satellit zu einem Hauptscanner. Der
+        /// Die laufenden Verbindungen, eine je Empfaenger.
+        /// <para>
+        /// Eine je Eintrag und nicht eine gemeinsame: faellt der Laptop aus,
+        /// soll der Server davon nichts merken, und jede Verbindung hat ihren
+        /// eigenen gemerkten Fingerabdruck, ihren eigenen Zustand und ihr
+        /// eigenes Wiederverbinden.
+        /// </para>
+        /// </summary>
+        private readonly Dictionary<MainScanner, SatelliteClient> _clients = [];
+
+        /// <summary>Wie viele Empfaenger gerade verbunden sind.</summary>
+        public int ConnectedHostCount => Hosts.Count(h => h.IsConnected);
+
+        /// <summary>
+        /// Nimmt einen Empfaenger auf. Mehr als der Name ist nicht noetig - der
+        /// Port bleibt auf der Vorgabe, bis jemand ihn aendert.
+        /// </summary>
+        [RelayCommand]
+        private void AddHost()
+        {
+            MainScanner host = new() { Host = string.Empty, Port = 27411 };
+
+            Hosts.Add(host);
+            SelectedHost = host;
+
+            ClientStatus = "Enter the name or address of the main scanner, then press Connect.";
+        }
+
+        /// <summary>Entfernt einen Empfaenger und legt seine Verbindung ab.</summary>
+        [RelayCommand]
+        private void RemoveHost()
+        {
+            if (SelectedHost is null) return;
+
+            MainScanner gone = SelectedHost;
+
+            DisconnectHost(gone);
+            Hosts.Remove(gone);
+
+            SelectedHost = Hosts.FirstOrDefault();
+            ClientStatus = $"\"{gone.Host}\" removed.";
+        }
+
+        /// <summary>Verbindet den ausgewaehlten Empfaenger.</summary>
+        [RelayCommand]
+        private void ConnectHost()
+        {
+            if (SelectedHost is not null) ConnectTo(SelectedHost);
+        }
+
+        /// <summary>Trennt den ausgewaehlten Empfaenger.</summary>
+        [RelayCommand]
+        private void DisconnectHost()
+        {
+            if (SelectedHost is not null) DisconnectHost(SelectedHost);
+        }
+
+        /// <summary>
+        /// Verbindet alle angehakten Empfaenger. Der Weg beim Start und der
+        /// Knopf fuer "alles wieder ansprechen".
+        /// </summary>
+        [RelayCommand]
+        public void ConnectAllHosts()
+        {
+            foreach (MainScanner host in Hosts.Where(h => h.Enabled && !string.IsNullOrWhiteSpace(h.Host)))
+            {
+                ConnectTo(host);
+            }
+        }
+
+        /// <summary>
+        /// Verbindet diese Anlage als Satellit zu einem Hauptscanner. Der
         /// Verbindungsversuch laeuft weiter, bis er abgebrochen wird - siehe
         /// SATELLIT.md, Abschnitt 1.
         /// </summary>
-        public void ConnectAsSatellite(string settingsFolder, string host, int port, string appVersion, string ownName)
+        public void ConnectTo(MainScanner host)
         {
-            DisconnectAsSatellite();
+            ArgumentNullException.ThrowIfNull(host);
 
-            if (string.IsNullOrWhiteSpace(host))
+            DisconnectHost(host);
+
+            if (string.IsNullOrWhiteSpace(host.Host))
             {
-                ClientStatus = "No main scanner set - enter a host name or an address first.";
+                host.Status = "No name or address given.";
+                ClientStatus = host.Status;
                 return;
             }
 
+            SatelliteClient client;
+
             try
             {
-                _client = new SatelliteClient(Certificate(settingsFolder), ownName, appVersion)
+                client = new SatelliteClient(Certificate(), OwnName, _appVersion)
                 {
-                    JobRunner = JobRunner,
-                    Jobs = _jobs
+                    // Ueber den Umweg, damit die Anzeige weiss, fuer welchen
+                    // Empfaenger gerade gearbeitet wird.
+                    JobRunner = (text, progress, token) =>
+                        RunJobForHostAsync(host, text, progress, token),
+
+                    Jobs = _jobs,
+
+                    // Der gemerkte Fingerabdruck kommt aus der Datei. Ohne ihn
+                    // vertraute der Satellit nach jedem Neustart wieder blind
+                    // dem ersten, der antwortet.
+                    PinnedFingerprint = host.PinnedFingerprint
                 };
             }
             catch (Exception ex)
             {
-                ClientStatus = $"Could not prepare the key: {ex.Message}";
+                host.Status = $"Could not prepare the key: {ex.Message}";
+                ClientStatus = host.Status;
                 return;
             }
 
-            _client.StateChanged += (_, s) => Post(() =>
+            client.StateChanged += (_, s) => Post(() =>
             {
-                ClientStatus = s.Text;
-                IsConnectedAsSatellite = s.State == SatelliteLinkState.Connected;
+                host.Status = s.Text;
+                host.IsConnected = s.State is SatelliteLinkState.Connected or SatelliteLinkState.WaitingForApproval;
+                host.IsApproved = s.State == SatelliteLinkState.Connected;
+                host.IsActive = s.State != SatelliteLinkState.Idle;
+
+                OnPropertyChanged(nameof(ConnectedHostCount));
+
+                // Die Sammelzeile zeigt den Empfaenger, von dem zuletzt etwas
+                // kam - bei einem einzigen ist das genau seiner, bei mehreren
+                // die letzte Regung.
+                ClientStatus = $"{host.Host}: {s.Text}";
+                IsConnectedAsSatellite = Hosts.Any(h => h.IsApproved);
             });
 
-            _client.Start(host, port);
+            client.FingerprintPinned += (_, fingerprint) => Post(() =>
+            {
+                host.PinnedFingerprint = fingerprint;
+                SaveHosts();
+            });
+
+            _clients[host] = client;
+            host.IsActive = true;
+
+            client.Start(host.Host, host.Port);
         }
 
-        public void DisconnectAsSatellite()
+        /// <summary>Legt die Verbindung zu einem Empfaenger ab.</summary>
+        public void DisconnectHost(MainScanner host)
         {
-            _client?.Stop();
-            _client = null;
+            ArgumentNullException.ThrowIfNull(host);
+
+            if (_clients.Remove(host, out SatelliteClient? client)) client.Stop();
+
+            host.IsConnected = false;
+            host.IsApproved = false;
+            host.IsActive = false;
+            host.Status = "Not connected.";
+
+            OnPropertyChanged(nameof(ConnectedHostCount));
+            IsConnectedAsSatellite = Hosts.Any(h => h.IsApproved);
+        }
+
+        /// <summary>Legt alle Verbindungen ab.</summary>
+        public void DisconnectAllHosts()
+        {
+            // Ueber die Verbindungen selbst und nicht ueber die sichtbare
+            // Liste: nach einem Neuladen kann es Verbindungen geben, deren
+            // Eintrag es nicht mehr gibt. Genau die blieben sonst haengen und
+            // klopften weiter an - beobachtet, nachdem der Dienst seine
+            // Hostliste neu einlas: der geloeschte Empfaenger meldete sich
+            // danach immer noch.
+            foreach (MainScanner host in _clients.Keys.ToList()) DisconnectHost(host);
+
+            foreach (MainScanner host in Hosts.ToList()) DisconnectHost(host);
 
             IsConnectedAsSatellite = false;
             ClientStatus = "Not connected.";
         }
+
+        /// <summary>
+        /// Der Name, unter dem sich diese Anlage bei den Hauptscannern meldet.
+        /// Vorgabe ist der Rechnername - er ist da, er ist eindeutig, und
+        /// niemand muss ihn tippen.
+        /// </summary>
+        [ObservableProperty] private string _ownName = Environment.MachineName;
+
+        /// <summary>Setzt die eigene Version fuer die Begruessung.</summary>
+        public void SetAppVersion(string appVersion) => _appVersion = appVersion ?? string.Empty;
+
+        // ------------------------------- Der Auftrag, der hier gerade laeuft
+
+        /// <summary>
+        /// Von welchem Hauptscanner der Auftrag kommt, der auf dieser Anlage
+        /// gerade laeuft. Leer, wenn keiner laeuft.
+        /// <para>
+        /// Wichtig, sobald mehrere Empfaenger eingetragen sind: der Satellit
+        /// nimmt nur einen Auftrag zur Zeit an, und wer davorsitzt, soll sehen,
+        /// fuer wen gerade gearbeitet wird - sonst wirkt ein <c>Busy</c> am
+        /// anderen Ende unerklaerlich.
+        /// </para>
+        /// </summary>
+        [ObservableProperty] private string _localJobHost = string.Empty;
+
+        [ObservableProperty] private string _localJobId = string.Empty;
+
+        [ObservableProperty] private int _localJobPercent;
+
+        [ObservableProperty] private string _localJobCurrent = string.Empty;
+
+        [ObservableProperty] private string _localJobDone = string.Empty;
+
+        [ObservableProperty] private string _localJobPending = string.Empty;
+
+        /// <summary>Auf dieser Anlage laeuft gerade ein Auftrag von aussen.</summary>
+        public bool IsRunningLocalJob => !string.IsNullOrEmpty(LocalJobId);
+
+        partial void OnLocalJobIdChanged(string value) => OnPropertyChanged(nameof(IsRunningLocalJob));
+
+        /// <summary>
+        /// Fuehrt einen Auftrag aus und haelt dabei fest, fuer wen.
+        /// <para>
+        /// Der Umweg um <see cref="JobRunner"/> herum dient allein der Anzeige:
+        /// der Transport reicht den Auftragstext durch und weiss nichts von
+        /// einer Oberflaeche, und die Scan-Engine weiss nicht, wer gefragt hat.
+        /// Beides trifft sich nur hier.
+        /// </para>
+        /// </summary>
+        private async Task<string> RunJobForHostAsync(
+            MainScanner host, string jobText, IProgress<ProgressPayload> progress, CancellationToken token)
+        {
+            if (JobRunner is null) throw new InvalidOperationException("No scan engine is attached.");
+
+            Post(() =>
+            {
+                LocalJobHost = host.Display;
+                LocalJobId = _jobs.CurrentJobId ?? "running";
+                LocalJobPercent = 0;
+                LocalJobCurrent = "starting";
+                LocalJobDone = string.Empty;
+                LocalJobPending = string.Empty;
+            });
+
+            // Der Fortschritt geht weiter an den Auftraggeber und zusaetzlich
+            // in die eigene Anzeige.
+            Progress<ProgressPayload> mirrored = new(p =>
+            {
+                progress.Report(p);
+
+                Post(() =>
+                {
+                    LocalJobPercent = p.Percent;
+                    LocalJobCurrent = p.Current;
+                    LocalJobDone = p.Done;
+                    LocalJobPending = p.Pending;
+                });
+            });
+
+            try
+            {
+                return await JobRunner(jobText, mirrored, token);
+            }
+            finally
+            {
+                Post(() =>
+                {
+                    LocalJobId = string.Empty;
+                    LocalJobHost = string.Empty;
+                    LocalJobCurrent = string.Empty;
+                    LocalJobPercent = 0;
+                });
+            }
+        }
+
+        /// <summary>
+        /// Haelt den Auftrag an, der auf dieser Anlage laeuft - unabhaengig
+        /// davon, wer ihn gegeben hat. Wer davorsitzt, darf ihn immer stoppen.
+        /// </summary>
+        [RelayCommand]
+        private async Task StopLocalJob()
+        {
+            // Laeuft der Auftrag im Dienst, hilft die eigene Auftragsverwaltung
+            // nicht weiter - der Stopp muss dorthin, wo der Auftrag laeuft.
+            if (IsShowingService)
+            {
+                ClientStatus = await ServiceControlClient.SendCommandAsync(
+                    ServiceMessageType.StopJob, CancellationToken.None);
+                return;
+            }
+
+            ClientStatus = _jobs.CancelCurrent()
+                ? "Stopping the running job..."
+                : "No job is running on this machine.";
+        }
+
+        // ------------------------- Die Bereiche, die auf einen Satelliten zeigen
+
+        /// <summary>
+        /// Die Bereiche, die dem ausgewaehlten Satelliten zugewiesen sind - als
+        /// fertige Zeilen fuer die Anzeige.
+        /// <para>
+        /// Damit man am Satelliten sieht, wofuer er zustaendig ist, ohne in die
+        /// Bereichsverwaltung wechseln zu muessen. Gefuellt wird von aussen:
+        /// die Bereiche gehoeren dem Fenster, nicht dieser Verwaltung.
+        /// </para>
+        /// </summary>
+        public ObservableCollection<string> RangesOfSelected { get; } = [];
 
         // ------------------------------------------------------- Firewall
 
@@ -509,6 +876,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             known.LastSeen = DateTimeOffset.Now;
             known.IsConnected = true;
 
+            _satellitesChanged = true;
             Save();
             return known;
         }
@@ -545,13 +913,227 @@ namespace MyNetworkMonitor.Core.ViewModels
 
         /// <summary>Gibt den ausgewaehlten Satelliten frei - der eine Klick aus SATELLIT.md.</summary>
         [RelayCommand]
-        private void Approve()
+        private async Task Approve()
         {
             if (Selected is null) return;
 
             Selected.Approved = true;
             Status = $"\"{Selected.Name}\" approved.";
+            // Er haengt in aller Regel schon in der Leitung und wartet. Ihm das
+            // zu sagen kostet eine Nachricht und erspart ihm, bis zum naechsten
+            // Verbindungsaufbau falsch dazustehen.
+            if (_listener is not null && Selected.IsConnected)
+            {
+                try
+                {
+                    await _listener.NotifyApprovedAsync(Selected.Fingerprint, CancellationToken.None);
+                }
+                catch (Exception)
+                {
+                    // Die Freigabe gilt trotzdem - sie steht in der Liste. Er
+                    // erfaehrt es dann beim naechsten Verbinden.
+                }
+            }
         }
 
+        // ------------------------------------------------------------- Dienst
+
+        /// <summary>
+        /// Ob auf dieser Anlage ein Satellitendienst eingerichtet ist und
+        /// laeuft.
+        /// <para>
+        /// Wichtig fuer die Oberflaeche: laeuft der Dienst, verbindet sie sich
+        /// <b>nicht</b> selbst. Sonst haengten zwei Verbindungen mit demselben
+        /// Schluessel am selben Hauptscanner, und der verwirft die aeltere -
+        /// die beiden wuerden sich abwechselnd gegenseitig hinauswerfen.
+        /// </para>
+        /// </summary>
+        [ObservableProperty] private bool _isServiceRunning;
+
+        [ObservableProperty] private bool _isServiceInstalled;
+
+        // Nicht "ServiceStatus": so heisst der Typ, den ServiceControl.Read()
+        // liefert, und beides im selben Geltungsbereich verdeckt sich.
+        [ObservableProperty] private string _serviceStatusText = string.Empty;
+
+        /// <summary>Ob sich auf dieser Plattform ueberhaupt ein Dienst einrichten laesst.</summary>
+        public bool IsServiceSupported => PlatformServices.ServiceControl.IsSupported;
+
+        /// <summary>
+        /// Die Oberflaeche darf selbst verbinden - naemlich dann, wenn kein
+        /// Dienst die Arbeit schon macht.
+        /// </summary>
+        public bool CanConnectFromWindow => !IsServiceRunning;
+
+        partial void OnIsServiceRunningChanged(bool value) => OnPropertyChanged(nameof(CanConnectFromWindow));
+
+        /// <summary>Liest den Zustand des Dienstes neu.</summary>
+        [RelayCommand]
+        public void RefreshService()
+        {
+            ServiceStatus status = PlatformServices.ServiceControl.Read();
+
+            IsServiceRunning = status.IsRunning;
+            IsServiceInstalled = status.IsInstalled;
+            ServiceStatusText = status.Message;
+
+            // Laeuft der Dienst, gehoert ihm die Verbindung. Was das Fenster
+            // etwa noch offen haelt, wird abgelegt.
+            if (IsServiceRunning && _clients.Count > 0) DisconnectAllHosts();
+
+            if (IsServiceRunning) WatchService();
+            else StopWatchingService();
+        }
+
+        // -------------------------------------------- Zusehen beim Dienst
+
+        private ServiceControlClient? _watcher;
+
+        /// <summary>
+        /// Die Anzeige stammt gerade vom Dienst und nicht von diesem Fenster.
+        /// <para>
+        /// Wichtig fuer den Nutzer: er sieht dieselben Felder, aber sie
+        /// beschreiben einen anderen Prozess. Ohne diesen Hinweis wirkte ein
+        /// laufender Auftrag so, als haette das Fenster ihn angenommen.
+        /// </para>
+        /// </summary>
+        [ObservableProperty] private bool _isShowingService;
+
+        /// <summary>Der Dienst laeuft, antwortet aber nicht auf der Steuerpipe.</summary>
+        [ObservableProperty] private bool _serviceUnreachable;
+
+        /// <summary>Faengt an, dem Dienst zuzusehen.</summary>
+        private void WatchService()
+        {
+            if (_watcher is not null) return;
+
+            _watcher = new ServiceControlClient();
+
+            _watcher.ReachableChanged += (_, reachable) => Post(() =>
+            {
+                IsShowingService = reachable;
+                ServiceUnreachable = !reachable;
+
+                if (!reachable) return;
+
+                // Solange der Dienst antwortet, gehoeren die Anzeigefelder ihm.
+                ClientStatus = "Showing the service.";
+            });
+
+            _watcher.SnapshotReceived += (_, snapshot) => Post(() => Apply(snapshot));
+            _watcher.Start();
+        }
+
+        private void StopWatchingService()
+        {
+            _watcher?.Stop();
+            _watcher = null;
+
+            IsShowingService = false;
+            ServiceUnreachable = false;
+        }
+
+        /// <summary>
+        /// Uebernimmt eine Momentaufnahme des Dienstes in dieselben
+        /// Eigenschaften, die sonst dieses Fenster fuellt.
+        /// <para>
+        /// Absichtlich dieselben: die Ansicht soll nicht zweimal gebaut werden,
+        /// einmal fuer "ich selbst" und einmal fuer "der Dienst". Was sie
+        /// zeigt, ist in beiden Faellen dasselbe - nur die Quelle
+        /// unterscheidet sich, und die steht im Hinweis darueber.
+        /// </para>
+        /// </summary>
+        private void Apply(ServiceSnapshot snapshot)
+        {
+            OwnName = string.IsNullOrWhiteSpace(snapshot.OwnName) ? OwnName : snapshot.OwnName;
+
+            LocalJobHost = snapshot.JobHost;
+            LocalJobId = snapshot.JobId;
+            LocalJobPercent = snapshot.JobPercent;
+            LocalJobCurrent = snapshot.JobCurrent;
+            LocalJobDone = snapshot.JobDone;
+            LocalJobPending = snapshot.JobPending;
+
+            // Die Empfaenger stehen in derselben Datei, die der Dienst liest -
+            // die Liste stimmt also schon. Nachgetragen wird nur, wie es ihnen
+            // dort geht.
+            foreach (ServiceHostState state in snapshot.Hosts)
+            {
+                MainScanner? host = Hosts.FirstOrDefault(h =>
+                    string.Equals(h.Display, state.Display, StringComparison.OrdinalIgnoreCase));
+
+                if (host is null) continue;
+
+                host.IsConnected = state.IsConnected;
+                host.IsApproved = state.IsApproved;
+                host.Status = state.Status;
+            }
+
+            OnPropertyChanged(nameof(ConnectedHostCount));
+        }
+
+        /// <summary>
+        /// Traegt dem Dienst auf, die Hostliste neu zu lesen und neu zu
+        /// verbinden - der Weg, eine Aenderung wirksam zu machen, ohne ihn
+        /// anzuhalten.
+        /// </summary>
+        [RelayCommand]
+        private async Task ApplyToService()
+        {
+            SaveHosts();
+
+            ServiceStatusText = await ServiceControlClient.SendCommandAsync(
+                ServiceMessageType.Reconnect, CancellationToken.None);
+        }
+
+        /// <summary>
+        /// Richtet den Dienst ein. Fehlen die Rechte, startet sich die
+        /// Anwendung dafuer erhoeht neu - der Nutzer sieht eine Rueckfrage des
+        /// Betriebssystems.
+        /// </summary>
+        [RelayCommand]
+        private void InstallService()
+        {
+            // Die Hostliste muss stehen, bevor der Dienst startet: er liest sie
+            // beim Hochlaufen und verbindet sich danach nicht mehr neu, nur
+            // weil hier jemand tippt.
+            SaveHosts();
+
+            string path = Environment.ProcessPath ?? string.Empty;
+            ServiceChangeResult result = PlatformServices.ServiceControl.Install(path);
+
+            ServiceStatusText = result.Message;
+            RefreshService();
+        }
+
+        /// <summary>Entfernt den Dienst wieder.</summary>
+        [RelayCommand]
+        private void UninstallService()
+        {
+            ServiceChangeResult result = PlatformServices.ServiceControl.Uninstall();
+
+            ServiceStatusText = result.Message;
+            RefreshService();
+        }
+
+        /// <summary>Haelt den Dienst an, ohne ihn zu entfernen.</summary>
+        [RelayCommand]
+        private void StopService()
+        {
+            ServiceChangeResult result = PlatformServices.ServiceControl.Stop();
+
+            ServiceStatusText = result.Message;
+            RefreshService();
+        }
+
+        /// <summary>Startet den eingerichteten Dienst wieder.</summary>
+        [RelayCommand]
+        private void StartService()
+        {
+            ServiceChangeResult result = PlatformServices.ServiceControl.Start();
+
+            ServiceStatusText = result.Message;
+            RefreshService();
+        }
     }
 }

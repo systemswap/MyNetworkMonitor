@@ -12,6 +12,12 @@
 
   <ItemGroup>
     <PackageReference Include="System.DirectoryServices" Version="10.0.10" />
+    <!--
+      Fuer den Zustand des Satellitendienstes. Angelegt und entfernt wird er
+      ueber sc.exe, aber dessen Ausgabe ist uebersetzt - ServiceController
+      liefert stattdessen Zahlen, die auf jedem Windows dieselben sind.
+    -->
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.10" />
   </ItemGroup>
 
 </Project>

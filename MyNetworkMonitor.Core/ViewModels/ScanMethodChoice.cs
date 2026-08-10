@@ -107,15 +107,30 @@ namespace MyNetworkMonitor.Core.ViewModels
             HasProgress = false;
         }
 
+        /// <summary>
+        /// Der Haken gilt <em>und</em> das Verfahren kann gerade laufen. Das
+        /// ist es, was ein Lauf tatsaechlich ausfuehrt.
+        /// <para>
+        /// Getrennt vom Haken, weil beides Verschiedenes bedeutet:
+        /// <see cref="IsSelected"/> ist der Wunsch des Nutzers,
+        /// <see cref="IsEnabled"/> die Lage im Augenblick. Frueher wurde bei
+        /// einer Sperre der Haken selbst geloescht - der Wunsch war damit weg
+        /// und kam auch dann nicht wieder, wenn das Verfahren gleich darauf
+        /// wieder lauffaehig war. Es genuegte, einen anderen Bereich
+        /// anzuwaehlen: die Verfuegbarkeitspruefung lief, ein Verfahren war
+        /// darin kurz gesperrt, und die Auswahl war still leer.
+        /// </para>
+        /// </summary>
+        public bool IsEffective => IsSelected && IsEnabled;
+
         partial void OnAvailabilityChanged(ScanMethodAvailability value)
         {
             OnPropertyChanged(nameof(IsEnabled));
             OnPropertyChanged(nameof(BlockReason));
             OnPropertyChanged(nameof(Hint));
-
-            // Ein Verfahren, das nicht laufen kann, bleibt nicht angehakt -
-            // sonst suggeriert die Auswahl etwas, das nicht passiert.
-            if (!value.CanRun) IsSelected = false;
+            OnPropertyChanged(nameof(IsEffective));
         }
+
+        partial void OnIsSelectedChanged(bool value) => OnPropertyChanged(nameof(IsEffective));
     }
 }
