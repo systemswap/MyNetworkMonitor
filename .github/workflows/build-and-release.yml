@@ -177,12 +177,29 @@ jobs:
           name: linux-build
           path: dist
 
+      # Der Release-Text soll aus wenigen Stichpunkten bestehen - eine lange
+      # Begruendung liest dort niemand. Sie gehoert trotzdem in die Historie,
+      # also steht sie in der Commit-Nachricht unterhalb einer Trennlinie aus
+      # drei Bindestrichen und wird hier abgeschnitten. Fehlt die Trennlinie,
+      # bleibt die Nachricht unveraendert.
+      - name: Kurzfassung fuer den Release-Text
+        id: notes
+        env:
+          FULL: ${{ github.event.head_commit.message || format('Manueller Build von Commit {0}', github.sha) }}
+        run: |
+          short=$(printf '%s\n' "$FULL" | sed '/^---$/,$d')
+          {
+            echo 'body<<RELEASE_NOTES_EOF'
+            printf '%s\n' "$short"
+            echo 'RELEASE_NOTES_EOF'
+          } >> "$GITHUB_OUTPUT"
+
       - name: GitHub Release erstellen
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ needs.check-version.outputs.version }}
           name: Release ${{ needs.check-version.outputs.version }}
-          body: ${{ github.event.head_commit.message || format('Manueller Build von Commit {0}', github.sha) }}
+          body: ${{ steps.notes.outputs.body }}
           files: dist/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
