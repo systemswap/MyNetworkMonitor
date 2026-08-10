@@ -185,15 +185,6 @@ namespace MyNetworkMonitor.Core.SatelliteLink
                     throw new InvalidDataException($"Protocol version {hello.ProtocolVersion} rejected.");
                 }
 
-                Announced?.Invoke(this, new SatelliteAnnouncedEventArgs
-                {
-                    Name = hello.Name ?? "unnamed",
-                    Fingerprint = fingerprint,
-                    AppVersion = hello.AppVersion ?? string.Empty,
-                    Os = hello.Os ?? string.Empty,
-                    RemoteAddress = remote
-                });
-
                 bool approved = _isApproved(fingerprint);
 
                 await channel.SendAsync(new SatelliteMessage
@@ -213,6 +204,24 @@ namespace MyNetworkMonitor.Core.SatelliteLink
                 // Abbruch nicht erreicht hat.
                 if (_sessions.TryRemove(fingerprint, out SatelliteSession? stale)) stale.Dispose();
                 _sessions[fingerprint] = session;
+
+                // Erst jetzt melden, dass er da ist - nicht schon nach der
+                // Begruessung.
+                //
+                // "Angemeldet" heisst fuer jeden Zuhoerer: ab hier kann man ihm
+                // etwas schicken. Wurde das Ereignis noch vor dem Eintragen der
+                // Sitzung ausgeloest, lief ein Auftrag, den jemand unmittelbar
+                // darauf abschickte, ins Leere - SendJobAsync fand keine
+                // Sitzung und gab null zurueck. Von Hand fiel das nie auf, weil
+                // zwischen Anmeldung und Klick immer Sekunden liegen.
+                Announced?.Invoke(this, new SatelliteAnnouncedEventArgs
+                {
+                    Name = hello.Name ?? "unnamed",
+                    Fingerprint = fingerprint,
+                    AppVersion = hello.AppVersion ?? string.Empty,
+                    Os = hello.Os ?? string.Empty,
+                    RemoteAddress = remote
+                });
 
                 await PumpAsync(session, token);
             }
@@ -294,9 +303,23 @@ namespace MyNetworkMonitor.Core.SatelliteLink
             catch (Exception) { }
             finally
             {
-                _sessions.TryRemove(session.Fingerprint, out _);
+                // Nur austragen, wenn *diese* Sitzung noch die eingetragene ist.
+                //
+                // Meldet sich derselbe Satellit ein zweites Mal - etwa weil auf
+                // seiner Seite die Oberflaeche und der Dienst gleichzeitig
+                // verbinden -, ersetzt die neue Sitzung die alte. Die alte
+                // laeuft danach hier aus, und ein blindes TryRemove nach dem
+                // Fingerabdruck loeschte die *neue* wieder aus der Liste: die
+                // Verbindung stuende noch, waere aber fuer Auftraege
+                // unerreichbar, und die Anzeige meldete "offline". Genau so
+                // sah es aus, wenn man den Satelliten als Dienst einrichtete,
+                // waehrend sein Fenster noch verbunden war.
+                bool wasCurrent = _sessions.TryRemove(
+                    new KeyValuePair<string, SatelliteSession>(session.Fingerprint, session));
+
                 session.Dispose();
-                Disconnected?.Invoke(this, session.Fingerprint);
+
+                if (wasCurrent) Disconnected?.Invoke(this, session.Fingerprint);
             }
         }
 
@@ -320,6 +343,28 @@ namespace MyNetworkMonitor.Core.SatelliteLink
             }, token);
 
             return jobId;
+        }
+
+        /// <summary>
+        /// Sagt einem bereits verbundenen Satelliten, dass er soeben
+        /// freigegeben wurde.
+        /// <para>
+        /// Ohne das bliebe er auf "wartet auf Freigabe" stehen, obwohl
+        /// Auftraege schon durchgehen - er erfuehre es erst beim naechsten
+        /// Verbinden. Wer beide Seiten nebeneinander einrichtet, saehe dann am
+        /// Satelliten etwas anderes als am Hauptscanner.
+        /// </para>
+        /// </summary>
+        public async Task NotifyApprovedAsync(string fingerprint, CancellationToken token)
+        {
+            if (!_sessions.TryGetValue(fingerprint, out SatelliteSession? session)) return;
+
+            await session.Channel.SendAsync(new SatelliteMessage
+            {
+                Type = MessageType.Welcome,
+                ProtocolVersion = ProtocolVersion,
+                AppVersion = _ownVersion
+            }, token);
         }
 
         /// <summary>Bricht den laufenden Auftrag eines Satelliten ab.</summary>

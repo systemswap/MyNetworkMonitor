@@ -56,7 +56,13 @@ public partial class ShellView : Window
         _engine = new ScanEngine();
         RegisterMethods(_engine);
 
-        _shell = new ShellViewModel(_engine, _store);
+        _shell = new ShellViewModel(_engine, _store)
+        {
+            // Fuer Rueckfragen waehrend eines Laufs - etwa wenn der Satellit
+            // eines Bereichs nicht verbunden ist.
+            Dialogs = new AvaloniaDialogService()
+        };
+
         DataContext = _shell;
 
         // Die gespeicherten Einstellungen zuerst - Zeitlimit und Portschalter
@@ -92,6 +98,14 @@ public partial class ShellView : Window
             scopeFlyout.Opened += (_, _) => BuildScopeRows();
         }
 
+        // Beim Ausprobieren mit zwei Instanzen muss man sie auseinanderhalten
+        // koennen - der Name des Zustandsordners steht dafuer im Titel.
+        if (AppPaths.HasOwnState)
+        {
+            string root = System.IO.Path.GetDirectoryName(SettingsFolder()) ?? string.Empty;
+            Title = $"My Network Monitor - {System.IO.Path.GetFileName(root)}";
+        }
+
         BuildServiceFacets();
         BuildScopeFacets();
         BuildFindServicePortMenu();
@@ -108,57 +122,12 @@ public partial class ShellView : Window
     // Felder aber null - der Zugriff darauf scheitert dann beim Oeffnen.
 
     /// <summary>
-    /// Alle heute vorhandenen Verfahren. Ein neues hinzuzufuegen heisst: eine
-    /// Zeile hier - die Schublade und die Verfuegbarkeitspruefung ergeben sich
-    /// daraus von selbst.
+    /// Alle heute vorhandenen Verfahren. Die Liste selbst steht seit dem
+    /// Satellitendienst in Core (<see cref="ScanEngineFactory"/>) - der Dienst
+    /// laeuft ohne Fenster und braucht dieselben Verfahren.
     /// </summary>
-    private static void RegisterMethods(ScanEngine engine)
-    {
-        engine.Register(new PingScanMethod());
-        engine.Register(new ArpRequestScanMethod());
-        engine.Register(new ArpCacheScanMethod());
-        engine.Register(new SsdpScanMethod());
-        engine.Register(new MdnsScanMethod());
-        engine.Register(new WsDiscoveryScanMethod());
-
-        // Die IPv6-Suchverfahren. Reihenfolge nach Aufwand fuer das Netz: erst
-        // das Verfahren, das nur nachliest, dann das eine Paket an alle. Beide
-        // laufen ohne erhoehte Rechte.
-        engine.Register(new Ipv6NeighborCacheScanMethod());
-        engine.Register(new Ipv6MulticastPingScanMethod());
-
-        // Die Router-Ankuendigung liefert die gueltigen Praefixe - und auf die
-        // setzen die beiden Rateverfahren darunter ihre Adressen. Steht darum
-        // vor ihnen.
-        engine.Register(new Ipv6RouterAdvertisementScanMethod());
-        engine.Register(new Ipv6MulticastGroupScanMethod());
-
-        engine.Register(new Ipv6LowByteSweepScanMethod());
-
-        // Muss nach allem stehen, was MAC-Adressen findet - ARP, Ping,
-        // Neighbor Cache. Es rechnet aus deren Funden Adressen aus und hat
-        // vorher nichts, womit es rechnen koennte.
-        engine.Register(new Ipv6Eui64ScanMethod());
-        // Reihenfolge innerhalb der Phase = Reihenfolge hier. Die
-        // Rueckwaertsaufloesung muss vor der Vorwaertsaufloesung stehen: erst
-        // liefert sie zur Adresse den Namen, dann fragt die Vorwaerts-
-        // aufloesung, welche Adressen dieser Name im DNS hat. Andersherum
-        // fragt die zweite ins Leere, weil der Name noch fehlt.
-        engine.Register(new ReverseLookupScanMethod());
-        engine.Register(new HostnameLookupScanMethod());
-        engine.Register(new NetBiosScanMethod());
-        engine.Register(new SnmpScanMethod());
-        engine.Register(new OnvifScanMethod());
-        engine.Register(new SwitchPortScanMethod());
-        engine.Register(new TcpPortScanMethod());
-        engine.Register(new UdpPortScanMethod());
-        engine.Register(new SmbVersionScanMethod());
-        engine.Register(new ServiceDetectionScanMethod(ServiceXmlPath()));
-
-        // Nach dem Portscan und der Diensterkennung: dieses Verfahren fragt an
-        // den Ports nach, die die beiden vorher als offen gemeldet haben.
-        engine.Register(new WebIdentityScanMethod());
-    }
+    private static void RegisterMethods(ScanEngine engine) =>
+        ScanEngineFactory.RegisterAllMethods(engine, ServiceXmlPath());
 
     /// <summary>
     /// Dieselbe Datei, die das bisherige Fenster benutzt - eigene Portlisten
@@ -175,6 +144,11 @@ public partial class ShellView : Window
     /// </summary>
     private static string SettingsFolder()
     {
+        // Eine zweite Instanz zum Ausprobieren bekommt ueber --state ihren
+        // eigenen Ordner - sonst schrieben beide in dieselben Dateien und
+        // loeschten sich gegenseitig die Bereiche und den letzten Lauf.
+        if (AppPaths.OwnSettingsFolder is { } own) return own;
+
         string documents = System.Runtime.InteropServices.RuntimeInformation
             .IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows)
             ? System.IO.Path.Combine(Environment.ExpandEnvironmentVariables("%userprofile%"), "Documents")
@@ -208,20 +182,21 @@ public partial class ShellView : Window
         // aber an der Anzeige.
         _shell.SatelliteEditor.Post = action => global::Avalonia.Threading.Dispatcher.UIThread.Post(action);
 
+        _shell.SatelliteEditor.SetAppVersion(OwnVersion());
         _shell.SatelliteEditor.RefreshFirewall();
+
+        // Erst den Dienst befragen: laeuft er, gehoert ihm die Verbindung nach
+        // draussen, und dieses Fenster verbindet sich nicht selbst.
+        _shell.SatelliteEditor.RefreshService();
 
         if (_shell.Settings.SatelliteListenEnabled)
         {
-            _shell.SatelliteEditor.StartListening(
-                SettingsFolder(), _shell.Settings.SatelliteListenPort, OwnVersion());
+            _shell.SatelliteEditor.StartListening(_shell.Settings.SatelliteListenPort, OwnVersion());
         }
 
-        if (_shell.Settings.SatelliteModeEnabled &&
-            !string.IsNullOrWhiteSpace(_shell.Settings.MainScannerHost))
+        if (_shell.Settings.SatelliteModeEnabled && _shell.SatelliteEditor.CanConnectFromWindow)
         {
-            _shell.SatelliteEditor.ConnectAsSatellite(
-                SettingsFolder(), _shell.Settings.MainScannerHost, _shell.Settings.MainScannerPort,
-                OwnVersion(), System.Environment.MachineName);
+            _shell.SatelliteEditor.ConnectAllHosts();
         }
     }
 
@@ -234,21 +209,41 @@ public partial class ShellView : Window
     private void bt_FirewallRemove_Click(object? sender, RoutedEventArgs e) =>
         _shell.SatelliteEditor.RemoveFirewallRule();
 
+    /// <summary>
+    /// Uebernimmt einen Port aus der Firewall-Liste als Lauschport. Die Liste
+    /// ist damit eine Auswahl und nicht nur eine Auskunft: wer keine Rechte hat,
+    /// eine Regel anzulegen, sucht sich hier einen Port, der ohnehin offen ist.
+    /// </summary>
+    private void lst_AllowedPorts_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (!_ready || sender is not ListBox list || list.SelectedItem is not string entry) return;
+
+        // Die Zeile sieht aus wie "TCP 5900-5904  (only for ...)". Genommen
+        // wird die erste Zahl - bei einem Bereich der Anfang, denn irgendeiner
+        // muss es sein, und der erste ist der naheliegende.
+        string digits = new([.. entry.SkipWhile(c => !char.IsDigit(c)).TakeWhile(char.IsDigit)]);
+
+        if (int.TryParse(digits, out int port) && port is > 0 and <= 65535)
+        {
+            _shell.Settings.SatelliteListenPort = port;
+        }
+    }
+
+    // ---------------------------------------------------- Empfaenger (Hosts)
+
     private void bt_SatelliteConnect_Click(object? sender, RoutedEventArgs e)
     {
         // Der Knopf setzt den Schalter mit: wer hier verbindet, will es auch
         // beim naechsten Start.
         _shell.Settings.SatelliteModeEnabled = true;
 
-        _shell.SatelliteEditor.ConnectAsSatellite(
-            SettingsFolder(), _shell.Settings.MainScannerHost, _shell.Settings.MainScannerPort,
-            OwnVersion(), System.Environment.MachineName);
+        _shell.SatelliteEditor.ConnectAllHosts();
     }
 
     private void bt_SatelliteDisconnect_Click(object? sender, RoutedEventArgs e)
     {
         _shell.Settings.SatelliteModeEnabled = false;
-        _shell.SatelliteEditor.DisconnectAsSatellite();
+        _shell.SatelliteEditor.DisconnectAllHosts();
     }
 
     private void LoadScopes()
@@ -257,6 +252,22 @@ public partial class ShellView : Window
         // Auswahl an, und eine Auswahl, die beim Laden des Bereichs noch leer
         // ist, verwirft dessen gespeicherten Wert.
         _shell.SatelliteEditor.Load(SettingsFolder());
+
+        // Bis zur Hostliste gab es genau einen Hauptscanner als Einstellung.
+        // Wer den gesetzt hatte, findet ihn als ersten Eintrag wieder, statt
+        // ihn neu eintippen zu muessen.
+        if (_shell.SatelliteEditor.Hosts.Count == 0 &&
+            !string.IsNullOrWhiteSpace(_shell.Settings.MainScannerHost))
+        {
+            _shell.SatelliteEditor.Hosts.Add(new MainScanner
+            {
+                Host = _shell.Settings.MainScannerHost,
+                Port = _shell.Settings.MainScannerPort,
+                Note = "taken over from the previous setting"
+            });
+
+            _shell.SatelliteEditor.SelectedHost = _shell.SatelliteEditor.Hosts[0];
+        }
 
         _shell.ScopeEditor.Load(System.IO.Path.Combine(SettingsFolder(), "ipGroups.xml"));
         _shell.RefreshAvailability();
@@ -856,7 +867,8 @@ public partial class ShellView : Window
         bool built = section is ShellSection.Devices or ShellSection.Scopes
                              or ShellSection.Ports or ShellSection.Services
                              or ShellSection.Settings or ShellSection.Network
-                             or ShellSection.Topology or ShellSection.Findings;
+                             or ShellSection.Topology or ShellSection.Findings
+                             or ShellSection.Satellites;
 
         view_Placeholder.IsVisible = !built;
 
@@ -1283,11 +1295,14 @@ public partial class ShellView : Window
         // Zeitgeber, keine Verzoegerung, weil die Liste kurz ist. Der Aufruf
         // hier ist der Gurt fuer den Fall, dass doch etwas offen blieb.
         _shell.SatelliteEditor.Save();
+        _shell.SatelliteEditor.SaveHosts();
 
         // Verbindungen sauber schliessen, damit die Gegenstellen sofort
         // merken, dass hier Schluss ist, statt in eine Zeitgrenze zu laufen.
+        // Der Dienst ist davon nicht betroffen - er laeuft weiter, und genau
+        // dafuer gibt es ihn.
         _shell.SatelliteEditor.StopListening();
-        _shell.SatelliteEditor.DisconnectAsSatellite();
+        _shell.SatelliteEditor.DisconnectAllHosts();
 
         // Der Bestand zuletzt: er ist der groesste Brocken, und wenn dabei
         // etwas schiefgeht, sind die Einstellungen wenigstens schon sicher.
