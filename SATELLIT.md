@@ -72,6 +72,29 @@ Jeder Hauptscanner führt seine eigene Satellitenliste und gibt selbst frei;
 der Satellit merkt sich den Fingerabdruck **je Empfänger**. Eine Freigabe auf
 dem Laptop sagt nichts über den Server aus.
 
+### Nichts wird getippt
+
+Namen werden **nirgends** von Hand eingegeben:
+
+- Am Satelliten steht ein **Verbinden**-Knopf. Er baut die Verbindung sofort
+  auf, statt auf den nächsten Versuch des Wiederverbindens zu warten — für
+  den Fall, dass man beide Seiten gerade nebeneinander einrichtet.
+- Der Satellit nennt beim Verbinden seinen **eigenen** Namen. Der Hauptscanner
+  legt ihn an und zeigt ihn an; ändern kann man ihn dort nicht, sonst zeigte
+  er beim nächsten Verbinden wieder seinen eigenen und die Bereiche zeigten
+  ins Leere. Nur eine Notiz ist frei.
+- Am Bereich wird der Satellit über eine **Auswahlliste** gewählt, gefüllt aus
+  den Namen der bekannten Satelliten. Ein leerer Eintrag bedeutet „von diesem
+  Rechner aus".
+
+Folge: Bereiche lassen sich einem Satelliten erst zuweisen, **nachdem** er
+sich einmal gemeldet hat. Das ist gewollt — ein zugewiesener Name, den es nie
+gab, wäre nur eine stille Fehlerquelle.
+
+Wiedererkannt wird am **Fingerabdruck**, nicht am Namen: benennt sich ein
+Satellit um, bleibt es derselbe Eintrag samt Freigabe. Nur ein neuer
+Fingerabdruck ergibt einen neuen Eintrag, und der wartet auf Freigabe.
+
 ---
 
 ## 2. Datenmodell
