@@ -8,6 +8,8 @@ using CommunityToolkit.Mvvm.Input;
 using MyNetworkMonitor.Core.Model;
 using MyNetworkMonitor.Core.Network;
 using MyNetworkMonitor.Core.Persistence;
+using MyNetworkMonitor.Core.Models;
+using MyNetworkMonitor.Core.SatelliteLink;
 using MyNetworkMonitor.Core.Scanning.Engine;
 using MyNetworkMonitor.Core.Services;
 
@@ -111,7 +113,14 @@ namespace MyNetworkMonitor.Core.ViewModels
             ScopeEditor = new ScopeEditorViewModel(Scopes);
             PortEditor = new PortEditorViewModel(Settings);
             ServiceEditor = new ServiceEditorViewModel();
-            SatelliteEditor = new SatelliteEditorViewModel();
+            SatelliteEditor = new SatelliteEditorViewModel
+            {
+                // Als Satellit: einen hereinkommenden Auftrag ausfuehren.
+                JobRunner = RunJobAsync
+            };
+
+            // Als Hauptscanner: ein Ergebnis eines Satelliten einmischen.
+            SatelliteEditor.ResultArrived += (_, e) => MergeSatelliteResult(e.SatelliteName, e.DevicesJson);
             NetworkView = new NetworkViewModel();
             FindingsView = new FindingsViewModel(store);
 
@@ -1222,6 +1231,140 @@ namespace MyNetworkMonitor.Core.ViewModels
         /// erneute Pruefen einzelner Geraete - beide unterscheiden sich nur in
         /// den Bereichen, alles Uebrige davor und danach ist dasselbe.
         /// </summary>
+        // ------------------------------------------------- Satellitenbetrieb
+
+        /// <summary>
+        /// Verteilt die Bereiche, die einem Satelliten gehoeren, an ihre
+        /// Satelliten - <b>ein</b> Auftrag je Satellit mit allen seinen
+        /// Bereichen, damit nichts doppelt gescannt wird (SATELLIT.md,
+        /// Abschnitt 3).
+        /// </summary>
+        private async Task DispatchToSatellitesAsync(List<ScanScope> remote)
+        {
+            foreach (IGrouping<string, ScanScope> group in
+                     remote.GroupBy(s => s.ScannedBy, StringComparer.OrdinalIgnoreCase))
+            {
+                Satellite? satellite = SatelliteEditor.All.FirstOrDefault(s =>
+                    string.Equals(s.Name, group.Key, StringComparison.OrdinalIgnoreCase));
+
+                if (satellite is null || !satellite.IsConnected || !satellite.Approved)
+                {
+                    // Nicht erreichbar heisst "nicht gescannt" und nicht
+                    // stillschweigend oertlich gescannt - sonst stuenden im
+                    // Ergebnis Zahlen, die anders zustande kamen als
+                    // angenommen.
+                    StatusText = $"\"{group.Key}\" is not connected - its ranges were not scanned.";
+                    continue;
+                }
+
+                string jobText = JobRequest.Format(
+                    [.. group],
+                    Methods.Where(m => m.IsSelected).Select(m => m.Method.Id),
+                    Settings.TcpPorts,
+                    Settings.UdpPorts,
+                    Settings.PortTimeoutMs);
+
+                await SatelliteEditor.SendJobAsync(satellite, jobText, CancellationToken.None);
+            }
+        }
+
+        /// <summary>
+        /// Fuehrt einen Auftragstext aus - die Seite des Satelliten. Laeuft
+        /// gegen einen <em>eigenen</em> Bestand: zurueckgeschickt wird, was
+        /// dieser Auftrag gefunden hat, nicht der ganze Bestand des
+        /// Satellitenrechners.
+        /// </summary>
+        public async Task<string> RunJobAsync(
+            string jobText, IProgress<ProgressPayload> progress, CancellationToken token)
+        {
+            JobRequest job = JobRequest.Parse(jobText);
+
+            if (!job.IsValid) throw new InvalidOperationException(job.Problem ?? "The job could not be read.");
+
+            ScanSettings settings = new()
+            {
+                PortTimeoutMs = job.TimeoutMs ?? Settings.PortTimeoutMs,
+                SnmpCommunity = Settings.SnmpCommunity
+            };
+
+            settings.TcpPorts.AddRange(job.TcpPorts.Count > 0 ? job.TcpPorts : Settings.TcpPorts);
+            settings.UdpPorts.AddRange(job.UdpPorts.Count > 0 ? job.UdpPorts : Settings.UdpPorts);
+
+            List<IScanMethod> methods = job.MethodIds.Count > 0
+                ? [.. _engine.Methods.Where(m => job.MethodIds.Contains(m.Id, StringComparer.OrdinalIgnoreCase))]
+                : [.. Methods.Where(m => m.IsSelected).Select(m => m.Method)];
+
+            DeviceStore jobStore = new();
+
+            // Fortschritt: der Anteil abgeschlossener Verfahren, damit man
+            // sieht, dass etwas vorangeht. Feiner waere moeglich, aber die
+            // Frage ist "arbeitet er noch", nicht "wie viele Pakete".
+            int done = 0;
+            List<string> completed = [];
+
+            void OnFinished(ScanMethodOutcome outcome)
+            {
+                done++;
+                completed.Add(outcome.MethodName);
+
+                progress.Report(new ProgressPayload
+                {
+                    Percent = methods.Count == 0 ? 100 : done * 100 / methods.Count,
+                    Current = outcome.MethodName,
+                    Done = string.Join(", ", completed),
+                    Pending = string.Join(", ",
+                        methods.Select(m => m.DisplayName).Where(n => !completed.Contains(n)))
+                });
+            }
+
+            _engine.MethodFinished += OnFinished;
+
+            try
+            {
+                progress.Report(new ProgressPayload
+                {
+                    Percent = 0,
+                    Current = "starting",
+                    Pending = string.Join(", ", methods.Select(m => m.DisplayName))
+                });
+
+                await Task.Run(
+                    () => _engine.RunAsync(job.Scopes, [.. methods.Select(m => m.Id)], settings, jobStore),
+                    token);
+            }
+            finally
+            {
+                _engine.MethodFinished -= OnFinished;
+            }
+
+            progress.Report(new ProgressPayload { Percent = 100, Done = string.Join(", ", completed) });
+
+            return DeviceStoreFile.ToJson(jobStore);
+        }
+
+        /// <summary>Mischt ein Ergebnis ein, das ein Satellit geschickt hat.</summary>
+        public void MergeSatelliteResult(string satelliteName, string devicesJson)
+        {
+            try
+            {
+                List<Device> devices = DeviceStoreFile.FromJson(devicesJson);
+                int taken = _store.MergeFrom(devices);
+
+                StatusText = $"\"{satelliteName}\" reported {taken} device(s).";
+
+                lock (_store.SyncRoot)
+                {
+                    DuplicateDetector.Analyze(_store.Devices);
+                }
+
+                FindingsView.Refresh();
+            }
+            catch (Exception ex)
+            {
+                StatusText = $"The result from \"{satelliteName}\" could not be read: {ex.Message}";
+            }
+        }
+
         private async Task RunAsync(List<ScanScope> scopes)
         {
             IsRunning = true;
@@ -1266,8 +1409,18 @@ namespace MyNetworkMonitor.Core.ViewModels
                     // Task.Run startet ohne Synchronisierungskontext; die
                     // Fortsetzungen laufen damit im Thread-Pool, und der
                     // Oberflaechen-Thread hat nur noch das Zeichnen zu tun.
+                    // Bereiche, die ein Satellit uebernimmt, werden hier
+                    // abgespalten und dorthin geschickt. Sie oertlich
+                    // mitzuscannen waere schlechter als gar nicht: ohne ARP,
+                    // ueber den Router, mit anderen Laufzeiten - und der
+                    // Bereich waere doppelt gescannt.
+                    List<ScanScope> remote = [.. scopes.Where(s => s.IsScannedRemotely)];
+                    List<ScanScope> local = [.. scopes.Where(s => !s.IsScannedRemotely)];
+
+                    if (remote.Count > 0) await DispatchToSatellitesAsync(remote);
+
                     ScanRunResult result = await Task.Run(() =>
-                        _engine.RunAsync(scopes, methods, Settings, _store));
+                        _engine.RunAsync(local, methods, Settings, _store));
 
                     // Ab hier wieder auf dem Oberflaechen-Thread. Erst jetzt die
                     // Doppelbelegungen bestimmen: die Auswertung schreibt

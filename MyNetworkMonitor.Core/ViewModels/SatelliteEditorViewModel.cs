@@ -194,12 +194,99 @@ namespace MyNetworkMonitor.Core.ViewModels
 
             _listener.Failed += (_, text) => Post(() => LinkStatus = text);
 
+            _listener.ProgressReported += (_, e) => Post(() =>
+            {
+                Satellite? s = ByFingerprint(e.Fingerprint);
+                if (s is null) return;
+
+                s.ProgressPercent = e.Progress.Percent;
+                s.ProgressCurrent = e.Progress.Current;
+                s.ProgressDone = e.Progress.Done;
+                s.ProgressPending = e.Progress.Pending;
+            });
+
+            _listener.ResultReceived += (_, e) => Post(() =>
+            {
+                Satellite? s = ByFingerprint(e.Fingerprint);
+                if (s is not null)
+                {
+                    s.JobId = string.Empty;
+                    s.ProgressPercent = 100;
+                    s.ProgressCurrent = string.Empty;
+                }
+
+                ResultArrived?.Invoke(this, (s?.Name ?? "satellite", e.Devices));
+            });
+
+            _listener.JobEnded += (_, e) => Post(() =>
+            {
+                Satellite? s = ByFingerprint(e.Fingerprint);
+                if (s is not null)
+                {
+                    s.JobId = string.Empty;
+                    s.ProgressCurrent = string.Empty;
+                }
+
+                LinkStatus = e.Text;
+            });
+
             _listener.Start(port);
 
             IsListening = _listener.IsListening;
             LinkStatus = IsListening
                 ? $"Listening on port {port}. Satellites can connect."
                 : $"Could not listen on port {port}.";
+        }
+
+        /// <summary>
+        /// Ein Satellit hat ein Ergebnis geliefert: sein Name und der Bestand
+        /// als JSON. Wer es einmischt, entscheidet die Anwendung.
+        /// </summary>
+        public event EventHandler<(string SatelliteName, string DevicesJson)>? ResultArrived;
+
+        private Satellite? ByFingerprint(string fingerprint) =>
+            All.FirstOrDefault(s => string.Equals(s.Fingerprint, fingerprint, StringComparison.OrdinalIgnoreCase));
+
+        /// <summary>
+        /// Schickt einen Auftrag an einen Satelliten, sofern er verbunden und
+        /// freigegeben ist. Gibt zurueck, ob er angenommen wurde.
+        /// </summary>
+        public async Task<bool> SendJobAsync(Satellite satellite, string jobText, CancellationToken token)
+        {
+            ArgumentNullException.ThrowIfNull(satellite);
+
+            if (_listener is null || !satellite.IsConnected || !satellite.Approved) return false;
+
+            try
+            {
+                string? jobId = await _listener.SendJobAsync(satellite.Fingerprint, jobText, token);
+                if (jobId is null) return false;
+
+                Post(() =>
+                {
+                    satellite.JobId = jobId;
+                    satellite.ProgressPercent = 0;
+                    satellite.ProgressCurrent = "starting";
+                });
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Post(() => LinkStatus = $"Job for \"{satellite.Name}\" could not be sent: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>Bricht laufende Auftraege auf allen Satelliten ab.</summary>
+        public async Task CancelAllJobsAsync(CancellationToken token)
+        {
+            if (_listener is null) return;
+
+            foreach (Satellite s in All.Where(s => s.IsBusy).ToList())
+            {
+                try { await _listener.CancelAsync(s.Fingerprint, s.JobId, token); } catch { }
+            }
         }
 
         public void StopListening()
@@ -219,6 +306,13 @@ namespace MyNetworkMonitor.Core.ViewModels
         [ObservableProperty] private bool _isConnectedAsSatellite;
 
         /// <summary>
+        /// Fuehrt einen Auftragstext aus und liefert den Bestand als JSON.
+        /// Wird von aussen gesetzt - der Transport soll die Scan-Engine nicht
+        /// kennen.
+        /// </summary>
+        public Func<string, IProgress<ProgressPayload>, CancellationToken, Task<string>>? JobRunner { get; set; }
+
+        /// <summary>
         /// Verbindet diese Instanz als Satellit zu einem Hauptscanner. Der
         /// Verbindungsversuch laeuft weiter, bis er abgebrochen wird - siehe
         /// SATELLIT.md, Abschnitt 1.
@@ -235,7 +329,10 @@ namespace MyNetworkMonitor.Core.ViewModels
 
             try
             {
-                _client = new SatelliteClient(Certificate(settingsFolder), ownName, appVersion);
+                _client = new SatelliteClient(Certificate(settingsFolder), ownName, appVersion)
+                {
+                    JobRunner = JobRunner
+                };
             }
             catch (Exception ex)
             {

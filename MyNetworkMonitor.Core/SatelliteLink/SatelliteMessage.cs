@@ -72,8 +72,17 @@ namespace MyNetworkMonitor.Core.SatelliteLink
 
         // --- Sonstiges -------------------------------------------------------
 
-        /// <summary>Klartext fuer den Nutzer - bei <see cref="MessageType.Error"/>.</summary>
+        /// <summary>
+        /// Bei <see cref="MessageType.Job"/> der Auftragstext, bei
+        /// <see cref="MessageType.Error"/> die Meldung fuer den Nutzer.
+        /// </summary>
         public string? Text { get; set; }
+
+        /// <summary>
+        /// Bei <see cref="MessageType.Result"/> der gefundene Bestand, im
+        /// selben Format wie <c>lastScanResult.json</c>.
+        /// </summary>
+        public string? Devices { get; set; }
 
         /// <summary>Neuer Port des Hauptscanners, fuer den naechsten Verbindungsaufbau.</summary>
         public int? ListenPort { get; set; }
@@ -82,12 +91,27 @@ namespace MyNetworkMonitor.Core.SatelliteLink
         public bool IsHello => Type == MessageType.Hello;
     }
 
-    /// <summary>Fortschritt eines Verfahrens - speist die dreiteilige Anzeige.</summary>
+    /// <summary>
+    /// Fortschritt eines laufenden Auftrags.
+    /// <para>
+    /// Bewusst schlank: eine Prozentzahl und drei fertige Zeichenketten, keine
+    /// nachgebaute Verfahrensbuchhaltung. Es geht darum zu sehen, dass der
+    /// Satellit arbeitet und woran - nicht darum, die oertliche Anzeige aus
+    /// der Ferne nachzustellen.
+    /// </para>
+    /// </summary>
     public sealed class ProgressPayload
     {
-        public string MethodId { get; set; } = string.Empty;
-        public int Sent { get; set; }
-        public int Responded { get; set; }
-        public int Total { get; set; }
+        /// <summary>0 bis 100.</summary>
+        public int Percent { get; set; }
+
+        /// <summary>Das Verfahren, das gerade laeuft.</summary>
+        public string Current { get; set; } = string.Empty;
+
+        /// <summary>Was schon fertig ist - wie <c>CompletedScansText</c> oertlich.</summary>
+        public string Done { get; set; } = string.Empty;
+
+        /// <summary>Was noch aussteht - wie <c>PendingScansText</c> oertlich.</summary>
+        public string Pending { get; set; } = string.Empty;
     }
 }
