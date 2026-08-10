@@ -82,6 +82,27 @@ werden, damit nachvollziehbar bleibt, was wann geprüft wurde.
   korrigiert und gegen alle vier lokalen Geraete, IPv6 (2001:4860:4860::8888)
   und den "kein PTR"-Fall erneut getestet - jetzt ueberall sauber getrennt.
 
+- 2026-08-10: Zweiter, schwerwiegenderer Reverse-DNS-Fehler gefunden und
+  behoben, Version 6.0.0.2 - der eigentliche Grund, warum Hostnamen bei einem
+  Scan des ganzen Netzes ueberwiegend nicht ankamen (Nutzerbericht: "192.168.178.11
+  hat onvif, aber in der Tabelle steht die IP"). Zwei Fehler zusammen:
+  1) Die Nebenlaeufigkeit lag bei 50 gleichzeitigen PTR-Abfragen. Live an
+     192.168.178.0/24 (ca. 33 echte Geraete) gemessen: bei 50 gleichzeitig kamen
+     nur 4 Treffer zurueck, weil der lokale DNS-Server (laut `resolvectl` das NAS,
+     dort laeuft offenbar Pi-hole - siehe "pi-hole.fritz.box" unter den
+     Testergebnissen) unter dem Burst die meisten UDP-Antworten verliert.
+  2) Der aeussere Abbruch (`CancelAfter`) nutzte dieselbe Zeitspanne wie der
+     interne Timeout je Versuch - die konfigurierte Wiederholung des DNS-Clients
+     kam dadurch nie zum Zug, sie wurde faktisch schon nach dem ersten
+     Fehlschlag abgewuergt.
+  Fix: Nebenlaeufigkeit auf 8 gesenkt, Timeout je Versuch auf 1s mit 3
+  Wiederholungen, aeusseres Zeitbudget passend dazu vergroessert (Timeout *
+  (Retries+1) + Puffer). Live-Ergebnis: 32 von 254 Adressen aufgeloest (=
+  praktisch alle real vorhandenen Geraete) in 37 Sekunden statt vorher 4 in
+  10 Sekunden - unter anderem korrekt 192.168.178.11 -> Pixel-9-Pro-TM.fritz.box.
+  Reine .NET-Logik, kein Linux/Windows-Unterschied zu erwarten, aber wie immer
+  nur unter Linux getestet.
+
 - 2026-08-09: Sechs IPv6-Suchverfahren (Version 5.1.0.30, Commit a55962a - Hinweis:
   Hash am 2026-08-09 abends durch History-Rewrite geändert, alte Referenz 4d5f73d
   ist ungültig) unter Linux getestet - vier von sechs (neighborcache, multicastping,
