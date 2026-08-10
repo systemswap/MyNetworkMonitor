@@ -1,4 +1,5 @@
-﻿using System;
+﻿using DnsClient;
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
@@ -20,7 +21,50 @@ namespace MyNetworkMonitor
         public event EventHandler<ScanTask_Finished_EventArgs>? Lookup_Task_Finished;
         public event Action<ScanStatus>? Lookup_Finished;
 
-        private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(10); // Max. 10 parallele Lookups
+        // War 10 gegen den System-Resolver. Direkt gegen den (per Scope oder
+        // Gateway-Fallback bekannten) DNS-Server beantwortet, siehe
+        // ScanningMethod_ReverseLookupToHostAndAliases: dort verkraftete
+        // dasselbe Gateway live 32 gleichzeitige Anfragen in unter 100ms.
+        private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(16);
+
+        /// <summary>Wie oft eine ausbleibende Antwort erneut angefragt wird, bevor der Name als nicht aufloesbar gilt.</summary>
+        private const int QueryRetries = 3;
+
+        /// <summary>Wie lange je Versuch auf eine Antwort gewartet wird - siehe ReverseLookup fuer die Begruendung derselben Werte.</summary>
+        private static readonly TimeSpan QueryTimeout = TimeSpan.FromSeconds(1);
+
+        /// <summary>Gesamtbudget je Name, ueber alle Wiederholungen hinweg.</summary>
+        private static readonly TimeSpan QueryBudget =
+            QueryTimeout * (QueryRetries + 1) + TimeSpan.FromMilliseconds(500);
+
+        /// <summary>
+        /// Ein Client je Namensserver-Zusammenstellung, ueber den ganzen Lauf
+        /// hinweg - derselbe Grund wie bei
+        /// <see cref="ScanningMethod_ReverseLookupToHostAndAlieases.ClientFor"/>.
+        /// </summary>
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<string, LookupClient> _clients = new();
+
+        private LookupClient ClientFor(IPToScan ipToScan)
+        {
+            List<string> servers = ipToScan.DNSServerList?
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .Select(s => s.Trim())
+                .ToList() ?? [];
+
+            return _clients.GetOrAdd(string.Join(",", servers), _ =>
+            {
+                LookupClientOptions options = servers.Count > 0 && servers.All(s => IPAddress.TryParse(s, out IPAddress? _))
+                    ? new LookupClientOptions([.. servers.Select(s => new NameServer(IPAddress.Parse(s)))])
+                    : new LookupClientOptions();
+
+                options.Timeout = QueryTimeout;
+                options.Retries = QueryRetries;
+                options.UseCache = true;
+                options.ThrowDnsErrors = false;
+
+                return new LookupClient(options);
+            });
+        }
 
         private int current = 0;
         private int responded = 0;
@@ -226,8 +270,13 @@ namespace MyNetworkMonitor
             IPHostEntry _entry;
             try
             {
-                _entry = await Dns.GetHostEntryAsync(ipToScan.HostnameWithDomain).WaitAsync(_cts.Token);
-                
+                LookupClient client = ClientFor(ipToScan);
+
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
+                cts.CancelAfter(QueryBudget);
+
+                _entry = await client.GetHostEntryAsync(ipToScan.HostnameWithDomain).WaitAsync(cts.Token);
+
                 if (_cts.Token.IsCancellationRequested) return;
 
                 bool _LookUpStatus = false;
