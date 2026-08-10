@@ -192,6 +192,65 @@ public partial class ShellView : Window
     /// <see cref="ScopeEditorViewModel"/>, damit sie sich nicht auseinander
     /// entwickeln.
     /// </summary>
+    // ------------------------------------------------------- Satellitenbetrieb
+
+    /// <summary>Die eigene Version, wie sie die Gegenstelle sehen soll.</summary>
+    private static string OwnVersion() =>
+        System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version?.ToString() ?? string.Empty;
+
+    /// <summary>
+    /// Haengt Lauscher und Verbinder ein. Beides haengt an einer Einstellung -
+    /// wer den Satellitenbetrieb nicht will, merkt nichts davon.
+    /// </summary>
+    private void StartSatelliteLink()
+    {
+        // Die Ereignisse treffen auf Hintergrund-Threads ein, die Liste haengt
+        // aber an der Anzeige.
+        _shell.SatelliteEditor.Post = action => global::Avalonia.Threading.Dispatcher.UIThread.Post(action);
+
+        _shell.SatelliteEditor.RefreshFirewall();
+
+        if (_shell.Settings.SatelliteListenEnabled)
+        {
+            _shell.SatelliteEditor.StartListening(
+                SettingsFolder(), _shell.Settings.SatelliteListenPort, OwnVersion());
+        }
+
+        if (_shell.Settings.SatelliteModeEnabled &&
+            !string.IsNullOrWhiteSpace(_shell.Settings.MainScannerHost))
+        {
+            _shell.SatelliteEditor.ConnectAsSatellite(
+                SettingsFolder(), _shell.Settings.MainScannerHost, _shell.Settings.MainScannerPort,
+                OwnVersion(), System.Environment.MachineName);
+        }
+    }
+
+    private void bt_FirewallRefresh_Click(object? sender, RoutedEventArgs e) =>
+        _shell.SatelliteEditor.RefreshFirewall();
+
+    private void bt_FirewallAllow_Click(object? sender, RoutedEventArgs e) =>
+        _shell.SatelliteEditor.CreateFirewallRule(_shell.Settings.SatelliteListenPort);
+
+    private void bt_FirewallRemove_Click(object? sender, RoutedEventArgs e) =>
+        _shell.SatelliteEditor.RemoveFirewallRule();
+
+    private void bt_SatelliteConnect_Click(object? sender, RoutedEventArgs e)
+    {
+        // Der Knopf setzt den Schalter mit: wer hier verbindet, will es auch
+        // beim naechsten Start.
+        _shell.Settings.SatelliteModeEnabled = true;
+
+        _shell.SatelliteEditor.ConnectAsSatellite(
+            SettingsFolder(), _shell.Settings.MainScannerHost, _shell.Settings.MainScannerPort,
+            OwnVersion(), System.Environment.MachineName);
+    }
+
+    private void bt_SatelliteDisconnect_Click(object? sender, RoutedEventArgs e)
+    {
+        _shell.Settings.SatelliteModeEnabled = false;
+        _shell.SatelliteEditor.DisconnectAsSatellite();
+    }
+
     private void LoadScopes()
     {
         // Die Satelliten zuerst: die Bereichsmaske bietet ihre Namen zur
@@ -201,6 +260,10 @@ public partial class ShellView : Window
 
         _shell.ScopeEditor.Load(System.IO.Path.Combine(SettingsFolder(), "ipGroups.xml"));
         _shell.RefreshAvailability();
+
+        // Erst jetzt: der Lauscher gibt nur frei, wer in der geladenen Liste
+        // steht - vorher waere jeder Satellit "unbekannt".
+        StartSatelliteLink();
     }
 
     private void Scope_IsCheckedChanged(object? sender, RoutedEventArgs e)
@@ -1220,6 +1283,11 @@ public partial class ShellView : Window
         // Zeitgeber, keine Verzoegerung, weil die Liste kurz ist. Der Aufruf
         // hier ist der Gurt fuer den Fall, dass doch etwas offen blieb.
         _shell.SatelliteEditor.Save();
+
+        // Verbindungen sauber schliessen, damit die Gegenstellen sofort
+        // merken, dass hier Schluss ist, statt in eine Zeitgrenze zu laufen.
+        _shell.SatelliteEditor.StopListening();
+        _shell.SatelliteEditor.DisconnectAsSatellite();
 
         // Der Bestand zuletzt: er ist der groesste Brocken, und wenn dabei
         // etwas schiefgeht, sind die Einstellungen wenigstens schon sicher.

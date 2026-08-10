@@ -1607,9 +1607,113 @@
 
           <Border DockPanel.Dock="Bottom" Background="{StaticResource Panel}"
                   BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="12,6">
-            <TextBlock Text="{Binding SatelliteEditor.Status}" FontSize="10"
-                       Foreground="{StaticResource Dimmer}" VerticalAlignment="Center"/>
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Grid.Column="0" Text="{Binding SatelliteEditor.Status}" FontSize="10"
+                         Foreground="{StaticResource Dimmer}" VerticalAlignment="Center"/>
+              <TextBlock Grid.Column="1" Text="{Binding SatelliteEditor.LinkStatus}" FontSize="10"
+                         Foreground="{StaticResource Teal}" VerticalAlignment="Center"/>
+            </Grid>
           </Border>
+
+          <!-- Betrieb: horchen, Port, Firewall, eigener Satellitenbetrieb -->
+          <ScrollViewer DockPanel.Dock="Right" Width="430" Padding="16,14"
+                        Background="{StaticResource Workspace}"
+                        BorderBrush="{StaticResource Line}" BorderThickness="1,0,0,0">
+            <StackPanel Spacing="14">
+
+              <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
+                      BorderThickness="1" CornerRadius="4" Padding="16,14">
+                <StackPanel Spacing="10">
+                  <TextBlock Text="LISTEN FOR SATELLITES" Classes="settingsHead"/>
+
+                  <CheckBox Content="Accept satellite connections"
+                            IsChecked="{Binding Settings.SatelliteListenEnabled}"/>
+
+                  <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
+                    <TextBlock Grid.Column="0" Text="Port" Classes="settingLabel"/>
+                    <NumericUpDown Grid.Column="1" Width="130" HorizontalAlignment="Left"
+                                   Minimum="1" Maximum="65535" Increment="1"
+                                   FormatString="0"
+                                   Value="{Binding Settings.SatelliteListenPort}"/>
+                  </Grid>
+
+                  <TextBlock Classes="settingHint"
+                            Text="Satellites connect to this machine, so this port has to be reachable from the outside. Pick it freely - the list below only tells you where you would get through without a new firewall rule."/>
+
+                  <StackPanel Spacing="4">
+                    <TextBlock Text="Own fingerprint" Classes="settingLabel"/>
+                    <SelectableTextBlock Classes="mono" FontSize="9.5" TextWrapping="Wrap"
+                                         Foreground="{StaticResource Dim}"
+                                         Text="{Binding SatelliteEditor.OwnFingerprint}"/>
+                  </StackPanel>
+                </StackPanel>
+              </Border>
+
+              <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
+                      BorderThickness="1" CornerRadius="4" Padding="16,14">
+                <StackPanel Spacing="10">
+                  <TextBlock Text="FIREWALL" Classes="settingsHead"/>
+
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Button Content="Refresh" Click="bt_FirewallRefresh_Click"
+                            Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
+                            FontSize="10.5"/>
+                    <Button Content="Open my port" Click="bt_FirewallAllow_Click"
+                            IsEnabled="{Binding SatelliteEditor.CanCreateFirewallRule}"
+                            Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
+                            FontSize="10.5"/>
+                    <Button Content="Remove my rule" Click="bt_FirewallRemove_Click"
+                            IsEnabled="{Binding SatelliteEditor.CanCreateFirewallRule}"
+                            Background="White" BorderBrush="#E2B6B1" BorderThickness="1"
+                            Foreground="{StaticResource Crit}" FontSize="10.5"/>
+                  </StackPanel>
+
+                  <TextBlock Text="{Binding SatelliteEditor.FirewallStatus}" Classes="settingHint"/>
+
+                  <ListBox ItemsSource="{Binding SatelliteEditor.AllowedInboundPorts}"
+                           MaxHeight="150" FontSize="10.5" Background="Transparent"
+                           BorderBrush="{StaticResource Line}" BorderThickness="1"/>
+
+                  <TextBlock Classes="settingHint"
+                            Text="Without elevated rights only ports are listed that are open for any application - those are the ones you can use as they are. As administrator you also see the rest and may create your own rule, bound to this application alone."/>
+                </StackPanel>
+              </Border>
+
+              <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
+                      BorderThickness="1" CornerRadius="4" Padding="16,14">
+                <StackPanel Spacing="10">
+                  <TextBlock Text="RUN AS A SATELLITE" Classes="settingsHead"/>
+
+                  <Grid ColumnDefinitions="90,*" RowDefinitions="Auto,Auto"
+                        ColumnSpacing="10" RowSpacing="8">
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Main scanner" Classes="settingLabel"/>
+                    <TextBox Grid.Row="0" Grid.Column="1"
+                             Text="{Binding Settings.MainScannerHost}"
+                             Watermark="host name or address"/>
+
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Port" Classes="settingLabel"/>
+                    <NumericUpDown Grid.Row="1" Grid.Column="1" Width="130" HorizontalAlignment="Left"
+                                   Minimum="1" Maximum="65535" Increment="1" FormatString="0"
+                                   Value="{Binding Settings.MainScannerPort}"/>
+                  </Grid>
+
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Button Content="Connect" Click="bt_SatelliteConnect_Click"
+                            Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
+                            FontSize="10.5"/>
+                    <Button Content="Disconnect" Click="bt_SatelliteDisconnect_Click"
+                            Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
+                            FontSize="10.5"/>
+                  </StackPanel>
+
+                  <TextBlock Text="{Binding SatelliteEditor.ClientStatus}" Classes="settingHint"/>
+
+                  <TextBlock Classes="settingHint"
+                            Text="This machine then connects out to that main scanner and waits there to be approved. A host name is better than an address: it survives the main scanner changing its IP."/>
+                </StackPanel>
+              </Border>
+            </StackPanel>
+          </ScrollViewer>
 
           <Grid ColumnDefinitions="380,1,*">
 
