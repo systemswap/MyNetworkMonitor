@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -115,15 +116,43 @@ namespace MyNetworkMonitor.Core.Model
         [ObservableProperty] private string _domain = string.Empty;
         [ObservableProperty] private string _dnsServers = string.Empty;
 
-        // --- Entfernter Zugriff ---------------------------------------------
+        /// <summary>
+        /// Der Router dieses Netzes.
+        /// <para>
+        /// Eine Uebersteuerung, kein Ersatz: bleibt das Feld leer, nimmt der
+        /// Lauf weiterhin das Gateway des Adapters, ueber den gescannt wird
+        /// (<c>LegacyScanMethod.GatewayDnsFallback</c>). Gedacht fuer den Fall,
+        /// dass ein Bereich hinter einem anderen Router haengt als dieser
+        /// Adapter.
+        /// </para>
+        /// <para>
+        /// Frueher stand hier die Adresse einer entfernten Instanz. Die zieht
+        /// mit dem Satellitenbetrieb in eine eigene Verwaltung um, siehe
+        /// SATELLIT.md - das Feld heisst weiter <c>GatewayIP</c>, meint aber
+        /// jetzt das, was der Name sagt.
+        /// </para>
+        /// </summary>
         [ObservableProperty] private string _gatewayIP = string.Empty;
-        [ObservableProperty] private string _gatewayPort = string.Empty;
+
+        /// <summary>
+        /// Name des Satelliten, der diesen Bereich scannt - leer heisst: von
+        /// diesem Rechner aus. Siehe SATELLIT.md.
+        /// </summary>
+        [ObservableProperty] private string _scannedBy = string.Empty;
 
         // --- Automatischer Scan ----------------------------------------------
         [ObservableProperty] private bool _automaticScan;
         [ObservableProperty] private int _scanIntervalMinutes;
 
-        /// <summary>Zeitpunkt des letzten Durchlaufs. Nicht gespeichert.</summary>
+        /// <summary>
+        /// Zeitpunkt des letzten Durchlaufs.
+        /// <para>
+        /// Wird gespeichert, seit der automatische Scan verpasste Termine
+        /// nachholt: beim Start vergleicht der Hauptscanner diesen Wert mit dem
+        /// Intervall und stoesst an, was ueberfaellig ist. Ohne gespeicherten
+        /// Wert galte nach jedem Programmstart alles als frisch gescannt.
+        /// </para>
+        /// </summary>
         [ObservableProperty] private DateTimeOffset? _lastScanned;
 
         /// <summary>Die DNS-Server dieses Bereichs, getrennt nach Komma oder Semikolon.</summary>
@@ -179,96 +208,37 @@ namespace MyNetworkMonitor.Core.Model
         /// <summary>Es gibt etwas zum DNS-Feld zu melden.</summary>
         public bool HasDnsServerWarning => InvalidDnsServers.Count > 0;
 
-        /// <summary>Der Bereich wird ueber eine entfernte Instanz gescannt.</summary>
-        public bool UsesGateway => !string.IsNullOrWhiteSpace(GatewayIP);
+        /// <summary>Fuer diesen Bereich ist ein eigener Router hinterlegt.</summary>
+        public bool HasOwnGateway => !string.IsNullOrWhiteSpace(GatewayIP);
 
-        // ------------------------------------------------- Entfernter Zugriff
-
-        /// <summary>
-        /// Ob der Satellitenbetrieb zur Verfuegung steht - derzeit nein.
-        /// <para>
-        /// Die Felder <see cref="GatewayIP"/> und <see cref="GatewayPort"/>
-        /// werden gespeichert, geladen und bis in <c>IPToScan</c> durchgereicht,
-        /// aber nichts wertet sie aus: der Gegenpart (Satellit_SocketClient und
-        /// -Server) wurde entfernt. Bis er zurueck ist, sind die Felder in der
-        /// Oberflaeche gesperrt, damit niemand etwas eintraegt, das nichts tut.
-        /// </para>
-        /// <para>
-        /// Geplant ist, diese Anwendung als Dienst in einem anderen Segment
-        /// laufen zu lassen: sie wartet auf einen Scan-Auftrag, fuehrt ihn aus
-        /// und schickt das Ergebnis an die anfragende Adresse zurueck, wo es
-        /// oertlich angezeigt wird. Der eigentliche Gewinn ist ARP - das
-        /// erreicht nur, wer im selben VLAN steht, und genau das leistet ein
-        /// Satellit.
-        /// </para>
-        /// <para>
-        /// Zum Einschalten genuegt es, hier <c>true</c> zu setzen: die Felder
-        /// werden bedienbar und die Pruefung unten meldet sich. Beides haengt
-        /// an dieser einen Stelle.
-        /// </para>
-        /// </summary>
-        /// <remarks>
-        /// Bewusst <c>static readonly</c> und nicht <c>const</c>: als Konstante
-        /// haelt der Compiler die Pruefung darunter fuer unerreichbar und
-        /// warnt. Sie soll aber stehen bleiben und beim Umlegen sofort greifen.
-        /// </remarks>
-        public static readonly bool RemoteScanAvailable = false;
-
-        /// <summary>Dasselbe als Eigenschaft, damit die Oberflaeche daran binden kann.</summary>
-        public bool IsRemoteScanAvailable => RemoteScanAvailable;
+        /// <summary>Der Bereich wird von einem Satelliten gescannt statt von hier.</summary>
+        public bool IsScannedRemotely => !string.IsNullOrWhiteSpace(ScannedBy);
 
         /// <summary>
-        /// Der Warnsatz zu den Gateway-Feldern, oder leer, wenn nichts zu
-        /// melden ist. Schon fertig, greift aber erst, wenn
-        /// <see cref="RemoteScanAvailable"/> gesetzt ist - vorher waere es eine
-        /// Beschwerde ueber ein Feld, das ohnehin nichts bewirkt.
+        /// Der Warnsatz zum Gateway-Feld, oder leer, wenn nichts zu melden ist.
+        /// Ein Name ist hier nutzlos: der Wert dient als Bezugspunkt fuer TTL,
+        /// Topologie und die Namensaufloesung und wird nirgends aufgeloest.
         /// </summary>
-        public string GatewayWarning
-        {
-            get
-            {
-                if (!RemoteScanAvailable) return string.Empty;
+        public string GatewayWarning =>
+            !HasOwnGateway || IPAddress.TryParse(GatewayIP.Trim(), out _)
+                ? string.Empty
+                : $"\"{GatewayIP}\" is not an IP address. The gateway is used as it stands and is " +
+                  "never resolved, so a name cannot be used here. Leave the field empty to use the " +
+                  "gateway of the adapter this range is scanned through.";
 
-                bool hasIp = !string.IsNullOrWhiteSpace(GatewayIP);
-                bool hasPort = !string.IsNullOrWhiteSpace(GatewayPort);
-
-                if (!hasIp && !hasPort) return string.Empty;
-
-                if (hasIp && !IPAddress.TryParse(GatewayIP.Trim(), out _))
-                {
-                    return $"\"{GatewayIP}\" is not an IP address. The satellite is addressed directly, " +
-                           "so a name cannot be used here.";
-                }
-
-                if (hasPort && (!int.TryParse(GatewayPort.Trim(), out int port) || port is < 1 or > 65535))
-                {
-                    return $"\"{GatewayPort}\" is not a valid port. Allowed is 1 to 65535.";
-                }
-
-                if (!hasIp)
-                {
-                    return "A port is set but no address. Without an address the range is scanned " +
-                           "from this machine and the port has no effect.";
-                }
-
-                return string.Empty;
-            }
-        }
-
-        /// <summary>Es gibt etwas zu den Gateway-Feldern zu melden.</summary>
+        /// <summary>Es gibt etwas zum Gateway-Feld zu melden.</summary>
         public bool HasGatewayWarning => GatewayWarning.Length > 0;
 
-        // Wie beim DNS-Feld: die Warnung haengt an den Eingaben und muss sich
-        // mit ihnen neu melden.
-        partial void OnGatewayIPChanged(string value) => RaiseGatewayWarning();
-        partial void OnGatewayPortChanged(string value) => RaiseGatewayWarning();
-
-        private void RaiseGatewayWarning()
+        // Wie beim DNS-Feld: die Warnung haengt an der Eingabe und muss sich
+        // mit ihr neu melden.
+        partial void OnGatewayIPChanged(string value)
         {
-            OnPropertyChanged(nameof(UsesGateway));
+            OnPropertyChanged(nameof(HasOwnGateway));
             OnPropertyChanged(nameof(GatewayWarning));
             OnPropertyChanged(nameof(HasGatewayWarning));
         }
+
+        partial void OnScannedByChanged(string value) => OnPropertyChanged(nameof(IsScannedRemotely));
 
         // ------------------------------------------------------------ Pruefung
 
@@ -619,9 +589,13 @@ namespace MyNetworkMonitor.Core.Model
                 Domain = group.Domain,
                 DnsServers = group.DnsServers,
                 GatewayIP = group.NmGatewayIP,
-                GatewayPort = group.NmGatewayPort,
+                ScannedBy = group.ScannedBy,
                 AutomaticScan = group.AutomaticScan,
-                ScanIntervalMinutes = int.TryParse(group.ScanIntervalMinutes, out int minutes) ? minutes : 0
+                ScanIntervalMinutes = int.TryParse(group.ScanIntervalMinutes, out int minutes) ? minutes : 0,
+                LastScanned = DateTimeOffset.TryParse(group.LastScanned, CultureInfo.InvariantCulture,
+                                                      DateTimeStyles.RoundtripKind, out DateTimeOffset last)
+                    ? last
+                    : null
             };
         }
 
@@ -646,9 +620,13 @@ namespace MyNetworkMonitor.Core.Model
                 Domain = Domain,
                 DnsServers = DnsServers,
                 NmGatewayIP = GatewayIP,
-                NmGatewayPort = GatewayPort,
+                ScannedBy = ScannedBy,
                 AutomaticScan = AutomaticScan,
-                ScanIntervalMinutes = ScanIntervalMinutes > 0 ? ScanIntervalMinutes.ToString() : string.Empty
+                ScanIntervalMinutes = ScanIntervalMinutes > 0 ? ScanIntervalMinutes.ToString() : string.Empty,
+                // Rundlauffaehig ("O"), damit der Wert beim Lesen wieder genau
+                // derselbe Zeitpunkt ist - davon haengt ab, ob ein Bereich als
+                // ueberfaellig gilt.
+                LastScanned = LastScanned?.ToString("O", CultureInfo.InvariantCulture) ?? string.Empty
             };
         }
 
