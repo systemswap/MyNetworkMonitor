@@ -103,6 +103,28 @@ werden, damit nachvollziehbar bleibt, was wann geprüft wurde.
   Reine .NET-Logik, kein Linux/Windows-Unterschied zu erwarten, aber wie immer
   nur unter Linux getestet.
 
+- 2026-08-10: Nutzerwunsch nach dem obigen Fix - kein Umweg mehr ueber den
+  OS-Resolver/-Cache, die Abfrage soll direkt beim DNS-Server ankommen,
+  Version 6.0.0.3. Dabei aufgefallen: der Fix von eben griff bei fehlendem
+  eigenen DNS-Server im Scope automatisch auf den vom System konfigurierten
+  Resolver zurueck (DnsClient ohne eigene Serverangabe liest `/etc/resolv.conf`)
+  - unter Linux mit systemd-resolved also `127.0.0.53`, ein weiterer lokaler
+    Cache/Stub, exakt das, was der Nutzer nicht wollte. Live verglichen: direkt
+  gegen die FritzBox (Gateway) gefragt kamen alle 32 Geraete in 23-60
+  Millisekunden zurueck, direkt gegen das NAS/Pi-hole (den vom System
+  eigentlich konfigurierten Server) dagegen nur 21-32 in 13-17 Sekunden - die
+  FritzBox ist fuer den `fritz.box`-Namensraum selbst autoritativ, das NAS muss
+  erst dorthin weiterleiten. Fix: `LegacyScanMethod.BuildTargets` traegt jetzt,
+  wenn im Scope kein eigener DNS-Server gesetzt ist, automatisch die
+  IPv4-Gateway-Adresse des scannenden Interfaces als Server ein (kein
+  Rueckfall auf den System-Resolver mehr). Voll durch die Engine
+  end-zu-Ende getestet (ScanScope ohne DnsServers, Kind=NetworkInterface):
+  254 Adressen, 32 Treffer, 82 Millisekunden gesamt. Setzt voraus, dass das
+  Gateway selbst DNS beantwortet - bei den meisten Heimroutern (FritzBox &
+  Co.) der Fall; wo nicht, bleibt die Adresse einfach ohne PTR-Ergebnis, kein
+  weiterer automatischer Rueckfall. Ein eigener DNS-Server im Scope (Feld
+  "DNS-Server") sticht diesen Automatismus weiterhin.
+
 - 2026-08-09: Sechs IPv6-Suchverfahren (Version 5.1.0.30, Commit a55962a - Hinweis:
   Hash am 2026-08-09 abends durch History-Rewrite geändert, alte Referenz 4d5f73d
   ist ungültig) unter Linux getestet - vier von sechs (neighborcache, multicastping,
