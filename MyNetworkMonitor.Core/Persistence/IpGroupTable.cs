@@ -22,9 +22,18 @@ namespace MyNetworkMonitor.Core.Persistence
         private const string ColDomain = "Domain";
         private const string ColDnsServers = "DNSServers";
         private const string ColGatewayIP = "NMGatewayIP";
-        private const string ColGatewayPort = "NMGatewayPort";
         private const string ColAutomaticScan = "AutomaticScan";
         private const string ColScanInterval = "ScanIntervalMinutes";
+
+        // Neu. NMGatewayPort ist ersatzlos entfallen: der Port gehoerte zur
+        // entfernten Instanz, und die zieht mit dem Satellitenbetrieb in eine
+        // eigene Verwaltung um (SATELLIT.md). Alte Dateien bringen die Spalte
+        // noch mit - sie wird beim Lesen nicht mehr beachtet und beim naechsten
+        // Speichern nicht wieder geschrieben. ToStr/ToBool kommen ihrerseits mit
+        // fehlenden Spalten zurecht, aeltere Dateien ohne die beiden neuen
+        // Spalten gehen also weiter auf.
+        private const string ColScannedBy = "ScannedBy";
+        private const string ColLastScanned = "LastScanned";
 
         /// <summary>Erzeugt eine leere DataTable mit dem erwarteten Schema.</summary>
         public static DataTable CreateTable()
@@ -38,9 +47,10 @@ namespace MyNetworkMonitor.Core.Persistence
             dt.Columns.Add(ColDomain, typeof(string));
             dt.Columns.Add(ColDnsServers, typeof(string));
             dt.Columns.Add(ColGatewayIP, typeof(string));
-            dt.Columns.Add(ColGatewayPort, typeof(string));
+            dt.Columns.Add(ColScannedBy, typeof(string));
             dt.Columns.Add(ColAutomaticScan, typeof(bool));
             dt.Columns.Add(ColScanInterval, typeof(string));
+            dt.Columns.Add(ColLastScanned, typeof(string));
             return dt;
         }
 
@@ -61,9 +71,10 @@ namespace MyNetworkMonitor.Core.Persistence
                     Domain = ToStr(row, ColDomain),
                     DnsServers = ToStr(row, ColDnsServers),
                     NmGatewayIP = ToStr(row, ColGatewayIP),
-                    NmGatewayPort = ToStr(row, ColGatewayPort),
+                    ScannedBy = ToStr(row, ColScannedBy),
                     AutomaticScan = ToBool(row, ColAutomaticScan),
                     ScanIntervalMinutes = ToStr(row, ColScanInterval),
+                    LastScanned = ToStr(row, ColLastScanned),
                 });
             }
             return list;
@@ -88,9 +99,10 @@ namespace MyNetworkMonitor.Core.Persistence
                 row[ColDomain] = g.Domain ?? string.Empty;
                 row[ColDnsServers] = g.DnsServers ?? string.Empty;
                 row[ColGatewayIP] = g.NmGatewayIP ?? string.Empty;
-                row[ColGatewayPort] = g.NmGatewayPort ?? string.Empty;
+                row[ColScannedBy] = g.ScannedBy ?? string.Empty;
                 row[ColAutomaticScan] = g.AutomaticScan;
                 row[ColScanInterval] = g.ScanIntervalMinutes ?? string.Empty;
+                row[ColLastScanned] = g.LastScanned ?? string.Empty;
                 dt.Rows.Add(row);
             }
         }

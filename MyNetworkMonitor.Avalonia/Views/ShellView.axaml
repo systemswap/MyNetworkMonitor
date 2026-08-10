@@ -1343,34 +1343,15 @@
                         BorderThickness="1" CornerRadius="4" Padding="16,14"
                         IsEnabled="{Binding IsEditable}">
                   <StackPanel Spacing="11">
-                    <TextBlock Text="REMOTE ACCESS" Classes="settingsHead"/>
+                    <TextBlock Text="NETWORK" Classes="settingsHead"/>
 
-                    <!--
-                        Gesperrt, solange es keinen Gegenpart gibt: die Werte
-                        werden zwar gespeichert und durchgereicht, aber nichts
-                        wertet sie aus. Bedienbar werden die Felder wieder,
-                        sobald ScanScope.RemoteScanAvailable auf true steht -
-                        daran haengt auch die Warnung darunter.
-                    -->
-                    <Grid ColumnDefinitions="130,*" RowDefinitions="Auto,Auto"
-                          ColumnSpacing="10" RowSpacing="8"
-                          IsEnabled="{Binding Selected.IsRemoteScanAvailable}">
-                      <TextBlock Grid.Row="0" Grid.Column="0" Text="Gateway IP" Classes="settingLabel"/>
+                    <Grid ColumnDefinitions="130,*" RowDefinitions="Auto"
+                          ColumnSpacing="10">
+                      <TextBlock Grid.Row="0" Grid.Column="0" Text="Gateway" Classes="settingLabel"/>
                       <TextBox Grid.Row="0" Grid.Column="1" Classes="mono" Width="190"
-                               HorizontalAlignment="Left" Text="{Binding Selected.GatewayIP}"/>
-
-                      <TextBlock Grid.Row="1" Grid.Column="0" Text="Gateway port" Classes="settingLabel"/>
-                      <TextBox Grid.Row="1" Grid.Column="1" Classes="mono" Width="90"
-                               HorizontalAlignment="Left" Text="{Binding Selected.GatewayPort}"/>
+                               HorizontalAlignment="Left" Text="{Binding Selected.GatewayIP}"
+                               Watermark="10.0.0.1"/>
                     </Grid>
-
-                    <Border Background="#F2EDDF" CornerRadius="3"
-                            Padding="9,6" HorizontalAlignment="Left" MaxWidth="460"
-                            IsVisible="{Binding !Selected.IsRemoteScanAvailable}">
-                      <TextBlock FontSize="10.5" TextWrapping="Wrap"
-                                 Foreground="{StaticResource Warn}"
-                                 Text="Not in service yet. Entries here are kept but have no effect - every range is scanned from this machine."/>
-                    </Border>
 
                     <Border Background="{StaticResource CritSoft}" CornerRadius="3"
                             Padding="9,6" HorizontalAlignment="Left" MaxWidth="460"
@@ -1381,7 +1362,26 @@
                     </Border>
 
                     <TextBlock Classes="settingHint"
-                               Text="Planned: run this application as a service in another segment, where it waits for a scan request, carries it out and sends the result back to the address that asked. That is the only way to reach ARP in a different VLAN - ARP does not cross a router, so a segment can only be swept from inside it."/>
+                               Text="The router of this network. Used as the reference point for hop distance, for the topology and as the name server of last resort. Leave it empty to use the gateway of the adapter this range is scanned through - that is the normal case."/>
+
+                    <!--
+                        Das Feld steht schon hier, obwohl der Satellitenbetrieb
+                        noch nicht gebaut ist: der Wert wird bereits gespeichert
+                        und mit dem Bereich durchgereicht, und wer seine
+                        Bereiche vorbereiten will, kann das tun. Solange kein
+                        Satellit verbunden ist, laeuft alles von hier aus.
+                        Siehe SATELLIT.md.
+                    -->
+                    <Grid ColumnDefinitions="130,*" RowDefinitions="Auto"
+                          ColumnSpacing="10">
+                      <TextBlock Grid.Row="0" Grid.Column="0" Text="Scanned by" Classes="settingLabel"/>
+                      <TextBox Grid.Row="0" Grid.Column="1" Width="190"
+                               HorizontalAlignment="Left" Text="{Binding Selected.ScannedBy}"
+                               Watermark="from this machine"/>
+                    </Grid>
+
+                    <TextBlock Classes="settingHint"
+                               Text="Name of the satellite that scans this range - an instance running as a service inside that segment. Empty means this machine does it. Not in service yet: the value is kept, but every range is still scanned from here."/>
                   </StackPanel>
                 </Border>
 
