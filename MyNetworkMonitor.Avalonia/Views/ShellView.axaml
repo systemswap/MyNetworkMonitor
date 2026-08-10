@@ -1323,6 +1323,19 @@
 
                     <TextBlock Classes="settingHint"
                                Text="Used to resolve hostnames for this range. Several servers separated by comma. A DNS server set under Settings overrides all of these."/>
+
+                    <!--
+                        Ein Name statt einer IP laesst die ganze Liste unter den
+                        Tisch fallen - das passiert sonst lautlos, darum steht
+                        die Warnung direkt unter dem Feld.
+                    -->
+                    <Border Background="{StaticResource CritSoft}" CornerRadius="3"
+                            Padding="9,6" HorizontalAlignment="Left" MaxWidth="460"
+                            IsVisible="{Binding Selected.HasDnsServerWarning}">
+                      <TextBlock Text="{Binding Selected.DnsServerWarning}"
+                                 FontSize="10.5" TextWrapping="Wrap"
+                                 Foreground="{StaticResource Crit}"/>
+                    </Border>
                   </StackPanel>
                 </Border>
 
@@ -1332,8 +1345,16 @@
                   <StackPanel Spacing="11">
                     <TextBlock Text="REMOTE ACCESS" Classes="settingsHead"/>
 
+                    <!--
+                        Gesperrt, solange es keinen Gegenpart gibt: die Werte
+                        werden zwar gespeichert und durchgereicht, aber nichts
+                        wertet sie aus. Bedienbar werden die Felder wieder,
+                        sobald ScanScope.RemoteScanAvailable auf true steht -
+                        daran haengt auch die Warnung darunter.
+                    -->
                     <Grid ColumnDefinitions="130,*" RowDefinitions="Auto,Auto"
-                          ColumnSpacing="10" RowSpacing="8">
+                          ColumnSpacing="10" RowSpacing="8"
+                          IsEnabled="{Binding Selected.IsRemoteScanAvailable}">
                       <TextBlock Grid.Row="0" Grid.Column="0" Text="Gateway IP" Classes="settingLabel"/>
                       <TextBox Grid.Row="0" Grid.Column="1" Classes="mono" Width="190"
                                HorizontalAlignment="Left" Text="{Binding Selected.GatewayIP}"/>
@@ -1343,8 +1364,24 @@
                                HorizontalAlignment="Left" Text="{Binding Selected.GatewayPort}"/>
                     </Grid>
 
+                    <Border Background="#F2EDDF" CornerRadius="3"
+                            Padding="9,6" HorizontalAlignment="Left" MaxWidth="460"
+                            IsVisible="{Binding !Selected.IsRemoteScanAvailable}">
+                      <TextBlock FontSize="10.5" TextWrapping="Wrap"
+                                 Foreground="{StaticResource Warn}"
+                                 Text="Not in service yet. Entries here are kept but have no effect - every range is scanned from this machine."/>
+                    </Border>
+
+                    <Border Background="{StaticResource CritSoft}" CornerRadius="3"
+                            Padding="9,6" HorizontalAlignment="Left" MaxWidth="460"
+                            IsVisible="{Binding Selected.HasGatewayWarning}">
+                      <TextBlock Text="{Binding Selected.GatewayWarning}"
+                                 FontSize="10.5" TextWrapping="Wrap"
+                                 Foreground="{StaticResource Crit}"/>
+                    </Border>
+
                     <TextBlock Classes="settingHint"
-                               Text="Scans this range through another instance running in that segment. Leave empty to scan directly from this machine."/>
+                               Text="Planned: run this application as a service in another segment, where it waits for a scan request, carries it out and sends the result back to the address that asked. That is the only way to reach ARP in a different VLAN - ARP does not cross a router, so a segment can only be swept from inside it."/>
                   </StackPanel>
                 </Border>
 
