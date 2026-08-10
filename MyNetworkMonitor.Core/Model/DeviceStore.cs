@@ -185,6 +185,84 @@ namespace MyNetworkMonitor.Core.Model
             }
         }
 
+        /// <summary>
+        /// Mischt Geraete in den Bestand, die woanders gefunden wurden - das
+        /// Ergebnis eines Satelliten.
+        /// <para>
+        /// Wie <see cref="LoadFrom"/> bewusst <b>nicht</b> ueber
+        /// <see cref="Observe"/>: die Geraete sind bereits zusammengefuehrt,
+        /// und die Identitaetskaskade wuerde genau die Doppelbelegungen wieder
+        /// verschmelzen, die der Satellit gefunden hat.
+        /// </para>
+        /// <para>
+        /// Anders als <see cref="LoadFrom"/> wird der vorhandene Bestand nicht
+        /// geleert: der Satellit kennt nur sein Segment, alles andere bleibt
+        /// stehen. Ein Geraet, dessen Adresse hier schon bekannt ist, wird
+        /// ersetzt - fuer sein Segment ist der Satellit die bessere Quelle, er
+        /// steht mit ARP darin.
+        /// </para>
+        /// </summary>
+        /// <returns>Wie viele Geraete aufgenommen wurden.</returns>
+        public int MergeFrom(IEnumerable<Device> devices)
+        {
+            ArgumentNullException.ThrowIfNull(devices);
+
+            int taken = 0;
+
+            lock (SyncRoot)
+            {
+                foreach (Device incoming in devices)
+                {
+                    foreach (Device replaced in FindExisting(incoming))
+                    {
+                        _devices.Remove(replaced);
+                    }
+
+                    _devices.Add(incoming);
+                    Reindex(incoming);
+                    taken++;
+                }
+
+                // Die Register zeigen nach dem Entfernen noch auf Geraete, die
+                // nicht mehr in der Liste stehen. Statt einzeln aufzuraeumen -
+                // ein Geraet haengt an mehreren Registern - werden sie in einem
+                // Rutsch neu aufgebaut. Bei ein paar hundert Geraeten ist das
+                // billiger als die Buchfuehrung, die man sonst braucht.
+                RebuildIndexes();
+            }
+
+            return taken;
+        }
+
+        /// <summary>Alle vorhandenen Geraete, die eine Adresse mit dem neuen teilen.</summary>
+        private List<Device> FindExisting(Device incoming)
+        {
+            List<Device> found = [];
+
+            foreach (DeviceAddress address in incoming.Addresses)
+            {
+                if (!_byAddress.TryGetValue(address.Info.Canonical, out List<Device>? devices)) continue;
+
+                foreach (Device device in devices)
+                {
+                    if (!found.Contains(device)) found.Add(device);
+                }
+            }
+
+            return found;
+        }
+
+        /// <summary>Baut alle Register aus der Geraeteliste neu auf.</summary>
+        private void RebuildIndexes()
+        {
+            _byDuid.Clear();
+            _byMac.Clear();
+            _byAddress.Clear();
+            _byHostName.Clear();
+
+            foreach (Device device in _devices) Reindex(device);
+        }
+
         /// <summary>Sucht ein Geraet zu einer Adresse. Fuer Nachscans einzelner Ziele.</summary>
         public Device? FindByAddress(IpAddressInfo address) =>
             _byAddress.GetValueOrDefault(address.Canonical)?.FirstOrDefault();
