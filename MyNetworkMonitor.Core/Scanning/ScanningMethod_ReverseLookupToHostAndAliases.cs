@@ -300,7 +300,12 @@ namespace MyNetworkMonitor
 
                 if (GetHostAliases_Task_Finished != null)
                 {
-                    if (_IPHostEntry.HostName.Split('.').ToList().Count > 2)
+                    // Ab zwei Labels trennen, nicht erst ab drei: ein Name wie
+                    // "fritz.box" oder "dns.google" hat nur zwei, landete vorher
+                    // aber komplett im HostName-Feld statt sauber in Host+Domain
+                    // getrennt zu werden - live an der eigenen FRITZ!Box
+                    // (192.168.178.1 -> "fritz.box") nachgewiesen.
+                    if (_IPHostEntry.HostName.Split('.').ToList().Count > 1)
                     {
                         List<string> HostDomainSplit = new List<string>();
                         HostDomainSplit.AddRange(_IPHostEntry.HostName.ToString().Split(".", 2, StringSplitOptions.None).ToList());

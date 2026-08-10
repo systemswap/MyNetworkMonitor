@@ -68,6 +68,20 @@ werden, damit nachvollziehbar bleibt, was wann geprüft wurde.
 
 ## Verlauf (erledigt)
 
+- 2026-08-10: Reverse-DNS (IP -> Hostname) noch einmal geprueft, Version
+  6.0.0.1. Kette IPToScan -> ScanningMethod_ReverseLookupToHostAndAlieases ->
+  ReverseLookupScanMethod -> DeviceObservation.HostName ist die einzige Quelle
+  fuer `Device.HostName` (kein Ueberschreiben durch NetBIOS oder mDNS, die
+  haben eigene Felder) - kein Konflikt zwischen Verfahren. Der `null`-Callback
+  bei fehlendem PTR-Eintrag wird von `ReverseLookupScanMethod` bereits sauber
+  abgefangen. Gefunden und live bestaetigt: die Host/Domain-Trennung griff
+  erst ab drei Labels (`Count > 2`), ein zweiteiliger PTR-Name wie
+  "fritz.box" landete komplett unaufgeteilt im HostName-Feld mit leerer
+  Domain - reproduzierbar an der eigenen FRITZ!Box (192.168.178.1 ->
+  "fritz.box") und an 8.8.8.8 (-> "dns.google"). Schwelle auf `Count > 1`
+  korrigiert und gegen alle vier lokalen Geraete, IPv6 (2001:4860:4860::8888)
+  und den "kein PTR"-Fall erneut getestet - jetzt ueberall sauber getrennt.
+
 - 2026-08-09: Sechs IPv6-Suchverfahren (Version 5.1.0.30, Commit a55962a - Hinweis:
   Hash am 2026-08-09 abends durch History-Rewrite geändert, alte Referenz 4d5f73d
   ist ungültig) unter Linux getestet - vier von sechs (neighborcache, multicastping,
