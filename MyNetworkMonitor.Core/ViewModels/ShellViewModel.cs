@@ -268,6 +268,8 @@ namespace MyNetworkMonitor.Core.ViewModels
             Settings.CrossCheckOnlyKnownTargets =
                 _userSettings.GetBool("CrossCheckOnlyKnownTargets", Settings.CrossCheckOnlyKnownTargets);
             Settings.OverrideDnsServer = _userSettings.GetString("OverrideDnsServer");
+            Settings.ReverseLookupConcurrency =
+                _userSettings.GetInt("ReverseLookupConcurrency", Settings.ReverseLookupConcurrency);
             Settings.UseOnlineTopologyLibrary =
                 _userSettings.GetBool("UseOnlineTopologyLibrary", Settings.UseOnlineTopologyLibrary);
 
@@ -370,6 +372,9 @@ namespace MyNetworkMonitor.Core.ViewModels
                         break;
                     case nameof(ScanSettings.OverrideDnsServer):
                         _userSettings.SetString("OverrideDnsServer", Settings.OverrideDnsServer);
+                        break;
+                    case nameof(ScanSettings.ReverseLookupConcurrency):
+                        _userSettings.SetInt("ReverseLookupConcurrency", Settings.ReverseLookupConcurrency);
                         break;
                     case nameof(ScanSettings.UseOnlineTopologyLibrary):
                         _userSettings.SetBool("UseOnlineTopologyLibrary", Settings.UseOnlineTopologyLibrary);

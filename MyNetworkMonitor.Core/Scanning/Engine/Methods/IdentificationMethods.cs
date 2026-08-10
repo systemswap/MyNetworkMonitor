@@ -239,7 +239,10 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             LegacyTargets targets = BuildTargets(context, only: null);
             if (targets.Count == 0) return;
 
-            ScanningMethod_ReverseLookupToHostAndAlieases reverse = new();
+            ScanningMethod_ReverseLookupToHostAndAlieases reverse = new()
+            {
+                MaxConcurrentLookups = context.Settings.ReverseLookupConcurrency
+            };
 
             void OnProgress(int c, int r, int t, ScanStatus s) => context.ReportProgress(c, r, t);
 

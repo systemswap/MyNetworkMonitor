@@ -1724,8 +1724,13 @@
                   <TextBlock Text="MAC VENDOR DATABASE" Classes="settingsHead"/>
 
                   <StackPanel Spacing="5">
+                    <!--
+                        Keine eigene Hoehe/Polsterung: der Button-Stil setzt
+                        Height 22, und ein groesseres Padding liess die
+                        Beschriftung unten abschneiden.
+                    -->
                     <Button Content="Update from Wireshark" HorizontalAlignment="Left"
-                            FontSize="11" MinHeight="0" Padding="10,5"
+                            Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
                             Command="{Binding UpdateMacVendorsCommand}"
                             IsEnabled="{Binding !IsUpdatingMacVendors}"/>
                     <TextBlock Classes="settingHint"
@@ -1746,6 +1751,22 @@
                              Text="{Binding Settings.OverrideDnsServer}"/>
                     <TextBlock Classes="settingHint"
                                Text="Overrides the DNS servers stored on each range, for every range at once. Leave empty to use what each range defines."/>
+                  </StackPanel>
+
+                  <StackPanel Spacing="5">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock Grid.Column="0" Text="Reverse lookups at once" Classes="settingLabel"/>
+                      <TextBlock Grid.Column="1" Classes="mono" FontSize="11"
+                                 Foreground="{StaticResource Teal}" VerticalAlignment="Center"
+                                 Text="{Binding Settings.ReverseLookupConcurrency}"/>
+                    </Grid>
+                    <Slider x:Name="sl_ReverseLookupConcurrency" Minimum="1" Maximum="64"
+                            TickFrequency="1" IsSnapToTickEnabled="True"
+                            SmallChange="1" LargeChange="8" MaxWidth="460"
+                            HorizontalAlignment="Stretch"
+                            Value="{Binding Settings.ReverseLookupConcurrency, Mode=TwoWay}"/>
+                    <TextBlock Classes="settingHint"
+                               Text="How many addresses the reverse lookup asks for at the same time. A company name server handles 32 or 64 without trouble and finishes a large range in a fraction of the time. A home router does not: under a burst it silently drops most requests and devices that do have a name come back as unknown. Raise it only where a real name server answers - if results start going missing, go back down."/>
                   </StackPanel>
 
                   <!-- Der Quervergleich der DNS-Server steht bewusst nicht
