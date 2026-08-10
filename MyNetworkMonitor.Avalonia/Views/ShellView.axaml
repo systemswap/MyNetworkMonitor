@@ -1598,6 +1598,14 @@
                 <Button Content="Revoke" Command="{Binding SatelliteEditor.RevokeCommand}"
                         Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
                         FontSize="10.5"/>
+                <!--
+                    Stoppt genau diesen Satelliten. Der Stopp-Knopf im
+                    Kommandobalken betrifft nur den oertlichen Lauf.
+                -->
+                <Button Content="Stop job" Command="{Binding SatelliteEditor.StopJobCommand}"
+                        IsEnabled="{Binding SatelliteEditor.Selected.IsBusy}"
+                        Background="White" BorderBrush="#E2B6B1" BorderThickness="1"
+                        Foreground="{StaticResource Crit}" FontSize="10.5"/>
                 <Button Content="Delete" Command="{Binding SatelliteEditor.DeleteCommand}"
                         Background="White" BorderBrush="#E2B6B1" BorderThickness="1"
                         Foreground="{StaticResource Crit}" FontSize="10.5"/>
@@ -1707,6 +1715,12 @@
                   </StackPanel>
 
                   <TextBlock Text="{Binding SatelliteEditor.ClientStatus}" Classes="settingHint"/>
+
+                  <CheckBox Content="Any approved main scanner may stop a job"
+                            IsChecked="{Binding Settings.AllowCancelFromAnyReceiver}"/>
+
+                  <TextBlock Classes="settingHint"
+                            Text="Applies while this machine runs as a satellite. On, because a stuck job blocks it for everyone and whoever is at a screen should be able to free it. Off means only the main scanner that started the job may stop it."/>
 
                   <TextBlock Classes="settingHint"
                             Text="This machine then connects out to that main scanner and waits there to be approved. A host name is better than an address: it survives the main scanner changing its IP."/>

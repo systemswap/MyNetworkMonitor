@@ -278,14 +278,53 @@ namespace MyNetworkMonitor.Core.ViewModels
             }
         }
 
-        /// <summary>Bricht laufende Auftraege auf allen Satelliten ab.</summary>
-        public async Task CancelAllJobsAsync(CancellationToken token)
+        /// <summary>
+        /// Ob ein Satellit, den diese Instanz betreibt, sich auch von einem
+        /// anderen Hauptscanner abbrechen laesst. Wird an die
+        /// Auftragsverwaltung durchgereicht.
+        /// </summary>
+        public bool AllowCancelFromAnyReceiver
         {
-            if (_listener is null) return;
+            get => _jobs.AllowCancelFromAnyReceiver;
+            set => _jobs.AllowCancelFromAnyReceiver = value;
+        }
 
-            foreach (Satellite s in All.Where(s => s.IsBusy).ToList())
+        /// <summary>
+        /// Die Auftragsverwaltung dieser Instanz als Satellit - gemeinsam
+        /// ueber alle Empfaenger, siehe <see cref="SatelliteJobHost"/>.
+        /// </summary>
+        private readonly SatelliteJobHost _jobs = new();
+
+        /// <summary>
+        /// Bricht den laufenden Auftrag <b>eines</b> Satelliten ab.
+        /// <para>
+        /// Einzeln und nicht fuer alle: haengt einer, will man genau den
+        /// freibekommen und nicht die uebrigen Segmente mit abraeumen.
+        /// </para>
+        /// </summary>
+        [RelayCommand]
+        private async Task StopJob()
+        {
+            Satellite? satellite = Selected;
+
+            if (_listener is null || satellite is null) return;
+
+            if (!satellite.IsBusy)
             {
-                try { await _listener.CancelAsync(s.Fingerprint, s.JobId, token); } catch { }
+                Status = $"\"{satellite.Name}\" is not running a job.";
+                return;
+            }
+
+            try
+            {
+                // Ohne Auftragskennung: falls etwas haengt und die Kennung hier
+                // nicht mehr stimmt, soll der Stopp trotzdem greifen.
+                await _listener.CancelAsync(satellite.Fingerprint, null, CancellationToken.None);
+                Status = $"Stop sent to \"{satellite.Name}\".";
+            }
+            catch (Exception ex)
+            {
+                Status = $"Stop for \"{satellite.Name}\" failed: {ex.Message}";
             }
         }
 
@@ -331,7 +370,8 @@ namespace MyNetworkMonitor.Core.ViewModels
             {
                 _client = new SatelliteClient(Certificate(settingsFolder), ownName, appVersion)
                 {
-                    JobRunner = JobRunner
+                    JobRunner = JobRunner,
+                    Jobs = _jobs
                 };
             }
             catch (Exception ex)

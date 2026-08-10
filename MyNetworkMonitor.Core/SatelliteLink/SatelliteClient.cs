@@ -67,10 +67,21 @@ namespace MyNetworkMonitor.Core.SatelliteLink
         /// </summary>
         public Func<string, IProgress<ProgressPayload>, CancellationToken, Task<string>>? JobRunner { get; set; }
 
-        /// <summary>Laeuft gerade ein Auftrag - und welcher.</summary>
-        public string? CurrentJobId { get; private set; }
+        /// <summary>
+        /// Die gemeinsame Auftragsverwaltung. Gemeinsam ueber alle Empfaenger:
+        /// nur so laesst sich "einer zur Zeit" halten und beantworten, wer
+        /// abbrechen darf.
+        /// </summary>
+        public SatelliteJobHost Jobs { get; set; } = new();
 
-        private CancellationTokenSource? _jobCts;
+        /// <summary>
+        /// Wie dieser Empfaenger heisst - der Hauptscanner, mit dem diese
+        /// Verbindung spricht. Dient als Kennung des Auftraggebers.
+        /// </summary>
+        private string _receiverKey = string.Empty;
+
+        /// <summary>Laeuft gerade ein Auftrag - und welcher.</summary>
+        public string? CurrentJobId => Jobs.CurrentJobId;
 
         public SatelliteLinkState State { get; private set; } = SatelliteLinkState.Idle;
 
@@ -82,6 +93,7 @@ namespace MyNetworkMonitor.Core.SatelliteLink
         {
             Stop();
 
+            _receiverKey = $"{host}:{port}";
             _cts = new CancellationTokenSource();
             _loop = Task.Run(() => ConnectLoopAsync(host, port, _cts.Token));
         }
@@ -244,13 +256,20 @@ namespace MyNetworkMonitor.Core.SatelliteLink
                         break;
 
                     case MessageType.Cancel:
-                        // Abbrechen darf jeder freigegebene Empfaenger, nicht
-                        // nur der Auftraggeber - ein haengender Auftrag sperrt
-                        // den Satelliten sonst fuer alle.
-                        if (CurrentJobId is not null &&
-                            (message.JobId is null || message.JobId == CurrentJobId))
+                        // Wer abbrechen darf, entscheidet die Auftragsverwaltung:
+                        // der Auftraggeber immer, jeder andere nur, wenn es
+                        // erlaubt ist. Ein abgelehnter Abbruch wird beantwortet
+                        // statt verschluckt - sonst drueckt jemand auf Stopp und
+                        // nichts geschieht.
+                        if (!Jobs.TryCancel(message.JobId, _receiverKey, out string refused))
                         {
-                            _jobCts?.Cancel();
+                            await channel.SendAsync(new SatelliteMessage
+                            {
+                                Type = MessageType.Error,
+                                ProtocolVersion = SatelliteListener.ProtocolVersion,
+                                JobId = message.JobId,
+                                Text = refused
+                            }, token);
                         }
                         break;
 
@@ -272,18 +291,6 @@ namespace MyNetworkMonitor.Core.SatelliteLink
         {
             string jobId = message.JobId ?? MessageChannel.NewJobId();
 
-            if (CurrentJobId is not null)
-            {
-                await channel.SendAsync(new SatelliteMessage
-                {
-                    Type = MessageType.Busy,
-                    ProtocolVersion = SatelliteListener.ProtocolVersion,
-                    JobId = CurrentJobId,
-                    Text = $"A job is already running ({CurrentJobId})."
-                }, token);
-                return;
-            }
-
             if (JobRunner is null)
             {
                 await channel.SendAsync(new SatelliteMessage
@@ -296,8 +303,19 @@ namespace MyNetworkMonitor.Core.SatelliteLink
                 return;
             }
 
-            CurrentJobId = jobId;
-            _jobCts = CancellationTokenSource.CreateLinkedTokenSource(token);
+            CancellationTokenSource? jobCts = Jobs.TryStart(jobId, _receiverKey, token);
+
+            if (jobCts is null)
+            {
+                await channel.SendAsync(new SatelliteMessage
+                {
+                    Type = MessageType.Busy,
+                    ProtocolVersion = SatelliteListener.ProtocolVersion,
+                    JobId = Jobs.CurrentJobId,
+                    Text = $"A job is already running ({Jobs.CurrentJobId})."
+                }, token);
+                return;
+            }
 
             await channel.SendAsync(new SatelliteMessage
             {
@@ -323,7 +341,7 @@ namespace MyNetworkMonitor.Core.SatelliteLink
                         }, CancellationToken.None);
                     });
 
-                    string devices = await JobRunner(message.Text ?? string.Empty, progress, _jobCts.Token);
+                    string devices = await JobRunner(message.Text ?? string.Empty, progress, jobCts.Token);
 
                     await channel.SendAsync(new SatelliteMessage
                     {
@@ -354,9 +372,7 @@ namespace MyNetworkMonitor.Core.SatelliteLink
                 }
                 finally
                 {
-                    CurrentJobId = null;
-                    _jobCts?.Dispose();
-                    _jobCts = null;
+                    Jobs.Finish(jobId);
                 }
             }, CancellationToken.None);
         }
