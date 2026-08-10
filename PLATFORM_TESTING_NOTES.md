@@ -125,6 +125,21 @@ werden, damit nachvollziehbar bleibt, was wann geprüft wurde.
   weiterer automatischer Rueckfall. Ein eigener DNS-Server im Scope (Feld
   "DNS-Server") sticht diesen Automatismus weiterhin.
 
+- 2026-08-10: Denselben Umbau (direkt zum DNS-Server statt ueber den
+  System-Resolver) auch fuer die Vorwaerts-Aufloesung (Hostname -> IP) in
+  `ScanningMethod_LookUp.cs` gemacht, Version 6.0.0.4. Nutzte bisher
+  `System.Net.Dns.GetHostEntryAsync`, also denselben System-Resolver-Umweg wie
+  vorher die Rueckwaertsaufloesung. Jetzt derselbe DnsClient-Ansatz mit
+  Gateway-Fallback wie bei ReverseLookup (der Automatismus in
+  `LegacyScanMethod.BuildTargets` gilt fuer beide, da beide dieselbe
+  `IPToScan.DNSServerList` bekommen). Live end-zu-Ende getestet: Reverse-Lookup
+  fuellt den Store mit 32 Hostnamen in 78ms, direkt darauf Forward-Lookup
+  ueber alle 254 Ziele in 18ms - alle Namen loesen korrekt zur passenden IP
+  zurueck auf. Die separate `nsLookup(string)`-Methode (nur von den
+  Legacy-Oberflaechen MainWindowView/WPF genutzt, nicht vom aktiven ShellView)
+  bewusst unveraendert gelassen - ohne IPToScan/Scope hat sie keinen DNS-Server
+  zur Hand, den man stattdessen nehmen koennte.
+
 - 2026-08-09: Sechs IPv6-Suchverfahren (Version 5.1.0.30, Commit a55962a - Hinweis:
   Hash am 2026-08-09 abends durch History-Rewrite geändert, alte Referenz 4d5f73d
   ist ungültig) unter Linux getestet - vier von sechs (neighborcache, multicastping,
