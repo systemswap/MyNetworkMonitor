@@ -23,6 +23,7 @@ namespace MyNetworkMonitor.Core.ViewModels
         Scopes,
         Ports,
         Services,
+        Satellites,
         Names,
         Settings
     }
@@ -110,6 +111,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             ScopeEditor = new ScopeEditorViewModel(Scopes);
             PortEditor = new PortEditorViewModel(Settings);
             ServiceEditor = new ServiceEditorViewModel();
+            SatelliteEditor = new SatelliteEditorViewModel();
             NetworkView = new NetworkViewModel();
             FindingsView = new FindingsViewModel(store);
 
@@ -139,6 +141,13 @@ namespace MyNetworkMonitor.Core.ViewModels
 
         /// <summary>Welcher Dienst auf welchen Ports gesucht wird.</summary>
         public ServiceEditorViewModel ServiceEditor { get; }
+
+        /// <summary>
+        /// Die Satelliten - Instanzen, die in anderen Segmenten scannen. Ihre
+        /// Namen speisen die Auswahl "Scanned by" in der Bereichsmaske.
+        /// Siehe SATELLIT.md.
+        /// </summary>
+        public SatelliteEditorViewModel SatelliteEditor { get; }
 
         /// <summary>Die Adapter dieses Rechners samt ihrer Namensserver.</summary>
         public NetworkViewModel NetworkView { get; }
