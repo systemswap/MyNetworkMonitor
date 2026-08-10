@@ -132,8 +132,143 @@ namespace MyNetworkMonitor.Core.Model
                 ? []
                 : DnsServers.Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
+        /// <summary>
+        /// Eintraege im DNS-Feld, die keine IP-Adresse sind - leer, wenn alles
+        /// in Ordnung ist.
+        /// <para>
+        /// Die Namensaufloesung baut ihren Client nur dann auf die hinterlegten
+        /// Server, wenn sich <b>jede</b> Angabe als IP lesen laesst. Ein
+        /// einzelner Name wie "dns.firma.local" laesst also die ganze Liste
+        /// stillschweigend unter den Tisch fallen - der Lauf fragt dann
+        /// woanders und niemand sieht, warum die Namen fehlen. Genau davor
+        /// warnt die Oberflaeche.
+        /// </para>
+        /// </summary>
+        public IReadOnlyList<string> InvalidDnsServers =>
+            [.. DnsServerList.Where(s => !IPAddress.TryParse(s, out _))];
+
+        /// <summary>Der Warnsatz zum DNS-Feld, oder leer, wenn es nichts zu melden gibt.</summary>
+        public string DnsServerWarning
+        {
+            get
+            {
+                IReadOnlyList<string> bad = InvalidDnsServers;
+                if (bad.Count == 0) return string.Empty;
+
+                string list = string.Join(", ", bad);
+                return bad.Count == 1
+                    ? $"\"{list}\" is not an IP address. Name servers have to be given as IP addresses - " +
+                      "as long as this entry stays, none of the servers of this range are used and names " +
+                      "are resolved elsewhere."
+                    : $"These are not IP addresses: {list}. Name servers have to be given as IP addresses - " +
+                      "as long as they stay, none of the servers of this range are used and names are " +
+                      "resolved elsewhere.";
+            }
+        }
+
+        // Das Warnfeld haengt am Textfeld und muss sich mit ihm neu melden,
+        // sonst bleibt die Warnung stehen, nachdem der Eintrag berichtigt wurde.
+        partial void OnDnsServersChanged(string value)
+        {
+            OnPropertyChanged(nameof(DnsServerList));
+            OnPropertyChanged(nameof(InvalidDnsServers));
+            OnPropertyChanged(nameof(DnsServerWarning));
+            OnPropertyChanged(nameof(HasDnsServerWarning));
+        }
+
+        /// <summary>Es gibt etwas zum DNS-Feld zu melden.</summary>
+        public bool HasDnsServerWarning => InvalidDnsServers.Count > 0;
+
         /// <summary>Der Bereich wird ueber eine entfernte Instanz gescannt.</summary>
         public bool UsesGateway => !string.IsNullOrWhiteSpace(GatewayIP);
+
+        // ------------------------------------------------- Entfernter Zugriff
+
+        /// <summary>
+        /// Ob der Satellitenbetrieb zur Verfuegung steht - derzeit nein.
+        /// <para>
+        /// Die Felder <see cref="GatewayIP"/> und <see cref="GatewayPort"/>
+        /// werden gespeichert, geladen und bis in <c>IPToScan</c> durchgereicht,
+        /// aber nichts wertet sie aus: der Gegenpart (Satellit_SocketClient und
+        /// -Server) wurde entfernt. Bis er zurueck ist, sind die Felder in der
+        /// Oberflaeche gesperrt, damit niemand etwas eintraegt, das nichts tut.
+        /// </para>
+        /// <para>
+        /// Geplant ist, diese Anwendung als Dienst in einem anderen Segment
+        /// laufen zu lassen: sie wartet auf einen Scan-Auftrag, fuehrt ihn aus
+        /// und schickt das Ergebnis an die anfragende Adresse zurueck, wo es
+        /// oertlich angezeigt wird. Der eigentliche Gewinn ist ARP - das
+        /// erreicht nur, wer im selben VLAN steht, und genau das leistet ein
+        /// Satellit.
+        /// </para>
+        /// <para>
+        /// Zum Einschalten genuegt es, hier <c>true</c> zu setzen: die Felder
+        /// werden bedienbar und die Pruefung unten meldet sich. Beides haengt
+        /// an dieser einen Stelle.
+        /// </para>
+        /// </summary>
+        /// <remarks>
+        /// Bewusst <c>static readonly</c> und nicht <c>const</c>: als Konstante
+        /// haelt der Compiler die Pruefung darunter fuer unerreichbar und
+        /// warnt. Sie soll aber stehen bleiben und beim Umlegen sofort greifen.
+        /// </remarks>
+        public static readonly bool RemoteScanAvailable = false;
+
+        /// <summary>Dasselbe als Eigenschaft, damit die Oberflaeche daran binden kann.</summary>
+        public bool IsRemoteScanAvailable => RemoteScanAvailable;
+
+        /// <summary>
+        /// Der Warnsatz zu den Gateway-Feldern, oder leer, wenn nichts zu
+        /// melden ist. Schon fertig, greift aber erst, wenn
+        /// <see cref="RemoteScanAvailable"/> gesetzt ist - vorher waere es eine
+        /// Beschwerde ueber ein Feld, das ohnehin nichts bewirkt.
+        /// </summary>
+        public string GatewayWarning
+        {
+            get
+            {
+                if (!RemoteScanAvailable) return string.Empty;
+
+                bool hasIp = !string.IsNullOrWhiteSpace(GatewayIP);
+                bool hasPort = !string.IsNullOrWhiteSpace(GatewayPort);
+
+                if (!hasIp && !hasPort) return string.Empty;
+
+                if (hasIp && !IPAddress.TryParse(GatewayIP.Trim(), out _))
+                {
+                    return $"\"{GatewayIP}\" is not an IP address. The satellite is addressed directly, " +
+                           "so a name cannot be used here.";
+                }
+
+                if (hasPort && (!int.TryParse(GatewayPort.Trim(), out int port) || port is < 1 or > 65535))
+                {
+                    return $"\"{GatewayPort}\" is not a valid port. Allowed is 1 to 65535.";
+                }
+
+                if (!hasIp)
+                {
+                    return "A port is set but no address. Without an address the range is scanned " +
+                           "from this machine and the port has no effect.";
+                }
+
+                return string.Empty;
+            }
+        }
+
+        /// <summary>Es gibt etwas zu den Gateway-Feldern zu melden.</summary>
+        public bool HasGatewayWarning => GatewayWarning.Length > 0;
+
+        // Wie beim DNS-Feld: die Warnung haengt an den Eingaben und muss sich
+        // mit ihnen neu melden.
+        partial void OnGatewayIPChanged(string value) => RaiseGatewayWarning();
+        partial void OnGatewayPortChanged(string value) => RaiseGatewayWarning();
+
+        private void RaiseGatewayWarning()
+        {
+            OnPropertyChanged(nameof(UsesGateway));
+            OnPropertyChanged(nameof(GatewayWarning));
+            OnPropertyChanged(nameof(HasGatewayWarning));
+        }
 
         // ------------------------------------------------------------ Pruefung
 
