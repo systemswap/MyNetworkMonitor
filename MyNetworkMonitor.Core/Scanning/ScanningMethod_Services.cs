@@ -550,10 +550,16 @@ public class ScanningMethod_Services
 
     /// <summary>
     /// Dienste, fuer die es unten eine echte Antwortpruefung gibt. Fuer alles
-    /// andere (etwa RustdeskServer, dessen Protokoll nicht dokumentiert und
-    /// hier nicht sicher nachpruefbar ist) bleibt es beim alten Verhalten:
-    /// eine Antwort auf dem erwarteten Port gilt als Treffer. Das ist bewusst
-    /// so, statt diese Dienste stillschweigend nie mehr zu finden.
+    /// andere bleibt es beim alten Verhalten: eine Antwort auf dem erwarteten
+    /// Port gilt als Treffer. Das ist bewusst so, statt diese Dienste
+    /// stillschweigend nie mehr zu finden.
+    /// <para>
+    /// Der Preis dieses Rueckfalls ist eine Verwechslung, sobald sich zwei
+    /// Dienste einen Port teilen: der ungeprueft eingetragene erbt jede
+    /// Antwort des anderen. Genau das ist mit RustdeskServer auf Port 5900
+    /// passiert - jeder VNC-Rechner galt zusaetzlich als RustDesk-Server.
+    /// Beide RustDesk-Eintraege werden darum inzwischen richtig geprueft.
+    /// </para>
     /// </summary>
     private static readonly HashSet<ServiceType> ValidatedServiceTypes =
     [
@@ -561,8 +567,37 @@ public class ScanningMethod_Services
         ServiceType.BigFixRemote, ServiceType.Anydesk, ServiceType.MSSQLServer,
         ServiceType.PostgreSQL, ServiceType.MariaDB, ServiceType.MySQL, ServiceType.OracleDB,
         ServiceType.MongoDB, ServiceType.InfluxDB2, ServiceType.OPCUA, ServiceType.ModBus,
-        ServiceType.S7, ServiceType.RDP
+        ServiceType.S7, ServiceType.RDP, ServiceType.RustdeskClient,
+        ServiceType.RustdeskServer
     ];
+
+    /// <summary>
+    /// Liest eine Protobuf-Varint-Zahl ab <paramref name="offset"/> bis zum
+    /// Ende von <paramref name="data"/>.
+    /// <para>
+    /// Streng: die Zahl muss genau am Ende aufhoeren. Ein abgeschnittenes oder
+    /// ueberlanges Feld gilt als kein Treffer - sonst wuerde beliebiges
+    /// Rauschen als gueltige Zahl durchgehen.
+    /// </para>
+    /// </summary>
+    private static bool TryReadVarint(byte[] data, int offset, out int value)
+    {
+        value = 0;
+        int shift = 0;
+
+        for (int i = offset; i < data.Length; i++)
+        {
+            if (shift > 28) return false;
+
+            value |= (data[i] & 0x7F) << shift;
+            shift += 7;
+
+            // Letztes Byte der Zahl: das Fortsetzungsbit fehlt.
+            if ((data[i] & 0x80) == 0) return i == data.Length - 1;
+        }
+
+        return false;
+    }
 
     private bool IdentifyServices(byte[] response, ServiceType service)
     {
@@ -611,6 +646,61 @@ public class ScanningMethod_Services
             {
                 serviceMatched = true;
             }
+        }
+
+        // ?? RustDesk-Server (hbbs, Ports 21115-21117 bzw. eigener Port)
+        //
+        // Auf das Hello aus GetDetectionPacket - der NAT-Test-Anfrage -
+        // antwortet der Server mit dem Quellport, den er von uns sieht:
+        //
+        //   1c aa 01 04 08 <Port als Varint>
+        //
+        // Gemessen an einem echten Server (rustdesk-server, Port 5991): vier
+        // Verbindungen, und der zurueckgegebene Wert war jedes Mal genau der
+        // TCP-Quellport der eigenen Verbindung. Das ist mehr als ein Muster -
+        // die Antwort haengt an der Verbindung und laesst sich nicht zufaellig
+        // von einem anderen Dienst nachbilden.
+        //
+        // Die Laenge ist nicht fest: ein Quellport unter 16384 passt in zwei
+        // Varint-Byte statt drei. Darum wird das Laengenfeld gegen die
+        // tatsaechliche Laenge geprueft, nicht auf 8 Byte bestanden.
+        if (service == ServiceType.RustdeskServer)
+        {
+            serviceMatched = response.Length is >= 7 and <= 9
+                && response[0] == 0x1C
+                && response[1] == 0xAA && response[2] == 0x01   // Feld 21, laengenkodiert
+                && response[3] == response.Length - 4           // innere Laenge passt zum Rest
+                && response[4] == 0x08                          // Feld 1, Varint: der Port
+                && TryReadVarint(response, 5, out int publicPort)
+                && publicPort is > 0 and <= 65535;
+        }
+
+        // ?? RustDesk-Client mit "Direct IP Access" (Port 21118)
+        //
+        // Der Client gruesst beim Verbinden von sich aus mit genau 19 Byte:
+        //
+        //   48 4a 10 0a 06 <6 Zeichen> 12 06 <6 Zeichen>
+        //
+        // Vier Verbindungen gegen einen echten Client (198.51.100.5) verglichen:
+        // der Vorspann und die ersten sechs Zeichen bleiben ueber alle
+        // Verbindungen gleich - die haengen am Geraet. Die zweiten sechs
+        // wechseln jedes Mal, das ist die Challenge der Sitzung. Geprueft wird
+        // deshalb nur das Geruest, nicht der Inhalt der beiden Felder.
+        //
+        // Damit ist der Client vom Serverdienst (21115/21116/21117) getrennt:
+        // wer hier so antwortet, laesst sich im LAN direkt ueber seine IP
+        // fernsteuern.
+        if (service == ServiceType.RustdeskClient)
+        {
+            static bool IsPrintable(byte b) => b >= 0x21 && b < 0x7F;
+
+            serviceMatched = response.Length == 19
+                && response[0] == 0x48 && response[1] == 0x4A
+                && response[2] == 0x10 && response[3] == 0x0A
+                && response[4] == 0x06
+                && response[11] == 0x12 && response[12] == 0x06
+                && response.Skip(5).Take(6).All(IsPrintable)
+                && response.Skip(13).Take(6).All(IsPrintable);
         }
 
         // ?? TeamViewer-Erkennung
@@ -1847,8 +1937,30 @@ static async Task<PortResult> SendTcpDnsQuery(string dnsServer, byte[] query, in
             ServiceType.TeamViewer => new List<int> { 5938 },  // Teamviewer
             ServiceType.BigFixRemote => new List<int> { 888 },  // BigFix Remote
             ServiceType.Anydesk => new List<int> { 7070 },  // AnyDesk
-            ServiceType.RustdeskServer => new List<int> { 5900 },  // Rustdesk Server
-            ServiceType.RustdeskClient => new List<int> { 21118}, // Rustdesk Remote
+            // 21115 NAT-Test, 21116 ID-Registrierung/Heartbeat, 21117 Relay.
+            // Stand frueher auf 5900 - demselben Port wie UltraVNC. Weil ein
+            // VNC-Server beim Verbinden von sich aus mit "RFB 003.008" gruesst
+            // und RustdeskServer unten nicht geprueft wird (jede Antwort zaehlt
+            // als Treffer), wurde an jedem VNC-Rechner zusaetzlich ein
+            // RustDesk-Server gemeldet. Live nachgewiesen an 198.51.100.5.
+            // Ein RustDesk-Server belegt einen Block von fuenf Ports um seinen
+            // Basisport herum: Basis-1 NAT-Test, Basis ID/Heartbeat, Basis+1
+            // Relay, Basis+2 und +3 WebSocket. Mit der Vorgabe 21116 sind das
+            // 21115-21119.
+            //
+            // Aufgefuehrt sind nur die beiden, die den NAT-Test beantworten -
+            // nur sie koennen die Pruefung unten bestehen. Der Relay-Port
+            // schweigt auf alles, die WebSocket-Ports sprechen HTTP; beide
+            // waeren hier nur ein Verbindungsversuch ohne moegliches Ergebnis.
+            //
+            // 5990/5991 sind keine RustDesk-Vorgabe, sondern der Block, der in
+            // diesem Netz laeuft (rustdesk-server, Basisport 5991: 5990-5994 am
+            // Lauschen). Mitgenommen, weil der Server sonst nie gefunden
+            // wuerde, und ungefaehrlich, weil die Antwort unten echt geprueft
+            // wird - ein fremder Dienst auf 5990/5991 geht damit nicht als
+            // RustDesk durch. Wer sie nicht braucht, streicht sie hier.
+            ServiceType.RustdeskServer => new List<int> { 5990, 5991, 21115, 21116 },  // Rustdesk Server
+            ServiceType.RustdeskClient => new List<int> { 21118}, // Rustdesk Remote (Direct IP Access)
 
             // ??? Datenbanken
             ServiceType.MSSQLServer => new List<int> { 1433 }, // Microsoft SQL Server
