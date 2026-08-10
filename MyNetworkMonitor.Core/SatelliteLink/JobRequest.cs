@@ -31,6 +31,19 @@ namespace MyNetworkMonitor.Core.SatelliteLink
         /// <summary>Kennungen der Verfahren. Leer heisst: die Vorgabe des Satelliten.</summary>
         public List<string> MethodIds { get; } = [];
 
+        /// <summary>
+        /// Die Verfahren, die nur abfragen sollen, was schon gefunden wurde.
+        /// <para>
+        /// Muss mit uebertragen werden, sonst arbeitet der Satellit anders als
+        /// derselbe Lauf oertlich: Portscan, Diensterkennung, NetBIOS und SMB
+        /// gingen dort ueber <em>alle</em> Adressen des Bereichs statt nur ueber
+        /// die gefundenen Geraete. Bei 128 Adressen und 83 Geraeten sind das 45
+        /// Ziele, an denen jeder Port ins Zeitlimit laeuft - der teuerste Teil
+        /// eines Laufs, fuer nichts.
+        /// </para>
+        /// </summary>
+        public List<string> OnlyKnownFor { get; } = [];
+
         public List<int> TcpPorts { get; } = [];
         public List<int> UdpPorts { get; } = [];
 
@@ -51,7 +64,8 @@ namespace MyNetworkMonitor.Core.SatelliteLink
             IEnumerable<string>? methodIds = null,
             IEnumerable<int>? tcpPorts = null,
             IEnumerable<int>? udpPorts = null,
-            int? timeoutMs = null)
+            int? timeoutMs = null,
+            IEnumerable<string>? onlyKnownFor = null)
         {
             ArgumentNullException.ThrowIfNull(scopes);
 
@@ -100,6 +114,14 @@ namespace MyNetworkMonitor.Core.SatelliteLink
 
             List<int> udp = [.. udpPorts ?? []];
             if (udp.Count > 0) parts.Add("udp=" + string.Join(',', udp));
+
+            // Nur die, die in diesem Auftrag ueberhaupt vorkommen - eine Liste
+            // von Verfahren, die gar nicht laufen, sagt nichts und macht den
+            // Auftragstext im Protokoll nur laenger.
+            List<string> known = [.. (onlyKnownFor ?? [])
+                .Where(id => methods.Count == 0 || methods.Contains(id, StringComparer.OrdinalIgnoreCase))];
+
+            if (known.Count > 0) parts.Add("known=" + string.Join(',', known));
 
             if (timeoutMs is > 0) parts.Add("timeout=" + timeoutMs.Value.ToString(CultureInfo.InvariantCulture));
             if (dns is not null) parts.Add("dns=" + dns.Replace(" ", string.Empty));
@@ -153,6 +175,7 @@ namespace MyNetworkMonitor.Core.SatelliteLink
                 {
                     case "ranges": ranges = value; break;
                     case "methods": job.MethodIds.AddRange(SplitList(value)); break;
+                    case "known": job.OnlyKnownFor.AddRange(SplitList(value)); break;
                     case "tcp": job.TcpPorts.AddRange(ParsePorts(value)); break;
                     case "udp": job.UdpPorts.AddRange(ParsePorts(value)); break;
                     case "dns": dns = value; break;

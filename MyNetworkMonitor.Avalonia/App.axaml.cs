@@ -22,24 +22,9 @@ public partial class App : Application
     public override void OnFrameworkInitializationCompleted()
     {
         // Plattform-Implementierungen fuer die neutrale Scan-Engine in Core.
-        // Wichtig: unter Windows muessen die Windows-Provider registriert werden -
-        // mit den Linux-Providern schlagen ARP-Request und Routing dort fehl.
-#if WINDOWS
-        PlatformServices.RegisterArp(new WindowsArpProvider());
-        PlatformServices.RegisterRouting(new WindowsRoutingProvider());
-        PlatformServices.RegisterRegistry(new WindowsRegistryReader());
-        PlatformServices.RegisterEnterprise(new WindowsEnterpriseEnvironment());
-        PlatformServices.RegisterWifi(new ScanningMethod_WiFi());
-        PlatformServices.RegisterNeighbors(new WindowsNeighborProvider());
-        PlatformServices.RegisterFirewall(new WindowsFirewallInspector());
-#else
-        PlatformServices.RegisterArp(new LinuxArpProvider());
-        PlatformServices.RegisterRouting(new LinuxRoutingProvider());
-        PlatformServices.RegisterRegistry(new LinuxRegistryReader());
-        PlatformServices.RegisterEnterprise(new LinuxEnterpriseEnvironment());
-        PlatformServices.RegisterWifi(new LinuxWifiProvider());
-        PlatformServices.RegisterNeighbors(new LinuxNeighborProvider());
-#endif
+        // Die Liste steht in PlatformRegistration, weil der Satellitendienst
+        // dieselbe braucht und ohne Avalonia laeuft.
+        PlatformRegistration.RegisterAll();
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
@@ -51,14 +36,44 @@ public partial class App : Application
             UseClassicShell = desktop.Args?.Any(a =>
                 string.Equals(a, "--classic", StringComparison.OrdinalIgnoreCase)) == true;
 
+            // Der Lizenzhinweis: siehe NoticeSuspended. Mit --notice laesst er
+            // sich einzeln wieder anfordern, ohne etwas umzustellen - damit
+            // pruefbar bleibt, dass er noch funktioniert.
+            bool forced = desktop.Args?.Any(a =>
+                string.Equals(a, "--notice", StringComparison.OrdinalIgnoreCase)) == true;
+
+            SkipEnterpriseNotice = !forced &&
+                (NoticeSuspended || AppPaths.HasOwnState || desktop.Args?.Any(a =>
+                    string.Equals(a, "--no-notice", StringComparison.OrdinalIgnoreCase)) == true);
+
             desktop.MainWindow = CreateStartWindow(desktop);
         }
 
         base.OnFrameworkInitializationCompleted();
     }
 
+    /// <summary>
+    /// Der Lizenzhinweis im Firmennetz ist <b>voruebergehend abgeschaltet</b> -
+    /// auf ausdrueckliche Anweisung, bis er wieder gewuenscht wird.
+    /// <para>
+    /// <b>Zum Wiedereinschalten genuegt es, hier auf <c>false</c> zu setzen.</b>
+    /// Am Hinweis selbst (<c>EnterpriseMessageView</c>) und an der Erkennung
+    /// des Firmennetzes ist nichts geaendert; beides ist unberuehrt und
+    /// funktioniert sofort wieder.
+    /// </para>
+    /// <para>
+    /// Der Grund fuer das Abschalten: der Hinweis ist das Startfenster, und
+    /// solange er offen ist, existiert die Hauptoberflaeche noch gar nicht -
+    /// jeder Start ohne Mausklick bleibt daran haengen.
+    /// </para>
+    /// </summary>
+    private const bool NoticeSuspended = true;
+
     /// <summary>Die bisherige Oberflaeche wurde ueber --classic angefordert.</summary>
     private static bool UseClassicShell { get; set; }
+
+    /// <summary>Der Lizenzhinweis wird uebersprungen - siehe oben.</summary>
+    private static bool SkipEnterpriseNotice { get; set; }
 
     private static global::Avalonia.Controls.Window CreateMainWindow() =>
         UseClassicShell ? new MainWindowView() : new ShellView();
@@ -75,6 +90,8 @@ public partial class App : Application
     /// </summary>
     private static global::Avalonia.Controls.Window CreateStartWindow(IClassicDesktopStyleApplicationLifetime desktop)
     {
+        if (SkipEnterpriseNotice) return CreateMainWindow();
+
         bool isCompanyNetwork;
 
         try

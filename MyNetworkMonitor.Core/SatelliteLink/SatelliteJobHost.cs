@@ -104,6 +104,25 @@ namespace MyNetworkMonitor.Core.SatelliteLink
             }
         }
 
+        /// <summary>
+        /// Bricht ab, was gerade laeuft - ohne zu fragen, wer es gestartet hat.
+        /// <para>
+        /// Fuer den Stopp-Knopf am Satelliten selbst. Wer vor dem Geraet sitzt,
+        /// darf es immer anhalten; <see cref="AllowCancelFromAnyReceiver"/>
+        /// regelt nur, wer das aus der Ferne darf.
+        /// </para>
+        /// </summary>
+        public bool CancelCurrent()
+        {
+            lock (_sync)
+            {
+                if (_jobId is null) return false;
+
+                try { _cts?.Cancel(); } catch { }
+                return true;
+            }
+        }
+
         /// <summary>Meldet, dass der Auftrag durch ist - egal wie.</summary>
         public void Finish(string jobId)
         {
