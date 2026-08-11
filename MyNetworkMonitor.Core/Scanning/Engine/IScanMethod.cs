@@ -33,9 +33,24 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
         public IEnumerable<ScanTargetEntry> TargetsOf(Network.IpFamily family) =>
             Targets.Where(t => t.Family == family);
 
-        /// <summary>Es gibt mindestens ein Ziel dieser Familie.</summary>
+        /// <summary>
+        /// Es gibt mindestens ein Ziel dieser Familie.
+        /// <para>
+        /// Ein Ziel, das nur als Hostname vorliegt, zaehlt fuer <em>jede</em>
+        /// Familie mit: welche es wird, entscheidet erst die Namensaufloesung
+        /// beim Lauf. Bis dahin ist die Familie schlicht unbekannt.
+        /// </para>
+        /// <para>
+        /// Ohne diese Ausnahme war jedes Verfahren gesperrt, sobald in der
+        /// eigenen Eingabe nur ein Hostname stand und kein Bereich angehakt
+        /// war: Ping erschien ausgegraut mit "No IPv4 targets selected",
+        /// obwohl der Name auf eine IPv4 zeigte. Ein Verfahren nicht
+        /// anzubieten, das laufen koennte, ist der schlechtere Fehler - laeuft
+        /// es ins Leere, sagt das Ergebnis es sauber.
+        /// </para>
+        /// </summary>
         public bool HasTargetsOf(Network.IpFamily family) =>
-            Targets.Any(t => t.Family == family);
+            Targets.Any(t => t.Family == family || (t.Family is null && t.HostName is not null));
 
         /// <summary>
         /// Mindestens ein Bereich erlaubt IPv6 im eigenen Segment. Massgeblich
