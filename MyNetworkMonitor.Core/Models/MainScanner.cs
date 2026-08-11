@@ -26,6 +26,18 @@ namespace MyNetworkMonitor.Core.Models
         [ObservableProperty] private string _host = string.Empty;
 
         /// <summary>
+        /// Die Domaene, an die ein kurzer Name angehaengt wird - optional.
+        /// <para>
+        /// Gedacht fuer den Fall, dass der Satellit in einem Segment steht, in
+        /// dem das Suffix nicht automatisch angehaengt wird: dort loest
+        /// "laptop" nicht auf, "laptop.firma.local" schon. Leer lassen, wo der
+        /// kurze Name genuegt oder ohnehin eine Adresse eingetragen ist -
+        /// darum optional und nicht Pflicht.
+        /// </para>
+        /// </summary>
+        [ObservableProperty] private string _domain = string.Empty;
+
+        /// <summary>
         /// Der Port dieses Empfaengers. Je Eintrag und nicht einmal fuer alle:
         /// derselbe Satellit darf einen Hauptscanner auf 443 und einen anderen
         /// auf 27411 erreichen - das hilft dort, wo nur wenige Ports nach
@@ -79,14 +91,46 @@ namespace MyNetworkMonitor.Core.Models
         partial void OnIsConnectedChanged(bool value) => OnPropertyChanged(nameof(IsWaitingForApproval));
         partial void OnIsApprovedChanged(bool value) => OnPropertyChanged(nameof(IsWaitingForApproval));
 
+        /// <summary>
+        /// Der Name, mit dem tatsaechlich verbunden wird: der kurze Name samt
+        /// Domaene, wenn eine angegeben ist und noetig ist.
+        /// <para>
+        /// Angehaengt wird nur, wenn <see cref="Host"/> keinen Punkt und keinen
+        /// Doppelpunkt enthaelt. Eine IPv4 traegt Punkte, eine IPv6 Doppelpunkte,
+        /// ein bereits vollstaendiger Name Punkte - in allen drei Faellen waere
+        /// ein angehaengtes Suffix falsch, und der Eintrag liefe ins Leere.
+        /// </para>
+        /// </summary>
+        public string TargetHost
+        {
+            get
+            {
+                string host = Host?.Trim() ?? string.Empty;
+                string domain = Domain?.Trim().TrimStart('.') ?? string.Empty;
+
+                if (domain.Length == 0) return host;
+                if (host.Length == 0) return host;
+                if (host.Contains('.') || host.Contains(':')) return host;
+
+                return $"{host}.{domain}";
+            }
+        }
+
         /// <summary>Wie der Eintrag in der Liste steht.</summary>
         public string Display =>
             string.IsNullOrWhiteSpace(Note)
-                ? $"{Host}:{Port}"
-                : $"{Host}:{Port}  ({Note})";
+                ? $"{TargetHost}:{Port}"
+                : $"{TargetHost}:{Port}  ({Note})";
 
-        partial void OnHostChanged(string value) => OnPropertyChanged(nameof(Display));
+        partial void OnHostChanged(string value) => OnTargetChanged();
+        partial void OnDomainChanged(string value) => OnTargetChanged();
         partial void OnPortChanged(int value) => OnPropertyChanged(nameof(Display));
         partial void OnNoteChanged(string value) => OnPropertyChanged(nameof(Display));
+
+        private void OnTargetChanged()
+        {
+            OnPropertyChanged(nameof(TargetHost));
+            OnPropertyChanged(nameof(Display));
+        }
     }
 }
