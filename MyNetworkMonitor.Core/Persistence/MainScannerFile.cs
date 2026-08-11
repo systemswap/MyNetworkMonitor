@@ -27,6 +27,13 @@ namespace MyNetworkMonitor.Core.Persistence
         private sealed class Record
         {
             public string Host { get; set; } = string.Empty;
+
+            /// <summary>
+            /// Optional. Fehlt sie in einer aelteren Datei, bleibt sie leer -
+            /// dann gilt der Name so, wie er dasteht.
+            /// </summary>
+            public string Domain { get; set; } = string.Empty;
+
             public int Port { get; set; } = 27411;
             public string Note { get; set; } = string.Empty;
             public bool Enabled { get; set; } = true;
@@ -45,6 +52,7 @@ namespace MyNetworkMonitor.Core.Persistence
                 .Select(h => new Record
                 {
                     Host = h.Host,
+                    Domain = h.Domain,
                     Port = h.Port,
                     Note = h.Note,
                     Enabled = h.Enabled,
@@ -75,6 +83,7 @@ namespace MyNetworkMonitor.Core.Persistence
                     .Select(r => new MainScanner
                     {
                         Host = r.Host,
+                        Domain = r.Domain ?? string.Empty,
                         Port = r.Port <= 0 ? 27411 : r.Port,
                         Note = r.Note ?? string.Empty,
                         Enabled = r.Enabled,

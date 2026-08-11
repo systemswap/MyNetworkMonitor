@@ -129,6 +129,32 @@ namespace MyNetworkMonitor.Core.ViewModels
             {
                 if (e.PropertyName == nameof(SatelliteEditorViewModel.Selected)) RefreshRangesOfSatellite();
             };
+
+            // ... und ebenso, wenn sich an den Bereichen selbst etwas aendert.
+            //
+            // Vorher wurde die Liste nur beim Wechsel der Auswahl gefuellt:
+            // wer einem Bereich drueben "Scanned by" zuwies und zurueckkam,
+            // sah die alte Liste und musste die Anwendung neu starten, damit
+            // sie stimmt. Beobachtet und genau so gemeldet.
+            Scopes.CollectionChanged += (_, e) =>
+            {
+                foreach (ScanScope s in e.OldItems?.OfType<ScanScope>() ?? [])
+                {
+                    s.PropertyChanged -= OnScopeChangedForSatellite;
+                }
+
+                // Beim Leeren nennt die Sammlung keine alten Eintraege. Darum
+                // wird nach jeder Aenderung ueber den ganzen Bestand gegangen
+                // und erst ab-, dann angemeldet: doppelt angemeldet hiesse,
+                // die Liste bei jeder Eingabe zweimal zu bauen.
+                foreach (ScanScope s in Scopes)
+                {
+                    s.PropertyChanged -= OnScopeChangedForSatellite;
+                    s.PropertyChanged += OnScopeChangedForSatellite;
+                }
+
+                RefreshRangesOfSatellite();
+            };
             NetworkView = new NetworkViewModel();
             FindingsView = new FindingsViewModel(store);
 
@@ -1502,6 +1528,27 @@ namespace MyNetworkMonitor.Core.ViewModels
         /// Traegt nach, welche Bereiche auf den gerade gewaehlten Satelliten
         /// zeigen - fuer die Anzeige in der Satellitenverwaltung.
         /// </summary>
+        /// <summary>
+        /// Ein Bereich hat sich geaendert. Nur die Felder, die in der Liste
+        /// stehen, loesen ein Neubauen aus - <c>IsSelected</c> etwa aendert
+        /// sich bei jedem Haken im Kommandobalken und haette die Liste sonst
+        /// dauernd neu gebaut.
+        /// </summary>
+        private void OnScopeChangedForSatellite(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName is nameof(ScanScope.ScannedBy)
+                               or nameof(ScanScope.GroupDescription)
+                               or nameof(ScanScope.DeviceDescription)
+                               or nameof(ScanScope.Kind)
+                               or nameof(ScanScope.FirstIP)
+                               or nameof(ScanScope.LastIP)
+                               or nameof(ScanScope.Prefix)
+                               or nameof(ScanScope.PrefixLength))
+            {
+                RefreshRangesOfSatellite();
+            }
+        }
+
         public void RefreshRangesOfSatellite()
         {
             SatelliteEditor.RangesOfSelected.Clear();
