@@ -21,8 +21,22 @@ namespace MyNetworkMonitor.Core.Models
     public partial class Satellite : ObservableObject
     {
         /// <summary>
-        /// Anzeigename, zugleich der Wert, auf den <c>ScanScope.ScannedBy</c>
-        /// zeigt. Eindeutig innerhalb der Liste.
+        /// Die unveraenderliche Kennung, auf die <c>ScanScope.ScannedBy</c>
+        /// zeigt. Wird beim Anlegen vergeben und nirgends angezeigt.
+        /// <para>
+        /// Frueher zeigte ein Bereich auf den <em>Namen</em>. Seit der Satellit
+        /// seinen Namen selbst aendern kann, waere das eine Sollbruchstelle:
+        /// eine Umbenennung liesse jede Bereichszuordnung ins Leere laufen, und
+        /// zwar stillschweigend - der Bereich wuerde einfach nicht mehr
+        /// gescannt. Der Fingerabdruck taugt dafuer auch nicht, denn er
+        /// wechselt, wenn der Satellit sich einen neuen Schluessel ausstellt.
+        /// </para>
+        /// </summary>
+        [ObservableProperty] private string _id = Guid.NewGuid().ToString("N");
+
+        /// <summary>
+        /// Anzeigename. Frei aenderbar - die Zuordnung haengt an
+        /// <see cref="Id"/> und nicht hieran.
         /// </summary>
         [ObservableProperty] private string _name = string.Empty;
 
@@ -55,6 +69,88 @@ namespace MyNetworkMonitor.Core.Models
 
         /// <summary>Von welcher Adresse er sich zuletzt gemeldet hat. Nur Anzeige.</summary>
         [ObservableProperty] private string _remoteAddress = string.Empty;
+
+        // --- Wo er steht, aus seiner Begruessung -----------------------------
+        //
+        // Wird bei jeder Anmeldung ueberschrieben, nicht nur beim ersten Mal:
+        // nach einem Neustart oder einer neuen DHCP-Lease stimmt es sonst
+        // nicht mehr. Gespeichert wird es trotzdem, damit die Auswahl auch
+        // etwas zeigt, solange der Satellit gerade offline ist.
+
+        /// <summary>Sein Rechnername, wie er ihn selbst meldet.</summary>
+        [ObservableProperty] private string _siteHostName = string.Empty;
+
+        /// <summary>Seine Domaene. Leer, wenn er keiner angehoert.</summary>
+        [ObservableProperty] private string _siteDomain = string.Empty;
+
+        /// <summary>Seine IPv4-Adressen, durch Komma getrennt.</summary>
+        [ObservableProperty] private string _siteIpv4 = string.Empty;
+
+        /// <summary>Seine IPv6-Adressen, durch Komma getrennt.</summary>
+        [ObservableProperty] private string _siteIpv6 = string.Empty;
+
+        /// <summary>
+        /// Das Netz, das ihn am ehesten beschreibt, etwa <c>192.0.2.0/24</c>.
+        /// Steht in der Auswahl hinter dem Namen.
+        /// </summary>
+        [ObservableProperty] private string _siteNetwork = string.Empty;
+
+        /// <summary>Alle seine Netze, durch Komma getrennt - fuer den Tooltip.</summary>
+        [ObservableProperty] private string _siteNetworks = string.Empty;
+
+        /// <summary>
+        /// Wie er in der Auswahl "Scanned by satellite" steht: Name und Netz.
+        /// <para>
+        /// Ohne das Netz sieht man beim Zuweisen eines Bereichs nur einen
+        /// Namen und muss raten, ob dieser Satellit im richtigen Segment
+        /// sitzt.
+        /// </para>
+        /// </summary>
+        public string PickerText =>
+            string.IsNullOrWhiteSpace(SiteNetwork) ? Name : $"{Name}  ·  {SiteNetwork}";
+
+        partial void OnNameChanged(string value) => OnPropertyChanged(nameof(PickerText));
+        partial void OnSiteNetworkChanged(string value) => OnPropertyChanged(nameof(PickerText));
+
+        // --- Was er scannen soll ---------------------------------------------
+
+        /// <summary>
+        /// "Nur Geraete aus der Tabelle" fuer alle Verfahren dieses Satelliten.
+        /// </summary>
+        [ObservableProperty] private bool _onlyKnownTargets;
+
+        /// <summary>
+        /// Die Verfahren, die bei diesem Satelliten nur abfragen sollen, was
+        /// schon gefunden wurde - je Verfahren einzeln.
+        /// <para>
+        /// Wird beim Anlegen einmalig aus den Haupteinstellungen uebernommen
+        /// und ist danach unabhaengig: was ein Satellit scannen soll, haengt an
+        /// seinem Segment, nicht daran, was hier zuletzt eingestellt war. Eine
+        /// spaetere Aenderung an den Haupteinstellungen wirkt deshalb
+        /// ausdruecklich <em>nicht</em> auf bestehende Satelliten.
+        /// </para>
+        /// </summary>
+        public HashSet<string> OnlyKnownTargetsFor { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Ob der DNS-Quervergleich bei diesem Satelliten nur die Geraete
+        /// prueft, die im Lauf geantwortet haben.
+        /// <para>
+        /// Kein Verfahren, sondern eine Unterfunktion des Namensscans - steht
+        /// aber im selben Kasten, weil sie dieselbe Frage beantwortet und
+        /// dieselbe Zeit spart. Aus heisst: auch jede alte Zeile der Tabelle
+        /// wird geprueft, und genau so findet man Namen, die noch aufloesen,
+        /// obwohl das Geraet laengst weg ist.
+        /// </para>
+        /// </summary>
+        [ObservableProperty] private bool _crossCheckOnlyKnownTargets = true;
+
+        /// <summary>
+        /// Die Verfahren, die dieser Satellit einschraenken soll - fertig fuer
+        /// den Auftragstext.
+        /// </summary>
+        public IEnumerable<string> EffectiveOnlyKnownFor(IEnumerable<string> restrictable) =>
+            OnlyKnownTargets ? restrictable : OnlyKnownTargetsFor;
 
         /// <summary>
         /// Ob gerade eine Verbindung besteht. Wird nicht gespeichert: nach

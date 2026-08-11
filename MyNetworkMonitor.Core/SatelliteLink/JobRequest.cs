@@ -44,6 +44,13 @@ namespace MyNetworkMonitor.Core.SatelliteLink
         /// </summary>
         public List<string> OnlyKnownFor { get; } = [];
 
+        /// <summary>
+        /// Ob der DNS-Quervergleich nur die Geraete prueft, die im Lauf
+        /// geantwortet haben. <c>null</c> heisst: der Auftrag sagt nichts dazu,
+        /// es bleibt bei der Vorgabe des Satelliten.
+        /// </summary>
+        public bool? CrossCheckOnlyKnown { get; private set; }
+
         public List<int> TcpPorts { get; } = [];
         public List<int> UdpPorts { get; } = [];
 
@@ -65,7 +72,8 @@ namespace MyNetworkMonitor.Core.SatelliteLink
             IEnumerable<int>? tcpPorts = null,
             IEnumerable<int>? udpPorts = null,
             int? timeoutMs = null,
-            IEnumerable<string>? onlyKnownFor = null)
+            IEnumerable<string>? onlyKnownFor = null,
+            bool? crossCheckOnlyKnown = null)
         {
             ArgumentNullException.ThrowIfNull(scopes);
 
@@ -123,6 +131,10 @@ namespace MyNetworkMonitor.Core.SatelliteLink
 
             if (known.Count > 0) parts.Add("known=" + string.Join(',', known));
 
+            // Nur wenn abgeschaltet: die Vorgabe ist "an", und was der Auftrag
+            // nicht nennt, bleibt beim Satelliten auf seiner Vorgabe.
+            if (crossCheckOnlyKnown is false) parts.Add("crosscheck=all");
+
             if (timeoutMs is > 0) parts.Add("timeout=" + timeoutMs.Value.ToString(CultureInfo.InvariantCulture));
             if (dns is not null) parts.Add("dns=" + dns.Replace(" ", string.Empty));
             if (gateway is not null) parts.Add("gateway=" + gateway);
@@ -176,6 +188,14 @@ namespace MyNetworkMonitor.Core.SatelliteLink
                     case "ranges": ranges = value; break;
                     case "methods": job.MethodIds.AddRange(SplitList(value)); break;
                     case "known": job.OnlyKnownFor.AddRange(SplitList(value)); break;
+
+                    // "all" heisst: auch die alten Zeilen der Tabelle pruefen.
+                    // Alles andere heisst: nur, was in diesem Lauf geantwortet
+                    // hat.
+                    case "crosscheck":
+                        job.CrossCheckOnlyKnown = !value.Equals("all", StringComparison.OrdinalIgnoreCase);
+                        break;
+
                     case "tcp": job.TcpPorts.AddRange(ParsePorts(value)); break;
                     case "udp": job.UdpPorts.AddRange(ParsePorts(value)); break;
                     case "dns": dns = value; break;
