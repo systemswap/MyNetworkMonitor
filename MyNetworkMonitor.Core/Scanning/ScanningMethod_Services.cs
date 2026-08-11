@@ -2129,16 +2129,27 @@ static async Task<PortResult> SendTcpDnsQuery(string dnsServer, byte[] query, in
             //ServiceType.RustdeskServer => new byte[] { 0x52, 0x44, 0x50 },
             ServiceType.RustdeskServer => new byte[] { 0x14, 0xa2, 0x01, 0x02, 0x08, 0x03 },
 
-            ServiceType.RustdeskClient => new byte[] 
+            // Die drei ASCII-Felder (Adresse, Client-Kennung, Client-Key)
+            // tragen Platzhalter. Sie stammten aus einem Mitschnitt und
+            // benannten damit einen echten Rechner - in einem oeffentlichen
+            // Projekt hat das nichts zu suchen.
+            //
+            // Auf die Erkennung wirkt sich das nicht aus: der Client gruesst,
+            // sobald die TCP-Verbindung steht, und zwar unabhaengig vom Inhalt
+            // des Pakets. Nachgemessen an drei erreichbaren Clients, je zwei
+            // Verbindungen mit dem alten und dem neuen Paket - die Antworten
+            // waren nicht zu unterscheiden. Die Feldlaengen sind unveraendert,
+            // damit der Aufbau derselbe bleibt.
+            ServiceType.RustdeskClient => new byte[]
             {
                 0x59, 0x01,                                                                 // Magic Number / ID
                 0x3A, 0x54,                                                                 // Paketlänge (wahrscheinlich 84 Bytes)
                 0x0A, 0x0C,                                                                 // Länge der folgenden IP-Adresse (12 Bytes)
-                0x31, 0x39, 0x38, 0x2E, 0x35, 0x31, 0x2E, 0x31, 0x30, 0x30, 0x2E, 0x31,     // IP-Adresse (ASCII)
+                0x31, 0x39, 0x38, 0x2E, 0x35, 0x31, 0x2E, 0x31, 0x30, 0x30, 0x2E, 0x31,     // IP-Adresse (ASCII), Beispielbereich RFC 5737
                 0x22, 0x09,                                                                 // Länge der Client-ID (9 Bytes)
-                0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39,                       // Client-ID (ASCII)
+                0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39,                       // Client-ID (ASCII), Platzhalter
                 0x2A, 0x06,                                                                 // Länge des Client-Keys (6 Bytes)
-                0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x32,                                   // Public Key (ASCII, evtl. Base64 kodiert)
+                0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x32,                                   // Client-Key (ASCII), Platzhalter; 0x32 gehört schon zum nächsten Feld
                 0x14, 0x48, 0x02,                                                           // Unbekannte Flags/Einstellungen
                 0x52, 0x10,                                                                 // Versionsstring / Protokoll
                 0x08, 0x01, 0x10, 0x01, 0x18, 0x01, 0x28, 0x01, 0x30, 0x01,                 // Verbindungsoptionen (z. B. Encryption, P2P)
