@@ -655,11 +655,11 @@ public class ScanningMethod_Services
         //
         //   1c aa 01 04 08 <Port als Varint>
         //
-        // Gemessen an einem echten Server (dektma-psynco1, Port 5991): vier
-        // Verbindungen, und der zurueckgegebene Wert war jedes Mal genau der
-        // TCP-Quellport der eigenen Verbindung. Das ist mehr als ein Muster -
-        // die Antwort haengt an der Verbindung und laesst sich nicht zufaellig
-        // von einem anderen Dienst nachbilden.
+        // An einem echten Server ueber vier Verbindungen gemessen: der
+        // zurueckgegebene Wert war jedes Mal genau der TCP-Quellport der
+        // eigenen Verbindung. Das ist mehr als ein Muster - die Antwort haengt
+        // an der Verbindung und laesst sich nicht zufaellig von einem anderen
+        // Dienst nachbilden.
         //
         // Die Laenge ist nicht fest: ein Quellport unter 16384 passt in zwei
         // Varint-Byte statt drei. Darum wird das Laengenfeld gegen die
@@ -701,18 +701,18 @@ public class ScanningMethod_Services
         // Bit nach links geschoben; die unteren zwei Bit sagen, in wie vielen
         // Byte die Laenge selbst steht. Gemessen:
         //
-        //   206033U        19 Byte   0x48 -> 18 == 19-1   Kennung  6 Zeichen
-        //   10.242.67.98   19 Byte   0x48 -> 18 == 19-1   Kennung  6 Zeichen
-        //   10.242.70.22   45 Byte   0xb0 -> 44 == 45-1   Kennung 32 Zeichen
-        //   10.242.70.165  45 Byte   0xb0 -> 44 == 45-1   Kennung 32 Zeichen
+        //   Client A   19 Byte   0x48 -> 18 == 19-1   Kennung  6 Zeichen
+        //   Client B   19 Byte   0x48 -> 18 == 19-1   Kennung  6 Zeichen
+        //   Client C   45 Byte   0xb0 -> 44 == 45-1   Kennung 32 Zeichen
+        //   Client D   45 Byte   0xb0 -> 44 == 45-1   Kennung 32 Zeichen
         //
         // Genau hier lag der Fehler der frueheren Fassung: sie las 0x48 als
         // feste Marke und bestand auf 19 Byte. 0x48 ist aber 18<<2, also eine
-        // Laenge - ein Client mit laengerer Kennung schickt dort etwas
-        // anderes, und 10.242.70.22 fiel durch, obwohl er einer ist. Aus
-        // demselben Grund sind auch 0x10 und 0x06 nicht festgenagelt: das sind
-        // die Laengen des Rumpfes und der Kennung. Wie lang eine Kennung ist,
-        // laesst sich von aussen nicht entscheiden.
+        // Laenge - ein Client mit laengerer Kennung schickt dort etwas anderes
+        // und fiel durch, obwohl er einer ist. Aus demselben Grund sind auch
+        // 0x10 und 0x06 nicht festgenagelt: das sind die Laengen des Rumpfes
+        // und der Kennung. Wie lang eine Kennung ist, laesst sich von aussen
+        // nicht entscheiden.
         //
         // Die feste Laenge war zusaetzlich unzuverlaessig: in etwa einem von
         // acht Versuchen schiebt der Client drei Byte nach (ein zweiter Rahmen,
@@ -1983,7 +1983,7 @@ static async Task<PortResult> SendTcpDnsQuery(string dnsServer, byte[] query, in
             // VNC-Server beim Verbinden von sich aus mit "RFB 003.008" gruesst
             // und RustdeskServer unten nicht geprueft wird (jede Antwort zaehlt
             // als Treffer), wurde an jedem VNC-Rechner zusaetzlich ein
-            // RustDesk-Server gemeldet. Live nachgewiesen an 10.250.10.51.
+            // RustDesk-Server gemeldet. An einem echten Geraet nachgewiesen.
             // Ein RustDesk-Server belegt einen Block von fuenf Ports um seinen
             // Basisport herum: Basis-1 NAT-Test, Basis ID/Heartbeat, Basis+1
             // Relay, Basis+2 und +3 WebSocket. Mit der Vorgabe 21116 sind das
@@ -1994,9 +1994,10 @@ static async Task<PortResult> SendTcpDnsQuery(string dnsServer, byte[] query, in
             // schweigt auf alles, die WebSocket-Ports sprechen HTTP; beide
             // waeren hier nur ein Verbindungsversuch ohne moegliches Ergebnis.
             //
-            // 5990/5991 sind keine RustDesk-Vorgabe, sondern der Block, der in
-            // diesem Netz laeuft (dektma-psynco1, Basisport 5991: 5990-5994 am
-            // Lauschen). Mitgenommen, weil der Server sonst nie gefunden
+            // 5990/5991 sind keine RustDesk-Vorgabe, sondern ein abweichender
+            // Basisport (5991, also 5990-5994 am Lauschen), wie er bei einem
+            // selbst betriebenen Server vorkommt. Aufgenommen, weil ein solcher
+            // Server sonst nie gefunden
             // wuerde, und ungefaehrlich, weil die Antwort unten echt geprueft
             // wird - ein fremder Dienst auf 5990/5991 geht damit nicht als
             // RustDesk durch. Wer sie nicht braucht, streicht sie hier.
@@ -2133,9 +2134,9 @@ static async Task<PortResult> SendTcpDnsQuery(string dnsServer, byte[] query, in
                 0x59, 0x01,                                                                 // Magic Number / ID
                 0x3A, 0x54,                                                                 // Paketlänge (wahrscheinlich 84 Bytes)
                 0x0A, 0x0C,                                                                 // Länge der folgenden IP-Adresse (12 Bytes)
-                0x31, 0x30, 0x2E, 0x32, 0x34, 0x32, 0x2E, 0x37, 0x32, 0x2E, 0x32, 0x39,     // IP-Adresse (ASCII) → "10.242.72.29"
+                0x31, 0x30, 0x2E, 0x32, 0x34, 0x32, 0x2E, 0x37, 0x32, 0x2E, 0x32, 0x39,     // IP-Adresse (ASCII)
                 0x22, 0x09,                                                                 // Länge der Client-ID (9 Bytes)
-                0x32, 0x32, 0x36, 0x37, 0x36, 0x35, 0x38, 0x36, 0x31,                       // Client-ID → "226765861"
+                0x32, 0x32, 0x36, 0x37, 0x36, 0x35, 0x38, 0x36, 0x31,                       // Client-ID (ASCII)
                 0x2A, 0x06,                                                                 // Länge des Client-Keys (6 Bytes)
                 0x66, 0x31, 0x33, 0x38, 0x38, 0x37, 0x32,                                   // Public Key (ASCII, evtl. Base64 kodiert)
                 0x14, 0x48, 0x02,                                                           // Unbekannte Flags/Einstellungen
