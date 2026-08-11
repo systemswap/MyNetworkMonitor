@@ -119,6 +119,14 @@ namespace MyNetworkMonitor.Core.ViewModels
                 JobRunner = RunJobAsync
             };
 
+            // Womit ein neu angemeldeter Satellit startet. Nur beim Anlegen -
+            // danach fuehrt er seinen Umfang selbst, und Aenderungen hier
+            // wirken sich ausdruecklich nicht mehr auf ihn aus.
+            SatelliteEditor.ScanScopeDefaults = () =>
+                (Settings.OnlyKnownTargets,
+                 [.. Settings.OnlyKnownTargetsFor],
+                 Settings.CrossCheckOnlyKnownTargets);
+
             // Als Hauptscanner: ein Ergebnis eines Satelliten einmischen.
             SatelliteEditor.ResultArrived += (_, e) => MergeSatelliteResult(e.SatelliteName, e.DevicesJson);
 
@@ -167,6 +175,17 @@ namespace MyNetworkMonitor.Core.ViewModels
             {
                 Methods.Add(new ScanMethodChoice { Method = method });
             }
+
+            // Erst hier, nicht oben bei den uebrigen Zuweisungen an die
+            // Satellitenverwaltung: die Verfahrensliste entsteht in der
+            // Schleife darueber. Vorher gesetzt bliebe die Umfangsauswahl je
+            // Satellit leer - nur der Gesamthaken waere zu sehen.
+            //
+            // Verfahren, die lauschen statt zu fragen - SSDP, mDNS,
+            // ARP-Tabelle -, haben keine Zielliste und stehen darum nicht drin.
+            SatelliteEditor.RestrictableMethods =
+                [.. Methods.Where(m => m.CanRestrictToKnown)
+                           .Select(m => (m.Id, m.Method.DisplayName))];
 
             _engine.ProgressChanged += OnProgress;
             _engine.MethodFinished += OnMethodFinished;
@@ -921,6 +940,87 @@ namespace MyNetworkMonitor.Core.ViewModels
         /// <summary>Was an der Eingabe nicht stimmt - leer, wenn sie taugt.</summary>
         [ObservableProperty] private string _customTargetsProblem = string.Empty;
 
+        /// <summary>
+        /// Ein Adapter zur Auswahl fuer die eigene Eingabe. Der erste Eintrag
+        /// traegt eine leere Kennung und bedeutet "den nehmen, ueber den das
+        /// Betriebssystem ohnehin routen wuerde".
+        /// </summary>
+        public sealed class AdapterChoice
+        {
+            public required string Id { get; init; }
+            public required string Display { get; init; }
+            public override string ToString() => Display;
+        }
+
+        /// <summary>
+        /// Die Adapter, ueber die eine eigene Eingabe gescannt werden kann.
+        /// <para>
+        /// Noetig, weil ein einzelnes Ziel keinen Bereich hat, aus dem sich der
+        /// Adapter ableiten liesse. Ohne angehakten Bereich fiel bisher alles
+        /// auf den Standardadapter zurueck - was falsch ist, sobald der Rechner
+        /// in mehreren Netzen haengt und das Ziel im anderen steht.
+        /// </para>
+        /// </summary>
+        public ObservableCollection<AdapterChoice> CustomTargetAdapters { get; } = [];
+
+        [ObservableProperty] private AdapterChoice? _selectedCustomAdapter;
+
+        partial void OnSelectedCustomAdapterChanged(AdapterChoice? value)
+        {
+            if (CustomScope is not null) CustomScope.InterfaceId = value?.Id ?? string.Empty;
+
+            RefreshAvailability();
+        }
+
+        /// <summary>Liest die Adapterliste fuer die eigene Eingabe neu.</summary>
+        public void RefreshCustomTargetAdapters()
+        {
+            string? keep = SelectedCustomAdapter?.Id;
+
+            CustomTargetAdapters.Clear();
+            CustomTargetAdapters.Add(new AdapterChoice { Id = string.Empty, Display = "automatic" });
+
+            foreach (NetworkInterface nic in SafeInterfaces())
+            {
+                if (nic.OperationalStatus != OperationalStatus.Up) continue;
+                if (nic.NetworkInterfaceType is NetworkInterfaceType.Loopback or NetworkInterfaceType.Tunnel) continue;
+
+                string addresses = string.Join(", ", SafeIpv4(nic));
+                if (addresses.Length == 0) continue;
+
+                CustomTargetAdapters.Add(new AdapterChoice
+                {
+                    Id = nic.Id,
+                    Display = $"{nic.Name}  ·  {addresses}"
+                });
+            }
+
+            SelectedCustomAdapter =
+                CustomTargetAdapters.FirstOrDefault(a => a.Id == keep) ?? CustomTargetAdapters[0];
+
+            static NetworkInterface[] SafeInterfaces()
+            {
+                try { return NetworkInterface.GetAllNetworkInterfaces(); }
+                catch (NetworkInformationException) { return []; }
+            }
+
+            static IEnumerable<string> SafeIpv4(NetworkInterface nic)
+            {
+                List<string> result = [];
+
+                try
+                {
+                    foreach (UnicastIPAddressInformation u in nic.GetIPProperties().UnicastAddresses)
+                    {
+                        if (u.Address.AddressFamily == AddressFamily.InterNetwork) result.Add(u.Address.ToString());
+                    }
+                }
+                catch (NetworkInformationException) { }
+
+                return result;
+            }
+        }
+
         partial void OnCustomTargetsChanged(string value)
         {
             if (string.IsNullOrWhiteSpace(value))
@@ -931,6 +1031,14 @@ namespace MyNetworkMonitor.Core.ViewModels
             else if (ScanScope.TryParseCustom(value, out ScanScope? parsed, out string? problem))
             {
                 CustomScope = parsed;
+
+                // Die Adapterwahl gilt auch fuer eine neu getippte Eingabe -
+                // sonst muesste man sie nach jeder Aenderung erneut treffen.
+                if (CustomScope is not null)
+                {
+                    CustomScope.InterfaceId = SelectedCustomAdapter?.Id ?? string.Empty;
+                }
+
                 CustomTargetsProblem = string.Empty;
             }
             else
@@ -1300,8 +1408,10 @@ namespace MyNetworkMonitor.Core.ViewModels
             foreach (IGrouping<string, ScanScope> group in
                      remote.GroupBy(s => s.ScannedBy, StringComparer.OrdinalIgnoreCase))
             {
-                Satellite? satellite = SatelliteEditor.All.FirstOrDefault(s =>
-                    string.Equals(s.Name, group.Key, StringComparison.OrdinalIgnoreCase));
+                // Zugeordnet wird ueber die Kennung, nicht ueber den Namen: der
+                // Name ist aenderbar, und eine Umbenennung darf keine
+                // Zuordnung zerreissen.
+                Satellite? satellite = SatelliteEditor.ById(group.Key);
 
                 if (satellite is null || !satellite.IsConnected || !satellite.Approved)
                 {
@@ -1309,7 +1419,7 @@ namespace MyNetworkMonitor.Core.ViewModels
                     // stillschweigend oertlich gescannt - sonst stuenden im
                     // Ergebnis Zahlen, die anders zustande kamen als
                     // angenommen.
-                    missing.Add(group.Key);
+                    missing.Add(satellite?.Name ?? SatelliteEditor.DisplayNameOf(group.Key));
                     continue;
                 }
 
@@ -1320,11 +1430,16 @@ namespace MyNetworkMonitor.Core.ViewModels
                     Settings.UdpPorts,
                     Settings.PortTimeoutMs,
 
-                    // "Nur abfragen, was schon dasteht" muss mit: sonst laeuft
-                    // derselbe Haken oertlich und beim Satelliten verschieden.
-                    Settings.OnlyKnownTargets
-                        ? Methods.Where(m => m.CanRestrictToKnown).Select(m => m.Id)
-                        : Settings.OnlyKnownTargetsFor);
+                    // "Nur abfragen, was schon dasteht" kommt jetzt vom
+                    // Satelliten und nicht mehr aus den Haupteinstellungen:
+                    // was sich einzuschraenken lohnt, haengt an seinem Segment.
+                    // Ein Bereich voller offline-Adressen kostet bei der
+                    // Diensterkennung jedes Mal das volle Zeitlimit je Port -
+                    // an einem anderen Standort kann genau das falsch sein.
+                    satellite.EffectiveOnlyKnownFor(
+                        Methods.Where(m => m.CanRestrictToKnown).Select(m => m.Id)),
+
+                    satellite.CrossCheckOnlyKnownTargets);
 
                 if (await SatelliteEditor.SendJobAsync(satellite, jobText, CancellationToken.None))
                 {
@@ -1397,8 +1512,11 @@ namespace MyNetworkMonitor.Core.ViewModels
         {
             if (Dialogs is null) return false;
 
+            // Im Bereich steht die Kennung; in einer Meldung will die niemand
+            // lesen - dort gehoert der Name hin.
             List<string> names = [.. orphaned
-                .Select(s => s.ScannedBy)
+                .Select(s => SatelliteEditor.DisplayNameOf(s.ScannedBy))
+                .Where(n => !string.IsNullOrWhiteSpace(n))
                 .Distinct(StringComparer.OrdinalIgnoreCase)];
 
             string who = names.Count == 1
@@ -1459,6 +1577,11 @@ namespace MyNetworkMonitor.Core.ViewModels
             // Einstellungen: es zaehlt, was der Hauptscanner angehakt hat, und
             // nicht, was jemand am Satelliten einmal eingestellt hat.
             foreach (string id in job.OnlyKnownFor) settings.OnlyKnownTargetsFor.Add(id);
+
+            // Ebenso der Quervergleich: nennt der Auftrag ihn nicht, bleibt es
+            // bei der Vorgabe dieser Anlage.
+            settings.CrossCheckOnlyKnownTargets =
+                job.CrossCheckOnlyKnown ?? Settings.CrossCheckOnlyKnownTargets;
 
             List<IScanMethod> methods = job.MethodIds.Count > 0
                 ? [.. _engine.Methods.Where(m => job.MethodIds.Contains(m.Id, StringComparer.OrdinalIgnoreCase))]
@@ -1549,15 +1672,46 @@ namespace MyNetworkMonitor.Core.ViewModels
             }
         }
 
+        /// <summary>
+        /// Schreibt Bereiche, die noch auf den <em>Namen</em> eines Satelliten
+        /// zeigen, einmalig auf dessen Kennung um.
+        /// <para>
+        /// Wird beim Laden aufgerufen. Findet sich kein Satellit des Namens,
+        /// bleibt der Wert stehen: der Bereich gilt dann als nicht zugeordnet
+        /// und wird beim Lauf gemeldet. Ihn stillschweigend zu leeren hiesse,
+        /// ihn ab dem naechsten Lauf von hier aus zu scannen - mit einem
+        /// anderen Ergebnis, ohne dass jemand davon wuesste.
+        /// </para>
+        /// </summary>
+        public void MigrateScannedByToIds()
+        {
+            int changed = 0;
+
+            foreach (ScanScope scope in Scopes)
+            {
+                if (string.IsNullOrWhiteSpace(scope.ScannedBy)) continue;
+
+                string id = SatelliteEditor.ResolveToId(scope.ScannedBy);
+
+                if (!string.Equals(id, scope.ScannedBy, StringComparison.Ordinal))
+                {
+                    scope.ScannedBy = id;
+                    changed++;
+                }
+            }
+
+            if (changed > 0) ScopeEditor.Save();
+        }
+
         public void RefreshRangesOfSatellite()
         {
             SatelliteEditor.RangesOfSelected.Clear();
 
-            string? name = SatelliteEditor.Selected?.Name;
-            if (string.IsNullOrWhiteSpace(name)) return;
+            string? id = SatelliteEditor.Selected?.Id;
+            if (string.IsNullOrWhiteSpace(id)) return;
 
             foreach (ScanScope scope in Scopes.Where(s =>
-                         string.Equals(s.ScannedBy, name, StringComparison.OrdinalIgnoreCase)))
+                         string.Equals(s.ScannedBy, id, StringComparison.OrdinalIgnoreCase)))
             {
                 string where = scope.Kind switch
                 {
