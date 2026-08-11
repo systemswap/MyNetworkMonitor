@@ -98,12 +98,18 @@ public partial class ShellView : Window
             scopeFlyout.Opened += (_, _) => BuildScopeRows();
         }
 
+        // Die Version gehoert in den Titel: die letzte Stelle wird bei jeder
+        // Veroeffentlichung hochgezaehlt, und bei einer Rueckfrage ist das die
+        // erste Angabe, nach der gefragt wird. Vierstellig, wie sie in der
+        // csproj steht.
+        Title = $"My Network Monitor  v{OwnVersion()}";
+
         // Beim Ausprobieren mit zwei Instanzen muss man sie auseinanderhalten
         // koennen - der Name des Zustandsordners steht dafuer im Titel.
         if (AppPaths.HasOwnState)
         {
             string root = System.IO.Path.GetDirectoryName(SettingsFolder()) ?? string.Empty;
-            Title = $"My Network Monitor - {System.IO.Path.GetFileName(root)}";
+            Title += $" - {System.IO.Path.GetFileName(root)}";
         }
 
         BuildServiceFacets();
@@ -209,14 +215,18 @@ public partial class ShellView : Window
     private void bt_FirewallRemove_Click(object? sender, RoutedEventArgs e) =>
         _shell.SatelliteEditor.RemoveFirewallRule();
 
+    /// <summary>Liest Name, Domaene und Adressen dieser Anlage neu.</summary>
+    private void bt_HostInfoRefresh_Click(object? sender, RoutedEventArgs e) =>
+        _shell.SatelliteEditor.RefreshHostInfo();
+
     /// <summary>
-    /// Uebernimmt einen Port aus der Firewall-Liste als Lauschport. Die Liste
+    /// Uebernimmt einen Port aus der Firewall-Auswahl als Lauschport. Die Liste
     /// ist damit eine Auswahl und nicht nur eine Auskunft: wer keine Rechte hat,
     /// eine Regel anzulegen, sucht sich hier einen Port, der ohnehin offen ist.
     /// </summary>
-    private void lst_AllowedPorts_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    private void cb_AllowedPorts_SelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        if (!_ready || sender is not ListBox list || list.SelectedItem is not string entry) return;
+        if (!_ready || sender is not ComboBox list || list.SelectedItem is not string entry) return;
 
         // Die Zeile sieht aus wie "TCP 5900-5904  (only for ...)". Genommen
         // wird die erste Zahl - bei einem Bereich der Anfang, denn irgendeiner

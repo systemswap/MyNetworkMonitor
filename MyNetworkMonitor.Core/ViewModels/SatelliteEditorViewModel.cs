@@ -4,6 +4,7 @@ using System.Security.Cryptography.X509Certificates;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MyNetworkMonitor.Core.Models;
+using MyNetworkMonitor.Core.Network;
 using MyNetworkMonitor.Core.Persistence;
 using MyNetworkMonitor.Core.SatelliteLink;
 using MyNetworkMonitor.Core.ServiceLink;
@@ -132,7 +133,8 @@ namespace MyNetworkMonitor.Core.ViewModels
                                or nameof(MainScanner.IsApproved)
                                or nameof(MainScanner.IsActive)
                                or nameof(MainScanner.Status)
-                               or nameof(MainScanner.Display))
+                               or nameof(MainScanner.Display)
+                               or nameof(MainScanner.TargetHost))
             {
                 return;
             }
@@ -204,6 +206,9 @@ namespace MyNetworkMonitor.Core.ViewModels
                 foreach (MainScanner h in MainScannerFile.Load(_hostsPath)) Hosts.Add(h);
 
                 SelectedHost ??= Hosts.FirstOrDefault();
+
+                LoadOwnName();
+                RefreshHostInfo();
 
                 Status = All.Count == 0
                     ? "No satellites yet."
@@ -601,7 +606,9 @@ namespace MyNetworkMonitor.Core.ViewModels
             _clients[host] = client;
             host.IsActive = true;
 
-            client.Start(host.Host, host.Port);
+            // Nicht host.Host: ist eine Domaene eingetragen und der Name kurz,
+            // wird erst beides zusammen aufloesbar.
+            client.Start(host.TargetHost, host.Port);
         }
 
         /// <summary>Legt die Verbindung zu einem Empfaenger ab.</summary>
@@ -641,8 +648,144 @@ namespace MyNetworkMonitor.Core.ViewModels
         /// Der Name, unter dem sich diese Anlage bei den Hauptscannern meldet.
         /// Vorgabe ist der Rechnername - er ist da, er ist eindeutig, und
         /// niemand muss ihn tippen.
+        /// <para>
+        /// Aenderbar, weil der Rechnername nicht immer taugt: zwei Anlagen
+        /// koennen gleich heissen, und im Bereich steht unter "Scanned by"
+        /// dieser Name, nicht der Fingerabdruck. Wer ihn aendert, muss die
+        /// Bereiche druebem nachziehen - darum steht der Hinweis daneben.
+        /// </para>
         /// </summary>
         [ObservableProperty] private string _ownName = Environment.MachineName;
+
+        /// <summary>
+        /// Wo der geaenderte Eigenname liegt - maschinenweit, neben Schluessel
+        /// und Hostliste.
+        /// <para>
+        /// Muss der Dienst mitlesen koennen: er meldet sich sonst weiter unter
+        /// dem Rechnernamen, waehrend das Fenster den geaenderten anzeigt, und
+        /// am Hauptscanner staende der Satellit zweimal.
+        /// </para>
+        /// </summary>
+        public const string OwnNameFileName = "satelliteName.txt";
+
+        private string _ownNamePath = string.Empty;
+
+        partial void OnOwnNameChanged(string value)
+        {
+            if (_loading) return;
+
+            SaveOwnName();
+        }
+
+        private void LoadOwnName()
+        {
+            _ownNamePath = Path.Combine(StateFolder, OwnNameFileName);
+
+            try
+            {
+                if (!File.Exists(_ownNamePath)) return;
+
+                string stored = File.ReadAllText(_ownNamePath).Trim();
+
+                // Ein leerer Inhalt heisst "nie etwas eingetragen", nicht
+                // "namenlos": ohne Namen faende kein Bereich diesen Satelliten.
+                if (stored.Length > 0) OwnName = stored;
+            }
+            catch (Exception)
+            {
+                // Der Rechnername bleibt stehen - dafuer ist er die Vorgabe.
+            }
+        }
+
+        private void SaveOwnName()
+        {
+            if (string.IsNullOrEmpty(_ownNamePath)) return;
+
+            try
+            {
+                AppPaths.EnsureMachineFolder();
+
+                File.WriteAllText(_ownNamePath, OwnName?.Trim() ?? string.Empty);
+            }
+            catch (Exception ex)
+            {
+                ClientStatus = $"The name could not be saved: {ex.Message}";
+            }
+        }
+
+        /// <summary>Setzt den Namen auf den Rechnernamen zurueck.</summary>
+        [RelayCommand]
+        private void ResetOwnName() => OwnName = Environment.MachineName;
+
+        // ------------------------------------------- Was diese Anlage ist
+
+        /// <summary>Der Rechnername, wie das Betriebssystem ihn fuehrt.</summary>
+        [ObservableProperty] private string _hostName = Environment.MachineName;
+
+        /// <summary>Die Domaene dieses Rechners, oder ein Strich.</summary>
+        [ObservableProperty] private string _hostDomain = "-";
+
+        /// <summary>Die IPv4-Adressen der aktiven Adapter, durch Komma getrennt.</summary>
+        [ObservableProperty] private string _hostIpv4 = "-";
+
+        /// <summary>Die IPv6-Adressen der aktiven Adapter, durch Komma getrennt.</summary>
+        [ObservableProperty] private string _hostIpv6 = "-";
+
+        /// <summary>
+        /// Liest, unter welchem Namen und welchen Adressen diese Anlage
+        /// erreichbar ist.
+        /// <para>
+        /// Steht auf der Hauptscanner-Seite, weil genau das die Angaben sind,
+        /// die man drueben am Satelliten in seine Empfaengerliste eintragen
+        /// muss. Sie hier abzulesen erspart den Weg ueber ipconfig auf einem
+        /// Rechner, an dem man vielleicht gar nicht sitzt.
+        /// </para>
+        /// </summary>
+        public void RefreshHostInfo()
+        {
+            HostName = Environment.MachineName;
+
+            string domain;
+            try
+            {
+                domain = System.Net.NetworkInformation.IPGlobalProperties
+                    .GetIPGlobalProperties().DomainName ?? string.Empty;
+            }
+            catch (Exception)
+            {
+                domain = string.Empty;
+            }
+
+            HostDomain = domain.Length == 0 ? "-" : domain;
+
+            List<AdapterInfo> adapters = [];
+            try
+            {
+                adapters = NetworkAdapters.Read(includeDown: false);
+            }
+            catch (Exception)
+            {
+                // Ohne Adapterliste bleiben die Striche stehen.
+            }
+
+            // Nur was ein Satellit auch ansprechen kann: Loopback und die
+            // link-lokalen Adressen fuehrten hier bloss in die Irre, weil sie
+            // aus einem anderen Segment nie erreichbar sind.
+            string ipv4 = string.Join(", ", adapters
+                .SelectMany(a => a.Ipv4Addresses)
+                .Where(ip => !ip.StartsWith("127.", StringComparison.Ordinal)
+                          && !ip.StartsWith("169.254.", StringComparison.Ordinal))
+                .Distinct(StringComparer.OrdinalIgnoreCase));
+
+            string ipv6 = string.Join(", ", adapters
+                .SelectMany(a => a.Ipv6Addresses)
+                .Where(ip => !ip.StartsWith("fe80", StringComparison.OrdinalIgnoreCase)
+                          && ip != "::1")
+                .Distinct(StringComparer.OrdinalIgnoreCase));
+
+            HostIpv4 = ipv4.Length == 0 ? "-" : ipv4;
+            HostIpv6 = ipv6.Length == 0 ? "-" : ipv6;
+        }
 
         /// <summary>Setzt die eigene Version fuer die Begruessung.</summary>
         public void SetAppVersion(string appVersion) => _appVersion = appVersion ?? string.Empty;
