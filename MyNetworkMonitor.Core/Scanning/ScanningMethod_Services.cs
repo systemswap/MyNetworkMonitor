@@ -677,30 +677,71 @@ public class ScanningMethod_Services
 
         // ?? RustDesk-Client mit "Direct IP Access" (Port 21118)
         //
-        // Der Client gruesst beim Verbinden von sich aus mit genau 19 Byte:
+        // Der Client gruesst beim Verbinden von sich aus - und zwar unabhaengig
+        // davon, was man ihm schickt. Gegengeprueft mit dem richtigen Paket,
+        // mit Muell und ganz ohne Nutzlast: die Antwort kam jedes Mal. Anders
+        // als beim Server (der schweigt auf alles ausser seinem Hello) ist hier
+        // also nicht das gesendete Paket der Filter, sondern allein diese
+        // Pruefung - jeder Dienst auf 21118, der beim Verbinden gruesst, kaeme
+        // sonst als RustDesk-Client durch.
         //
-        //   48 4a 10 0a 06 <6 Zeichen> 12 06 <6 Zeichen>
+        // Der Aufbau, an vier lebenden Clients gemessen:
         //
-        // Vier Verbindungen gegen einen echten Client (198.51.100.5) verglichen:
-        // der Vorspann und die ersten sechs Zeichen bleiben ueber alle
-        // Verbindungen gleich - die haengen am Geraet. Die zweiten sechs
-        // wechseln jedes Mal, das ist die Challenge der Sitzung. Geprueft wird
-        // deshalb nur das Geruest, nicht der Inhalt der beiden Felder.
+        //   b0 │ 4a │ 2a │ 0a 20 <32 Zeichen> │ 12 06 <6 Zeichen>
+        //   ^    ^    ^    ^                    ^
+        //   |    |    |    Feld 1: Kennung      Feld 2: Challenge
+        //   |    |    Laenge des protobuf-Rumpfes
+        //   |    protobuf Feld 9, laengenkodiert  <- konstant
+        //   Rahmenlaenge, um zwei Bit nach links geschoben
+        //
+        // Fest sind nur zwei Byte: die 0x4A an Position 1 und die 0x0A an
+        // Position 3. Alles andere sind Laengen oder Inhalte.
+        //
+        // Byte 0 ist der Rahmen von RustDesk: die Laenge des Restes, um zwei
+        // Bit nach links geschoben; die unteren zwei Bit sagen, in wie vielen
+        // Byte die Laenge selbst steht. Gemessen:
+        //
+        //   client-a        19 Byte   0x48 -> 18 == 19-1   Kennung  6 Zeichen
+        //   198.51.100.2   19 Byte   0x48 -> 18 == 19-1   Kennung  6 Zeichen
+        //   198.51.100.3   45 Byte   0xb0 -> 44 == 45-1   Kennung 32 Zeichen
+        //   198.51.100.4  45 Byte   0xb0 -> 44 == 45-1   Kennung 32 Zeichen
+        //
+        // Genau hier lag der Fehler der frueheren Fassung: sie las 0x48 als
+        // feste Marke und bestand auf 19 Byte. 0x48 ist aber 18<<2, also eine
+        // Laenge - ein Client mit laengerer Kennung schickt dort etwas
+        // anderes, und 198.51.100.3 fiel durch, obwohl er einer ist. Aus
+        // demselben Grund sind auch 0x10 und 0x06 nicht festgenagelt: das sind
+        // die Laengen des Rumpfes und der Kennung. Wie lang eine Kennung ist,
+        // laesst sich von aussen nicht entscheiden.
+        //
+        // Die feste Laenge war zusaetzlich unzuverlaessig: in etwa einem von
+        // acht Versuchen schiebt der Client drei Byte nach (ein zweiter Rahmen,
+        // 08 2a 00), die im selben Lesevorgang ankommen. Das Geraet wurde also
+        // mal erkannt und mal nicht. Darum wird auf ">= Rahmenlaenge" geprueft
+        // und nicht auf Gleichheit.
         //
         // Damit ist der Client vom Serverdienst (21115/21116/21117) getrennt:
         // wer hier so antwortet, laesst sich im LAN direkt ueber seine IP
         // fernsteuern.
         if (service == ServiceType.RustdeskClient)
         {
-            static bool IsPrintable(byte b) => b >= 0x21 && b < 0x7F;
+            // Nur der einbytige Rahmen wird ausgewertet - er reicht bis 63 Byte
+            // Rumpf und damit fuer jede gemessene Kennung. Bei einer laengeren
+            // steht die Laenge in mehreren Byte; deren Reihenfolge ist hier
+            // nicht gemessen, und geraten wird sie nicht. Der Rahmen geht dann
+            // in die Pruefung nicht ein, das Geruest darunter schon.
+            bool singleByteFrame = response.Length > 0 && (response[0] & 0x03) == 0;
+            int framed = response.Length > 0 ? response[0] >> 2 : 0;
 
-            serviceMatched = response.Length == 19
-                && response[0] == 0x48 && response[1] == 0x4A
-                && response[2] == 0x10 && response[3] == 0x0A
-                && response[4] == 0x06
-                && response[11] == 0x12 && response[12] == 0x06
-                && response.Skip(5).Take(6).All(IsPrintable)
-                && response.Skip(13).Take(6).All(IsPrintable);
+            serviceMatched = response.Length >= 6
+                && response[1] == 0x4A                          // protobuf Feld 9
+                && response[3] == 0x0A                          // Feld 1: die Kennung
+                && response[4] > 0                              // sie ist nicht leer
+                && response[2] >= response[4] + 2               // der Rumpf traegt sie
+                && response.Length >= 5 + response[4]           // ... und sie ist da
+                && (!singleByteFrame
+                    || (response.Length >= framed + 1           // Rahmen vollstaendig
+                        && response[2] == framed - 2));         // und passt zum Rumpf
         }
 
         // ?? TeamViewer-Erkennung
