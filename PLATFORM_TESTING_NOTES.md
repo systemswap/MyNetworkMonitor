@@ -1,10 +1,10 @@
 # Plattform-Testnotizen
 
 Merkzettel für offene Tests, die nur auf der jeweils anderen Plattform
-nachgeholt werden können. Wird von Claude gepflegt: neue Punkte kommen rein,
-wenn auf einer Plattform entwickelt/getestet wurde und die andere noch
-absteht; erledigte Punkte wandern nach unten in den Verlauf statt gelöscht zu
-werden, damit nachvollziehbar bleibt, was wann geprüft wurde.
+nachgeholt werden können: neue Punkte kommen rein, wenn auf einer Plattform
+entwickelt/getestet wurde und die andere noch absteht; erledigte Punkte
+wandern nach unten in den Verlauf statt gelöscht zu werden, damit
+nachvollziehbar bleibt, was wann geprüft wurde.
 
 ## Offen: braucht Test unter Windows
 
@@ -62,7 +62,6 @@ werden, damit nachvollziehbar bleibt, was wann geprüft wurde.
   Testläufen in derselben Sitzung nicht mehr geantwortet hat (Rate-Limiting),
   nicht auf einen Fehler im Code. Sauberer Einzeltest (eine Solicitation,
   ausreichend Abstand zur letzten) steht noch aus.
-  Details: siehe Claude-Memory `ipv6_ra_mld_raw_capture_untested.md`.
 
 ---
 
