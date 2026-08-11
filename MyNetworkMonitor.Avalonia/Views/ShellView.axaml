@@ -491,9 +491,34 @@
                             Padding="11,8">
                       <StackPanel Spacing="4">
                         <TextBlock Text="OWN ENTRY" FontSize="9" Foreground="{StaticResource Dim}"/>
-                        <TextBox x:Name="tb_CustomTargets" Height="24" FontSize="11"
-                                 Watermark="192.168.1.1-254 · 10.0.0.5 · 192.168.0.0/24 · host.local"
-                                 Text="{Binding CustomTargets}"/>
+
+                        <!--
+                            Der Adapter links vom Feld: ein einzelnes Ziel hat
+                            keinen Bereich, aus dem sich der Adapter ableiten
+                            liesse, also faellt es sonst immer auf den mit dem
+                            Standardgateway zurueck. Haengt der Rechner in
+                            mehreren Netzen, gibt es damit keine Moeglichkeit,
+                            das andere anzusprechen. "automatic" ist die
+                            Vorgabe und aendert nichts am bisherigen Verhalten.
+                        -->
+                        <Grid ColumnDefinitions="150,*" ColumnSpacing="6">
+                          <ComboBox Grid.Column="0" x:Name="cb_CustomAdapter"
+                                    Height="24" FontSize="10.5"
+                                    HorizontalAlignment="Stretch"
+                                    ItemsSource="{Binding CustomTargetAdapters}"
+                                    SelectedItem="{Binding SelectedCustomAdapter}"
+                                    ToolTip.Tip="Which adapter the entry is scanned through. Automatic uses the adapter the system would route through anyway.">
+                            <ComboBox.ItemTemplate>
+                              <DataTemplate>
+                                <TextBlock Text="{Binding Display}" ToolTip.Tip="{Binding Display}"/>
+                              </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                          </ComboBox>
+
+                          <TextBox Grid.Column="1" x:Name="tb_CustomTargets" Height="24" FontSize="11"
+                                   Watermark="10.0.0.5 · host.local · 192.168.1.1-254 · 192.168.0.0/24 · several separated by comma"
+                                   Text="{Binding CustomTargets}"/>
+                        </Grid>
                         <TextBlock x:Name="tb_CustomProblem" FontSize="9.5"
                                    Foreground="{StaticResource Crit}"
                                    Text="{Binding CustomTargetsProblem}"
@@ -1440,29 +1465,43 @@
                     -->
                     <Grid ColumnDefinitions="130,*" RowDefinitions="Auto"
                           ColumnSpacing="10">
-                      <TextBlock Grid.Row="0" Grid.Column="0" Text="Scanned by" Classes="settingLabel"/>
+                      <TextBlock Grid.Row="0" Grid.Column="0" Text="Scanned by satellite:"
+                                 Classes="settingLabel" TextWrapping="Wrap"/>
 
                       <!--
                           Auswahl statt Textfeld: ein vertippter Name zeigt auf
                           keinen Satelliten, und der Bereich wuerde beim Lauf
                           als "nicht gescannt" ausgewiesen, ohne dass man den
-                          Grund saehe. Der leere Eintrag ganz oben bedeutet
-                          "von diesem Rechner aus".
+                          Grund saehe. Der erste Eintrag bedeutet "von diesem
+                          Rechner aus".
 
-                          Die Namensliste haengt am Fenster und nicht an
-                          diesem Bereich: der DataContext ist hier der
-                          ScopeEditor, und der kennt die Satelliten nicht.
-                          Ohne den Umweg ueber ShellRoot bleibt die Auswahl
-                          leer, obwohl Satelliten verbunden sind.
+                          Angezeigt wird Name und Netz, gespeichert wird die
+                          Kennung - darum SelectedValue und nicht SelectedItem.
+                          Ohne diese Trennung stuende der Name im Bereich, und
+                          eine Umbenennung des Satelliten liesse die Zuordnung
+                          stumm ins Leere laufen.
+
+                          Die Liste haengt am Fenster und nicht an diesem
+                          Bereich: der DataContext ist hier der ScopeEditor, und
+                          der kennt die Satelliten nicht. Ohne den Umweg ueber
+                          ShellRoot bliebe die Auswahl leer, obwohl Satelliten
+                          verbunden sind.
                       -->
-                      <ComboBox Grid.Row="0" Grid.Column="1" Width="190"
+                      <ComboBox Grid.Row="0" Grid.Column="1" Width="260"
                                 HorizontalAlignment="Left"
-                                ItemsSource="{Binding #ShellRoot.DataContext.SatelliteEditor.NamesForPicker}"
-                                SelectedItem="{Binding Selected.ScannedBy}"/>
+                                ItemsSource="{Binding #ShellRoot.DataContext.SatelliteEditor.SatellitesForPicker}"
+                                SelectedValueBinding="{Binding Id}"
+                                SelectedValue="{Binding Selected.ScannedBy}">
+                        <ComboBox.ItemTemplate>
+                          <DataTemplate>
+                            <TextBlock Text="{Binding Display}" ToolTip.Tip="{Binding Networks}"/>
+                          </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                      </ComboBox>
                     </Grid>
 
                     <TextBlock Classes="settingHint"
-                               Text="The satellite that scans this range - an instance running as a service inside that segment. Empty means this machine does it. Manage the list under Satellites. Not in service yet: the value is kept, but every range is still scanned from here."/>
+                               Text="The satellite that scans this range - an instance running as a service inside that segment. The network behind the name shows which segment it sits in, so you can tell which one is the right one. The first entry means this machine does it."/>
                   </StackPanel>
                 </Border>
 
@@ -1709,7 +1748,7 @@
                                 FontSize="10"/>
                       </Grid>
 
-                      <Grid ColumnDefinitions="90,*" RowDefinitions="Auto,Auto,Auto,Auto"
+                      <Grid ColumnDefinitions="90,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto"
                             ColumnSpacing="10" RowSpacing="5">
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Hostname" Classes="settingLabel"/>
                         <SelectableTextBlock Grid.Row="0" Grid.Column="1" FontSize="11" TextWrapping="Wrap"
@@ -1726,6 +1765,11 @@
                         <TextBlock Grid.Row="3" Grid.Column="0" Text="IPv6" Classes="settingLabel"/>
                         <SelectableTextBlock Grid.Row="3" Grid.Column="1" FontSize="11" TextWrapping="Wrap"
                                              Text="{Binding SatelliteEditor.HostIpv6}"/>
+
+                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Networks" Classes="settingLabel"/>
+                        <SelectableTextBlock Grid.Row="4" Grid.Column="1" FontSize="11" TextWrapping="Wrap"
+                                             Foreground="{StaticResource Teal}"
+                                             Text="{Binding SatelliteEditor.HostNetworks}"/>
                       </Grid>
 
                       <TextBlock Classes="settingHint"
@@ -1807,7 +1851,7 @@
                           Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
                           BorderThickness="1,1,1,0" CornerRadius="4,4,0,0" Padding="16,14,16,10">
                     <StackPanel Spacing="9">
-                      <TextBlock Text="2   APPROVE" Classes="settingsHead"/>
+                      <TextBlock Text="2   APPROVE  (TCP/IP · TLS)" Classes="settingsHead"/>
 
                       <TextBlock Classes="settingHint"
                                  Text="A satellite that connects for the first time appears below and waits. It gets no jobs until you approve it - one click, and from then on it is known by its key, not by its address."/>
@@ -1926,11 +1970,66 @@
                       </StackPanel>
                     </Border>
 
+                    <!--
+                        Der Scan-Umfang gehoert je Satellit und nicht einmal
+                        fuer alle: ob es sich lohnt, ein Verfahren auf die schon
+                        gefundenen Geraete zu beschraenken, haengt am Segment.
+                        In einem Bereich voller unbelegter Adressen kostet die
+                        Diensterkennung an jeder toten Adresse das volle
+                        Zeitlimit je Port - anderswo waere dieselbe
+                        Einschraenkung ein Verlust.
+
+                        Vorbelegt aus den Haupteinstellungen, aber nur beim
+                        Anlegen: eine spaetere Aenderung dort soll nicht
+                        stillschweigend jeden Satelliten mitaendern.
+                    -->
                     <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
                             BorderThickness="1" CornerRadius="4" Padding="16,14"
                             IsVisible="{Binding SatelliteEditor.Selected, Converter={x:Static ObjectConverters.IsNotNull}}">
                       <StackPanel Spacing="10">
-                        <TextBlock Text="4   RUN AND WATCH" Classes="settingsHead"/>
+                        <TextBlock Text="4   SCAN SCOPE FOR THIS SATELLITE" Classes="settingsHead"/>
+
+                        <TextBlock Classes="settingHint"
+                                   Text="Scan only devices in table - per method, for this satellite alone. Taken from your main settings when the satellite first connected; changing the main settings later does not touch it."/>
+
+                        <CheckBox Content="All methods" FontSize="11"
+                                  ToolTip.Tip="Overrides the individual boxes below"
+                                  IsChecked="{Binding SatelliteEditor.Selected.OnlyKnownTargets}"/>
+
+                        <ItemsControl ItemsSource="{Binding SatelliteEditor.ScopeMethods}"
+                                      IsEnabled="{Binding !SatelliteEditor.Selected.OnlyKnownTargets}">
+                          <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                              <WrapPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                          </ItemsControl.ItemsPanel>
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                              <CheckBox Content="{Binding DisplayName}" FontSize="11"
+                                        Width="250" Margin="0,0,8,0"
+                                        IsChecked="{Binding IsChecked}"/>
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- Kein Verfahren, sondern die Unterfunktion des
+                             Namensscans - steht aber hier, weil sie dieselbe
+                             Frage beantwortet und dieselbe Zeit spart. Genau
+                             wie im Kasten der Haupteinstellungen. -->
+                        <CheckBox Content="DNS cross-check" FontSize="11"
+                                  IsChecked="{Binding SatelliteEditor.Selected.CrossCheckOnlyKnownTargets}"
+                                  ToolTip.Tip="Compares only the devices that answered in this satellite's run. Off, it also checks every old row - which is how you find names that still resolve although the device is long gone."/>
+
+                        <TextBlock Classes="settingHint"
+                                   Text="A ticked method only asks the devices found so far in this satellite's own run - the others still sweep the whole range. Methods that listen instead of asking have no target list and are not shown."/>
+                      </StackPanel>
+                    </Border>
+
+                    <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
+                            BorderThickness="1" CornerRadius="4" Padding="16,14"
+                            IsVisible="{Binding SatelliteEditor.Selected, Converter={x:Static ObjectConverters.IsNotNull}}">
+                      <StackPanel Spacing="10">
+                        <TextBlock Text="5   RUN AND WATCH" Classes="settingsHead"/>
 
                         <TextBlock Classes="settingHint"
                                    Text="Start the scan as usual from the command bar at the top. Ranges with a satellite go to that satellite in one single job; everything else runs from here."/>
@@ -2087,6 +2186,51 @@
                   -->
                   <StackPanel Spacing="14" MaxWidth="1200" HorizontalAlignment="Left">
 
+                    <!--
+                        Was diese Anlage dem Hauptscanner ueber sich meldet.
+                        Steht hier, damit man am Satelliten nachsehen kann, was
+                        drueben ankommt - und damit sichtbar ist, dass es
+                        uebertragen wird.
+                    -->
+                    <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
+                            BorderThickness="1" CornerRadius="4" Padding="16,14">
+                      <StackPanel Spacing="8">
+                        <Grid ColumnDefinitions="*,Auto">
+                          <TextBlock Grid.Column="0" Text="SATELLITE INFOS FOR HOST" Classes="settingsHead"/>
+                          <Button Grid.Column="1" Content="Refresh" Click="bt_HostInfoRefresh_Click"
+                                  Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
+                                  FontSize="10"/>
+                        </Grid>
+
+                        <Grid ColumnDefinitions="110,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto"
+                              ColumnSpacing="10" RowSpacing="5">
+                          <TextBlock Grid.Row="0" Grid.Column="0" Text="Hostname" Classes="settingLabel"/>
+                          <SelectableTextBlock Grid.Row="0" Grid.Column="1" FontSize="11" TextWrapping="Wrap"
+                                               Text="{Binding SatelliteEditor.HostName}"/>
+
+                          <TextBlock Grid.Row="1" Grid.Column="0" Text="Domain" Classes="settingLabel"/>
+                          <SelectableTextBlock Grid.Row="1" Grid.Column="1" FontSize="11" TextWrapping="Wrap"
+                                               Text="{Binding SatelliteEditor.HostDomain}"/>
+
+                          <TextBlock Grid.Row="2" Grid.Column="0" Text="IPv4" Classes="settingLabel"/>
+                          <SelectableTextBlock Grid.Row="2" Grid.Column="1" FontSize="11" TextWrapping="Wrap"
+                                               Text="{Binding SatelliteEditor.HostIpv4}"/>
+
+                          <TextBlock Grid.Row="3" Grid.Column="0" Text="IPv6" Classes="settingLabel"/>
+                          <SelectableTextBlock Grid.Row="3" Grid.Column="1" FontSize="11" TextWrapping="Wrap"
+                                               Text="{Binding SatelliteEditor.HostIpv6}"/>
+
+                          <TextBlock Grid.Row="4" Grid.Column="0" Text="Networks" Classes="settingLabel"/>
+                          <SelectableTextBlock Grid.Row="4" Grid.Column="1" FontSize="11" TextWrapping="Wrap"
+                                               Foreground="{StaticResource Teal}"
+                                               Text="{Binding SatelliteEditor.HostNetworks}"/>
+                        </Grid>
+
+                        <TextBlock Classes="settingHint"
+                                   Text="Sent to every main scanner on each connection. Over there the network appears behind this satellite's name when a range is assigned, so whoever assigns it can see which segment this machine sits in."/>
+                      </StackPanel>
+                    </Border>
+
                     <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
                             BorderThickness="1" CornerRadius="4" Padding="16,14">
                       <StackPanel Spacing="9">
@@ -2130,7 +2274,7 @@
                     <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
                             BorderThickness="1" CornerRadius="4" Padding="16,14">
                       <StackPanel Spacing="10">
-                        <TextBlock Text="2   CONNECT TO YOUR MAIN SCANNERS" Classes="settingsHead"/>
+                        <TextBlock Text="2   CONNECT TO YOUR MAIN SCANNERS  (TCP/IP · TLS)" Classes="settingsHead"/>
 
                         <TextBlock Classes="settingHint"
                                    Text="More than one is normal and intended - a laptop and a server, for example. This machine holds a connection to every one of them at the same time, each approved separately and each reconnecting on its own. If one is switched off, the others carry on."/>

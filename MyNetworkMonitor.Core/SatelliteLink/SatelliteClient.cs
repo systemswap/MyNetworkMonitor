@@ -3,6 +3,7 @@ using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
+using MyNetworkMonitor.Core.Network;
 
 namespace MyNetworkMonitor.Core.SatelliteLink
 {
@@ -80,6 +81,13 @@ namespace MyNetworkMonitor.Core.SatelliteLink
         /// </summary>
         private string _receiverKey = string.Empty;
 
+        /// <summary>
+        /// Ob der Handschlag beim letzten Versuch durchging. Entscheidet, ob
+        /// nach einem Abbruch sofort oder mit gewachsenem Abstand erneut
+        /// versucht wird.
+        /// </summary>
+        private bool _wasConnected;
+
         /// <summary>Laeuft gerade ein Auftrag - und welcher.</summary>
         public string? CurrentJobId => Jobs.CurrentJobId;
 
@@ -114,6 +122,8 @@ namespace MyNetworkMonitor.Core.SatelliteLink
 
             while (!token.IsCancellationRequested)
             {
+                _wasConnected = false;
+
                 try
                 {
                     await ConnectOnceAsync(host, port, token);
@@ -129,6 +139,14 @@ namespace MyNetworkMonitor.Core.SatelliteLink
                 catch (Exception ex)
                 {
                     Report(SatelliteLinkState.Failed, ex.Message);
+
+                    // Stand die Verbindung schon einmal, faengt der Abstand
+                    // wieder von vorne an. Sonst wartete ein Satellit, der
+                    // stundenlang verbunden war, nach einem Neustart des
+                    // Hauptscanners bis zu einer Minute - obwohl der Weg
+                    // nachweislich frei ist und nur die Gegenstelle kurz weg
+                    // war.
+                    if (_wasConnected) wait = TimeSpan.FromSeconds(2);
                 }
 
                 try
@@ -187,17 +205,36 @@ namespace MyNetworkMonitor.Core.SatelliteLink
 
             MessageChannel channel = new(tls);
 
+            // Der Standort wird hier erhoben und nicht einmal beim Start:
+            // dieser Weg wird bei jedem Verbindungsaufbau durchlaufen, auch
+            // beim Wiederverbinden nach einem Abbruch. Damit stimmen die
+            // Adressen drueben nach einem Neustart oder einer neuen
+            // DHCP-Lease von selbst wieder.
+            SiteInfo site = SiteInfo.Read();
+
             await channel.SendAsync(new SatelliteMessage
             {
                 Type = MessageType.Hello,
                 ProtocolVersion = SatelliteListener.ProtocolVersion,
                 Name = _ownName,
                 AppVersion = _ownVersion,
-                Os = RuntimeInformation.OSDescription
+                Os = RuntimeInformation.OSDescription,
+                Site = new SitePayload
+                {
+                    HostName = site.HostName,
+                    Domain = site.Domain,
+                    Ipv4 = string.Join(", ", site.Ipv4.Select(a => a.Address)),
+                    Ipv6 = string.Join(", ", site.Ipv6.Select(a => a.Address)),
+                    PrimaryNetwork = site.PrimaryNetwork,
+                    Networks = string.Join(", ", site.Networks)
+                }
             }, token);
 
             SatelliteMessage? answer = await channel.ReceiveAsync(token)
                 ?? throw new AuthenticationException("The main scanner closed the connection without answering.");
+
+            // Ab hier stand die Verbindung wirklich - der Handschlag ist durch.
+            _wasConnected = true;
 
             switch (answer.Type)
             {
@@ -226,10 +263,98 @@ namespace MyNetworkMonitor.Core.SatelliteLink
         /// </summary>
         private async Task PumpAsync(MessageChannel channel, CancellationToken token)
         {
+            // Lebendpruefung. Ohne sie merkt der Satellit nicht, wenn der
+            // Hauptscanner verschwindet: stirbt der Rechner drueben abrupt -
+            // Neustart, Stromausfall, gekapptes Kabel -, kommt weder ein FIN
+            // noch ein RST an. Die Verbindung ist halboffen, das Lesen unten
+            // wartet unbegrenzt, und der Satellit haelt sich fuer verbunden.
+            // Erst ein Druck auf "Connect" half. Genau so gemeldet.
+            //
+            // Ping und Pong gab es schon, aber beide Seiten haben nur
+            // geantwortet und nie gefragt - die Mechanik lief also leer.
+            using CancellationTokenSource dead = CancellationTokenSource.CreateLinkedTokenSource(token);
+
+            long lastHeard = DateTimeOffset.UtcNow.Ticks;
+            Task heartbeat = HeartbeatAsync(channel, () => Interlocked.Read(ref lastHeard), dead);
+
+            try
+            {
+                await ReceiveLoopAsync(channel, dead, () =>
+                    Interlocked.Exchange(ref lastHeard, DateTimeOffset.UtcNow.Ticks));
+            }
+            catch (OperationCanceledException) when (!token.IsCancellationRequested)
+            {
+                // Nicht der Nutzer hat abgebrochen, sondern die Lebendpruefung
+                // hat aufgegeben. Als Fehler melden, damit der Verbindungs-
+                // kreislauf es erneut versucht, statt sich zu beenden.
+                throw new TimeoutException(
+                    "The main scanner stopped answering - reconnecting.");
+            }
+            finally
+            {
+                dead.Cancel();
+                try { await heartbeat; } catch (Exception) { }
+            }
+        }
+
+        /// <summary>Wie oft ein Lebenszeichen geschickt wird.</summary>
+        private static readonly TimeSpan HeartbeatEvery = TimeSpan.FromSeconds(20);
+
+        /// <summary>
+        /// Nach welcher Stille die Verbindung als tot gilt. Grosszuegiger als
+        /// der Abstand der Lebenszeichen, damit ein langer Scan drueben oder
+        /// eine kurze Netzstoerung nicht sofort zum Abbruch fuehrt.
+        /// </summary>
+        private static readonly TimeSpan SilenceLimit = TimeSpan.FromSeconds(70);
+
+        /// <summary>
+        /// Schickt regelmaessig ein Lebenszeichen und bricht ab, wenn zu lange
+        /// nichts zurueckkam.
+        /// </summary>
+        private static async Task HeartbeatAsync(
+            MessageChannel channel, Func<long> lastHeard, CancellationTokenSource dead)
+        {
+            try
+            {
+                while (!dead.IsCancellationRequested)
+                {
+                    await Task.Delay(HeartbeatEvery, dead.Token);
+
+                    if (DateTimeOffset.UtcNow - new DateTimeOffset(lastHeard(), TimeSpan.Zero) > SilenceLimit)
+                    {
+                        dead.Cancel();
+                        return;
+                    }
+
+                    // Der Kanal buendelt Schreibvorgaenge selbst, ein Ping
+                    // mitten in einem Ergebnis kann also nichts zerreissen.
+                    await channel.SendAsync(new SatelliteMessage
+                    {
+                        Type = MessageType.Ping,
+                        ProtocolVersion = SatelliteListener.ProtocolVersion
+                    }, dead.Token);
+                }
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception)
+            {
+                // Schreiben gescheitert heisst: die Verbindung ist hin.
+                try { dead.Cancel(); } catch (Exception) { }
+            }
+        }
+
+        private async Task ReceiveLoopAsync(
+            MessageChannel channel, CancellationTokenSource dead, Action heard)
+        {
+            CancellationToken token = dead.Token;
+
             while (!token.IsCancellationRequested)
             {
                 SatelliteMessage? message = await channel.ReceiveAsync(token);
                 if (message is null) return; // Gegenstelle hat aufgelegt
+
+                // Jede Nachricht zaehlt als Lebenszeichen, nicht nur ein Pong.
+                heard();
 
                 switch (message.Type)
                 {

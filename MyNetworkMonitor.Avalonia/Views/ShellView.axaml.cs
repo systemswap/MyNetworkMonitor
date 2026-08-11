@@ -95,7 +95,14 @@ public partial class ShellView : Window
         // koennen sich zwischen zwei Klicks geaendert haben.
         if (bt_Scopes.Flyout is FlyoutBase scopeFlyout)
         {
-            scopeFlyout.Opened += (_, _) => BuildScopeRows();
+            scopeFlyout.Opened += (_, _) =>
+            {
+                BuildScopeRows();
+
+                // Auch die Adapterliste: ein VPN-Adapter oder ein Dock kommt
+                // und geht, und eine Liste vom Programmstart waere dann falsch.
+                _shell.RefreshCustomTargetAdapters();
+            };
         }
 
         // Die Version gehoert in den Titel: die letzte Stelle wird bei jeder
@@ -111,6 +118,10 @@ public partial class ShellView : Window
             string root = System.IO.Path.GetDirectoryName(SettingsFolder()) ?? string.Empty;
             Title += $" - {System.IO.Path.GetFileName(root)}";
         }
+
+        // Die Adapterliste fuer die eigene Eingabe. Wird beim Oeffnen der
+        // Auswahl neu gelesen - ein VPN oder ein Dock kommt und geht.
+        _shell.RefreshCustomTargetAdapters();
 
         BuildServiceFacets();
         BuildScopeFacets();
@@ -280,6 +291,13 @@ public partial class ShellView : Window
         }
 
         _shell.ScopeEditor.Load(System.IO.Path.Combine(SettingsFolder(), "ipGroups.xml"));
+
+        // Bereiche zeigten frueher auf den Namen des Satelliten. Einmalig auf
+        // die Kennung umschreiben - danach ueberlebt die Zuordnung jede
+        // Umbenennung. Was sich nicht zuordnen laesst, bleibt stehen und wird
+        // beim Lauf als "nicht verbunden" gemeldet.
+        _shell.MigrateScannedByToIds();
+
         _shell.RefreshAvailability();
 
         // Erst jetzt: der Lauscher gibt nur frei, wer in der geladenen Liste
