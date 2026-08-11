@@ -106,7 +106,16 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                 legacy.Add(new IPToScan
                 {
                     IPorHostname = text,
-                    HostName = KnownHostName(context, text),
+
+                    // Der Name, den jemand selbst eingetippt hat, sticht den
+                    // aus dem Bestand.
+                    //
+                    // Seit ein Hostname vor dem Lauf aufgeloest wird, ist
+                    // TargetText die Adresse - KnownHostName suchte sie dann im
+                    // noch leeren Bestand und fand nichts. Der eingegebene Name
+                    // ging damit verloren und die Spalte blieb leer, obwohl das
+                    // Geraet gefunden wurde.
+                    HostName = NullIfBlank(target.HostName) ?? KnownHostName(context, text),
                     TimeOut = context.Settings.PortTimeoutMs,
                     IPGroupDescription = scope.GroupDescription,
                     DeviceDescription = scope.DeviceDescription,

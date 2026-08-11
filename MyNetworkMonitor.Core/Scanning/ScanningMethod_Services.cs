@@ -1886,17 +1886,30 @@ static async Task<PortResult> SendTcpDnsQuery(string dnsServer, byte[] query, in
 
                     if (existingRow != null)
                     {
+                        string service = existingRow["Service"].ToString() ?? string.Empty;
+
                         // Ports vergleichen
                         if (existingRow["Ports"].ToString() != tempRow["Ports"].ToString())
                         {
-                            existingRow["Ports"] = tempRow["Ports"];
-                            Console.WriteLine($"Ports für {existingRow["Service"]} aktualisiert: {existingRow["Ports"]}");
+                            if (IsSupersededDefault(service, "Ports", tempRow["Ports"].ToString()))
+                            {
+                                Console.WriteLine(
+                                    $"Ports für {service}: veraltete Vorgabe verworfen, es gilt {existingRow["Ports"]}");
+                            }
+                            else
+                            {
+                                existingRow["Ports"] = tempRow["Ports"];
+                                Console.WriteLine($"Ports für {service} aktualisiert: {existingRow["Ports"]}");
+                            }
                         }
 
                         // HelloBytePackage vergleichen
                         if (existingRow["HelloBytePackage"].ToString() != tempRow["HelloBytePackage"].ToString())
                         {
-                            existingRow["HelloBytePackage"] = tempRow["HelloBytePackage"];
+                            if (!IsSupersededDefault(service, "HelloBytePackage", tempRow["HelloBytePackage"].ToString()))
+                            {
+                                existingRow["HelloBytePackage"] = tempRow["HelloBytePackage"];
+                            }
                         }
 
                         // ResponsedBytePackagePart vergleichen
@@ -1918,6 +1931,78 @@ static async Task<PortResult> SendTcpDnsQuery(string dnsServer, byte[] query, in
             }
             catch { }
         }
+    }
+
+    /// <summary>
+    /// Vorgaben, die einmal ausgeliefert wurden und inzwischen falsch sind.
+    /// <para>
+    /// Die gespeicherte XML sticht den Code - so ist sie gedacht, damit sich
+    /// Ports und Pakete anpassen lassen, ohne die Anwendung neu zu bauen. Die
+    /// Kehrseite: eine Datei, die einmal angelegt wurde, friert die damalige
+    /// Vorgabe ein. Eine spaetere Korrektur im Code erreicht diesen Rechner
+    /// nie, und niemand sieht, woran es liegt.
+    /// </para>
+    /// <para>
+    /// Darum diese Liste: steht in der Datei <em>genau</em> der alte
+    /// Vorgabewert, gilt der neue. Alles, was davon abweicht, ist eine eigene
+    /// Anpassung und bleibt unangetastet - der Zweck der Datei bleibt also
+    /// erhalten.
+    /// </para>
+    /// </summary>
+    /// <remarks>
+    /// Erkannt wird ueber die Pruefsumme und nicht ueber den Wert selbst. Das
+    /// alte Client-Paket trug eine interne Adresse, eine Geraetekennung und
+    /// einen Benutzernamen als ASCII-Bytes; stuende es hier im Klartext, waere
+    /// genau das wieder im oeffentlichen Projekt - nur als Hex getarnt und
+    /// damit umso leichter zu uebersehen. Die Pruefsumme genuegt: sie erkennt
+    /// den alten Wert, gibt ihn aber nicht preis.
+    /// </remarks>
+    private static readonly (string Service, string Column, string Sha256)[] SupersededDefaults =
+    [
+        // Stand vor 6.0.0.5: der RustDesk-Server lag auf 5900, demselben Port
+        // wie UltraVNC. Jeder VNC-Rechner galt dadurch zusaetzlich als
+        // RustDesk-Server. Die Korrektur im Code lief bei allen ins Leere, die
+        // schon eine services.xml hatten.
+        ("RustdeskServer", "Ports", "B0A1CAFD46C582F82B4CD19B94D6E1DCE4305E3536EFB5949E3FC1193496D802"),
+
+        // Stand vor 7.1: die drei ASCII-Felder des Client-Pakets stammten aus
+        // einem Mitschnitt und benannten damit einen echten Rechner. Im Code
+        // stehen laengst Platzhalter; ohne diesen Eintrag verschickte eine
+        // bestehende Datei weiterhin die alten Werte.
+        ("RustdeskClient", "HelloBytePackage", "D58106E650361454C362FD3FA4832D840E08493C4C36C50620243A8EB417FA46")
+    ];
+
+    /// <summary>
+    /// Ob der gespeicherte Wert genau einer ueberholten Vorgabe entspricht.
+    /// <para>
+    /// Verglichen wird die Pruefsumme des Wertes, ohne Ruecksicht auf
+    /// Leerzeichen und Gross-/Kleinschreibung: die Datei wird von Hand
+    /// bearbeitet, und daran soll es nicht scheitern.
+    /// </para>
+    /// </summary>
+    private static bool IsSupersededDefault(string service, string column, string? stored)
+    {
+        if (string.IsNullOrWhiteSpace(stored)) return false;
+
+        string digest = Fingerprint(stored);
+
+        return SupersededDefaults.Any(d =>
+            string.Equals(d.Service, service, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(d.Column, column, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(d.Sha256, digest, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>Pruefsumme eines Wertes, gegen Leerzeichen und Schreibweise unempfindlich.</summary>
+    private static string Fingerprint(string value)
+    {
+        string normalised = new(value.Where(c => !char.IsWhiteSpace(c))
+                                     .Select(char.ToUpperInvariant)
+                                     .ToArray());
+
+        byte[] hash = System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(normalised));
+
+        return Convert.ToHexString(hash);
     }
 
     public void SaveServiceSettingsToXML()

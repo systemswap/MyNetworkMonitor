@@ -855,13 +855,20 @@ namespace MyNetworkMonitor.Core.ViewModels
 
         // ---------------------------------------------------------- Umfaenge
 
+        // Die ARP-Tabelle ist in keinem Umfang dabei, obwohl sie nichts kostet:
+        // sie liefert den Zwischenspeicher des eigenen Rechners und damit
+        // Geraete, die im Lauf gar nicht befragt wurden - teils laengst
+        // abgeschaltete. Beilaeufig mitgenommen sieht das Ergebnis nach mehr
+        // aus, als tatsaechlich geprueft wurde. Wer sie will, hakt sie an.
+        //
+        // Dasselbe gilt fuer den DNS-Quervergleich, siehe ApplyProfile.
         public IReadOnlyList<ScanProfile> Profiles { get; } =
         [
             new ScanProfile
             {
                 Name = "Quick",
                 Description = "Discovery only - who is there?",
-                MethodIds = ["ping", "arp.request", "arp.cache"]
+                MethodIds = ["ping", "arp.request", "dns.reverse", "dns.lookup"]
             },
             new ScanProfile
             {
@@ -869,8 +876,8 @@ namespace MyNetworkMonitor.Core.ViewModels
                 Description = "Discover and identify, with the usual services",
                 MethodIds =
                 [
-                    "ping", "arp.request", "arp.cache", "ssdp", "mdns",
-                    "dns.lookup", "dns.reverse", "snmp", "ports.tcp"
+                    "ping", "arp.request", "dns.reverse", "dns.lookup",
+                    "snmp", "ssdp", "smb.version", "onvif"
                 ]
             },
             new ScanProfile
@@ -879,9 +886,9 @@ namespace MyNetworkMonitor.Core.ViewModels
                 Description = "Everything available - takes accordingly long",
                 MethodIds =
                 [
-                    "ping", "arp.request", "arp.cache", "ssdp", "mdns",
-                    "dns.lookup", "dns.reverse", "netbios", "snmp", "onvif",
-                    "ports.tcp", "ports.udp", "smb.version", "services"
+                    "ping", "arp.request", "dns.reverse", "dns.lookup",
+                    "snmp", "ssdp", "smb.version", "wsdiscovery", "onvif",
+                    "services", "web.identity", "switch.ports"
                 ]
             },
             new ScanProfile

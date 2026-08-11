@@ -94,6 +94,18 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                     Source = DisplayName,
                     Address = info,
                     IsResponding = result.PingStatus,
+
+                    // Der Name, unter dem das Ziel eingegeben wurde.
+                    //
+                    // Wer in die eigene Eingabe einen Hostnamen tippt, will ihn
+                    // in der Tabelle wiederfinden - und nicht nur die Adresse,
+                    // zu der er aufgeloest wurde. Ping ist bei einem einzelnen
+                    // Ziel oft das einzige Verfahren, das laeuft; ohne diese
+                    // Zeile blieb die Spalte "Device" auf der Adresse stehen,
+                    // bis irgendwann die Rueckwaertsaufloesung einen Namen
+                    // nachtrug - oder eben nie.
+                    HostName = string.IsNullOrWhiteSpace(origin?.HostName) ? null : origin!.HostName,
+
                     GroupDescription = origin?.Scope.Scope.GroupDescription,
                     Domain = string.IsNullOrWhiteSpace(origin?.Scope.Scope.Domain) ? null : origin!.Scope.Scope.Domain,
                     Details = details,

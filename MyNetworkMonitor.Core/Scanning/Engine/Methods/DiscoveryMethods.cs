@@ -98,15 +98,28 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 
         public override async Task ExecuteAsync(ScanContext context, CancellationToken cancellationToken)
         {
-            // Bewusst ueber alle Ziele, nicht nur die ausgewaehlten: die
-            // Tabelle enthaelt auch Geraete ausserhalb des Bereichs, und
-            // gerade die sind interessant.
             LegacyTargets targets = BuildTargets(context);
 
             ScanningMethod_ARP arp = new();
 
             void OnProgress(int c, int r, int t, ScanStatus s) => context.ReportProgress(c, r, t);
-            void OnFound(object? _, ScanTask_Finished_EventArgs e) => ReportResult(context, e.ipToScan, targets);
+
+            // Nur melden, was auch zur Auswahl gehoert.
+            //
+            // Frueher wurde die ganze Tabelle gemeldet - mit der Begruendung,
+            // dass gerade die Geraete ausserhalb des Bereichs interessant
+            // seien. In der Praxis ueberrascht das: wer einen einzelnen
+            // Rechner nachsieht und alle Bereiche abwaehlt, bekam den halben
+            // Adapterbereich in die Tabelle und musste annehmen, es sei doch
+            // alles gescannt worden. Gescannt war nichts davon - die
+            // Eintraege stammen aus dem Zwischenspeicher des eigenen
+            // Betriebssystems -, aber das sieht man der Tabelle nicht an.
+            void OnFound(object? _, ScanTask_Finished_EventArgs e)
+            {
+                if (targets.Find(e.ipToScan?.IPorHostname) is null) return;
+
+                ReportResult(context, e.ipToScan!, targets);
+            }
 
             arp.ProgressUpdated += OnProgress;
             arp.ARP_A_newDevice += OnFound;
