@@ -220,9 +220,20 @@
 
                         <TextBlock Classes="sectionHeader" Text="SCANNING" Margin="0,6,0,6"/>
 
+                        <!--
+                            Nur Anzeige: der Bereich merkt sich seit der
+                            Umstellung die Kennung des Satelliten, nicht seinen
+                            Namen. Ein hier eingetippter Text zeigte auf keinen
+                            Satelliten, und der Bereich wuerde beim Lauf
+                            stillschweigend als "nicht gescannt" ausgewiesen.
+                            Zugewiesen wird in der Bereichsansicht.
+                        -->
                         <StackPanel>
-                            <TextBlock Classes="fieldLabel" Text="Scanned by (satellite)"/>
-                            <TextBox Text="{Binding EditScannedBy}" Watermark="empty = from this machine"/>
+                            <TextBlock Classes="fieldLabel" Text="Scanned by satellite:"/>
+                            <TextBox Text="{Binding EditScannedByDisplay}" IsReadOnly="True"
+                                     Watermark="empty = from this machine"/>
+                            <TextBlock Classes="hint" TextWrapping="Wrap"
+                                       Text="Assigned under Ranges, where the satellites are listed with the network they sit in."/>
                         </StackPanel>
 
 

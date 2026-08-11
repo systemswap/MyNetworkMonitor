@@ -35,7 +35,30 @@ namespace MyNetworkMonitor.Core.ViewModels
         [ObservableProperty] private string _editDomain = string.Empty;
         [ObservableProperty] private string _editDnsServers = string.Empty;
         [ObservableProperty] private string _editNmGatewayIP = string.Empty;
+        /// <summary>
+        /// Die Kennung des zustaendigen Satelliten. Wird hier nur
+        /// durchgereicht, nicht bearbeitet - zugewiesen wird in der
+        /// Bereichsansicht.
+        /// </summary>
         [ObservableProperty] private string _editScannedBy = string.Empty;
+
+        /// <summary>
+        /// Der Name zur Kennung, fuer die Anzeige. Die Kennung selbst sagt
+        /// niemandem etwas.
+        /// </summary>
+        [ObservableProperty] private string _editScannedByDisplay = string.Empty;
+
+        /// <summary>
+        /// Uebersetzt eine Kennung in einen Namen. Setzt das Fenster; ohne
+        /// Zuweisung steht die Kennung selbst da, was ehrlicher ist als sie zu
+        /// verschweigen.
+        /// </summary>
+        public Func<string, string>? SatelliteNameOf { get; set; }
+
+        partial void OnEditScannedByChanged(string value) =>
+            EditScannedByDisplay = string.IsNullOrWhiteSpace(value)
+                ? string.Empty
+                : SatelliteNameOf?.Invoke(value) ?? value;
         [ObservableProperty] private bool _editAutomaticScan;
         [ObservableProperty] private string _editScanIntervalMinutes = string.Empty;
 

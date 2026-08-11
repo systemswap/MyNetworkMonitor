@@ -15,6 +15,12 @@ namespace MyNetworkMonitor.Core.SatelliteLink
         public required string AppVersion { get; init; }
         public required string Os { get; init; }
         public required string RemoteAddress { get; init; }
+
+        /// <summary>
+        /// Wo der Satellit steht - oder <c>null</c>, wenn er nichts gemeldet
+        /// hat. Kommt bei jeder Anmeldung frisch, nicht nur beim ersten Mal.
+        /// </summary>
+        public SitePayload? Site { get; init; }
     }
 
     /// <summary>
@@ -220,7 +226,8 @@ namespace MyNetworkMonitor.Core.SatelliteLink
                     Fingerprint = fingerprint,
                     AppVersion = hello.AppVersion ?? string.Empty,
                     Os = hello.Os ?? string.Empty,
-                    RemoteAddress = remote
+                    RemoteAddress = remote,
+                    Site = hello.Site
                 });
 
                 await PumpAsync(session, token);

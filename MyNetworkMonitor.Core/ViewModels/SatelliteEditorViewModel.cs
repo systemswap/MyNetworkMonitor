@@ -58,13 +58,82 @@ namespace MyNetworkMonitor.Core.ViewModels
         [ObservableProperty] private string _status = string.Empty;
 
         /// <summary>
-        /// Die Namen fuer die Auswahl in der Bereichsmaske, mit einem leeren
-        /// Eintrag voran - der bedeutet "von diesem Rechner aus".
+        /// Ein Eintrag der Auswahl "Scanned by satellite" in der Bereichsmaske.
+        /// <para>
+        /// Angezeigt wird Name und Netz, gespeichert wird allein die Kennung.
+        /// Beides zu trennen ist noetig, seit ein Satellit seinen Namen selbst
+        /// aendern kann: stuende der Name im Bereich, liefe die Zuordnung nach
+        /// einer Umbenennung ins Leere - und zwar stumm, der Bereich wuerde
+        /// einfach nicht mehr gescannt.
+        /// </para>
         /// </summary>
-        public ObservableCollection<string> NamesForPicker { get; } = [string.Empty];
+        public sealed class SatelliteChoice
+        {
+            /// <summary>Die Kennung, die im Bereich landet. Leer heisst "von hier aus".</summary>
+            public required string Id { get; init; }
 
-        /// <summary>Meldet sich, wenn ein Name hinzukam, wegfiel oder sich aenderte.</summary>
+            /// <summary>Was in der Auswahl steht - Name und Netz.</summary>
+            public required string Display { get; init; }
+
+            /// <summary>Alle Netze des Satelliten, fuer den Tooltip.</summary>
+            public string Networks { get; init; } = string.Empty;
+
+            public override string ToString() => Display;
+        }
+
+        /// <summary>
+        /// Die Auswahl fuer die Bereichsmaske, mit einem leeren Eintrag voran -
+        /// der bedeutet "von diesem Rechner aus".
+        /// </summary>
+        public ObservableCollection<SatelliteChoice> SatellitesForPicker { get; } =
+            [new SatelliteChoice { Id = string.Empty, Display = "(this machine)" }];
+
+        /// <summary>Meldet sich, wenn ein Eintrag hinzukam, wegfiel oder sich aenderte.</summary>
         public event Action? NamesChanged;
+
+        /// <summary>
+        /// Der Anzeigename zu einer Kennung - fuer Meldungen und Listen.
+        /// Unbekannte Kennung heisst: der Satellit wurde geloescht.
+        /// </summary>
+        public string DisplayNameOf(string? id)
+        {
+            if (string.IsNullOrWhiteSpace(id)) return string.Empty;
+
+            Satellite? s = ById(id);
+            return s?.Name ?? "(unknown satellite)";
+        }
+
+        /// <summary>Der Satellit zu einer Kennung, oder <c>null</c>.</summary>
+        public Satellite? ById(string? id) =>
+            string.IsNullOrWhiteSpace(id)
+                ? null
+                : All.FirstOrDefault(s => string.Equals(s.Id, id, StringComparison.OrdinalIgnoreCase));
+
+        /// <summary>
+        /// Uebersetzt einen Wert, der noch einen Namen traegt, in die Kennung
+        /// des gleichnamigen Satelliten.
+        /// <para>
+        /// Fuer den Bestand: bis zur Umstellung stand in <c>ScannedBy</c> der
+        /// Name. Passt nichts, wird der Wert unveraendert zurueckgegeben - der
+        /// Bereich gilt dann als nicht zugeordnet und wird beim Lauf gemeldet,
+        /// statt stillschweigend oertlich gescannt zu werden.
+        /// </para>
+        /// </summary>
+        public string ResolveToId(string? scannedBy)
+        {
+            if (string.IsNullOrWhiteSpace(scannedBy)) return string.Empty;
+
+            // Schon eine Kennung? Dann nichts zu tun.
+            if (All.Any(s => string.Equals(s.Id, scannedBy, StringComparison.OrdinalIgnoreCase)))
+            {
+                return scannedBy;
+            }
+
+            Satellite? byName = All.FirstOrDefault(s =>
+                string.Equals(s.Name, scannedBy, StringComparison.OrdinalIgnoreCase));
+
+            return byName?.Id ?? scannedBy;
+        }
 
         /// <summary>
         /// Die Hauptscanner, zu denen sich <em>diese</em> Anlage hinausverbindet
@@ -117,7 +186,12 @@ namespace MyNetworkMonitor.Core.ViewModels
             // jedes Mal eine Schreibrunde ausloesen.
             if (e.PropertyName == nameof(Satellite.IsConnected)) return;
 
-            if (e.PropertyName == nameof(Satellite.Name)) RefreshNames();
+            if (e.PropertyName is nameof(Satellite.Name)
+                               or nameof(Satellite.SiteNetwork)
+                               or nameof(Satellite.SiteNetworks))
+            {
+                RefreshNames();
+            }
 
             _satellitesChanged = true;
             Save();
@@ -160,15 +234,25 @@ namespace MyNetworkMonitor.Core.ViewModels
 
         private void RefreshNames()
         {
-            NamesForPicker.Clear();
-            NamesForPicker.Add(string.Empty);
+            SatellitesForPicker.Clear();
+            SatellitesForPicker.Add(new SatelliteChoice { Id = string.Empty, Display = "(this machine)" });
 
-            foreach (string name in All.Select(s => s.Name)
-                                       .Where(n => !string.IsNullOrWhiteSpace(n))
-                                       .Distinct(StringComparer.OrdinalIgnoreCase)
-                                       .OrderBy(n => n, StringComparer.OrdinalIgnoreCase))
+            foreach (Satellite s in All.Where(s => !string.IsNullOrWhiteSpace(s.Name))
+                                       .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase))
             {
-                NamesForPicker.Add(name);
+                SatellitesForPicker.Add(new SatelliteChoice
+                {
+                    Id = s.Id,
+                    Display = s.PickerText,
+
+                    // Nur das Hauptnetz steht in der Zeile. Ein Satellit hat
+                    // oft mehrere Adapter - Hyper-V, WSL, VPN -, und alle in
+                    // die Zeile zu schreiben macht sie unlesbar. Der Rest
+                    // steht im Tooltip.
+                    Networks = string.IsNullOrWhiteSpace(s.SiteNetworks)
+                        ? string.Empty
+                        : $"{s.Name}\nNetworks: {s.SiteNetworks}"
+                });
             }
 
             NamesChanged?.Invoke();
@@ -297,7 +381,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             }
 
             _listener.Announced += (_, e) => Post(() =>
-                Announce(e.Name, e.Fingerprint, e.AppVersion, e.Os, e.RemoteAddress));
+                Announce(e.Name, e.Fingerprint, e.AppVersion, e.Os, e.RemoteAddress, e.Site));
 
             _listener.Disconnected += (_, fingerprint) => Post(() =>
             {
@@ -732,6 +816,12 @@ namespace MyNetworkMonitor.Core.ViewModels
         [ObservableProperty] private string _hostIpv6 = "-";
 
         /// <summary>
+        /// Die Netze dieser Anlage in CIDR-Schreibweise, durch Komma getrennt.
+        /// Genau das steht drueben hinter dem Namen in der Auswahl.
+        /// </summary>
+        [ObservableProperty] private string _hostNetworks = "-";
+
+        /// <summary>
         /// Liest, unter welchem Namen und welchen Adressen diese Anlage
         /// erreichbar ist.
         /// <para>
@@ -743,48 +833,16 @@ namespace MyNetworkMonitor.Core.ViewModels
         /// </summary>
         public void RefreshHostInfo()
         {
-            HostName = Environment.MachineName;
+            // Dieselbe Quelle, die der Satellit auch verschickt: was hier
+            // steht, kommt drueben genau so an. Zwei getrennte Erhebungen
+            // waeren zwei Gelegenheiten, sich zu unterscheiden.
+            SiteInfo site = SiteInfo.Read();
 
-            string domain;
-            try
-            {
-                domain = System.Net.NetworkInformation.IPGlobalProperties
-                    .GetIPGlobalProperties().DomainName ?? string.Empty;
-            }
-            catch (Exception)
-            {
-                domain = string.Empty;
-            }
-
-            HostDomain = domain.Length == 0 ? "-" : domain;
-
-            List<AdapterInfo> adapters = [];
-            try
-            {
-                adapters = NetworkAdapters.Read(includeDown: false);
-            }
-            catch (Exception)
-            {
-                // Ohne Adapterliste bleiben die Striche stehen.
-            }
-
-            // Nur was ein Satellit auch ansprechen kann: Loopback und die
-            // link-lokalen Adressen fuehrten hier bloss in die Irre, weil sie
-            // aus einem anderen Segment nie erreichbar sind.
-            string ipv4 = string.Join(", ", adapters
-                .SelectMany(a => a.Ipv4Addresses)
-                .Where(ip => !ip.StartsWith("127.", StringComparison.Ordinal)
-                          && !ip.StartsWith("169.254.", StringComparison.Ordinal))
-                .Distinct(StringComparer.OrdinalIgnoreCase));
-
-            string ipv6 = string.Join(", ", adapters
-                .SelectMany(a => a.Ipv6Addresses)
-                .Where(ip => !ip.StartsWith("fe80", StringComparison.OrdinalIgnoreCase)
-                          && ip != "::1")
-                .Distinct(StringComparer.OrdinalIgnoreCase));
-
-            HostIpv4 = ipv4.Length == 0 ? "-" : ipv4;
-            HostIpv6 = ipv6.Length == 0 ? "-" : ipv6;
+            HostName = site.HostName.Length == 0 ? Environment.MachineName : site.HostName;
+            HostDomain = site.Domain.Length == 0 ? "-" : site.Domain;
+            HostIpv4 = site.Ipv4Text;
+            HostIpv6 = site.Ipv6Text;
+            HostNetworks = site.NetworksText;
         }
 
         /// <summary>Setzt die eigene Version fuer die Begruessung.</summary>
@@ -999,7 +1057,9 @@ namespace MyNetworkMonitor.Core.ViewModels
         /// wartet auf Freigabe.
         /// </para>
         /// </summary>
-        public Satellite Announce(string name, string fingerprint, string version, string os, string remoteAddress)
+        public Satellite Announce(
+            string name, string fingerprint, string version, string os, string remoteAddress,
+            SitePayload? site = null)
         {
             Satellite? known = All.FirstOrDefault(s =>
                 !string.IsNullOrWhiteSpace(fingerprint) &&
@@ -1008,6 +1068,22 @@ namespace MyNetworkMonitor.Core.ViewModels
             if (known is null)
             {
                 known = new Satellite { Fingerprint = fingerprint, Approved = false };
+
+                // Der Scan-Umfang wird genau hier einmal aus den
+                // Haupteinstellungen uebernommen und danach nie wieder: was ein
+                // Satellit scannen soll, haengt an seinem Segment und nicht
+                // daran, was hier zuletzt eingestellt war. Wer die
+                // Haupteinstellungen spaeter aendert, will damit nicht
+                // stillschweigend jeden Satelliten mitaendern.
+                if (ScanScopeDefaults is not null)
+                {
+                    (bool onlyKnown, IReadOnlyList<string> onlyKnownFor, bool crossCheck) = ScanScopeDefaults();
+
+                    known.OnlyKnownTargets = onlyKnown;
+                    known.CrossCheckOnlyKnownTargets = crossCheck;
+                    foreach (string id in onlyKnownFor) known.OnlyKnownTargetsFor.Add(id);
+                }
+
                 All.Add(known);
                 Status = $"\"{name}\" has announced itself and is waiting for approval.";
             }
@@ -1019,9 +1095,109 @@ namespace MyNetworkMonitor.Core.ViewModels
             known.LastSeen = DateTimeOffset.Now;
             known.IsConnected = true;
 
+            // Der Standort kommt bei jeder Anmeldung frisch und wird darum auch
+            // jedes Mal uebernommen - nach einem Neustart oder einer neuen
+            // DHCP-Lease stimmt der gespeicherte Stand sonst nicht mehr, und
+            // die Auswahl zeigte ein Netz, in dem der Satellit gar nicht mehr
+            // steht.
+            if (site is not null)
+            {
+                known.SiteHostName = site.HostName ?? string.Empty;
+                known.SiteDomain = site.Domain ?? string.Empty;
+                known.SiteIpv4 = site.Ipv4 ?? string.Empty;
+                known.SiteIpv6 = site.Ipv6 ?? string.Empty;
+                known.SiteNetwork = site.PrimaryNetwork ?? string.Empty;
+                known.SiteNetworks = site.Networks ?? string.Empty;
+            }
+
             _satellitesChanged = true;
             Save();
+            RefreshNames();
             return known;
+        }
+
+        /// <summary>
+        /// Woher die Vorbelegung des Scan-Umfangs kommt, wenn ein Satellit zum
+        /// ersten Mal anklopft. Setzt das Fenster; ohne Zuweisung bleibt ein
+        /// neuer Satellit auf "alles scannen".
+        /// </summary>
+        public Func<(bool OnlyKnownTargets, IReadOnlyList<string> OnlyKnownTargetsFor,
+                     bool CrossCheckOnlyKnownTargets)>? ScanScopeDefaults { get; set; }
+
+        // ------------------------------- Scan-Umfang des gewaehlten Satelliten
+
+        /// <summary>
+        /// Ein Verfahren in der Umfangsauswahl des gewaehlten Satelliten.
+        /// <para>
+        /// Braucht es, weil <see cref="Satellite.OnlyKnownTargetsFor"/> eine
+        /// schlichte Menge ist: eine Menge meldet keine Aenderung, also wuerde
+        /// ein Haken weder die Anzeige noch das Speichern ausloesen. Diese
+        /// Huelle traegt den Haken und schreibt ihn durch.
+        /// </para>
+        /// </summary>
+        public sealed partial class MethodScopeChoice : ObservableObject
+        {
+            private readonly Satellite _satellite;
+            private readonly Action _changed;
+            private readonly bool _ready;
+
+            public string Id { get; }
+            public string DisplayName { get; }
+
+            public MethodScopeChoice(Satellite satellite, string id, string displayName, Action changed)
+            {
+                _satellite = satellite;
+                _changed = changed;
+                Id = id;
+                DisplayName = displayName;
+
+                IsChecked = satellite.OnlyKnownTargetsFor.Contains(id);
+
+                // Erst ab hier schlaegt ein Haken auf die Datei durch - das
+                // Setzen oben ist Anzeige und keine Aenderung.
+                _ready = true;
+            }
+
+            [ObservableProperty] private bool _isChecked;
+
+            partial void OnIsCheckedChanged(bool value)
+            {
+                if (!_ready) return;
+
+                if (value) _satellite.OnlyKnownTargetsFor.Add(Id);
+                else _satellite.OnlyKnownTargetsFor.Remove(Id);
+
+                _changed();
+            }
+        }
+
+        /// <summary>
+        /// Die einschraenkbaren Verfahren, vom Fenster gesetzt - Kennung und
+        /// Anzeigename. Die Verwaltung kennt die Scan-Engine nicht.
+        /// </summary>
+        public IReadOnlyList<(string Id, string DisplayName)> RestrictableMethods { get; set; } = [];
+
+        /// <summary>Die Umfangsauswahl fuer den gerade gewaehlten Satelliten.</summary>
+        public ObservableCollection<MethodScopeChoice> ScopeMethods { get; } = [];
+
+        partial void OnSelectedChanged(Satellite? value) => RebuildScopeMethods();
+
+        private void RebuildScopeMethods()
+        {
+            ScopeMethods.Clear();
+
+            if (Selected is null) return;
+
+            Satellite target = Selected;
+
+            foreach ((string id, string display) in RestrictableMethods)
+            {
+                ScopeMethods.Add(new MethodScopeChoice(target, id, display, () =>
+                {
+                    _satellitesChanged = true;
+                    Save();
+                }));
+            }
         }
 
         [RelayCommand]
