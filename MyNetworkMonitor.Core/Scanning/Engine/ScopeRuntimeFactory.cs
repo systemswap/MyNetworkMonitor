@@ -86,7 +86,24 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
                         }
                         foreach (string host in hostnames)
                         {
-                            targets.Add(new ScanTargetEntry { HostName = host, Scope = runtime });
+                            // Erst aufloesen, dann als Adressziel eintragen.
+                            //
+                            // Ohne das wird der Name zwar gescannt, sein
+                            // Ergebnis aber verworfen: die Auswertung setzt ein
+                            // Ziel voraus, das sich als IP lesen laesst, und
+                            // ein Name tut das nicht. Wer in die eigene Eingabe
+                            // einen Hostnamen tippte, sah darum nie ein
+                            // Ergebnis - auch dann nicht, wenn das Geraet
+                            // antwortete.
+                            //
+                            // Der Name bleibt am Ziel stehen, damit er in der
+                            // Tabelle auftaucht und nicht erst durch die
+                            // Rueckwaertsaufloesung wiedergefunden werden muss.
+                            IpAddressInfo? resolved = ResolveHost(host);
+
+                            targets.Add(resolved is null
+                                ? new ScanTargetEntry { HostName = host, Scope = runtime }
+                                : new ScanTargetEntry { Address = resolved, HostName = host, Scope = runtime });
                         }
                         break;
 
@@ -312,6 +329,33 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
                 NetworkInterfaceType.Wireless80211 => 1,
                 _ => 2
             };
+        }
+
+        /// <summary>
+        /// Loest einen Hostnamen in eine Adresse auf. IPv4 vor IPv6, weil die
+        /// uebrigen Verfahren daran haengen. Scheitert die Aufloesung, gibt es
+        /// <c>null</c> - dann bleibt der Name als Ziel stehen und der Lauf
+        /// meldet ihn als nicht erreichbar, statt ihn stillschweigend zu
+        /// ueberspringen.
+        /// </summary>
+        private static IpAddressInfo? ResolveHost(string host)
+        {
+            try
+            {
+                IPAddress[] found = Dns.GetHostAddresses(host);
+
+                IPAddress? best =
+                    found.FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork)
+                    ?? found.FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetworkV6);
+
+                return best is null ? null : IpAddressAnalyzer.Analyze(best);
+            }
+            catch (Exception)
+            {
+                // Unbekannter Name, kein Namensserver erreichbar, Zeitlimit -
+                // alles derselbe Fall: es gibt keine Adresse.
+                return null;
+            }
         }
 
         private static NetworkInterface[] SafeGetInterfaces()
