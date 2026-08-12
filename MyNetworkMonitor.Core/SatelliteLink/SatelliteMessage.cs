@@ -101,6 +101,20 @@ namespace MyNetworkMonitor.Core.SatelliteLink
         /// </summary>
         public string? Devices { get; set; }
 
+        /// <summary>
+        /// Bei <see cref="MessageType.Result"/>: der Auftrag wurde abgebrochen,
+        /// der Bestand ist der Stand bis dahin.
+        /// <para>
+        /// Ein abgebrochener Lauf hat nicht alles gesehen. Ohne diesen Merker
+        /// waere sein Ergebnis von einem vollstaendigen nicht zu
+        /// unterscheiden, und aus "hier stehen nur diese Geraete" wuerde ein
+        /// Schluss, den die Daten nicht hergeben. Aeltere Satelliten setzen
+        /// das Feld nicht - dann ist es <c>false</c>, und das ist richtig so:
+        /// sie schicken bei Abbruch ueberhaupt nichts.
+        /// </para>
+        /// </summary>
+        public bool Partial { get; set; }
+
         /// <summary>Neuer Port des Hauptscanners, fuer den naechsten Verbindungsaufbau.</summary>
         public int? ListenPort { get; set; }
 
@@ -111,25 +125,60 @@ namespace MyNetworkMonitor.Core.SatelliteLink
     /// <summary>
     /// Fortschritt eines laufenden Auftrags.
     /// <para>
-    /// Bewusst schlank: eine Prozentzahl und drei fertige Zeichenketten, keine
-    /// nachgebaute Verfahrensbuchhaltung. Es geht darum zu sehen, dass der
-    /// Satellit arbeitet und woran - nicht darum, die oertliche Anzeige aus
-    /// der Ferne nachzustellen.
+    /// Traegt dieselben Angaben wie die oertliche Anzeige: welches Verfahren
+    /// laeuft, wie weit der Auftrag ist, was fertig und was offen ist - und
+    /// die drei Zahlen des laufenden Verfahrens. Ohne sie sieht man aus der
+    /// Ferne nur, <em>dass</em> der Satellit arbeitet; ob ein Verfahren noch
+    /// etwas bringt oder nur noch in Zeitueberschreitungen laeuft, steht
+    /// genau in diesen Zahlen.
     /// </para>
     /// </summary>
     public sealed class ProgressPayload
     {
-        /// <summary>0 bis 100.</summary>
+        /// <summary>
+        /// 0 bis 100 - der Stand des <em>laufenden Verfahrens</em>, nicht der
+        /// des ganzen Auftrags.
+        /// <para>
+        /// Vorher stand hier der Anteil fertiger Verfahren. Bei drei
+        /// Verfahren sprang die Zahl damit von 0 auf 33 auf 67 auf 100, und
+        /// zwischen den Spruengen stand sie minutenlang still - gerade
+        /// waehrend der langen Verfahren sah es aus, als haenge der Satellit.
+        /// Gefragt ist, wie weit das gerade laufende Verfahren ist: "Ping
+        /// 40 %".
+        /// </para>
+        /// </summary>
         public int Percent { get; set; }
 
         /// <summary>Das Verfahren, das gerade laeuft.</summary>
         public string Current { get; set; } = string.Empty;
+
+        /// <summary>Das wievielte Verfahren des Auftrags gerade laeuft.</summary>
+        public int Step { get; set; }
+
+        /// <summary>Wie viele Verfahren der Auftrag umfasst.</summary>
+        public int Steps { get; set; }
 
         /// <summary>Was schon fertig ist - wie <c>CompletedScansText</c> oertlich.</summary>
         public string Done { get; set; } = string.Empty;
 
         /// <summary>Was noch aussteht - wie <c>PendingScansText</c> oertlich.</summary>
         public string Pending { get; set; } = string.Empty;
+
+        // --- Die drei Zahlen des laufenden Verfahrens ------------------------
+        //
+        // Dieselbe Bedeutung wie oertlich im Kommandobalken: abgeschickt,
+        // geantwortet, gesamt. Aeltere Satelliten kennen die Felder nicht und
+        // lassen sie auf 0 - die Anzeige blendet sie dann aus, statt drei
+        // Nullen zu zeigen.
+
+        /// <summary>Abgeschickte Anfragen des laufenden Verfahrens.</summary>
+        public int Sent { get; set; }
+
+        /// <summary>Ziele, die darauf geantwortet haben.</summary>
+        public int Answered { get; set; }
+
+        /// <summary>Ziele des laufenden Verfahrens insgesamt.</summary>
+        public int Total { get; set; }
     }
 
     /// <summary>

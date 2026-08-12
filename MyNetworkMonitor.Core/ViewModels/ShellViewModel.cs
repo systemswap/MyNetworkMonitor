@@ -128,7 +128,8 @@ namespace MyNetworkMonitor.Core.ViewModels
                  Settings.CrossCheckOnlyKnownTargets);
 
             // Als Hauptscanner: ein Ergebnis eines Satelliten einmischen.
-            SatelliteEditor.ResultArrived += (_, e) => MergeSatelliteResult(e.SatelliteName, e.DevicesJson);
+            SatelliteEditor.ResultArrived += (_, e) =>
+                MergeSatelliteResult(e.SatelliteName, e.DevicesJson, e.Partial);
 
             // Die Satellitenansicht zeigt zu jedem Satelliten, welche Bereiche
             // auf ihn zeigen. Die Bereiche gehoeren hierher, nicht dorthin -
@@ -1713,28 +1714,132 @@ namespace MyNetworkMonitor.Core.ViewModels
 
             DeviceStore jobStore = new();
 
-            // Fortschritt: der Anteil abgeschlossener Verfahren, damit man
-            // sieht, dass etwas vorangeht. Feiner waere moeglich, aber die
-            // Frage ist "arbeitet er noch", nicht "wie viele Pakete".
+            // Fortschritt: derselbe Stand, den die oertliche Anzeige zeigt -
+            // laufendes Verfahren, sein Anteil und seine drei Zahlen.
+            //
+            // Frueher wurde nur bei *fertigem* Verfahren gemeldet, und die
+            // Prozentzahl war der Anteil fertiger Verfahren. Bei drei
+            // Verfahren hiess das: 0, dann lange nichts, dann 33. Waehrend
+            // eines langen Verfahrens war von aussen nicht zu unterscheiden,
+            // ob der Satellit arbeitet oder haengt.
             int done = 0;
             List<string> completed = [];
 
+            // Der letzte bekannte Stand, aus dem jede Meldung gebaut wird.
+            ScanProgress? latest = null;
+            DateTimeOffset lastSent = DateTimeOffset.MinValue;
+            string lastMethod = string.Empty;
+            Lock progressSync = new();
+
+            ProgressPayload BuildPayload()
+            {
+                ScanProgress? p = latest;
+
+                return new ProgressPayload
+                {
+                    // Der Stand des laufenden Verfahrens - "Ping 40 %".
+                    Percent = p is null || p.Total <= 0
+                        ? 0
+                        : (int)Math.Clamp((double)p.Current / p.Total * 100, 0, 100),
+                    Current = p?.MethodName ?? string.Empty,
+                    Step = done + 1,
+                    Steps = methods.Count,
+                    Sent = p?.Current ?? 0,
+                    Answered = p?.Responded ?? 0,
+                    Total = p?.Total ?? 0,
+                    // Wie oertlich: ein Strich statt einer leeren Zeile - sonst
+                    // sieht "noch nichts fertig" aus wie "Anzeige kaputt".
+                    Done = completed.Count == 0 ? "-" : string.Join(", ", completed),
+                    Pending = Listed(methods.Select(m => m.DisplayName).Where(n => !completed.Contains(n)))
+                };
+
+                static string Listed(IEnumerable<string> names)
+                {
+                    string text = string.Join(", ", names);
+                    return text.Length == 0 ? "-" : text;
+                }
+            }
+
+            // Gemeldet wird bei Aenderung, aber hoechstens alle zwei Sekunden -
+            // und spaetestens alle zehn, auch wenn sich nichts geruehrt hat.
+            //
+            // Ungebremst waere es eine Meldung je geprueftem Ziel: bei 254
+            // Zielen und einem Dutzend Verfahren Tausende von Nachrichten,
+            // nur damit ein Balken zappelt. Ganz ohne Untergrenze stuende die
+            // Anzeige dagegen still, sobald ein Verfahren lange in
+            // Zeitueberschreitungen laeuft - und genau dann will man sehen,
+            // dass die Verbindung noch steht.
+            TimeSpan minGap = TimeSpan.FromSeconds(2);
+            TimeSpan heartbeat = TimeSpan.FromSeconds(10);
+
+            void SendProgress(bool force)
+            {
+                ProgressPayload payload;
+
+                lock (progressSync)
+                {
+                    // Vor der ersten Meldung der Engine gibt es nichts zu
+                    // berichten. Der Taktgeber wuerde sonst das "starting"
+                    // durch eine leere Zeile ersetzen.
+                    if (latest is null) return;
+
+                    DateTimeOffset now = DateTimeOffset.UtcNow;
+
+                    if (!force && now - lastSent < minGap) return;
+
+                    lastSent = now;
+                    payload = BuildPayload();
+                }
+
+                progress.Report(payload);
+            }
+
+            void OnEngineProgress(ScanProgress p)
+            {
+                bool methodChanged;
+
+                lock (progressSync)
+                {
+                    latest = p;
+                    methodChanged = !string.Equals(p.MethodName, lastMethod, StringComparison.Ordinal);
+                    if (methodChanged) lastMethod = p.MethodName;
+                }
+
+                // Ein Verfahrenswechsel geht sofort raus: darauf wartet man,
+                // und zwei Sekunden spaeter waere die Zahl daneben schon eine
+                // andere.
+                SendProgress(methodChanged);
+            }
+
             void OnFinished(ScanMethodOutcome outcome)
             {
-                done++;
-                completed.Add(outcome.MethodName);
-
-                progress.Report(new ProgressPayload
+                lock (progressSync)
                 {
-                    Percent = methods.Count == 0 ? 100 : done * 100 / methods.Count,
-                    Current = outcome.MethodName,
-                    Done = string.Join(", ", completed),
-                    Pending = string.Join(", ",
-                        methods.Select(m => m.DisplayName).Where(n => !completed.Contains(n)))
-                });
+                    done++;
+                    completed.Add(outcome.MethodName);
+                }
+
+                SendProgress(true);
             }
 
             _engine.MethodFinished += OnFinished;
+            _engine.ProgressChanged += OnEngineProgress;
+
+            // Der Taktgeber fuer den Fall, dass sich nichts aendert.
+            using CancellationTokenSource beatStop = CancellationTokenSource.CreateLinkedTokenSource(token);
+
+            Task beat = Task.Run(async () =>
+            {
+                try
+                {
+                    using PeriodicTimer timer = new(heartbeat);
+                    while (await timer.WaitForNextTickAsync(beatStop.Token))
+                    {
+                        SendProgress(true);
+                    }
+                }
+                catch (OperationCanceledException) { }
+            }, CancellationToken.None);
 
             // Der Abbruch muss die Engine anhalten, nicht nur das Warten
             // beenden. Ohne das liefe der Scan nach einem Stopp weiter, waehrend
@@ -1748,6 +1853,8 @@ namespace MyNetworkMonitor.Core.ViewModels
                 {
                     Percent = 0,
                     Current = "starting",
+                    Step = 1,
+                    Steps = methods.Count,
                     Pending = string.Join(", ", methods.Select(m => m.DisplayName))
                 });
 
@@ -1755,18 +1862,34 @@ namespace MyNetworkMonitor.Core.ViewModels
                     () => _engine.RunAsync(job.Scopes, [.. methods.Select(m => m.Id)], settings, jobStore),
                     token);
             }
+            catch (OperationCanceledException)
+            {
+                // Abbruch wirft den Fund nicht weg: was bis dahin gefunden
+                // wurde, geht zurueck an den Auftraggeber.
+                //
+                // Frueher wurde hier nichts geliefert, damit ein halbes
+                // Ergebnis nicht wie ein vollstaendiges aussieht. Der Einwand
+                // bleibt richtig - nur ist die Antwort darauf, das Ergebnis zu
+                // kennzeichnen, und nicht, die Arbeit wegzuwerfen. Der
+                // Auftraggeber markiert es als abgebrochen (siehe
+                // MessageType.Result, Feld Partial).
+            }
             finally
             {
                 _engine.MethodFinished -= OnFinished;
+                _engine.ProgressChanged -= OnEngineProgress;
+
+                beatStop.Cancel();
+                try { await beat; } catch (OperationCanceledException) { }
             }
 
-            // Nach einem Abbruch nichts zurueckliefern, sondern abbrechen: ein
-            // halbes Ergebnis saehe aus wie ein vollstaendiges, und der
-            // Auftraggeber wuerde daraus schliessen, im Segment stuenden nur
-            // diese Geraete.
-            token.ThrowIfCancellationRequested();
-
-            progress.Report(new ProgressPayload { Percent = 100, Done = string.Join(", ", completed) });
+            progress.Report(new ProgressPayload
+            {
+                Percent = 100,
+                Step = methods.Count,
+                Steps = methods.Count,
+                Done = string.Join(", ", completed)
+            });
 
             return DeviceStoreFile.ToJson(jobStore);
         }
@@ -1850,14 +1973,19 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>Mischt ein Ergebnis ein, das ein Satellit geschickt hat.</summary>
-        public void MergeSatelliteResult(string satelliteName, string devicesJson)
+        public void MergeSatelliteResult(string satelliteName, string devicesJson, bool partial = false)
         {
             try
             {
                 List<Device> devices = DeviceStoreFile.FromJson(devicesJson);
                 int taken = _store.MergeFrom(devices);
 
-                StatusText = $"\"{satelliteName}\" reported {taken} device(s).";
+                // Beim Abbruch steht dabei, dass der Lauf nicht durch war.
+                // Die Geraete sind echt - aber die Abwesenheit eines Geraets
+                // sagt hier nichts, und genau das muss an der Meldung haengen.
+                StatusText = partial
+                    ? $"\"{satelliteName}\" was stopped - {taken} device(s) found so far (range not fully scanned)."
+                    : $"\"{satelliteName}\" reported {taken} device(s).";
 
                 lock (_store.SyncRoot)
                 {
@@ -1994,6 +2122,18 @@ namespace MyNetworkMonitor.Core.ViewModels
                         // entweder oertlich oder ueber einen Satelliten
                         // (SATELLIT.md, Abschnitt 3).
                         StatusText = WithSatelliteNotes("Nothing runs from this machine");
+
+                        // Der Ablaufplan gehoert zum *oertlichen* Lauf - und
+                        // der findet hier nicht statt. Bliebe er stehen,
+                        // zeigte die Zeile "done: -" und saemtliche Verfahren
+                        // als ausstehend, und zwar bis zum Sankt-Nimmerleins-
+                        // Tag: es laeuft ja nichts, was sie abarbeiten
+                        // koennte. Genau daneben stuende "Nothing runs from
+                        // this machine". Wo der Satellit arbeitet, steht in
+                        // seiner eigenen Anzeige.
+                        _planned.Clear();
+                        _done.Clear();
+                        NotifyPlanChanged();
                     }
                     else
                     {

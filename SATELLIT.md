@@ -234,6 +234,14 @@ Daraus folgt:
 - Meldet sich der Satellit wieder und hat noch ein unbestätigtes Ergebnis,
   liefert er es sofort nach — auch wenn inzwischen niemand darauf wartet.
 
+**Ein abgebrochener Auftrag liefert trotzdem, was bis dahin gefunden wurde.**
+Das `Result` trägt dann `Partial`, und der Auftraggeber weist es als
+unvollständig aus. Die gefundenen Geräte sind echt; was fehlt, ist die
+Aussagekraft des *Nicht*-Gefundenen — aus einem abgebrochenen Lauf darf
+niemand schließen, im Segment stünden nur diese Geräte. Darum wird
+gekennzeichnet statt weggeworfen: die Arbeit einer halben Stunde ist zu
+schade, um sie wegen des letzten Verfahrens zu verlieren.
+
 ---
 
 ## 6. Transport und Nachrichten
@@ -277,8 +285,8 @@ Satellit → Hauptscanner:
 | `Hello` | Protokollversion, Name, Anwendungsversion, Betriebssystem |
 | `Progress` | Verfahren, gesendet/geantwortet/gesamt — speist die dreiteilige Anzeige |
 | `Accepted` / `Busy` | Auftrag angenommen, oder es läuft schon einer |
-| `Result` | Auftragskennung, **alle** Funde und Befunde, je Fund die Bereichskennung |
-| `Cancelled` | Auftragskennung und wer abgebrochen hat — geht an den Auftraggeber |
+| `Result` | Auftragskennung, **alle** Funde und Befunde, je Fund die Bereichskennung; `Partial` bei Abbruch |
+| `Cancelled` | Auftragskennung und wer abgebrochen hat — nur noch, wenn es nichts zu liefern gab |
 | `Error` | Klartext, für den Nutzer verwendbar |
 | `Pong` | Antwort auf `Ping` |
 

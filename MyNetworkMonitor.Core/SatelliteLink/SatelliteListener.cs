@@ -71,7 +71,7 @@ namespace MyNetworkMonitor.Core.SatelliteLink
         /// Ein Auftrag ist fertig: Fingerabdruck, Auftragskennung und der
         /// gefundene Bestand als JSON.
         /// </summary>
-        public event EventHandler<(string Fingerprint, string JobId, string Devices)>? ResultReceived;
+        public event EventHandler<(string Fingerprint, string JobId, string Devices, bool Partial)>? ResultReceived;
 
         /// <summary>Ein Auftrag endete ohne Ergebnis - abgebrochen oder gescheitert.</summary>
         public event EventHandler<(string Fingerprint, string Text)>? JobEnded;
@@ -276,7 +276,8 @@ namespace MyNetworkMonitor.Core.SatelliteLink
 
                         case MessageType.Result:
                             ResultReceived?.Invoke(this,
-                                (session.Fingerprint, message.JobId ?? string.Empty, message.Devices ?? "[]"));
+                                (session.Fingerprint, message.JobId ?? string.Empty,
+                                 message.Devices ?? "[]", message.Partial));
 
                             // Empfang bestaetigen, damit der Satellit das
                             // Ergebnis loslassen darf.

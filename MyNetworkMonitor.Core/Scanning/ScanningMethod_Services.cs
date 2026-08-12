@@ -164,18 +164,33 @@ public class ScanningMethod_Services
             if (_cts.Token.IsCancellationRequested)
                 return; 
 
+            // Die abgeschickte Anfrage zaehlt, nicht die fertige - dieselbe
+            // Regel wie beim NetBIOS-Verfahren, und die, welche die Anzeige
+            // meint: "gesendet / geantwortet / gesamt".
+            //
+            // Wuerde hier erst das *fertige* Ziel zaehlen, stiegen beide
+            // Zahlen im selben Augenblick, und man saehe nie, dass Ziele
+            // unterwegs sind: an der Diensterkennung haengt jedes Ziel lange
+            // in Zeitueberschreitungen, und genau diese Wartezeit soll man am
+            // Abstand der beiden Zahlen ablesen koennen.
+            int currentValue = Interlocked.Increment(ref current);
+            ProgressUpdated?.Invoke(currentValue, Volatile.Read(ref responded), total);
+
             try
             {
                 await Task.Run(() => ScanIPAsync(ipToScan, services, extraPorts), _cts.Token);
             }
             finally
             {
-                // Der Fortschritt zaehlt hoch, wenn das Ziel fertig geprueft
-                // ist - nicht beim Anstossen. Sonst stuende der Balken lange
-                // auf dem Endwert, waehrend noch auf Antworten und Timeouts
-                // gewartet wird.
-                int currentValue = Interlocked.Increment(ref current);
-                ProgressUpdated?.Invoke(currentValue, responded, total);
+                // Geantwortet wird erst nach der Pruefung verbucht. Weil jedes
+                // Ziel vorher abgeschickt wurde, kann die zweite Zahl die
+                // erste nie ueberholen - sie zaehlt eine Teilmenge dessen,
+                // was die erste zaehlt.
+                int respondedValue = HasOpenPort(ipToScan)
+                    ? Interlocked.Increment(ref responded)
+                    : Volatile.Read(ref responded);
+
+                ProgressUpdated?.Invoke(Volatile.Read(ref current), respondedValue, total);
 
                 semaphore.Release();
             }
@@ -237,13 +252,48 @@ public class ScanningMethod_Services
 
         if (ipToScan.Services.Services.Count > 0)
         {
-            int respondedValue = Interlocked.Increment(ref responded);
-            ProgressUpdated?.Invoke(current, respondedValue, total);
-            
-
+            // Gemeldet wird jedes gepruefte Ziel, auch ohne Fund: "geprueft,
+            // nichts offen" ist ein Ergebnis und gehoert in den Bestand -
+            // sonst stuende ein Geraet dauerhaft auf "nie geprueft".
+            //
+            // Die Zaehlerstaende werden hier bewusst *nicht* angefasst; das
+            // erledigt die aufrufende Schleife, damit gesendet und geantwortet
+            // in einer festen Reihenfolge hochlaufen.
             ipToScan.UsedScanMethod = ScanMethod.Services;
             ServiceIPScanFinished?.Invoke(ipToScan); // Event auslösen
         }
+    }
+
+    /// <summary>
+    /// Hat sich an diesem Ziel mindestens ein Port gemeldet?
+    /// <para>
+    /// Massstab ist dieselbe Regel wie in der Tabelle (<c>Device.IsOpen</c>):
+    /// offen oder erkannter Dienst ist ein Fund, alles Uebrige - zu,
+    /// gefiltert, keine Antwort - nicht. Ein Diensteintrag allein sagt gar
+    /// nichts: angelegt wird einer fuer jeden geprueften Dienst.
+    /// </para>
+    /// </summary>
+    private static bool HasOpenPort(IPToScan ipToScan)
+    {
+        // Je Liste ueber dasselbe Schloss wie die Schreiber: die Dienstliste
+        // ueber sich selbst, die Portliste ueber sich selbst. Nach einem
+        // Abbruch kann noch eine abgehaengte Portpruefung nachtragen, und ein
+        // Durchlauf ueber eine Liste, die sich dabei aendert, wirft.
+        lock (ipToScan.Services.Services)
+        {
+            foreach (ServiceResult service in ipToScan.Services.Services)
+            {
+                lock (service.Ports)
+                {
+                    foreach (PortResult port in service.Ports)
+                    {
+                        if (port.Status is PortStatus.Open or PortStatus.IsRunning) return true;
+                    }
+                }
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -432,8 +482,12 @@ public class ScanningMethod_Services
         {
             if (_cts.Token.IsCancellationRequested) break; // 🔹 Falls der Scan gestoppt wurde, Schleife sofort beenden
 
+            // Gemeldet wird der Zaehler, nicht die Portnummer: bei einem Lauf
+            // ueber alle 65536 Ports sehen beide fast gleich aus, gemeint ist
+            // aber "der wievielte Port" - und das ist bei einem Abbruch oder
+            // einem Ausschnitt der Portliste etwas anderes.
             int currentValue = Interlocked.Increment(ref current);
-            FindServicePortProgressUpdated?.Invoke(port, responded, total);
+            FindServicePortProgressUpdated?.Invoke(currentValue, responded, total);
 
             try
             {

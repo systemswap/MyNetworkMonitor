@@ -175,6 +175,61 @@ namespace MyNetworkMonitor.Core.Models
         /// <summary>Was noch aussteht.</summary>
         [ObservableProperty] private string _progressPending = string.Empty;
 
+        /// <summary>Das wievielte Verfahren des Auftrags laeuft.</summary>
+        [ObservableProperty] private int _progressStep;
+
+        /// <summary>Wie viele Verfahren der Auftrag umfasst.</summary>
+        [ObservableProperty] private int _progressSteps;
+
+        // --- Die drei Zahlen des laufenden Verfahrens ------------------------
+
+        /// <summary>Abgeschickte Anfragen des laufenden Verfahrens.</summary>
+        [ObservableProperty] private int _progressSent;
+
+        /// <summary>Ziele, die geantwortet haben.</summary>
+        [ObservableProperty] private int _progressAnswered;
+
+        /// <summary>Ziele des laufenden Verfahrens insgesamt.</summary>
+        [ObservableProperty] private int _progressTotal;
+
+        /// <summary>
+        /// Wann die letzte Fortschrittsmeldung ankam. Der Satellit meldet sich
+        /// auch dann, wenn sich nichts geaendert hat - bleibt die Zeit stehen,
+        /// haengt nicht der Scan, sondern die Verbindung.
+        /// </summary>
+        [ObservableProperty] private DateTimeOffset? _progressAt;
+
+        /// <summary>Die drei Zahlen sind erst nach der ersten Meldung zu haben.</summary>
+        public bool HasCounts => ProgressTotal > 0;
+
+        /// <summary>"3 / 12" - das wievielte Verfahren von wie vielen.</summary>
+        public string StepText =>
+            ProgressSteps <= 0 ? string.Empty : $"{Math.Max(ProgressStep, 1)} / {ProgressSteps}";
+
+        /// <summary>
+        /// Laesst die Altersangabe neu rechnen. Sie haengt an der Uhr und nicht
+        /// an einer Eigenschaft - ohne diesen Anstoss bliebe sie auf dem Wert
+        /// der letzten Meldung stehen, gerade dann, wenn keine mehr kommt.
+        /// </summary>
+        public void RefreshProgressAge() => OnPropertyChanged(nameof(ProgressAgeText));
+
+        /// <summary>Wie lange die letzte Meldung her ist - in Worten.</summary>
+        public string ProgressAgeText
+        {
+            get
+            {
+                if (ProgressAt is null) return string.Empty;
+
+                TimeSpan age = DateTimeOffset.UtcNow - ProgressAt.Value;
+
+                if (age < TimeSpan.FromSeconds(15)) return "just now";
+                if (age < TimeSpan.FromMinutes(1)) return $"{(int)age.TotalSeconds}s ago";
+                if (age < TimeSpan.FromHours(1)) return $"{(int)age.TotalMinutes} min ago";
+
+                return ProgressAt.Value.LocalDateTime.ToString("g");
+            }
+        }
+
         /// <summary>Es laeuft gerade ein Auftrag.</summary>
         public bool IsBusy => !string.IsNullOrEmpty(JobId);
 
@@ -185,6 +240,20 @@ namespace MyNetworkMonitor.Core.Models
         }
 
         partial void OnProgressPercentChanged(int value) => OnPropertyChanged(nameof(StatusText));
+        partial void OnProgressCurrentChanged(string value) => OnPropertyChanged(nameof(StatusText));
+
+        partial void OnProgressStepChanged(int value) => OnPropertyChanged(nameof(StepText));
+        partial void OnProgressStepsChanged(int value) => OnPropertyChanged(nameof(StepText));
+
+        partial void OnProgressTotalChanged(int value)
+        {
+            OnPropertyChanged(nameof(HasCounts));
+            OnPropertyChanged(nameof(StatusText));
+        }
+
+        partial void OnProgressSentChanged(int value) => OnPropertyChanged(nameof(StatusText));
+        partial void OnProgressAnsweredChanged(int value) => OnPropertyChanged(nameof(StatusText));
+        partial void OnProgressAtChanged(DateTimeOffset? value) => OnPropertyChanged(nameof(ProgressAgeText));
 
         /// <summary>
         /// Was mit diesem Eintrag gerade los ist - ein Satz fuer die Liste,
@@ -194,7 +263,25 @@ namespace MyNetworkMonitor.Core.Models
         {
             get
             {
-                if (IsBusy) return $"{ProgressPercent}%  {ProgressCurrent}".TrimEnd();
+                // Waehrend eines Auftrags dieselbe Aussage wie oertlich im
+                // Kommandobalken: welches Verfahren, wie weit, und die drei
+                // Zahlen - "Ping 40 %  ·  102 / 17 / 254". Die Prozentzahl
+                // gehoert zum laufenden Verfahren, nicht zum ganzen Auftrag.
+                if (IsBusy)
+                {
+                    List<string> parts = [];
+
+                    string head = $"{ProgressCurrent} {ProgressPercent} %".TrimStart();
+                    parts.Add(head);
+
+                    if (HasCounts) parts.Add($"{ProgressSent} / {ProgressAnswered} / {ProgressTotal}");
+
+                    string step = StepText;
+                    if (step.Length > 0) parts.Add($"step {step}");
+
+                    return string.Join("  ·  ", parts);
+                }
+
                 if (IsConnected && Approved) return "Connected";
                 if (IsConnected) return "Waiting for approval";
                 if (string.IsNullOrWhiteSpace(Fingerprint)) return "Never connected";
