@@ -130,6 +130,10 @@ seine Adresse ist damit ein Beobachtungswert, keine Einstellung.
 | `GatewayIP` | **Neue Bedeutung:** der Router dieses Netzes. Netzinfo wie der DNS-Server |
 | `ScannedBy` | Verweis auf einen Satelliten. Leer = von diesem Rechner aus |
 
+Ein Wert, zu dem es **keinen Satelliten mehr gibt**, zählt wie leer: die
+Auswahl in der Maske zeigt ihn ohnehin nicht an, und was dort leer steht, läuft
+örtlich. Beim Laden wird er auf leer zurückgesetzt.
+
 `GatewayPort` entfällt — ein Router hat keinen Port.
 
 **Das Gateway ist kein Satellitenfeld.** Es beschreibt das Netz und gibt TTL,
@@ -148,7 +152,8 @@ Bereich einen anderen Router hat als der Adapter, über den gescannt wird.
 1. Vor dem Lauf werden die ausgewählten Bereiche nach `ScannedBy` gruppiert.
 2. Jeder Satellit bekommt **genau einen** Auftrag mit **allen** seinen
    Bereichen — nicht einen je Bereich.
-3. Bereiche ohne `ScannedBy` laufen örtlich.
+3. Bereiche ohne `ScannedBy` laufen örtlich — ebenso Bereiche, deren
+   `ScannedBy` auf keinen vorhandenen Satelliten zeigt.
 4. Ein Bereich läuft entweder örtlich **oder** über einen Satelliten, nie
    beides.
 5. Der Satellit nimmt keinen zweiten Auftrag an, solange einer läuft: er

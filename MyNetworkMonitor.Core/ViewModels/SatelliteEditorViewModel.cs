@@ -114,9 +114,11 @@ namespace MyNetworkMonitor.Core.ViewModels
         /// des gleichnamigen Satelliten.
         /// <para>
         /// Fuer den Bestand: bis zur Umstellung stand in <c>ScannedBy</c> der
-        /// Name. Passt nichts, wird der Wert unveraendert zurueckgegeben - der
-        /// Bereich gilt dann als nicht zugeordnet und wird beim Lauf gemeldet,
-        /// statt stillschweigend oertlich gescannt zu werden.
+        /// Name. Passt weder Kennung noch Name auf einen vorhandenen
+        /// Satelliten, kommt leer zurueck - der Bereich laeuft dann von diesem
+        /// Rechner aus. Den Wert stehen zu lassen hiesse, in der Auswahl nichts
+        /// anzuzeigen und beim Lauf trotzdem nach einem Satelliten zu fragen,
+        /// den es nicht gibt.
         /// </para>
         /// </summary>
         public string ResolveToId(string? scannedBy)
@@ -132,7 +134,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             Satellite? byName = All.FirstOrDefault(s =>
                 string.Equals(s.Name, scannedBy, StringComparison.OrdinalIgnoreCase));
 
-            return byName?.Id ?? scannedBy;
+            return byName?.Id ?? string.Empty;
         }
 
         /// <summary>
@@ -1215,12 +1217,11 @@ namespace MyNetworkMonitor.Core.ViewModels
             All.Remove(Selected);
             Selected = All.FirstOrDefault();
 
-            // Die Bereiche zeigen jetzt womoeglich auf einen Namen, den es
-            // nicht mehr gibt. Aufgeraeumt wird das nicht hier, sondern beim
-            // Lauf: ein unbekannter Name gilt als "nicht verbunden", und der
-            // Bereich wird uebersprungen statt stillschweigend oertlich
-            // gescannt (SATELLIT.md, Abschnitt 3).
-            Status = $"\"{gone}\" removed. Ranges still pointing at it will be reported as not scanned.";
+            // Die Bereiche zeigen jetzt womoeglich auf eine Kennung, die es
+            // nicht mehr gibt. In der Auswahl steht dann nichts mehr - und was
+            // dort leer steht, laeuft von diesem Rechner aus. Nach einem
+            // Satelliten zu fragen, den niemand mehr sieht, hilft niemandem.
+            Status = $"\"{gone}\" removed. Ranges still pointing at it will be scanned from this machine.";
         }
 
         /// <summary>

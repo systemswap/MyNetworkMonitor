@@ -291,11 +291,12 @@ public class ScanningMethod_NetBios
             int currentValue = Interlocked.Increment(ref current);
             ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
 
-            if (GetRemoteNetBiosName(IPAddress.Parse(iPToScan.IPorHostname), out string nbName, out _, out _))
+            if (GetRemoteNetBiosName(IPAddress.Parse(iPToScan.IPorHostname), out string nbName, out string nbWorkgroup, out _))
             {
                 if (cancellationToken.IsCancellationRequested) return; // 🔹 Abbruchprüfung
 
-                iPToScan.NetBiosHostname = nbName;
+                iPToScan.NetBiosHostname = nbName ?? string.Empty;
+                iPToScan.NetBiosWorkgroup = nbWorkgroup ?? string.Empty;
 
                 if (!string.IsNullOrEmpty(nbName))
                 {
@@ -349,7 +350,7 @@ public class ScanningMethod_NetBios
 
                     //string nbName3 = enc.GetString(receiveBuffer, 93, 15).Trim();
 
-                    nbName = GetBestNetBiosHostname(receiveBuffer);
+                    nbName = GetBestNetBiosHostname(receiveBuffer, out nbDomainOrWorkgroupName);
 
 
                     int macOffset = receivedByteCount - 6;
@@ -369,7 +370,11 @@ public class ScanningMethod_NetBios
     }
 
 
-    private string GetBestNetBiosHostname(byte[] receiveBuffer)
+    /// <summary>
+    /// Liest die Namensliste der Antwort aus: Rechnername und, sofern
+    /// vorhanden, die Arbeitsgruppe bzw. Domaene.
+    /// </summary>
+    private string GetBestNetBiosHostname(byte[] receiveBuffer, out string workgroup)
     {
         Encoding enc = Encoding.ASCII;
 
@@ -377,30 +382,49 @@ public class ScanningMethod_NetBios
         int nameCount = receiveBuffer[56];
         int offset = 57;
 
-        string fallbackName = null;
+        string serverName = null;      // Suffix 0x20, eindeutig
+        string workstationName = null; // Suffix 0x00, eindeutig
+        string workgroupName = null;   // Suffix 0x00, Gruppe
+        string browserGroup = null;    // Suffix 0x1E, Gruppe
 
         for (int i = 0; i < nameCount; i++)
         {
             if (offset + 18 > receiveBuffer.Length)
                 break;
 
-            // 15 Byte Name + 1 Byte Suffix
+            // 15 Byte Name + 1 Byte Suffix + 2 Byte Flags
             string name = enc.GetString(receiveBuffer, offset, 15).Trim();
             byte suffix = receiveBuffer[offset + 15];
 
-            // Priorität 1: Suffix 0x20 → File Server
-            if (suffix == 0x20)
-                return name;
-
-            // Priorität 2: Suffix 0x00 → Workstation
-            if (suffix == 0x00 && fallbackName == null)
-                fallbackName = name;
+            // Oberstes Bit der Flags: gesetzt = Gruppenname. Ohne diese
+            // Unterscheidung wandert die Arbeitsgruppe in den Rechnernamen -
+            // sie traegt dasselbe Suffix 0x00 wie die Workstation, und wer
+            // zuerst in der Liste steht, gewinnt.
+            bool isGroup = (receiveBuffer[offset + 16] & 0x80) != 0;
 
             offset += 18;
+
+            if (string.IsNullOrWhiteSpace(name)) continue;
+
+            if (isGroup)
+            {
+                if (suffix == 0x00 && workgroupName == null) workgroupName = name;
+                else if (suffix == 0x1E && browserGroup == null) browserGroup = name;
+                continue;
+            }
+
+            // Priorität 1: Suffix 0x20 → File Server
+            if (suffix == 0x20 && serverName == null) serverName = name;
+
+            // Priorität 2: Suffix 0x00 → Workstation
+            else if (suffix == 0x00 && workstationName == null) workstationName = name;
         }
 
-        // Wenn kein 0x20 gefunden wurde, nimm 0x00
-        return fallbackName ?? "UNKNOWN";
+        workgroup = workgroupName ?? browserGroup;
+
+        // Kein Platzhaltername zurueckgeben: "UNKNOWN" waere spaeter nicht mehr
+        // von einem echten Rechnernamen zu unterscheiden.
+        return serverName ?? workstationName;
     }
 
     private async Task<bool> RunWithTimeout(Task task, TimeSpan timeout)
