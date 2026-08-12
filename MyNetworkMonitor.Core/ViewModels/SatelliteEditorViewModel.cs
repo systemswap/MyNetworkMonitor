@@ -175,6 +175,12 @@ namespace MyNetworkMonitor.Core.ViewModels
 
                 if (!_loading) _satellitesChanged = true;
 
+                // Der erste Eintrag wird gleich angewaehlt. Ohne das steht die
+                // rechte Seite leer da, obwohl ein Satellit in der Liste liegt
+                // - und dass man dafuer erst eine Zeile anklicken muss, sieht
+                // man der Seite nicht an.
+                Selected ??= All.FirstOrDefault();
+
                 RefreshNames();
                 Save();
             };

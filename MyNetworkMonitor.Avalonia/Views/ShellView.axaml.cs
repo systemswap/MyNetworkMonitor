@@ -892,6 +892,48 @@ public partial class ShellView : Window
         // Versuch, das mitzubekommen.
         if (section == ShellSection.Network) _shell.NetworkView.Refresh();
 
+        // Die Satellitenliste beim Aufschlagen auf die Auswahl bringen, die im
+        // Ansichtsmodell steht.
+        //
+        // Noetig, weil eine Auswahl, die gesetzt wird, bevor das DataGrid
+        // seine Zeilen hat, nur halb ankommt. Der erste Satellit wird beim
+        // Laden der Liste angewaehlt, also lange vor dem ersten Aufschlagen
+        // dieser Ansicht. Gemessen sah es danach so aus:
+        //
+        //     SelectedItem = TestSat-A      SelectedIndex = -1
+        //
+        // Die Bindung hat den Wert also hineingetragen, eine Zeile dazu gab es
+        // zu dem Zeitpunkt aber nicht - links war nichts markiert, waehrend
+        // rechts schon seine Daten standen. Denselben Wert noch einmal
+        // zuzuweisen hilft nicht, das Eigenschaftensystem verwirft eine
+        // Zuweisung ohne Aenderung; ueber den Index ebenso, denn der landet
+        // wieder bei demselben Element. Erst leeren und neu setzen laesst die
+        // Tabelle die Zeile suchen, jetzt, wo es sie gibt.
+        //
+        // Nur bei Index -1, also nur im widerspruechlichen Zustand: hat der
+        // Nutzer selbst gewaehlt, bleibt seine Auswahl unangetastet.
+        //
+        // Mit Vorrang "Loaded" und nicht schlicht ueber den Dispatcher: die
+        // Ansicht wurde in dieser Zeile erst sichtbar geschaltet, ihre Zeilen
+        // entstehen im naechsten Layoutlauf.
+        if (section == ShellSection.Satellites)
+        {
+            global::Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                if (dg_Satellites.SelectedIndex < 0
+                    && _shell.SatelliteEditor.Selected is Satellite chosen)
+                {
+                    dg_Satellites.SelectedItem = null;
+                    dg_Satellites.SelectedItem = chosen;
+                }
+
+                // Der Fokus dazu: so laesst sich die Liste sofort mit den
+                // Pfeiltasten bedienen, ohne erst hineinzuklicken.
+                dg_Satellites.Focus();
+            },
+            global::Avalonia.Threading.DispatcherPriority.Loaded);
+        }
+
         bool built = section is ShellSection.Devices or ShellSection.Scopes
                              or ShellSection.Ports or ShellSection.Services
                              or ShellSection.Settings or ShellSection.Network

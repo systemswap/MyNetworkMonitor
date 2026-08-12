@@ -1454,7 +1454,8 @@ namespace MyNetworkMonitor.Core.ViewModels
                 }
                 else
                 {
-                    missing.Add(group.Key);
+                    // In die Meldung gehoert der Name, nicht die Kennung.
+                    missing.Add(satellite.Name);
                 }
             }
 
@@ -1498,11 +1499,19 @@ namespace MyNetworkMonitor.Core.ViewModels
 
         /// <summary>
         /// Ist dieser Satellit gerade ansprechbar - verbunden und freigegeben?
+        /// <para>
+        /// Gesucht wird ueber die Kennung, denn genau die steht in
+        /// <c>ScanScope.ScannedBy</c>. Vorher wurde hier gegen den
+        /// <em>Namen</em> verglichen: das traf nie zu, jeder Bereich galt als
+        /// "Satellit nicht verbunden", und der Lauf fragte, ob er stattdessen
+        /// von hier scannen soll - obwohl der Satellit verbunden dastand.
+        /// </para>
         /// </summary>
-        private bool IsSatelliteReady(string name) =>
-            SatelliteEditor.All.Any(s =>
-                string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase) &&
-                s.IsConnected && s.Approved);
+        private bool IsSatelliteReady(string id)
+        {
+            Satellite? satellite = SatelliteEditor.ById(id);
+            return satellite is not null && satellite.IsConnected && satellite.Approved;
+        }
 
         /// <summary>
         /// Fragt nach, was mit Bereichen geschehen soll, deren Satellit nicht
