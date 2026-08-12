@@ -2582,7 +2582,7 @@
 
                         <WrapPanel ItemSpacing="6" LineSpacing="6"
                                    IsEnabled="{Binding SatelliteEditor.IsServiceSupported}">
-                          <Button Content="Set up" Command="{Binding SatelliteEditor.InstallServiceCommand}"
+                          <Button Content="Install service" Command="{Binding SatelliteEditor.InstallServiceCommand}"
                                   Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
                                   FontSize="10.5"/>
                           <Button Content="Start" Command="{Binding SatelliteEditor.StartServiceCommand}"
@@ -2603,7 +2603,7 @@
                         </WrapPanel>
 
                         <TextBlock Classes="settingHint"
-                                   Text="Without a service this machine is a satellite only while this window is open. Set up runs it as a service that starts with the machine, keeps every connection open and comes back on its own after a restart or a crash. Setting it up and removing it need administrator rights - Windows will ask."/>
+                                   Text="Without a service this machine is a satellite only while this window is open. Install service runs it as a service that starts with the machine, keeps every connection open and comes back on its own after a restart or a crash. Installing and removing it need administrator rights - Windows will ask."/>
 
                         <Border Background="{StaticResource TealSoft}" CornerRadius="3" Padding="9,6"
                                 IsVisible="{Binding SatelliteEditor.IsServiceRunning}">
