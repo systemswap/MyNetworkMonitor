@@ -219,7 +219,11 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             {
                 Source = sourceOverride ?? DisplayName,
                 Address = info,
-                Mac = ParseMac(result.MAC) ?? ParseMac(result.SNMP_MAC),
+                // Die MAC aus SNMP gilt nur noch als weicher Hinweis. Als
+                // harte Kennung genommen, widersprach sie der per ARP
+                // gesehenen und spaltete dasselbe Geraet in zwei Eintraege.
+                Mac = ParseMac(result.MAC),
+                SoftMac = ParseMac(result.SNMP_MAC),
                 Vendor = NullIfBlank(result.Vendor),
                 HostName = NullIfBlank(result.HostName) ?? NullIfBlank(result.SNMP_SysName),
                 Domain = NullIfBlank(result.Domain) ?? NullIfBlank(scope?.Domain),
