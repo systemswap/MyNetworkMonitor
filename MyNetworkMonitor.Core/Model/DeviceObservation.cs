@@ -25,6 +25,24 @@ namespace MyNetworkMonitor.Core.Model
 
         public PhysicalAddress? Mac { get; init; }
 
+        /// <summary>
+        /// Eine MAC, die das Verfahren zwar nennt, die aber nicht die des
+        /// antwortenden Anschlusses sein muss - heute die aus SNMP.
+        /// <para>
+        /// SNMP meldet die MAC des Verwaltungsanschlusses oder die Basis-MAC
+        /// des Geraets. Bei allem mit mehreren Anschluessen - Switch, Router,
+        /// Steuerung - ist das eine andere als die, die auf diese Adresse hin
+        /// per ARP geantwortet hat. Als harte Kennung genommen, zerlegt sie
+        /// ein Geraet in zwei Eintraege, die sich dieselbe Adresse teilen.
+        /// </para>
+        /// <para>
+        /// Sie darf darum eine Zuordnung <em>herstellen</em> und eine leere
+        /// MAC fuellen, aber keine Zuordnung <em>verhindern</em> - dieselbe
+        /// Regel wie fuer die aus EUI-64 zurueckgerechnete MAC.
+        /// </para>
+        /// </summary>
+        public PhysicalAddress? SoftMac { get; init; }
+
         /// <summary>DHCPv6-DUID in Hex-Schreibweise.</summary>
         public string? Duid { get; init; }
 

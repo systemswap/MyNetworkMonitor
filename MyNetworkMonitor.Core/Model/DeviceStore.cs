@@ -428,6 +428,13 @@ namespace MyNetworkMonitor.Core.Model
             if (o.Address?.DerivedMac is { } derived)
                 Add(_byMac.GetValueOrDefault(MacKey(derived)));
 
+            // Die weiche MAC darf zuordnen: meldet SNMP die Basis-MAC eines
+            // Geraets, das schon ueber einen anderen Anschluss bekannt ist,
+            // gehoert die Sichtung dorthin. Verhindern darf sie nichts - dafuer
+            // sorgt ContradictsObservation, das sie nicht ansieht.
+            if (o.SoftMac is not null)
+                Add(_byMac.GetValueOrDefault(MacKey(o.SoftMac)));
+
             // Traegt die Adresse mehr als ein Geraet, kommen alle in Betracht -
             // welches davon gemeint ist, entscheidet erst die MAC-Pruefung.
             if (o.Address is not null && _byAddress.TryGetValue(o.Address.Canonical, out List<Device>? holders))
@@ -451,6 +458,13 @@ namespace MyNetworkMonitor.Core.Model
         /// bedeutet nichts - Geraete haben mehrere Namen. Eine fehlende Angabe
         /// auf einer der beiden Seiten widerspricht ebenfalls nicht; sie sagt
         /// nur, dass niemand nachgesehen hat.
+        /// </para>
+        /// <para>
+        /// <see cref="DeviceObservation.SoftMac"/> bleibt ebenfalls aussen vor.
+        /// SNMP liest die MAC jedes Anschlusses (ifPhysAddress) - auch die von
+        /// Anschluessen, die gar nicht an diesem Netz haengen. Genommen als
+        /// harte Kennung, widersprach so eine MAC der per ARP gesehenen, und
+        /// dasselbe Geraet stand zweimal in der Liste.
         /// </para>
         /// </summary>
         private static bool ContradictsObservation(Device device, DeviceObservation o)
@@ -499,9 +513,17 @@ namespace MyNetworkMonitor.Core.Model
             if (!string.IsNullOrWhiteSpace(o.Duid)) device.Duid = o.Duid;
 
             // Eine unmittelbar beobachtete MAC ist verlaesslicher als eine aus
-            // EUI-64 zurueckgerechnete - darum nur ergaenzen, nicht ueberschreiben.
+            // EUI-64 zurueckgerechnete oder eine von SNMP genannte - darum nur
+            // ergaenzen, nicht ueberschreiben.
+            //
+            // Die weiche MAC fuellt nur eine Luecke: ein Geraet, das allein
+            // ueber SNMP gefunden wurde - hinter einem Router etwa, wo ARP
+            // nicht hinkommt -, stuende sonst ohne MAC da. Ueberschriebe sie
+            // die per ARP gesehene, waere derselbe Schaden angerichtet wie
+            // vorher, nur andersherum.
             if (o.Mac is not null) device.Mac = o.Mac;
             else if (device.Mac is null && o.Address?.DerivedMac is { } derived) device.Mac = derived;
+            else if (device.Mac is null && o.SoftMac is not null) device.Mac = o.SoftMac;
 
             if (!string.IsNullOrWhiteSpace(o.Vendor)) device.Vendor = o.Vendor;
             if (!string.IsNullOrWhiteSpace(o.HostName)) device.HostName = o.HostName;
