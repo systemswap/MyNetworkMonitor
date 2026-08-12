@@ -1789,17 +1789,25 @@
                 <!--
                     Schritt 1 und 2: horchen, dann freigeben.
 
-                    Die Spalte rollt, wie die rechte auch. Vorher war sie ein
-                    DockPanel: die drei Bloecke nahmen sich ihre Hoehe, die
-                    Tabelle bekam als letztes Kind den Rest - und der war beim
-                    Start praktisch nichts. Jetzt behaelt jeder Block seine
-                    Hoehe, die Tabelle ihre eigene, und was nicht aufs Bild
-                    passt, wird gerollt.
+                    Rollende Spalte mit einem Raster darin: die Bloecke nehmen
+                    sich ihre Hoehe (Auto), die Tabelle bekommt den Rest (*).
+
+                    Beides zusammen ist noetig. Nur das Raster - der fruehere
+                    Aufbau - gab der Tabelle als Letztem, was uebrig blieb, und
+                    das war bei kleinem Fenster nichts. Nur die Rolle liess sie
+                    dagegen nicht mehr mitwachsen, weil es in einer rollenden
+                    Liste keinen "Rest" gibt.
+
+                    So gilt beides: ist Platz da, waechst die Tabelle mit dem
+                    Fenster; ist keiner da, behaelt sie ihre Mindesthoehe, und
+                    die Spalte bekommt ihren Rollbalken.
                 -->
                 <ScrollViewer Grid.Column="0" Padding="14,14,14,14"
                               VerticalScrollBarVisibility="Auto"
-                              HorizontalScrollBarVisibility="Disabled">
-                 <StackPanel>
+                              HorizontalScrollBarVisibility="Disabled"
+                              AllowAutoHide="False">
+                 <Grid RowDefinitions="Auto,*">
+                  <StackPanel Grid.Row="0">
 
                   <!--
                       Was drueben am Satelliten in die Empfaengerliste
@@ -1939,18 +1947,18 @@
                       </StackPanel>
                     </StackPanel>
                   </Border>
+                  </StackPanel>
 
-                  <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
+                  <Border Grid.Row="1"
+                          Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
                           BorderThickness="1,0,1,1" CornerRadius="0,0,4,4">
                     <!--
-                        Feste Untergrenze, damit beim Start immer zwei
-                        Eintraege dastehen: 26 Kopfzeile + 2 x 30 Zeile und
-                        etwas Luft. Vorher bekam die Tabelle nur den Rest der
-                        Spalte, und der reichte gerade fuer die Kopfzeile - es
-                        sah aus, als haette sich kein Satellit gemeldet.
-                        Nach oben begrenzt, weil sie in einer rollenden Spalte
-                        steht: ohne Grenze wuechse sie mit jeder Zeile weiter
-                        und schoebe alles andere hinaus.
+                        Feste Untergrenze: darunter reichte es gerade fuer die
+                        Kopfzeile, und es sah aus, als haette sich kein Satellit
+                        gemeldet. 150 traegt Kopfzeile und vier Zeilen (26 + 4 x
+                        30) - so viel steht immer da, auch im kleinsten Fenster.
+                        Nach oben keine Grenze: in der Zeile mit * waechst die
+                        Tabelle mit dem Fenster nach unten mit.
                     -->
                     <DataGrid x:Name="dg_Satellites"
                               RowTheme="{StaticResource SatelliteRowTheme}"
@@ -1958,7 +1966,7 @@
                               SelectedItem="{Binding SatelliteEditor.Selected}"
                               AutoGenerateColumns="False" IsReadOnly="True"
                               CanUserResizeColumns="True" SelectionMode="Single"
-                              MinHeight="100" MaxHeight="330" Background="Transparent">
+                              MinHeight="150" Background="Transparent">
                       <DataGrid.Columns>
                         <DataGridTextColumn Header="SATELLITE" Binding="{Binding Name}" Width="*"/>
                         <DataGridTextColumn Header="STATE" Binding="{Binding StatusText}"
@@ -1966,7 +1974,7 @@
                       </DataGrid.Columns>
                     </DataGrid>
                   </Border>
-                 </StackPanel>
+                 </Grid>
                 </ScrollViewer>
 
                 <Border Grid.Column="1" Background="{StaticResource Line}"/>
