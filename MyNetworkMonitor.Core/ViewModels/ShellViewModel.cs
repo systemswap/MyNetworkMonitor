@@ -1554,6 +1554,99 @@ namespace MyNetworkMonitor.Core.ViewModels
             return await Dialogs.ConfirmAsync(message, "Satellite not connected");
         }
 
+        /// <summary>
+        /// Warnt vor einem Lauf, der nichts finden kann, und fragt, ob er
+        /// trotzdem starten soll.
+        /// <para>
+        /// Der Fall: jedes gewaehlte Verfahren ist auf "nur Geraete, die schon
+        /// in der Tabelle stehen" beschraenkt, und es steht keines darin. Die
+        /// Kuerzung auf bekannte Ziele laesst dann nichts uebrig, jedes
+        /// Verfahren laeuft ueber eine leere Liste, und am Ende steht ein
+        /// Ergebnis von null Geraeten - ohne Fehler, denn aus Sicht der
+        /// Verfahren ist genau das richtig.
+        /// </para>
+        /// <para>
+        /// Ein Satellit ist davon staerker betroffen als diese Anlage: sein
+        /// Auftrag laeuft gegen einen frisch angelegten, <em>leeren</em>
+        /// Bestand, nicht gegen die Tabelle des Hauptscanners. Was hier steht,
+        /// kennt er nicht. Bei ihm genuegt also die Beschraenkung allein, damit
+        /// nichts herauskommt.
+        /// </para>
+        /// <para>
+        /// Kein Grund zur Warnung ist ein Verfahren, das selbst sucht: eines
+        /// ohne Zielliste (Rundruf wie SSDP oder mDNS) oder eines, das nicht
+        /// beschraenkt ist. Das fuellt die Tabelle, und die beschraenkten
+        /// danach haben etwas zu fragen - genau dafuer ist die Abstufung da.
+        /// </para>
+        /// </summary>
+        private async Task<bool> ConfirmRunWithoutTargetsAsync(
+            List<ScanScope> local, List<ScanScope> remote)
+        {
+            List<ScanMethodChoice> chosen = [.. Methods.Where(m => m.IsEffective)];
+
+            if (chosen.Count == 0) return true;
+
+            IReadOnlyList<string> restrictable =
+                [.. chosen.Where(m => m.CanRestrictToKnown).Select(m => m.Id)];
+
+            // Findet unter den gewaehlten Verfahren eines von selbst Geraete?
+            bool NothingDiscovers(Func<string, bool> isRestricted) =>
+                chosen.All(m => m.CanRestrictToKnown && isRestricted(m.Id));
+
+            List<string> affected = [];
+
+            if (local.Count > 0 && NothingDiscovers(Settings.IsRestrictedToKnown))
+            {
+                bool tableIsEmpty;
+                lock (_store.SyncRoot) tableIsEmpty = _store.Devices.Count == 0;
+
+                if (tableIsEmpty) affected.Add("this machine (the table is still empty)");
+            }
+
+            foreach (IGrouping<string, ScanScope> group in
+                     remote.GroupBy(s => s.ScannedBy, StringComparer.OrdinalIgnoreCase))
+            {
+                Satellite? satellite = SatelliteEditor.ById(group.Key);
+                if (satellite is null) continue;
+
+                HashSet<string> restricted =
+                    new(satellite.EffectiveOnlyKnownFor(restrictable), StringComparer.OrdinalIgnoreCase);
+
+                if (NothingDiscovers(restricted.Contains))
+                {
+                    affected.Add($"satellite \"{satellite.Name}\" (it starts every job with an empty table)");
+                }
+            }
+
+            if (affected.Count == 0) return true;
+
+            // Ohne Dialogdienst - im Dienstbetrieb und in Tests - wird nicht
+            // gefragt und auch nicht abgebrochen: der Lauf verhaelt sich dann
+            // wie bisher. Anders als bei einem nicht erreichbaren Satelliten
+            // steht hier kein falsches Ergebnis zu befuerchten, sondern nur ein
+            // leeres.
+            if (Dialogs is null) return true;
+
+            string who = string.Join(Environment.NewLine, affected.Select(a => $"   {a}"));
+            string methods = string.Join(", ", chosen.Select(m => m.DisplayName));
+
+            string message =
+                $"Every selected method is limited to devices that are already in the table, " +
+                $"and there are none to work from:{Environment.NewLine}{Environment.NewLine}" +
+                $"{who}{Environment.NewLine}{Environment.NewLine}" +
+                $"Selected: {methods}{Environment.NewLine}{Environment.NewLine}" +
+                $"Methods like Services or TCP ports do not look for devices - they ask the ones " +
+                $"already found. Without a device to ask, this run reports nothing." +
+                $"{Environment.NewLine}{Environment.NewLine}" +
+                $"Add a method that finds devices by itself - Ping or ARP request - or switch off " +
+                $"\"only devices in table\" for the methods you picked. For a satellite that setting " +
+                $"is per satellite, under \"Scan scope for this satellite\"." +
+                $"{Environment.NewLine}{Environment.NewLine}" +
+                $"Start anyway?";
+
+            return await Dialogs.ConfirmAsync(message, "This scan would find nothing");
+        }
+
         private static string Describe(List<string> scanning, List<string> missing)
         {
             List<string> parts = [];
@@ -1765,6 +1858,20 @@ namespace MyNetworkMonitor.Core.ViewModels
 
         private async Task RunAsync(List<ScanScope> scopes)
         {
+            // Ganz am Anfang, noch vor "Scan running..." und dem Ablaufplan:
+            // kann dieser Lauf ueberhaupt etwas finden? Sind alle gewaehlten
+            // Verfahren auf bekannte Geraete beschraenkt und es gibt keine,
+            // laeuft er ins Leere - siehe die Erklaerung an der Pruefung.
+            // Weiter unten gefragt, staende waehrend der Rueckfrage schon
+            // "Scan running..." in der Zeile, obwohl noch nichts laeuft.
+            if (!await ConfirmRunWithoutTargetsAsync(
+                    [.. scopes.Where(s => !s.IsScannedRemotely)],
+                    [.. scopes.Where(s => s.IsScannedRemotely)]))
+            {
+                StatusText = "Scan cancelled - nothing would have been scanned.";
+                return;
+            }
+
             IsRunning = true;
             OnPropertyChanged(nameof(CanStart));
             LastSkipped.Clear();

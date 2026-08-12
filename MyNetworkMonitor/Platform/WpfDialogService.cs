@@ -1,4 +1,4 @@
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using System.Windows;
 using MyNetworkMonitor.Core.Services;
 
@@ -13,19 +13,19 @@ namespace MyNetworkMonitor.Platform
             return Task.CompletedTask;
         }
 
-        public Task ShowErrorAsync(string message, string title = "Fehler")
+        public Task ShowErrorAsync(string message, string title = "Error")
         {
             MessageBox.Show(message, title, MessageBoxButton.OK, MessageBoxImage.Error);
             return Task.CompletedTask;
         }
 
-        public Task<bool> ConfirmAsync(string message, string title = "Bestätigen")
+        public Task<bool> ConfirmAsync(string message, string title = "Please confirm")
         {
             bool result = MessageBox.Show(message, title, MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes;
             return Task.FromResult(result);
         }
 
-        public Task<YesNoCancel> AskYesNoCancelAsync(string message, string title = "Frage")
+        public Task<YesNoCancel> AskYesNoCancelAsync(string message, string title = "Question")
         {
             MessageBoxResult result = MessageBox.Show(message, title, MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
 
