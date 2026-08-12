@@ -197,9 +197,11 @@ namespace MyNetworkMonitor.Core.Model
         /// <para>
         /// Anders als <see cref="LoadFrom"/> wird der vorhandene Bestand nicht
         /// geleert: der Satellit kennt nur sein Segment, alles andere bleibt
-        /// stehen. Ein Geraet, dessen Adresse hier schon bekannt ist, wird
-        /// ersetzt - fuer sein Segment ist der Satellit die bessere Quelle, er
-        /// steht mit ARP darin.
+        /// stehen. Und auch das schon bekannte Geraet wird nicht ersetzt,
+        /// sondern ergaenzt - ein Satellitenlauf bringt immer nur mit, was
+        /// <em>dieser</em> Auftrag gefunden hat. Wer nur die Namen nachholt,
+        /// schickt ein Geraet ohne Dienste zurueck; ersetzt man damit den
+        /// Eintrag, waeren die Dienstbefunde des vorherigen Laufs weg.
         /// </para>
         /// </summary>
         /// <returns>Wie viele Geraete aufgenommen wurden.</returns>
@@ -208,59 +210,183 @@ namespace MyNetworkMonitor.Core.Model
             ArgumentNullException.ThrowIfNull(devices);
 
             int taken = 0;
+            List<Device> touched = [];
 
             lock (SyncRoot)
             {
                 foreach (Device incoming in devices)
                 {
-                    foreach (Device replaced in FindExisting(incoming))
+                    Device? target = FindExisting(incoming);
+
+                    if (target is null)
                     {
-                        _devices.Remove(replaced);
+                        _devices.Add(incoming);
+                        Reindex(incoming);
+                        touched.Add(incoming);
+                    }
+                    else
+                    {
+                        Absorb(target, incoming);
+                        Reindex(target);
+                        touched.Add(target);
                     }
 
-                    _devices.Add(incoming);
-                    Reindex(incoming);
                     taken++;
                 }
+            }
 
-                // Die Register zeigen nach dem Entfernen noch auf Geraete, die
-                // nicht mehr in der Liste stehen. Statt einzeln aufzuraeumen -
-                // ein Geraet haengt an mehreren Registern - werden sie in einem
-                // Rutsch neu aufgebaut. Bei ein paar hundert Geraeten ist das
-                // billiger als die Buchfuehrung, die man sonst braucht.
-                RebuildIndexes();
+            // Die Anzeigeeigenschaften haengen an Adressen und Diensten - deren
+            // Aenderungen bemerkt die Bindung nicht von allein. Ohne das bliebe
+            // die Zeile stehen, wie sie war, obwohl der Satellit gerade etwas
+            // dazugelegt hat.
+            if (!DeferDisplayNotifications)
+            {
+                foreach (Device device in touched) device.NotifyDisplayChanged();
             }
 
             return taken;
         }
 
-        /// <summary>Alle vorhandenen Geraete, die eine Adresse mit dem neuen teilen.</summary>
-        private List<Device> FindExisting(Device incoming)
+        /// <summary>
+        /// Das vorhandene Geraet, in das die Meldung gehoert - oder
+        /// <c>null</c>, wenn sie ein neues Geraet beschreibt.
+        /// <para>
+        /// Gesucht wird ueber dieselbe Kaskade wie bei einer Sichtung: erst die
+        /// harten Kennungen, dann die Adressen. Was der Meldung widerspricht -
+        /// andere MAC, andere DUID - kommt nicht in Frage; unter einer doppelt
+        /// vergebenen Adresse haengen zwei Geraete, und in das falsche zu
+        /// schreiben waere schlimmer, als ein drittes anzulegen.
+        /// </para>
+        /// </summary>
+        private Device? FindExisting(Device incoming)
         {
-            List<Device> found = [];
+            if (incoming.Duid is { Length: > 0 } duid &&
+                _byDuid.TryGetValue(duid, out Device? byDuid) && !Contradicts(byDuid, incoming))
+            {
+                return byDuid;
+            }
+
+            if (incoming.Mac is not null &&
+                _byMac.TryGetValue(MacKey(incoming.Mac), out Device? byMac) && !Contradicts(byMac, incoming))
+            {
+                return byMac;
+            }
 
             foreach (DeviceAddress address in incoming.Addresses)
             {
-                if (!_byAddress.TryGetValue(address.Info.Canonical, out List<Device>? devices)) continue;
+                if (!_byAddress.TryGetValue(address.Info.Canonical, out List<Device>? holders)) continue;
 
-                foreach (Device device in devices)
+                foreach (Device holder in holders)
                 {
-                    if (!found.Contains(device)) found.Add(device);
+                    if (!Contradicts(holder, incoming)) return holder;
                 }
             }
 
-            return found;
+            return null;
         }
 
-        /// <summary>Baut alle Register aus der Geraeteliste neu auf.</summary>
-        private void RebuildIndexes()
+        /// <summary>
+        /// Traegt ein, was der Satellit gemeldet hat. Wie
+        /// <see cref="Apply(Device, DeviceObservation)"/> gilt: eine Angabe
+        /// ueberschreibt die alte, eine fehlende loescht nichts. Der Satellit
+        /// hat frisch nachgesehen, aber eben nur nach dem, wonach der Auftrag
+        /// gefragt hat.
+        /// </summary>
+        private static void Absorb(Device target, Device incoming)
         {
-            _byDuid.Clear();
-            _byMac.Clear();
-            _byAddress.Clear();
-            _byHostName.Clear();
+            foreach (DeviceAddress address in incoming.Addresses)
+            {
+                DeviceAddress? mine = target.Addresses.FirstOrDefault(a =>
+                    string.Equals(a.Info.Canonical, address.Info.Canonical, StringComparison.OrdinalIgnoreCase));
 
-            foreach (Device device in _devices) Reindex(device);
+                if (mine is null)
+                {
+                    target.Addresses.Add(address);
+                    continue;
+                }
+
+                if (address.LastSeen > mine.LastSeen) mine.LastSeen = address.LastSeen;
+                if (address.FirstSeen != default && (mine.FirstSeen == default || address.FirstSeen < mine.FirstSeen))
+                {
+                    mine.FirstSeen = address.FirstSeen;
+                }
+
+                if (address.Origin != AddressOrigin.Unknown) mine.Origin = address.Origin;
+                if (address.State != AddressState.Unknown) mine.State = address.State;
+                if (address.ValidUntil is not null) mine.ValidUntil = address.ValidUntil;
+                if (address.PreferredUntil is not null) mine.PreferredUntil = address.PreferredUntil;
+                if (address.IsResponding) mine.IsResponding = true;
+                if (!string.IsNullOrWhiteSpace(address.DiscoveredBy)) mine.DiscoveredBy = address.DiscoveredBy;
+            }
+
+            if (incoming.Duid is { Length: > 0 }) target.Duid = incoming.Duid;
+            if (incoming.Mac is not null) target.Mac = incoming.Mac;
+
+            if (!string.IsNullOrWhiteSpace(incoming.Vendor)) target.Vendor = incoming.Vendor;
+            if (!string.IsNullOrWhiteSpace(incoming.HostName)) target.HostName = incoming.HostName;
+            if (!string.IsNullOrWhiteSpace(incoming.Domain)) target.Domain = incoming.Domain;
+            if (!string.IsNullOrWhiteSpace(incoming.NetBiosName)) target.NetBiosName = incoming.NetBiosName;
+            if (!string.IsNullOrWhiteSpace(incoming.GroupDescription)) target.GroupDescription = incoming.GroupDescription;
+
+            // Der selbst vergebene Name gehoert dem Nutzer hier und wird von
+            // einem fremden Bestand nicht angetastet - nur nachgetragen, wo
+            // noch keiner steht.
+            if (string.IsNullOrWhiteSpace(target.InternalName)) target.InternalName = incoming.InternalName;
+
+            // Der Lookup wird als Ganzes uebernommen, nicht ergaenzt: er
+            // beschreibt den Stand im DNS zum Zeitpunkt der Abfrage.
+            if (incoming.WasLookedUp)
+            {
+                target.WasLookedUp = true;
+                target.LookupAddresses.Clear();
+                target.LookupAddresses.AddRange(incoming.LookupAddresses);
+            }
+
+            foreach (string alias in incoming.Aliases.Where(a => !target.Aliases.Contains(a, StringComparer.OrdinalIgnoreCase)))
+            {
+                target.Aliases.Add(alias);
+            }
+
+            foreach (string source in incoming.SeenBy) target.SeenBy.Add(source);
+
+            foreach (KeyValuePair<string, string> detail in incoming.Details)
+            {
+                target.Details[detail.Key] = detail.Value;
+            }
+
+            if (incoming.Ttl > 0) target.Ttl = incoming.Ttl;
+
+            if (!string.IsNullOrWhiteSpace(incoming.SwitchName)) target.SwitchName = incoming.SwitchName;
+            if (!string.IsNullOrWhiteSpace(incoming.SwitchPort)) target.SwitchPort = incoming.SwitchPort;
+            if (!string.IsNullOrWhiteSpace(incoming.Vlan)) target.Vlan = incoming.Vlan;
+
+            if (!string.IsNullOrWhiteSpace(incoming.WebTitle)) target.WebTitle = incoming.WebTitle;
+            if (!string.IsNullOrWhiteSpace(incoming.CertificateSubject)) target.CertificateSubject = incoming.CertificateSubject;
+            if (!string.IsNullOrWhiteSpace(incoming.CertificateIssuer)) target.CertificateIssuer = incoming.CertificateIssuer;
+            if (incoming.CertificateExpires is not null) target.CertificateExpires = incoming.CertificateExpires;
+            if (incoming.CertificateIsSelfSigned) target.CertificateIsSelfSigned = true;
+
+            foreach (DeviceServiceResult service in incoming.Services)
+            {
+                DeviceServiceResult? mine = target.Services.FirstOrDefault(s => IsSameFinding(s, service));
+
+                if (mine is null)
+                {
+                    target.Services.Add(service);
+                    continue;
+                }
+
+                if (service.StatusIPv4 is not null) mine.StatusIPv4 = service.StatusIPv4;
+                if (service.StatusIPv6 is not null) mine.StatusIPv6 = service.StatusIPv6;
+                if (!string.IsNullOrEmpty(service.PortLog)) mine.PortLog = service.PortLog;
+            }
+
+            if (incoming.FirstSeen != default && (target.FirstSeen == default || incoming.FirstSeen < target.FirstSeen))
+            {
+                target.FirstSeen = incoming.FirstSeen;
+            }
+
+            if (incoming.LastSeen > target.LastSeen) target.LastSeen = incoming.LastSeen;
         }
 
         /// <summary>Sucht ein Geraet zu einer Adresse. Fuer Nachscans einzelner Ziele.</summary>
