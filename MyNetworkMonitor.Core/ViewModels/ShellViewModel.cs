@@ -518,6 +518,19 @@ namespace MyNetworkMonitor.Core.ViewModels
             if (e.PropertyName == nameof(ScanMethodChoice.IsSelected))
             {
                 if (IsDnsMethod(choice.Id)) OnPropertyChanged(nameof(CanCrossCheckDns));
+
+                // Alles, was an der Verfahrensauswahl haengt, muss bei *jedem*
+                // Kaestchen nachziehen.
+                //
+                // Vorher meldete sich nur der Quervergleich, und auch der nur
+                // bei den beiden DNS-Verfahren. Die Zahl am Knopf "Methods"
+                // wurde ausschliesslich beim Wechsel des Umfangs und bei einer
+                // Aenderung an den Bereichen neu berechnet - dazwischen stand
+                // sie auf dem Stand des zuletzt gewaehlten Umfangs, waehrend
+                // die Haken laengst andere waren.
+                OnPropertyChanged(nameof(SelectedMethodCount));
+                OnPropertyChanged(nameof(EstimatedDuration));
+                OnPropertyChanged(nameof(CanStart));
                 return;
             }
 
@@ -888,6 +901,7 @@ namespace MyNetworkMonitor.Core.ViewModels
                 MethodIds =
                 [
                     "ping", "arp.request", "dns.reverse", "dns.lookup",
+                    "netbios", "mdns",
                     "snmp", "ssdp", "smb.version", "wsdiscovery", "onvif",
                     "services", "web.identity", "switch.ports"
                 ]
