@@ -205,6 +205,12 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             Detail("Detected services", result.detectedServices);
 
             if (result.SMBVersions.Count > 0) Detail("SMB versions", string.Join(", ", result.SMBVersions));
+
+            // Der Name ist das eigentliche Ergebnis der NetBIOS-Abfrage. Bisher
+            // stand unter den Diensten nur, dass NetBIOS laeuft - der Name selbst
+            // war nirgends zu sehen.
+            Detail("NetBIOS", NetBiosDetail(result));
+
             if (!string.IsNullOrWhiteSpace(result.SNMP_SysName)) Detail("SNMP", result.SNMPInfos);
             if (result.IsIPCam) Detail("Camera", $"{result.IPCamName} {result.IPCamXAddress}".Trim());
             Detail("mDNS", result.mDNS_toMultiLineString);
@@ -283,6 +289,20 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         private const int SmbPort = 445;
 
         private const int NetBiosPort = 137;
+
+        /// <summary>
+        /// Name und - sofern die Antwort ihn enthielt - Arbeitsgruppe bzw.
+        /// Domaene, in einer Zeile.
+        /// </summary>
+        private static string? NetBiosDetail(IPToScan r)
+        {
+            if (string.IsNullOrWhiteSpace(r.NetBiosHostname)) return null;
+
+            return string.IsNullOrWhiteSpace(r.NetBiosWorkgroup)
+                ? r.NetBiosHostname
+                : $"{r.NetBiosHostname} (workgroup/domain: {r.NetBiosWorkgroup})";
+        }
+
         private const int SnmpPort = 161;
         private const int OnvifPort = 3702;
 
@@ -351,7 +371,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             if (!string.IsNullOrWhiteSpace(r.NetBiosHostname))
             {
                 AddFoundService(services, family, "NetBIOS", "Network", NetBiosPort,
-                    $"NetBIOS name: {r.NetBiosHostname}");
+                    $"NetBIOS name: {NetBiosDetail(r)}");
             }
 
             if (!string.IsNullOrWhiteSpace(r.SNMP_SysName))

@@ -351,6 +351,11 @@ namespace MyNetworkMonitor
         private string _NetBiosHostname = string.Empty;
         public string NetBiosHostname { get { return _NetBiosHostname; } set { _NetBiosHostname = value; } }
 
+        // Arbeitsgruppe bzw. Domaene aus derselben Antwort. Sie steht in der
+        // gleichen Namensliste wie der Rechnername und wurde bisher verworfen.
+        private string _NetBiosWorkgroup = string.Empty;
+        public string NetBiosWorkgroup { get { return _NetBiosWorkgroup; } set { _NetBiosWorkgroup = value; } }
+
 
         public List<string> SMBVersions = new List<string>();
         // 🔹 Eigene ToString()-Methode für SMBVersions

@@ -1507,6 +1507,21 @@ namespace MyNetworkMonitor.Core.ViewModels
         /// von hier scannen soll - obwohl der Satellit verbunden dastand.
         /// </para>
         /// </summary>
+        /// <summary>
+        /// Gehoert der Bereich einem Satelliten, den es wirklich gibt?
+        /// <para>
+        /// Leer heisst "von diesem Rechner aus" - und ein Wert, zu dem kein
+        /// Satellit mehr existiert, ebenso. Das ist der Fall aus alten
+        /// Staenden: in der Auswahl steht dann nichts, weil der Wert zu keinem
+        /// Eintrag passt. Zaehlte er trotzdem als Satellitenbereich, meldete
+        /// der Lauf einen "(unknown satellite)", der nicht verbunden sei -
+        /// eine Rueckfrage zu einem Satelliten, den niemand je eingerichtet
+        /// hat. Was die Auswahl leer zeigt, wird auch so behandelt.
+        /// </para>
+        /// </summary>
+        private bool IsAssignedToSatellite(ScanScope scope) =>
+            scope.IsScannedRemotely && SatelliteEditor.ById(scope.ScannedBy) is not null;
+
         private bool IsSatelliteReady(string id)
         {
             Satellite? satellite = SatelliteEditor.ById(id);
@@ -1786,10 +1801,11 @@ namespace MyNetworkMonitor.Core.ViewModels
         /// zeigen, einmalig auf dessen Kennung um.
         /// <para>
         /// Wird beim Laden aufgerufen. Findet sich kein Satellit des Namens,
-        /// bleibt der Wert stehen: der Bereich gilt dann als nicht zugeordnet
-        /// und wird beim Lauf gemeldet. Ihn stillschweigend zu leeren hiesse,
-        /// ihn ab dem naechsten Lauf von hier aus zu scannen - mit einem
-        /// anderen Ergebnis, ohne dass jemand davon wuesste.
+        /// wird der Wert geleert: der Bereich laeuft dann von diesem Rechner
+        /// aus. Ein Wert, der zu keinem Eintrag passt, laesst die Auswahl in
+        /// der Maske leer stehen - und was dort leer steht, muss auch leer
+        /// bedeuten, sonst fragt der Lauf nach einem Satelliten, der in der
+        /// Maske gar nicht auftaucht.
         /// </para>
         /// </summary>
         public void MigrateScannedByToIds()
@@ -1919,8 +1935,8 @@ namespace MyNetworkMonitor.Core.ViewModels
                     // mitzuscannen waere schlechter als gar nicht: ohne ARP,
                     // ueber den Router, mit anderen Laufzeiten - und der
                     // Bereich waere doppelt gescannt.
-                    List<ScanScope> remote = [.. scopes.Where(s => s.IsScannedRemotely)];
-                    List<ScanScope> local = [.. scopes.Where(s => !s.IsScannedRemotely)];
+                    List<ScanScope> remote = [.. scopes.Where(IsAssignedToSatellite)];
+                    List<ScanScope> local = [.. scopes.Where(s => !IsAssignedToSatellite(s))];
 
                     SatelliteScanNote = string.Empty;
                     _skippedNote = string.Empty;

@@ -230,7 +230,10 @@ namespace MyNetworkMonitor.Core.Persistence
                 Vendor = record.Vendor ?? string.Empty,
                 HostName = record.HostName ?? string.Empty,
                 Domain = record.Domain ?? string.Empty,
-                NetBiosName = record.NetBiosName ?? string.Empty,
+                // Frueher trug die NetBIOS-Abfrage den Platzhalter "UNKNOWN" ein,
+                // wenn sie keinen Namen fand. Der steht sonst bis in die Anzeige
+                // an der Stelle des Namens - beim Laden aussortieren.
+                NetBiosName = IsPlaceholderName(record.NetBiosName) ? string.Empty : record.NetBiosName ?? string.Empty,
                 InternalName = record.InternalName ?? string.Empty,
                 GroupDescription = record.GroupDescription ?? string.Empty,
                 FirstSeen = record.FirstSeen,
@@ -304,6 +307,10 @@ namespace MyNetworkMonitor.Core.Persistence
         }
 
         private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
+
+        /// <summary>Platzhalter aus alten Staenden, die kein Name sind.</summary>
+        private static bool IsPlaceholderName(string? value) =>
+            string.Equals(value?.Trim(), "UNKNOWN", StringComparison.OrdinalIgnoreCase);
 
         private static PhysicalAddress? ParseMac(string? text)
         {
