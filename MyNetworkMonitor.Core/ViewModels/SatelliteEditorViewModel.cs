@@ -146,8 +146,25 @@ namespace MyNetworkMonitor.Core.ViewModels
 
         [ObservableProperty] private MainScanner? _selectedHost;
 
+        /// <summary>
+        /// Laesst die Altersangabe der laufenden Auftraege mitlaufen.
+        /// <para>
+        /// Ohne diesen Takt stuende "12s ago" fest, sobald keine Meldung mehr
+        /// kommt - und genau dieser Fall, ein Satellit, der verbunden ist,
+        /// aber nichts mehr sagt, soll ja an der wachsenden Zahl zu erkennen
+        /// sein. Fuenf Sekunden genuegen: die Angabe ist ohnehin grob.
+        /// </para>
+        /// </summary>
+        private readonly System.Timers.Timer _ageTicker = new(5000) { AutoReset = true };
+
         public SatelliteEditorViewModel()
         {
+            _ageTicker.Elapsed += (_, _) => Post(() =>
+            {
+                foreach (Satellite s in All.Where(s => s.IsBusy)) s.RefreshProgressAge();
+            });
+            _ageTicker.Start();
+
             Hosts.CollectionChanged += (_, e) =>
             {
                 foreach (MainScanner h in e.OldItems?.OfType<MainScanner>() ?? [])
@@ -396,7 +413,23 @@ namespace MyNetworkMonitor.Core.ViewModels
                 Satellite? gone = All.FirstOrDefault(s =>
                     string.Equals(s.Fingerprint, fingerprint, StringComparison.OrdinalIgnoreCase));
 
-                if (gone is not null) gone.IsConnected = false;
+                if (gone is null) return;
+
+                gone.IsConnected = false;
+
+                // Mit der Verbindung ist auch der Auftrag verloren: das
+                // Ergebnis kaeme ueber genau diese Sitzung zurueck. Bliebe der
+                // Auftrag stehen, zeigte die Anzeige weiter den Stand von
+                // Sekunde eins des Abbruchs - ein Balken, der nie mehr
+                // weiterlaeuft, und eine Zeile, die "laeuft" behauptet,
+                // waehrend niemand mehr da ist.
+                if (gone.IsBusy)
+                {
+                    gone.JobId = string.Empty;
+                    gone.ProgressCurrent = string.Empty;
+                    gone.ProgressPercent = 0;
+                    ClearCounts(gone);
+                }
             });
 
             _listener.Failed += (_, text) => Post(() => LinkStatus = text);
@@ -410,6 +443,16 @@ namespace MyNetworkMonitor.Core.ViewModels
                 s.ProgressCurrent = e.Progress.Current;
                 s.ProgressDone = e.Progress.Done;
                 s.ProgressPending = e.Progress.Pending;
+                s.ProgressStep = e.Progress.Step;
+                s.ProgressSteps = e.Progress.Steps;
+                s.ProgressSent = e.Progress.Sent;
+                s.ProgressAnswered = e.Progress.Answered;
+                s.ProgressTotal = e.Progress.Total;
+
+                // Der Zeitstempel wird hier gesetzt, nicht drueben: die Uhr
+                // des Satelliten kann anders gehen, und gefragt ist ohnehin
+                // "wann habe *ich* zuletzt etwas gehoert".
+                s.ProgressAt = DateTimeOffset.UtcNow;
             });
 
             _listener.ResultReceived += (_, e) => Post(() =>
@@ -420,9 +463,10 @@ namespace MyNetworkMonitor.Core.ViewModels
                     s.JobId = string.Empty;
                     s.ProgressPercent = 100;
                     s.ProgressCurrent = string.Empty;
+                    ClearCounts(s);
                 }
 
-                ResultArrived?.Invoke(this, (s?.Name ?? "satellite", e.Devices));
+                ResultArrived?.Invoke(this, (s?.Name ?? "satellite", e.Devices, e.Partial));
             });
 
             _listener.JobEnded += (_, e) => Post(() =>
@@ -432,6 +476,7 @@ namespace MyNetworkMonitor.Core.ViewModels
                 {
                     s.JobId = string.Empty;
                     s.ProgressCurrent = string.Empty;
+                    ClearCounts(s);
                 }
 
                 LinkStatus = e.Text;
@@ -449,7 +494,21 @@ namespace MyNetworkMonitor.Core.ViewModels
         /// Ein Satellit hat ein Ergebnis geliefert: sein Name und der Bestand
         /// als JSON. Wer es einmischt, entscheidet die Anwendung.
         /// </summary>
-        public event EventHandler<(string SatelliteName, string DevicesJson)>? ResultArrived;
+        public event EventHandler<(string SatelliteName, string DevicesJson, bool Partial)>? ResultArrived;
+
+        /// <summary>
+        /// Raeumt die Zahlen des letzten Verfahrens weg. Stehen zu lassen
+        /// hiesse, nach dem Lauf die Zahlen des zufaellig letzten Verfahrens
+        /// zu zeigen, als liefe es noch.
+        /// </summary>
+        private static void ClearCounts(Satellite s)
+        {
+            s.ProgressSent = 0;
+            s.ProgressAnswered = 0;
+            s.ProgressTotal = 0;
+            s.ProgressStep = 0;
+            s.ProgressSteps = 0;
+        }
 
         private Satellite? ByFingerprint(string fingerprint) =>
             All.FirstOrDefault(s => string.Equals(s.Fingerprint, fingerprint, StringComparison.OrdinalIgnoreCase));

@@ -1966,11 +1966,25 @@
                               SelectedItem="{Binding SatelliteEditor.Selected}"
                               AutoGenerateColumns="False" IsReadOnly="True"
                               CanUserResizeColumns="True" SelectionMode="Single"
-                              MinHeight="150" Background="Transparent">
+                              MinHeight="150" Background="Transparent"
+                              ScrollViewer.HorizontalScrollBarVisibility="Auto">
                       <DataGrid.Columns>
-                        <DataGridTextColumn Header="SATELLITE" Binding="{Binding Name}" Width="*"/>
+                        <!--
+                            Der Name bekommt eine feste Untergrenze statt "*":
+                            mit * teilt er sich den vorhandenen Platz und
+                            schrumpft, sobald der Zustand lang wird. Beide
+                            Spalten stehen jetzt auf ihrer Wunschbreite, und
+                            reicht der Platz nicht, schiebt der Balken unten
+                            den Blick nach rechts.
+                        -->
+                        <DataGridTextColumn Header="SATELLITE" Binding="{Binding Name}"
+                                            Width="Auto" MinWidth="160"/>
+                        <!-- Waehrend eines Laufs steht hier die volle Zeile
+                             "Ping 40 %  ·  102 / 17 / 254  ·  step 2 / 12".
+                             Sie darf breiter werden als das Fenster - lieber
+                             scrollen als den Zustand abschneiden. -->
                         <DataGridTextColumn Header="STATE" Binding="{Binding StatusText}"
-                                            Width="Auto" MinWidth="130"/>
+                                            Width="Auto" MinWidth="260"/>
                       </DataGrid.Columns>
                     </DataGrid>
                   </Border>
@@ -2137,30 +2151,78 @@
                         <TextBlock Classes="settingHint"
                                    Text="Start the scan as usual from the command bar at the top. Ranges with a satellite go to that satellite in one single job; everything else runs from here."/>
 
-                        <StackPanel Spacing="8" IsVisible="{Binding SatelliteEditor.Selected.IsBusy}">
-                          <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Grid.Column="0" FontSize="11" FontWeight="SemiBold"
+                        <!--
+                            Drei Zeilen, in der Reihenfolge des Ablaufs: was
+                            durch ist, was gerade laeuft, was noch kommt. Das
+                            laufende Verfahren steht in der Mitte, direkt
+                            ueber seinem Balken - dorthin schaut man, und
+                            Erledigtes wie Ausstehendes ordnet sich darum.
+
+                            Die Zahlen ohne Beschriftung: "102 / 17 / 254"
+                            steht fuer sich, sobald man einmal weiss, was es
+                            ist. Das sagt der Tooltip, und daneben steht
+                            ohnehin dasselbe wie im Kommandobalken oben.
+                        -->
+                        <Grid IsVisible="{Binding SatelliteEditor.Selected.IsBusy}"
+                              ColumnDefinitions="66,*,Auto"
+                              RowDefinitions="Auto,10,Auto,3,Auto,10,Auto">
+
+                          <!-- Zeile 1: erledigt -->
+                          <TextBlock Grid.Row="0" Grid.Column="0" Text="Done:"
+                                     Classes="settingLabel" VerticalAlignment="Top"/>
+                          <TextBlock Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="2"
+                                     FontSize="10.5" TextWrapping="Wrap"
+                                     Foreground="{StaticResource Dim}"
+                                     Text="{Binding SatelliteEditor.Selected.ProgressDone}"/>
+
+                          <!-- Zeile 2: laufendes Verfahren mit seinen Zahlen -->
+                          <TextBlock Grid.Row="2" Grid.Column="0" Text="Current:"
+                                     Classes="settingLabel" VerticalAlignment="Center"/>
+                          <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal"
+                                      Spacing="10" VerticalAlignment="Center">
+                            <TextBlock FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"
                                        Text="{Binding SatelliteEditor.Selected.ProgressCurrent}"/>
-                            <TextBlock Grid.Column="1" FontSize="11" Foreground="{StaticResource Teal}">
+                            <!-- Gesendet / geantwortet / gesamt. Die mittlere
+                                 Zahl ist die eigentliche Nachricht und darum
+                                 hervorgehoben. -->
+                            <TextBlock Classes="mono" FontSize="10.5" VerticalAlignment="Center"
+                                       Foreground="{StaticResource Dim}"
+                                       IsVisible="{Binding SatelliteEditor.Selected.HasCounts}"
+                                       ToolTip.Tip="Sent / answered / total">
+                              <Run Text="{Binding SatelliteEditor.Selected.ProgressSent}"/><Run Text=" / "/><Run
+                                   Text="{Binding SatelliteEditor.Selected.ProgressAnswered}"
+                                   Foreground="{StaticResource Teal}"/><Run Text=" / "/><Run
+                                   Text="{Binding SatelliteEditor.Selected.ProgressTotal}"/>
+                            </TextBlock>
+                          </StackPanel>
+                          <StackPanel Grid.Row="2" Grid.Column="2" Orientation="Horizontal"
+                                      Spacing="8" VerticalAlignment="Center">
+                            <!-- Der Satellit meldet sich auch, wenn sich nichts
+                                 aendert. Bleibt diese Zeit stehen, haengt die
+                                 Verbindung und nicht der Scan. -->
+                            <TextBlock FontSize="10" VerticalAlignment="Center"
+                                       Foreground="{StaticResource Dimmer}"
+                                       ToolTip.Tip="When the last update arrived from this satellite"
+                                       Text="{Binding SatelliteEditor.Selected.ProgressAgeText}"/>
+                            <TextBlock FontSize="11" VerticalAlignment="Center"
+                                       Foreground="{StaticResource Teal}">
                               <Run Text="{Binding SatelliteEditor.Selected.ProgressPercent}"/><Run Text=" %"/>
                             </TextBlock>
-                          </Grid>
+                          </StackPanel>
 
-                          <ProgressBar Minimum="0" Maximum="100" Height="6"
+                          <!-- Zeile 3: der Balken zum laufenden Verfahren -->
+                          <ProgressBar Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="2"
+                                       Minimum="0" Maximum="100" Height="6"
                                        Value="{Binding SatelliteEditor.Selected.ProgressPercent}"/>
 
-                          <StackPanel Spacing="2">
-                            <TextBlock Text="Done" Classes="settingLabel"/>
-                            <TextBlock FontSize="10.5" TextWrapping="Wrap"
-                                       Text="{Binding SatelliteEditor.Selected.ProgressDone}"/>
-                          </StackPanel>
-
-                          <StackPanel Spacing="2">
-                            <TextBlock Text="Still to come" Classes="settingLabel"/>
-                            <TextBlock FontSize="10.5" TextWrapping="Wrap"
-                                       Text="{Binding SatelliteEditor.Selected.ProgressPending}"/>
-                          </StackPanel>
-                        </StackPanel>
+                          <!-- Zeile 4: was noch aussteht -->
+                          <TextBlock Grid.Row="6" Grid.Column="0" Text="Pending:"
+                                     Classes="settingLabel" VerticalAlignment="Top"/>
+                          <TextBlock Grid.Row="6" Grid.Column="1" Grid.ColumnSpan="2"
+                                     FontSize="10.5" TextWrapping="Wrap"
+                                     Foreground="{StaticResource Dim}"
+                                     Text="{Binding SatelliteEditor.Selected.ProgressPending}"/>
+                        </Grid>
 
                         <TextBlock Classes="settingHint"
                                    IsVisible="{Binding !SatelliteEditor.Selected.IsBusy}"

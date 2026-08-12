@@ -468,16 +468,23 @@ namespace MyNetworkMonitor.Core.SatelliteLink
 
                     string devices = await JobRunner(message.Text ?? string.Empty, progress, jobCts.Token);
 
+                    // Auch ein abgebrochener Auftrag liefert, was er bis dahin
+                    // gefunden hat - nur eben als "unvollstaendig" ausgewiesen.
+                    // Ob abgebrochen wurde, sagt der Token: der Auftrag laeuft
+                    // an genau dieser Quelle.
                     await channel.SendAsync(new SatelliteMessage
                     {
                         Type = MessageType.Result,
                         ProtocolVersion = SatelliteListener.ProtocolVersion,
                         JobId = jobId,
-                        Devices = devices
+                        Devices = devices,
+                        Partial = jobCts.IsCancellationRequested
                     }, CancellationToken.None);
                 }
                 catch (OperationCanceledException)
                 {
+                    // Hierher kommt nur noch, wer abbricht, bevor ueberhaupt
+                    // etwas zusammenkam - dann gibt es auch nichts zu schicken.
                     await TrySend(channel, new SatelliteMessage
                     {
                         Type = MessageType.Cancelled,
