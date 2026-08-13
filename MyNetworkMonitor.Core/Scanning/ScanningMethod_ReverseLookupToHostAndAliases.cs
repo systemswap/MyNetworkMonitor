@@ -203,6 +203,80 @@ namespace MyNetworkMonitor
         /// </summary>
         private readonly System.Collections.Concurrent.ConcurrentDictionary<string, LookupClient> _clients = new();
 
+        /// <summary>
+        /// Namensserver, die in diesem Lauf nur Zeitueberschreitungen
+        /// geliefert haben, mit der Zahl ihrer Fehlversuche.
+        /// <para>
+        /// Ein Server, der gar keiner ist - etwa ein Gateway, das als Rueckfall
+        /// eingetragen wurde -, kostet sonst bei <em>jeder</em> Adresse das
+        /// volle Zeitbudget. Nach <see cref="SilentAfter"/> Fehlversuchen ohne
+        /// eine einzige Antwort wird er fuer den Rest des Laufs uebergangen;
+        /// eine Antwort setzt den Zaehler sofort zurueck, damit ein kurzer
+        /// Aussetzer keinen brauchbaren Server aussperrt.
+        /// </para>
+        /// </summary>
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<string, int> _silence = new();
+
+        /// <summary>So viele Fehlversuche in Folge gelten als "antwortet nicht".</summary>
+        private const int SilentAfter = 3;
+
+        /// <summary>
+        /// Der Server, der zuletzt einen Namen geliefert hat. Er wird bei der
+        /// naechsten Adresse zuerst gefragt.
+        /// <para>
+        /// In einem Netz mit mehreren Namensservern kennt oft nur einer die
+        /// gesuchte Zone. Ihn zu merken macht aus dem Suchen beim ersten Mal
+        /// eine einzige Abfrage bei allen weiteren. Kennt er ein Geraet
+        /// <em>nicht</em>, aendert das nichts an seinem Rang: dann laeuft
+        /// darunter wie bisher der ganze Durchgang ueber alle Server, denn
+        /// dieses eine Geraet kann sehr wohl in der Zone eines anderen stehen.
+        /// </para>
+        /// </summary>
+        private volatile string? _preferredServer;
+
+        private bool IsKnownSilent(NameServer server) =>
+            _silence.TryGetValue(server.Address.ToString(), out int misses) && misses >= SilentAfter;
+
+        private void NoteSilence(NameServer server) =>
+            _silence.AddOrUpdate(server.Address.ToString(), 1, (_, misses) => misses + 1);
+
+        private void NoteAnswered(NameServer server) =>
+            _silence[server.Address.ToString()] = 0;
+
+        /// <summary>
+        /// Fragt genau einen Server, mit eigenem Zeitbudget. Liefert den
+        /// Eintrag oder <c>null</c>; ein Schweigen wird vermerkt, eine Antwort
+        /// setzt den Zaehler zurueck.
+        /// </summary>
+        private async Task<IPHostEntry?> AskOneAsync(NameServer server, string address)
+        {
+            try
+            {
+                using CancellationTokenSource oneCts =
+                    CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
+                oneCts.CancelAfter(QueryBudget);
+
+                IPHostEntry? entry = await SingleServerClientFor(server)
+                    .GetHostEntryAsync(address)
+                    .WaitAsync(oneCts.Token);
+
+                NoteAnswered(server);
+
+                if (entry is not null) _preferredServer = server.Address.ToString();
+
+                return entry;
+            }
+            catch (OperationCanceledException) when (!_cts.Token.IsCancellationRequested)
+            {
+                NoteSilence(server);
+                return null;
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
         private LookupClient ClientFor(IPToScan ipToScan)
         {
             List<string> servers = ipToScan.DNSServerList?
@@ -228,6 +302,12 @@ namespace MyNetworkMonitor
                 options.Timeout = QueryTimeout;
                 options.Retries = QueryRetries;
                 options.UseCache = true;
+
+                // Der Reihe nach fragen, nicht zufaellig: die Liste ist eine
+                // Rangfolge - erst der Server des Bereichs oder das Gateway,
+                // dann der Rueckhalt dahinter. Mit der Vorgabe (zufaellige
+                // Wahl) waere sie bedeutungslos.
+                options.UseRandomNameServer = false;
 
                 // Ein fehlender Eintrag ist eine Antwort, kein Fehler. Als
                 // Ausnahme geworfen, kostet er nur Zeit.
@@ -284,8 +364,92 @@ namespace MyNetworkMonitor
                 // Schleife hat daneben noch dreimal gefragt und dabei eine
                 // Adresse ohne PTR-Eintrag - den Normalfall - wie einen Fehler
                 // behandelt.
-                IPHostEntry? _IPHostEntry = await client.GetHostEntryAsync(ipToScan.IPorHostname)
-                                                        .WaitAsync(cts.Token);
+                IPHostEntry? _IPHostEntry = null;
+
+                // Zuerst der Server, der zuletzt einen Namen geliefert hat.
+                // Danach ist fuer die allermeisten Adressen schon Schluss - der
+                // Rest darunter greift nur, wenn gerade er dieses Geraet nicht
+                // kennt.
+                if (_preferredServer is { } preferredAddress)
+                {
+                    NameServer? preferred = client.NameServers
+                        .FirstOrDefault(s => s.Address.ToString() == preferredAddress);
+
+                    if (preferred is not null)
+                    {
+                        _IPHostEntry = await AskOneAsync(preferred, ipToScan.IPorHostname);
+                    }
+                }
+
+                // Steht vorn ein Server, der in diesem Lauf schon mehrfach
+                // geschwiegen hat, wird die gemeinsame Abfrage uebersprungen -
+                // sie liefe genau in dieselbe Zeitueberschreitung. Unten sind
+                // die uebrigen Server ohnehin einzeln an der Reihe.
+                NameServer? leading = client.NameServers.FirstOrDefault();
+                bool firstServerSilent =
+                    leading is not null && client.NameServers.Count > 1 && IsKnownSilent(leading);
+
+                try
+                {
+                    if (_IPHostEntry is null && !firstServerSilent)
+                    {
+                        _IPHostEntry = await client.GetHostEntryAsync(ipToScan.IPorHostname)
+                                                   .WaitAsync(cts.Token);
+
+                        if (leading is not null) NoteAnswered(leading);
+                    }
+                }
+                catch (OperationCanceledException) when (!_cts.Token.IsCancellationRequested)
+                {
+                    firstServerSilent = true;
+                    if (leading is not null) NoteSilence(leading);
+
+                    // Nur das Budget dieser einen Abfrage ist abgelaufen - der
+                    // erste Server hat also nicht geantwortet. Das ist kein
+                    // Grund aufzugeben: unten bekommt jeder Server seinen
+                    // eigenen Anlauf mit eigenem Budget.
+                    //
+                    // Frueher riss dieser Abbruch die ganze Aufloesung mit, und
+                    // ein stummer erster Server (etwa ein Gateway, das gar kein
+                    // Namensserver ist) kostete jeden Namen im Lauf.
+                }
+
+                // Bleibt die erste Abfrage ohne Namen, wird jeder hinterlegte
+                // Server einzeln gefragt, bis einer auflöst.
+                //
+                // Noetig, weil die erste Abfrage die Liste nur bei einem
+                // *Fehlschlag* weiterreicht - antwortet ein Server "kenne ich
+                // nicht", ist fuer sie Schluss. In einem Netz mit mehreren
+                // Zonen kennt aber oft nur einer der Server den Namen, und
+                // ohne diesen Durchgang entschiede allein, welcher Server
+                // zufaellig vorne steht.
+                if (_IPHostEntry is null && client.NameServers.Count > 1)
+                {
+                    // Hat der erste Server geschwiegen, wird er hier nicht noch
+                    // einmal gefragt - er hat sein Budget gerade eben schon
+                    // verbraucht, und ein zweiter Anlauf verdoppelt nur die
+                    // Wartezeit je Adresse. Die Reihenfolge steht fest
+                    // (UseRandomNameServer ist aus), also ist der erste der
+                    // Liste auch der, der eben stumm blieb.
+                    foreach (NameServer dnsServer in client.NameServers.Skip(firstServerSilent ? 1 : 0))
+                    {
+                        if (_cts.Token.IsCancellationRequested) return;
+
+                        // Uebergangen wird, wer nur schweigt, und wer eben
+                        // schon als bevorzugter Server gefragt wurde.
+                        if (IsKnownSilent(dnsServer)) continue;
+                        if (dnsServer.Address.ToString() == _preferredServer) continue;
+
+                        IPHostEntry? single = await AskOneAsync(dnsServer, ipToScan.IPorHostname);
+
+                        if (single is not null)
+                        {
+                            _IPHostEntry = single;
+                            break;
+                        }
+                    }
+                }
+
                     var results = new List<string>();
 
                 if (isDeepDNSServerScan)
@@ -332,7 +496,12 @@ namespace MyNetworkMonitor
                 }
 
 
-                if (cts.Token.IsCancellationRequested) return; // 🔹 Falls der Scan abgebrochen wurde, keine weiteren Aktionen durchführen
+                // Bewusst der Abbruch des Laufs und nicht mehr das Zeitbudget
+                // dieser Abfrage: seit die erste Abfrage ihr Budget ueberziehen
+                // darf, ist "cts" hier regelmaessig abgelaufen, obwohl ein
+                // spaeterer Server laengst geantwortet hat. Mit cts.Token waere
+                // genau dieses Ergebnis wieder weggeworfen worden.
+                if (_cts.Token.IsCancellationRequested) return;
 
 
                 if (_IPHostEntry == null)
