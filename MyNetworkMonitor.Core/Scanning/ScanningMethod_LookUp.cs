@@ -62,9 +62,72 @@ namespace MyNetworkMonitor
                 options.UseCache = true;
                 options.ThrowDnsErrors = false;
 
+                // Der Reihe nach fragen, nicht zufaellig - die Liste ist eine
+                // Rangfolge. Siehe die gleichlautende Stelle in der
+                // Rueckwaertsaufloesung.
+                options.UseRandomNameServer = false;
+
                 return new LookupClient(options);
             });
         }
+
+        /// <summary>
+        /// Namensserver, die in diesem Lauf nur Zeitueberschreitungen lieferten,
+        /// und der zuletzt erfolgreiche. Beides wie in der
+        /// Rueckwaertsaufloesung - dort steht die ausfuehrliche Begruendung.
+        /// </summary>
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<string, int> _silence = new();
+
+        private const int SilentAfter = 3;
+
+        private volatile string? _preferredServer;
+
+        private bool IsKnownSilent(NameServer server) =>
+            _silence.TryGetValue(server.Address.ToString(), out int misses) && misses >= SilentAfter;
+
+        /// <summary>
+        /// Fragt genau einen Server, mit eigenem Zeitbudget. Ein Schweigen wird
+        /// vermerkt, eine Antwort macht den Server zum bevorzugten.
+        /// </summary>
+        private async Task<IPHostEntry?> AskOneAsync(NameServer server, string hostname)
+        {
+            try
+            {
+                using CancellationTokenSource oneCts =
+                    CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
+                oneCts.CancelAfter(QueryBudget);
+
+                IPHostEntry? entry = await SingleServerClientFor(server)
+                    .GetHostEntryAsync(hostname)
+                    .WaitAsync(oneCts.Token);
+
+                _silence[server.Address.ToString()] = 0;
+
+                if (entry is not null) _preferredServer = server.Address.ToString();
+
+                return entry;
+            }
+            catch (OperationCanceledException) when (!_cts.Token.IsCancellationRequested)
+            {
+                _silence.AddOrUpdate(server.Address.ToString(), 1, (_, misses) => misses + 1);
+                return null;
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
+        /// <summary>Ein Client je einzelnem Namensserver, wiederverwendet wie oben.</summary>
+        private LookupClient SingleServerClientFor(NameServer dnsServer) =>
+            _clients.GetOrAdd("single:" + dnsServer.Address, _ => new LookupClient(
+                new LookupClientOptions([dnsServer])
+                {
+                    Timeout = QueryTimeout,
+                    Retries = QueryRetries,
+                    UseCache = true,
+                    ThrowDnsErrors = false
+                }));
 
         private int current = 0;
         private int responded = 0;
@@ -275,7 +338,60 @@ namespace MyNetworkMonitor
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
                 cts.CancelAfter(QueryBudget);
 
-                _entry = await client.GetHostEntryAsync(ipToScan.HostnameWithDomain).WaitAsync(cts.Token);
+                IPHostEntry? found = null;
+
+                // Zuerst der Server, der zuletzt aufgeloest hat.
+                if (_preferredServer is { } preferredAddress)
+                {
+                    NameServer? preferred = client.NameServers
+                        .FirstOrDefault(s => s.Address.ToString() == preferredAddress);
+
+                    if (preferred is not null)
+                    {
+                        found = await AskOneAsync(preferred, ipToScan.HostnameWithDomain);
+                    }
+                }
+
+                NameServer? leading = client.NameServers.FirstOrDefault();
+                bool leadingSilent =
+                    leading is not null && client.NameServers.Count > 1 && IsKnownSilent(leading);
+
+                if (found is null && !leadingSilent)
+                {
+                    try
+                    {
+                        found = await client.GetHostEntryAsync(ipToScan.HostnameWithDomain)
+                                            .WaitAsync(cts.Token);
+                    }
+                    catch (OperationCanceledException) when (!_cts.Token.IsCancellationRequested)
+                    {
+                        // Der vordere Server schweigt - das kostet den Namen
+                        // nicht mehr, unten ist jeder einzeln an der Reihe.
+                        leadingSilent = true;
+                        if (leading is not null)
+                            _silence.AddOrUpdate(leading.Address.ToString(), 1, (_, misses) => misses + 1);
+                    }
+                }
+
+                // Dann jeder hinterlegte Server einzeln, bis einer den Namen
+                // aufloest - in einem Netz mit mehreren Zonen kennt ihn oft nur
+                // einer von ihnen.
+                if (found is null && client.NameServers.Count > 1)
+                {
+                    foreach (NameServer dnsServer in client.NameServers.Skip(leadingSilent ? 1 : 0))
+                    {
+                        if (_cts.Token.IsCancellationRequested) return;
+                        if (IsKnownSilent(dnsServer)) continue;
+                        if (dnsServer.Address.ToString() == _preferredServer) continue;
+
+                        found = await AskOneAsync(dnsServer, ipToScan.HostnameWithDomain);
+                        if (found is not null) break;
+                    }
+                }
+
+                if (found is null) return;
+
+                _entry = found;
 
                 if (_cts.Token.IsCancellationRequested) return;
 

@@ -101,6 +101,26 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                         : GatewayDnsFallback(target.Scope.Interface);
 
                     if (gateway is not null) dnsServers = [gateway];
+
+                    // Hinter dem *geratenen* Gateway stehen die Namensserver des
+                    // Systems als Rueckhalt. Das Gateway behaelt die Vorfahrt -
+                    // die Messung oben gilt unveraendert -, aber wo es gar kein
+                    // Namensserver ist, geht der Name nicht mehr verloren.
+                    //
+                    // Genau das ist in einem Firmennetz passiert: das Gateway
+                    // beantwortete keine einzige Abfrage, jede Adresse lief in
+                    // ihr Zeitbudget, und die Geraeteliste zeigte weiter nur
+                    // Adressen - obwohl die Server des Systems den Namen sofort
+                    // lieferten.
+                    //
+                    // Nur beim geratenen: ein am Bereich eingetragener Router
+                    // ist eine Entscheidung des Nutzers und bleibt allein
+                    // massgeblich.
+                    if (!scope.HasOwnGateway)
+                    {
+                        dnsServers.AddRange(SystemDnsServers()
+                            .Where(s => !dnsServers.Contains(s, StringComparer.OrdinalIgnoreCase)));
+                    }
                 }
 
                 legacy.Add(new IPToScan
@@ -128,6 +148,35 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             }
 
             return new LegacyTargets(legacy, byText);
+        }
+
+        /// <summary>
+        /// Die Namensserver, die das Betriebssystem selbst benutzt - als
+        /// Rueckhalt hinter dem geratenen Gateway, siehe Aufrufstelle.
+        /// <para>
+        /// Genommen werden alle betriebsbereiten Karten ausser Rueckschleife
+        /// und Tunnel, in ihrer Reihenfolge und ohne Dubletten.
+        /// </para>
+        /// </summary>
+        private static List<string> SystemDnsServers()
+        {
+            try
+            {
+                return
+                [
+                    .. NetworkInterface.GetAllNetworkInterfaces()
+                        .Where(i => i.OperationalStatus == OperationalStatus.Up &&
+                                    i.NetworkInterfaceType is not (NetworkInterfaceType.Loopback or NetworkInterfaceType.Tunnel))
+                        .SelectMany(i => i.GetIPProperties().DnsAddresses)
+                        .Where(a => a.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+                        .Select(a => a.ToString())
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                ];
+            }
+            catch (NetworkInformationException)
+            {
+                return [];
+            }
         }
 
         /// <summary>Die IPv4-Gateway-Adresse des Interfaces, falls vorhanden - siehe Kommentar an der Aufrufstelle.</summary>
