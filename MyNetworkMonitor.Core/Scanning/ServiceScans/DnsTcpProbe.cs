@@ -93,11 +93,24 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                     byte[] responseBuffer = new byte[responseLength];
                     int bytesRead = await stream.ReadAsync(responseBuffer, 0, responseLength, cts.Token);
 
-                    if (bytesRead > 0)
+                    // Wie ueber UDP: die Antwort muss zur eigenen Frage
+                    // gehoeren - dieselbe Transaktionskennung, Antwortbit
+                    // gesetzt. Ueber TCP steht davor noch das Laengenfeld,
+                    // die Pruefung gilt also dem gelesenen Rumpf.
+                    if (bytesRead > 0 && DnsRequest.IsAnswerTo(query, responseBuffer))
                     {
                         portResult.Status = PortStatus.IsRunning;
-                        portResult.PortLog = Encoding.ASCII.GetString(responseBuffer);
+                        portResult.PortLog = Encoding.ASCII.GetString(responseBuffer, 0, bytesRead);
                         return portResult; // Erfolgreich
+                    }
+
+                    if (bytesRead > 0)
+                    {
+                        // Der Port nimmt Verbindungen an und schickt etwas -
+                        // nur spricht es kein DNS auf unsere Frage.
+                        portResult.Status = PortStatus.Open;
+                        portResult.PortLog = "Antwort kam, gehoert aber nicht zu dieser Anfrage.";
+                        return portResult;
                     }
                 }
                 catch (OperationCanceledException)

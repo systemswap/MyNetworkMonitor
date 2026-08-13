@@ -78,6 +78,34 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
                     if (await Task.WhenAny(receiveTask, Task.Delay(2000, cts.Token)) == receiveTask)
                     {
+                        // Diese Zeile muss stehen bleiben, auch wenn der Wert
+                        // unten nicht gebraucht wird.
+                        //
+                        // WhenAny endet auch dann bei receiveTask, wenn der
+                        // Empfang *fehlgeschlagen* ist - und der haeufigste
+                        // Fehlschlag ist die Antwort "Port nicht erreichbar"
+                        // (ICMP) eines Rechners, auf dem gar kein BACnet
+                        // lauscht. Erst der Zugriff auf das Ergebnis wirft die
+                        // Ausnahme, und erst dadurch bleibt es bei "keine
+                        // Antwort". Ohne ihn gilt genau die Absage als Fund:
+                        // in einem Lauf ueber den Satelliten meldeten so 16
+                        // gewoehnliche Arbeitsplatzrechner BACnet.
+                        byte[] response = receiveTask.Result.Buffer;
+
+                        // Und die Antwort muss auch nach BACnet aussehen.
+                        //
+                        // Jedes BACnet/IP-Paket beginnt mit der BVLC-Kennung
+                        // 0x81, gefolgt von der Funktion und der Gesamtlaenge
+                        // in zwei Bytes. Ohne diese Pruefung zaehlte jedes
+                        // beliebige Datagramm, das zufaellig an diesem Socket
+                        // ankommt - und "laeuft" hiesse nur "irgendetwas kam".
+                        if (!IsBacNet(response))
+                        {
+                            portResult.Status = PortStatus.NoResponse;
+                            portResult.PortLog = "Antwort kam, ist aber kein BACnet (keine BVLC-Kennung 0x81).";
+                            return portResult;
+                        }
+
                         // Erste Antwort erhalten - jetzt die weiteren Infos sammeln
                         foreach (byte propertyId in PropertyIds)
                         {
@@ -205,10 +233,25 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Dieser Dienst hat keine eigene Antwortsignatur - er wird ueber
-        /// seinen eigenen Ablauf erkannt, nicht ueber ein Bytemuster. Es bleibt
-        /// bei der alten Regel fuer solche Faelle: eine Antwort zaehlt.
+        /// Eine Antwort gilt als BACnet, wenn sie mit der BVLC-Kennung 0x81
+        /// beginnt und ihr Laengenfeld zur tatsaechlichen Laenge passt.
+        /// <para>
+        /// Das Laengenfeld steht in Byte 2 und 3 und zaehlt das ganze Paket
+        /// einschliesslich des vier Byte langen BVLC-Kopfes. Geprueft wird
+        /// "nicht groesser als angekommen": ein Datagramm darf abgeschnitten
+        /// bei uns eintreffen, aber ein zufaelliges Bytemuster besteht diese
+        /// Doppelbedingung kaum.
+        /// </para>
         /// </summary>
-        public override bool Identify(byte[] response) => response.Length > 0;
+        public override bool Identify(byte[] response) => IsBacNet(response);
+
+        private static bool IsBacNet(byte[] response)
+        {
+            if (response.Length < 4 || response[0] != 0x81) return false;
+
+            int gemeldeteLaenge = (response[2] << 8) | response[3];
+
+            return gemeldeteLaenge >= 4 && gemeldeteLaenge <= response.Length;
+        }
     }
 }

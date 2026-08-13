@@ -30,6 +30,31 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
+        /// Gehoert diese Antwort zu dieser Anfrage?
+        /// <para>
+        /// Zwei Bedingungen, beide aus dem DNS-Kopf: dieselbe
+        /// Transaktionskennung in Byte 0 und 1, und das Antwortbit (oberstes
+        /// Bit von Byte 2) muss gesetzt sein. Damit zaehlt nur, was wirklich
+        /// auf die eigene Frage antwortet - nicht jedes Datagramm, das am
+        /// Socket ankommt.
+        /// </para>
+        /// <para>
+        /// Ob der Name aufloest, bleibt weiterhin gleichgueltig: gefragt wird
+        /// nach einem Namen, den es nicht gibt. Auch ein "kenne ich nicht" ist
+        /// die Antwort eines Namensservers und damit ein Fund.
+        /// </para>
+        /// </summary>
+        internal static bool IsAnswerTo(byte[] query, byte[] answer)
+        {
+            if (query.Length < 3 || answer.Length < 3) return false;
+
+            bool gleicheKennung = answer[0] == query[0] && answer[1] == query[1];
+            bool istAntwort = (answer[2] & 0x80) != 0;
+
+            return gleicheKennung && istAntwort;
+        }
+
+        /// <summary>
         /// Der Frageteil: jeder Namensabschnitt mit seiner Laenge davor, dann
         /// die Null, dann Typ A und Klasse IN.
         /// </summary>

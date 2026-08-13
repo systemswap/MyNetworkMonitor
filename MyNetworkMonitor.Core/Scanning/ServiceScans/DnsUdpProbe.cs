@@ -53,8 +53,34 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
                     if (await Task.WhenAny(receiveTask, Task.Delay(1000, cts.Token)) == receiveTask)
                     {
-                        portResult.Status = PortStatus.IsRunning;
-                        portResult.PortLog = Encoding.ASCII.GetString(receiveTask.Result.Buffer);
+                        // Erst das Ergebnis holen, dann werten - nicht umgekehrt.
+                        //
+                        // WhenAny endet auch bei einem *fehlgeschlagenen*
+                        // Empfang. Der Socket ist hier verbunden, und damit
+                        // stellt Windows die ICMP-Absage "Port nicht
+                        // erreichbar" zuverlaessig zu: bei jedem Rechner ohne
+                        // Namensdienst schlaegt der Empfang also sofort fehl.
+                        //
+                        // Vorher stand die Zeile mit IsRunning davor. Der
+                        // Zugriff darunter warf, der Fang unten schluckte die
+                        // Ausnahme - und der bereits gesetzte Zustand blieb
+                        // stehen. Damit galt ausgerechnet die Absage als
+                        // laufender Namensdienst.
+                        byte[] antwort = receiveTask.Result.Buffer;
+
+                        // Und die Antwort muss zur eigenen Frage gehoeren:
+                        // dieselbe Transaktionskennung und das Antwortbit
+                        // gesetzt. Sonst zaehlte jedes Datagramm, das an
+                        // diesem Socket ankommt.
+                        if (DnsRequest.IsAnswerTo(query, antwort))
+                        {
+                            portResult.Status = PortStatus.IsRunning;
+                            portResult.PortLog = Encoding.ASCII.GetString(antwort);
+                            return portResult;
+                        }
+
+                        portResult.Status = PortStatus.Open;
+                        portResult.PortLog = "Antwort kam, gehoert aber nicht zu dieser Anfrage.";
                         return portResult;
                     }
                 }
