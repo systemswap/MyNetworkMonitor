@@ -642,8 +642,10 @@ namespace MyNetworkMonitor.Core.ViewModels
 
             try
             {
-                string targetPath = Path.Combine(AppContext.BaseDirectory, "MacVendors", "mac_vendors.csv");
-                MacVendorUpdateResult result = await MacVendorUpdater.UpdateAsync(targetPath);
+                // In das Benutzerverzeichnis, nicht neben das Programm: unter
+                // Linux gehoert das Programmverzeichnis dem Systemverwalter,
+                // und der Schreibversuch endete dort mit "Permission denied".
+                MacVendorUpdateResult result = await MacVendorUpdater.UpdateAsync(AppDataPaths.MacVendorCsv);
 
                 StatusText = result.Success
                     ? $"MAC vendor list updated: {result.EntryCount:N0} entries (MA-L, MA-M and MA-S). " +
@@ -1276,7 +1278,10 @@ namespace MyNetworkMonitor.Core.ViewModels
 
         private void ApplyProgress(ScanProgress progress)
         {
-            CurrentMethodName = progress.MethodName;
+            // Mit Teilschritt, wo es einen gibt: die Diensterkennung geht
+            // Dienst fuer Dienst, und hier stuende sonst minutenlang nur
+            // "Services".
+            CurrentMethodName = progress.Label;
             ProgressCurrent = progress.Current;
             ProgressTotal = progress.Total;
             ProgressResponded = progress.Responded;
@@ -1755,7 +1760,9 @@ namespace MyNetworkMonitor.Core.ViewModels
                     Percent = p is null || p.Total <= 0
                         ? 0
                         : (int)Math.Clamp((double)p.Current / p.Total * 100, 0, 100),
-                    Current = p?.MethodName ?? string.Empty,
+                    // Wie oertlich mit Teilschritt - der Auftraggeber soll am
+                    // Satelliten dasselbe lesen wie vor der eigenen Anzeige.
+                    Current = p?.Label ?? string.Empty,
                     Step = done + 1,
                     Steps = methods.Count,
                     Sent = p?.Current ?? 0,
@@ -2471,10 +2478,17 @@ namespace MyNetworkMonitor.Core.ViewModels
                     if (port.Status is not (PortStatus.Open or PortStatus.IsRunning)) continue;
                     if (port.Ports is not { Count: > 0 }) continue;
 
+                    // Wie im Scan: den Namen des gesuchten Dienstes traegt nur
+                    // der Port, dessen Antwort zum Protokoll gepasst hat. Ueber
+                    // 65 536 Ports ist das der Unterschied zwischen einem Fund
+                    // und einer Liste, in der jeder offene Port des Geraets den
+                    // Namen des gesuchten Dienstes truege.
+                    bool unidentifiedOpen = port.Status == PortStatus.Open && port.Ports.Count == 1;
+
                     DeviceServiceResult result = new()
                     {
-                        ServiceName = service.ToString(),
-                        Category = ServiceCategories.Of(service),
+                        ServiceName = unidentifiedOpen ? $"TCP {port.Ports[0]}" : service.ToString(),
+                        Category = unidentifiedOpen ? "Open ports" : ServiceCategories.Of(service),
                         Ports = [.. port.Ports],
                         PortLog = string.IsNullOrWhiteSpace(port.PortLog) ? null : port.PortLog
                     };
@@ -2598,7 +2612,7 @@ namespace MyNetworkMonitor.Core.ViewModels
                 Settings = Settings,
                 Store = _store,
                 Report = _ => { },
-                ReportProgress = (_, _, _) => { }
+                ReportStepProgress = (_, _, _, _, _, _) => { }
             };
         }
     }

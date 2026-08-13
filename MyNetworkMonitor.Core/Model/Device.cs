@@ -375,8 +375,18 @@ namespace MyNetworkMonitor.Core.Model
         /// mehrere hundert Dienstdefinitionen - die geschlossenen Ports sind
         /// kein Befund, sondern Rauschen, und haben in Anzeige, Filter und
         /// Zaehlung nichts verloren.
+        /// <para>
+        /// Sortiert nach Dienstname, dann nach kleinstem Port. Die Befunde
+        /// treffen in der Reihenfolge ihres Verfahrens ein - erst der Scan,
+        /// spaeter die Portsuche eines einzelnen Dienstes -, und ohne feste
+        /// Ordnung wuerden die Nachzuegler hinten angehaengt statt sich
+        /// einzureihen.
+        /// </para>
         /// </summary>
-        public IEnumerable<DeviceServiceResult> OpenServices => Services.Where(s => s.IsOpen);
+        public IEnumerable<DeviceServiceResult> OpenServices =>
+            Services.Where(s => s.IsOpen)
+                    .OrderBy(s => s.ServiceName, StringComparer.CurrentCultureIgnoreCase)
+                    .ThenBy(s => s.Ports.Count == 0 ? int.MaxValue : s.Ports.Min());
 
         /// <summary>
         /// Die antwortenden Dienste als Namen, ohne Dubletten. Grundlage der
@@ -566,8 +576,8 @@ namespace MyNetworkMonitor.Core.Model
             StatusIPv4 is PortStatus.Open or PortStatus.IsRunning ||
             StatusIPv6 is PortStatus.Open or PortStatus.IsRunning;
 
-        /// <summary>Die Ports als Kurztext hinter dem Dienstnamen, etwa "80, 443".</summary>
-        public string PortsText => Ports.Count == 0 ? string.Empty : string.Join(", ", Ports);
+        /// <summary>Die Ports als Kurztext hinter dem Dienstnamen, etwa "80, 443". Aufsteigend.</summary>
+        public string PortsText => Ports.Count == 0 ? string.Empty : string.Join(", ", Ports.OrderBy(p => p));
 
         public override string ToString() =>
             $"{ServiceName} [{string.Join(",", Ports)}] v4={StatusIPv4?.ToString() ?? "-"} v6={StatusIPv6?.ToString() ?? "-"}";

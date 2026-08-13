@@ -261,7 +261,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
                         store.Observe(observation);
                     }
                 },
-                ReportProgress = (current, responded, total) =>
+                ReportStepProgress = (current, responded, total, detail, step, stepCount) =>
                     ProgressChanged?.Invoke(new ScanProgress
                     {
                         MethodId = method.Id,
@@ -269,7 +269,10 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
                         Phase = method.Phase,
                         Current = current,
                         Responded = responded,
-                        Total = total
+                        Total = total,
+                        Detail = detail,
+                        Step = step,
+                        StepCount = stepCount
                     })
             };
 

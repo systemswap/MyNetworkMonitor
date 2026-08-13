@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Threading;
 using System.Text;
 using MyNetworkMonitor;
+using MyNetworkMonitor.Core.Scanning.ServiceScans;
 using System.Runtime.ConstrainedExecution;
 using static MyNetworkMonitor.ServiceScanData;
 using System.Data;
@@ -129,12 +130,18 @@ public class ScanningMethod_Services
 
     private string _serviceXMLPath = string.Empty;
 
-    bool scanDHCP = true;
-    List<string> DHCP_Server_IPs = new List<string>();
+    /// <summary>Zeitlimit je Port im grossen Lauf, in Millisekunden.</summary>
+    private const int Timeout = 2000;
 
-    private const int MaxParallelIPs = 30;
-    private const int Timeout = 2000; // 3 Sekunden Timeout pro Dienst
+    /// <summary>Versuche je Port im grossen Lauf.</summary>
     private const int RetryCount = 3;
+
+    /// <summary>
+    /// Ports nebeneinander bei der Suche ueber alle 65536 - deutlich mehr als
+    /// im grossen Lauf, weil dort ein Ziel viele Dienste bekommt und hier ein
+    /// Dienst sehr viele Ports.
+    /// </summary>
+    private const int MaxParallelPortSearch = 200;
 
     public event Action<IPToScan> ServiceIPScanFinished;
   
@@ -145,314 +152,129 @@ public class ScanningMethod_Services
     public event Action<int, int, int> FindServicePortProgressUpdated;
     public event Action<IPToScan> FindServicePortFinished;
 
+    /// <summary>
+    /// Prueft die gewaehlten Dienste an den gewaehlten Zielen.
+    /// <para>
+    /// Der Ablauf selbst liegt in <see cref="ServiceScanRunner"/>: ein Dienst
+    /// nach dem anderen, innerhalb eines Dienstes alle Ziele nebeneinander.
+    /// Hier steht nur noch die Anbindung fuer die beiden Oberflaechen -
+    /// Signatur und Ereignisse bleiben unveraendert.
+    /// </para>
+    /// <para>
+    /// Ein Unterschied ist sichtbar: <c>ProgressUpdated</c> zaehlt jetzt
+    /// Pruefungen statt Ziele, also Dienst mal Ziel. So zaehlt der Ablauf
+    /// ohnehin schon, und nur so laesst sich ablesen, dass gerade ein
+    /// langsamer Dienst an der Reihe ist.
+    /// </para>
+    /// </summary>
     public async Task ScanIPsAsync(List<IPToScan> IPsToScan, List<ServiceType> services, Dictionary<ServiceType, List<int>> extraPorts = null)
     {
         StartNewScan();
-
-        current = 0;
-        responded = 0;
-        total = IPsToScan.Count;
+        scanStatus = ScanStatus.running;
 
         ProgressUpdated?.Invoke(current, responded, total);
 
-
-        var semaphore = new SemaphoreSlim(MaxParallelIPs);
-        var tasks = IPsToScan.Select(async ipToScan =>
+        // Je Ziel wird gesammelt, was die einzelnen Dienste melden, und erst
+        // am Ende einmal gemeldet: die Oberflaechen erwarten ein Ziel mit all
+        // seinen Diensten, nicht 24 Teilmeldungen.
+        Dictionary<string, IPToScan> byAddress = new();
+        foreach (IPToScan target in IPsToScan)
         {
-            await semaphore.WaitAsync(_cts.Token);
+            if (!string.IsNullOrEmpty(target.IPorHostname))
+                byAddress[target.IPorHostname] = target;
+        }
 
-            if (_cts.Token.IsCancellationRequested)
-                return; 
+        if (byAddress.Count == 0)
+        {
+            ServiceScanFinished?.Invoke();
+            return;
+        }
 
-            // Die abgeschickte Anfrage zaehlt, nicht die fertige - dieselbe
-            // Regel wie beim NetBIOS-Verfahren, und die, welche die Anzeige
-            // meint: "gesendet / geantwortet / gesamt".
-            //
-            // Wuerde hier erst das *fertige* Ziel zaehlen, stiegen beide
-            // Zahlen im selben Augenblick, und man saehe nie, dass Ziele
-            // unterwegs sind: an der Diensterkennung haengt jedes Ziel lange
-            // in Zeitueberschreitungen, und genau diese Wartezeit soll man am
-            // Abstand der beiden Zahlen ablesen koennen.
-            int currentValue = Interlocked.Increment(ref current);
-            ProgressUpdated?.Invoke(currentValue, Volatile.Read(ref responded), total);
+        ServiceScanRunner runner = new()
+        {
+            Context = new ProbeContext { TimeoutMs = Timeout, RetryCount = RetryCount }
+        };
 
-            try
+        HashSet<string> withFindings = new();
+
+        void OnProgress(ServiceScanProgress p)
+        {
+            current = p.Current;
+            responded = p.Responded;
+            total = p.Total;
+
+            ProgressUpdated?.Invoke(p.Current, p.Responded, p.Total);
+        }
+
+        void OnFound(ServiceFinding finding)
+        {
+            if (!byAddress.TryGetValue(finding.Address, out IPToScan? target)) return;
+
+            lock (target.Services.Services)
             {
-                await Task.Run(() => ScanIPAsync(ipToScan, services, extraPorts), _cts.Token);
+                target.Services.Services.Add(finding.Result);
             }
-            finally
-            {
-                // Geantwortet wird erst nach der Pruefung verbucht. Weil jedes
-                // Ziel vorher abgeschickt wurde, kann die zweite Zahl die
-                // erste nie ueberholen - sie zaehlt eine Teilmenge dessen,
-                // was die erste zaehlt.
-                int respondedValue = HasOpenPort(ipToScan)
-                    ? Interlocked.Increment(ref responded)
-                    : Volatile.Read(ref responded);
 
-                ProgressUpdated?.Invoke(Volatile.Read(ref current), respondedValue, total);
+            lock (withFindings) withFindings.Add(finding.Address);
+        }
 
-                semaphore.Release();
-            }
-        }).ToArray();
+        runner.ProgressUpdated += OnProgress;
+        runner.Found += OnFound;
 
-        await Task.WhenAll(tasks.Where(t => t != null));
-        
+        try
+        {
+            await runner.RunAsync(
+                [.. byAddress.Keys],
+                services,
+                extraPorts ?? new Dictionary<ServiceType, List<int>>(),
+                _cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // Ein Abbruch ist ein gewolltes Ende und kein Fehlschlag: was bis
+            // dahin gefunden wurde, wird trotzdem gemeldet.
+        }
+        finally
+        {
+            runner.ProgressUpdated -= OnProgress;
+            runner.Found -= OnFound;
+        }
 
-        // ? Garantiert: SMBScanFinished wird NUR ausgelöst, wenn alle SMB-Scans beendet sind
+        foreach (IPToScan target in IPsToScan)
+        {
+            // Gemeldet wird jedes gepruefte Ziel, auch ohne Fund: "geprueft,
+            // nichts offen" ist ein Ergebnis und gehoert in den Bestand -
+            // sonst stuende ein Geraet dauerhaft auf "nie geprueft". Ziele
+            // ohne jede Meldung sind dagegen gar nicht erst drangekommen.
+            if (!withFindings.Contains(target.IPorHostname ?? string.Empty)) continue;
+
+            target.UsedScanMethod = ScanMethod.Services;
+            ServiceIPScanFinished?.Invoke(target);
+        }
+
         ServiceScanFinished?.Invoke();
     }
 
 
-   
-
-
-    private async Task ScanIPAsync(IPToScan ipToScan, List<ServiceType> services, Dictionary<ServiceType, List<int>> extraPorts)
-    {
-        scanStatus = ScanStatus.running;
-        scanDHCP = true;
-        string ipAddress = IPAddress.Parse(ipToScan.IPorHostname).ToString(); // Einmal parsen        
-
-        _cts.Token.ThrowIfCancellationRequested();
-
-        foreach (ServiceType service in services)
-        {
-            if (_cts.Token.IsCancellationRequested) return; // Direkt abbrechen, falls nötig
-
-            var serviceResult = new ServiceResult { Service = service };
-            
-
-            extraPorts.TryGetValue(service, out var ports);
-
-            byte[] detectionPacket = GetDetectionPacket(service);
-
-            var semaphore = new SemaphoreSlim(50); // Begrenzung gleichzeitiger Scans
-            var tasks = new List<Task>();
-
-            foreach (var port in ports.Distinct())
-            {
-                await semaphore.WaitAsync(_cts.Token);
-
-                if (_cts.Token.IsCancellationRequested) return; // Direkt abbrechen, falls nötig
-
-                tasks.Add(ScanServicePortAsync(service, ipAddress, port, detectionPacket, serviceResult, semaphore));
-            }
-
-
-            // Parallel ausführen und warten
-            await Task.WhenAll(tasks.Where(t => t != null));
-
-            //ipToScan.Services.Services.Add(serviceResult);
-            lock (ipToScan.Services.Services)
-            {
-                if (!ipToScan.Services.Services.Contains(serviceResult))
-                    ipToScan.Services.Services.Add(serviceResult);
-            }
-        }
-
-        if (ipToScan.Services.Services.Count > 0)
-        {
-            // Gemeldet wird jedes gepruefte Ziel, auch ohne Fund: "geprueft,
-            // nichts offen" ist ein Ergebnis und gehoert in den Bestand -
-            // sonst stuende ein Geraet dauerhaft auf "nie geprueft".
-            //
-            // Die Zaehlerstaende werden hier bewusst *nicht* angefasst; das
-            // erledigt die aufrufende Schleife, damit gesendet und geantwortet
-            // in einer festen Reihenfolge hochlaufen.
-            ipToScan.UsedScanMethod = ScanMethod.Services;
-            ServiceIPScanFinished?.Invoke(ipToScan); // Event auslösen
-        }
-    }
-
     /// <summary>
-    /// Hat sich an diesem Ziel mindestens ein Port gemeldet?
+    /// Sucht einen einzelnen Dienst an <b>allen</b> 65536 Ports eines Ziels.
     /// <para>
-    /// Massstab ist dieselbe Regel wie in der Tabelle (<c>Device.IsOpen</c>):
-    /// offen oder erkannter Dienst ist ein Fund, alles Uebrige - zu,
-    /// gefiltert, keine Antwort - nicht. Ein Diensteintrag allein sagt gar
-    /// nichts: angelegt wird einer fuer jeden geprueften Dienst.
+    /// Gefragt wird mit derselben Sonde wie im grossen Lauf, nur knapper
+    /// eingestellt: eine Sekunde Geduld und ein Versuch je Port - bei 65536
+    /// Ports faellt jede zusaetzliche Wiederholung als Wartezeit ins Gewicht.
+    /// </para>
+    /// <para>
+    /// Uebernommen wird nur, was die Sonde als <c>IsRunning</c> meldet, also
+    /// eine Antwort, die zum Protokoll passt. Ein offener Port allein ist
+    /// hier kein Fund - gesucht ist ein bestimmter Dienst, und den findet man
+    /// nicht daran, dass irgendetwas antwortet.
+    /// </para>
+    /// <para>
+    /// Der Lauf geht ueber alle Ports durch. Frueher hielt er beim ersten
+    /// Treffer an; ein Dienst kann aber auf mehreren Ports sitzen, und genau
+    /// die will man sehen, wenn man schon alle Ports absucht.
     /// </para>
     /// </summary>
-    private static bool HasOpenPort(IPToScan ipToScan)
-    {
-        // Je Liste ueber dasselbe Schloss wie die Schreiber: die Dienstliste
-        // ueber sich selbst, die Portliste ueber sich selbst. Nach einem
-        // Abbruch kann noch eine abgehaengte Portpruefung nachtragen, und ein
-        // Durchlauf ueber eine Liste, die sich dabei aendert, wirft.
-        lock (ipToScan.Services.Services)
-        {
-            foreach (ServiceResult service in ipToScan.Services.Services)
-            {
-                lock (service.Ports)
-                {
-                    foreach (PortResult port in service.Ports)
-                    {
-                        if (port.Status is PortStatus.Open or PortStatus.IsRunning) return true;
-                    }
-                }
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>
-    /// Scannt einen Port für einen bestimmten Service.
-    /// </summary>
-    private async Task ScanServicePortAsync(ServiceType service, string ipAddress, int port, byte[] detectionPacket, ServiceResult serviceResult, SemaphoreSlim semaphore)
-    {
-        if (_cts.Token.IsCancellationRequested) return; // Sofort abbrechen, falls Stopp angefordert wurde
-
-        try
-        {
-            PortResult portResult = new PortResult();
-
-            switch (service)
-            {
-                case ServiceType.WebServices:
-                    portResult = await CheckWebServicePortAsync(ipAddress, port).WaitAsync(_cts.Token);
-                    break;
-                case ServiceType.DNS_TCP:
-
-                    string dnsTCPServerIP = ipAddress; // Google Public DNS
-                    string domain = "gotme.tcp.com";
-
-                    byte[] dnsQuery = BuildDnsRequest(domain);
-                    portResult = await SendTcpDnsQuery(dnsTCPServerIP, dnsQuery, port).WaitAsync(_cts.Token);
-
-                    break;
-                case ServiceType.DNS_UDP:
-
-                    string dnsUDPServerIP = ipAddress; // Google Public DNS
-                    string domain2 = "gotme.udp.com";
-
-                    byte[] dnsQuery2 = BuildDnsRequest(domain2);
-                    portResult = await SendUdpDnsQuery(dnsUDPServerIP, dnsQuery2, port).WaitAsync(_cts.Token);
-
-                    break;
-                case ServiceType.DHCP:
-
-                    portResult.Ports = new List<int> { 67 };
-
-                    if (scanDHCP)
-                    {
-                        scanDHCP = false;
-                        DHCP_Server_IPs = await SendDhcpDiscoverAsync(detectionPacket).WaitAsync(_cts.Token);
-                    }
-
-                    if (DHCP_Server_IPs.Contains(ipAddress))
-                    {
-                        portResult.Status = PortStatus.IsRunning;
-                    }
-                    else
-                    {
-                        portResult.Status = PortStatus.NoResponse;
-                    }
-                    break;
-                case ServiceType.SSH:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket, service).WaitAsync(_cts.Token);
-                    break;
-                case ServiceType.FTP:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket, service).WaitAsync(_cts.Token);
-                    break;
-                case ServiceType.RDP:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket, service).WaitAsync(_cts.Token);
-                    break;
-                case ServiceType.UltraVNC:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket, service).WaitAsync(_cts.Token);
-                    break;
-                case ServiceType.BigFixRemote:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket, service).WaitAsync(_cts.Token);
-                    break;
-                case ServiceType.RustdeskServer:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket, service).WaitAsync(_cts.Token);
-                    break;
-                case ServiceType.TeamViewer:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket, service).WaitAsync(_cts.Token);
-                    break;
-                case ServiceType.Anydesk:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket, service).WaitAsync(_cts.Token);
-                    break;
-                case ServiceType.MSSQLServer:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket, service).WaitAsync(_cts.Token);
-
-                    if (portResult.Status != PortStatus.IsRunning)
-                    {
-                        try
-                        {
-                            List<int> dynamicPort;
-
-                            using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3))) // ? Timeout setzen
-                            {
-                                dynamicPort = await GetMSSQLDynamicPortsAsync(ipAddress).WaitAsync(cts.Token);
-                            }
-
-                            if (dynamicPort.Count > 0)
-                            {
-                                //only the first instance
-                                //portResult.Port = dynamicPort[0];
-                                portResult.Ports = dynamicPort;
-                                portResult.Status = PortStatus.IsRunning;
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"?? Fehler beim Abrufen des dynamischen SQL-Ports für {ipAddress}: {ex.Message}");
-                        }
-                    }
-                    break;
-                case ServiceType.PostgreSQL:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket, service).WaitAsync(_cts.Token);
-                    break;
-                case ServiceType.MySQL:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket, service).WaitAsync(_cts.Token);
-                    break;
-                case ServiceType.MariaDB:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket, service).WaitAsync(_cts.Token);
-                    break;
-                case ServiceType.OracleDB:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket, service).WaitAsync(_cts.Token);
-                    break;
-                case ServiceType.MongoDB:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket, service).WaitAsync(_cts.Token);
-                    break;
-                case ServiceType.InfluxDB2:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket, service).WaitAsync(_cts.Token);
-                    break;
-                case ServiceType.OPCUA:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket, service).WaitAsync(_cts.Token);
-                    break;
-                case ServiceType.ModBus:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket, service).WaitAsync(_cts.Token);
-                    break;
-                case ServiceType.S7:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket, service).WaitAsync(_cts.Token);
-                    break;
-                case ServiceType.BacNet:
-                     portResult = await GetBacNetInfos(ipAddress, port, detectionPacket).WaitAsync(_cts.Token);
-                    break;
-                default:
-                    portResult = await ScanPortAsync(ipAddress, port, detectionPacket, service).WaitAsync(_cts.Token);
-                    break;
-            }
-            if (_cts.Token.IsCancellationRequested) return;
-
-            lock (serviceResult.Ports) // Schutz vor parallelem Zugriff
-            {
-                serviceResult.Ports.Add(portResult);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            return; // Falls ein Task abgebrochen wurde, sauber zurückkehren
-        }
-        finally
-        {
-            semaphore.Release();
-        }
-    }
-
-
     public async Task<IPToScan> FindServicePortAsync(IPToScan ipToScan, ServiceType service)
     {
         StartNewScan();
@@ -466,1429 +288,92 @@ public class ScanningMethod_Services
         ServiceResult serviceResult = new ServiceResult { Service = service };
         ipToScan.Services.Services.Add(serviceResult);
 
-        var semaphore = new SemaphoreSlim(200); // Maximal 100 parallele Tasks
-        
-        List<int> ports = Enumerable.Range(0, 65536).ToList(); // Alle Ports von 0 bis 65535
-        //List<int> ports = Enumerable.Range(1880, 8087).ToList(); // Alle Ports von 0 bis 65535
+        if (!ServiceProbes.Has(service))
+        {
+            // Kein Verfahren fuer diesen Dienst - nichts zu suchen, aber das
+            // Ereignis muss trotzdem kommen, sonst wartet die Oberflaeche.
+            FindServicePortFinished?.Invoke(ipToScan);
+            return ipToScan;
+        }
 
-        // Liste für alle Tasks
+        IServiceProbe probe = ServiceProbes.Create(service);
+        ProbeContext context = new() { TimeoutMs = 1000, RetryCount = 1 };
+
+        using SemaphoreSlim slots = new(MaxParallelPortSearch);
+
         List<Task> tasks = new List<Task>();
 
-
-        //ports.Clear();
-        //ports.Add(3306);
-
-        foreach (int port in ports)
+        foreach (int port in Enumerable.Range(0, 65536))
         {
-            if (_cts.Token.IsCancellationRequested) break; // 🔹 Falls der Scan gestoppt wurde, Schleife sofort beenden
+            if (_cts.Token.IsCancellationRequested) break;
 
             // Gemeldet wird der Zaehler, nicht die Portnummer: bei einem Lauf
             // ueber alle 65536 Ports sehen beide fast gleich aus, gemeint ist
             // aber "der wievielte Port" - und das ist bei einem Abbruch oder
             // einem Ausschnitt der Portliste etwas anderes.
             int currentValue = Interlocked.Increment(ref current);
-            FindServicePortProgressUpdated?.Invoke(currentValue, responded, total);
+            FindServicePortProgressUpdated?.Invoke(currentValue, Volatile.Read(ref responded), total);
 
             try
             {
-                await semaphore.WaitAsync(_cts.Token); // Warten auf freien Slot
+                await slots.WaitAsync(_cts.Token);
             }
             catch (OperationCanceledException)
             {
-                break; // Abbruch bei Token-Auslösung
+                break;
             }
 
             tasks.Add(Task.Run(async () =>
             {
                 try
                 {
-                    if (service == ServiceType.WebServices)
+                    PortResult portResult = await probe.ProbeAsync(context, ipToScan.IPorHostname, port, _cts.Token);
+
+                    if (portResult.Status == PortStatus.IsRunning)
                     {
-                        // WebService-Port-Check
-                        PortResult portResult = await CheckWebServicePortAsync(ipToScan.IPorHostname, port);
-                        if (portResult.Status == PortStatus.IsRunning)
+                        int respondedValue = Interlocked.Increment(ref responded);
+                        FindServicePortProgressUpdated?.Invoke(Volatile.Read(ref current), respondedValue, total);
+
+                        lock (serviceResult.Ports)
                         {
-                            int responsedValue = Interlocked.Increment(ref responded);
-                            FindServicePortProgressUpdated?.Invoke(current, responsedValue, total);
-
-                            lock (serviceResult.Ports)
-                            {
-                                serviceResult.Ports.Add(portResult);
-                            }
-                        }
-                    }
-                    else
-                    {
-                        // TCP-Verbindung prüfen
-                        using TcpClient client = new TcpClient();
-                        var connectTask = client.ConnectAsync(IPAddress.Parse(ipToScan.IPorHostname), port);
-                        var delayTask = Task.Delay(1000); // Timeout auf 1 Sekunde
-
-                        if (await Task.WhenAny(connectTask, delayTask) == connectTask && client.Connected)
-                        {
-                            using NetworkStream stream = client.GetStream();
-                            await stream.WriteAsync(GetDetectionPacket(service), 0, GetDetectionPacket(service).Length);
-
-                            using MemoryStream memoryStream = new MemoryStream();
-                            byte[] buffer = new byte[1024];
-                            DateTime startTime = DateTime.Now;
-
-                            while ((DateTime.Now - startTime).TotalMilliseconds < 2000)
-                            {
-                                if (_cts.Token.IsCancellationRequested) break; // 🔹 Falls der Scan gestoppt wurde, Schleife sofort beenden
-
-                                if (stream.DataAvailable)
-                                {
-                                    int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
-                                    if (bytesRead > 0)
-                                    {
-                                        memoryStream.Write(buffer, 0, bytesRead);
-                                        startTime = DateTime.Now;
-                                    }
-                                    else break;
-                                }
-                                else
-                                {
-                                    await Task.Delay(50);
-                                }
-                            }
-
-                            byte[] response = memoryStream.ToArray();
-                            if (response.Length > 0 && IdentifyServices(response, service))
-                            {
-                                int responsedValue = Interlocked.Increment(ref responded);
-                                FindServicePortProgressUpdated?.Invoke(current, responsedValue, total);
-
-                                lock (ipToScan.Services.Services[0].Ports)
-                                {
-                                    ipToScan.Services.Services[0].Ports.Add(new PortResult { Ports = new List<int> { port }, Status = PortStatus.IsRunning });
-                                }
-
-                                _cts.Cancel(); // Abbruch, wenn der 1. [erste] Service erkannt wurde
-                            }
+                            serviceResult.Ports.Add(portResult);
                         }
                     }
                 }
-                catch (Exception ex)
+                catch (OperationCanceledException)
                 {
-                    Console.WriteLine($"Fehler beim Scannen von Port {port}: {ex.Message}");
+                    // Abbruch ist kein Fehlschlag dieses Ports.
+                }
+                catch (Exception)
+                {
+                    // Ein einzelner Port, der sich nicht pruefen laesst, darf
+                    // den Lauf ueber die uebrigen 65535 nicht beenden.
                 }
                 finally
                 {
-                    semaphore.Release();
+                    slots.Release();
                 }
             }));
         }
 
         try
         {
-            //await Task.WhenAll(tasks.Where(t => !t.IsCanceled));
-
-            // Zusätzliche Sicherheit: Warte, bis alle Semaphore-Slots zurückgesetzt wurden
-            await Task.WhenAll(Enumerable.Range(0, semaphore.CurrentCount).Select(_ => semaphore.WaitAsync()).ToArray());
+            await Task.WhenAll(tasks);
         }
         catch (OperationCanceledException)
         {
-            Console.WriteLine("Scan abgebrochen.");
+            // siehe oben
         }
         finally
         {
-            Task.Run(() => FindServicePortFinished?.Invoke(ipToScan));  // Stelle sicher, dass das Event ausgelöst wird
+            FindServicePortFinished?.Invoke(ipToScan);
         }
+
         return ipToScan;
     }
 
 
 
-
-
-    /// <summary>
-    /// Dienste, fuer die es unten eine echte Antwortpruefung gibt. Fuer alles
-    /// andere bleibt es beim alten Verhalten: eine Antwort auf dem erwarteten
-    /// Port gilt als Treffer. Das ist bewusst so, statt diese Dienste
-    /// stillschweigend nie mehr zu finden.
-    /// <para>
-    /// Der Preis dieses Rueckfalls ist eine Verwechslung, sobald sich zwei
-    /// Dienste einen Port teilen: der ungeprueft eingetragene erbt jede
-    /// Antwort des anderen. Genau das ist mit RustdeskServer auf Port 5900
-    /// passiert - jeder VNC-Rechner galt zusaetzlich als RustDesk-Server.
-    /// Beide RustDesk-Eintraege werden darum inzwischen richtig geprueft.
-    /// </para>
-    /// </summary>
-    private static readonly HashSet<ServiceType> ValidatedServiceTypes =
-    [
-        ServiceType.FTP, ServiceType.SSH, ServiceType.UltraVNC, ServiceType.TeamViewer,
-        ServiceType.BigFixRemote, ServiceType.Anydesk, ServiceType.MSSQLServer,
-        ServiceType.PostgreSQL, ServiceType.MariaDB, ServiceType.MySQL, ServiceType.OracleDB,
-        ServiceType.MongoDB, ServiceType.InfluxDB2, ServiceType.OPCUA, ServiceType.ModBus,
-        ServiceType.S7, ServiceType.RDP, ServiceType.RustdeskClient,
-        ServiceType.RustdeskServer
-    ];
-
-    /// <summary>
-    /// Liest eine Protobuf-Varint-Zahl ab <paramref name="offset"/> bis zum
-    /// Ende von <paramref name="data"/>.
-    /// <para>
-    /// Streng: die Zahl muss genau am Ende aufhoeren. Ein abgeschnittenes oder
-    /// ueberlanges Feld gilt als kein Treffer - sonst wuerde beliebiges
-    /// Rauschen als gueltige Zahl durchgehen.
-    /// </para>
-    /// </summary>
-    private static bool TryReadVarint(byte[] data, int offset, out int value)
-    {
-        value = 0;
-        int shift = 0;
-
-        for (int i = offset; i < data.Length; i++)
-        {
-            if (shift > 28) return false;
-
-            value |= (data[i] & 0x7F) << shift;
-            shift += 7;
-
-            // Letztes Byte der Zahl: das Fortsetzungsbit fehlt.
-            if ((data[i] & 0x80) == 0) return i == data.Length - 1;
-        }
-
-        return false;
-    }
-
-    private bool IdentifyServices(byte[] response, ServiceType service)
-    {
-        if (!ValidatedServiceTypes.Contains(service)) return response.Length > 0;
-
-        bool serviceMatched = false;
-        string str_serviceResponse = Encoding.ASCII.GetString(response);
-
-        // ?? FTP
-        if (service == ServiceType.FTP)
-        {
-            if (str_serviceResponse.StartsWith("220 "))
-            {
-                serviceMatched = true;
-            }
-        }
-
-        // ?? SSH / SFTP
-        if (service == ServiceType.SSH)
-        {
-            string sshResponse = Encoding.ASCII.GetString(response);
-
-            // Prüfen, ob die Antwort das typische "SSH-2.0" enthält
-            if (sshResponse.StartsWith("SSH-2.0"))
-            {
-                serviceMatched = true;
-
-                // Optional: Version und Software extrahieren
-                int versionIndex = sshResponse.IndexOf("-");
-                if (versionIndex >= 0)
-                {
-                    string sftpVersion = sshResponse.Substring(versionIndex + 1).Trim();
-                    Console.WriteLine($"SFTP Detected: {sftpVersion}");
-                }
-            }
-        }
-
-
-        // ?? UltraVNC-Erkennung        
-        if (service == ServiceType.UltraVNC)
-        {
-            //UlraVNC Header RFB als hex
-            byte[] ultraVncHeader = { 0x52, 0x46, 0x42 };
-
-            if (response.Take(ultraVncHeader.Length).SequenceEqual(ultraVncHeader))
-            {
-                serviceMatched = true;
-            }
-        }
-
-        // ?? RustDesk-Server (hbbs, Ports 21115-21117 bzw. eigener Port)
-        //
-        // Auf das Hello aus GetDetectionPacket - der NAT-Test-Anfrage -
-        // antwortet der Server mit dem Quellport, den er von uns sieht:
-        //
-        //   1c aa 01 04 08 <Port als Varint>
-        //
-        // An einem echten Server ueber vier Verbindungen gemessen: der
-        // zurueckgegebene Wert war jedes Mal genau der TCP-Quellport der
-        // eigenen Verbindung. Das ist mehr als ein Muster - die Antwort haengt
-        // an der Verbindung und laesst sich nicht zufaellig von einem anderen
-        // Dienst nachbilden.
-        //
-        // Die Laenge ist nicht fest: ein Quellport unter 16384 passt in zwei
-        // Varint-Byte statt drei. Darum wird das Laengenfeld gegen die
-        // tatsaechliche Laenge geprueft, nicht auf 8 Byte bestanden.
-        if (service == ServiceType.RustdeskServer)
-        {
-            serviceMatched = response.Length is >= 7 and <= 9
-                && response[0] == 0x1C
-                && response[1] == 0xAA && response[2] == 0x01   // Feld 21, laengenkodiert
-                && response[3] == response.Length - 4           // innere Laenge passt zum Rest
-                && response[4] == 0x08                          // Feld 1, Varint: der Port
-                && TryReadVarint(response, 5, out int publicPort)
-                && publicPort is > 0 and <= 65535;
-        }
-
-        // ?? RustDesk-Client mit "Direct IP Access" (Port 21118)
-        //
-        // Der Client gruesst beim Verbinden von sich aus - und zwar unabhaengig
-        // davon, was man ihm schickt. Gegengeprueft mit dem richtigen Paket,
-        // mit Muell und ganz ohne Nutzlast: die Antwort kam jedes Mal. Anders
-        // als beim Server (der schweigt auf alles ausser seinem Hello) ist hier
-        // also nicht das gesendete Paket der Filter, sondern allein diese
-        // Pruefung - jeder Dienst auf 21118, der beim Verbinden gruesst, kaeme
-        // sonst als RustDesk-Client durch.
-        //
-        // Der Aufbau, an vier lebenden Clients gemessen:
-        //
-        //   b0 │ 4a │ 2a │ 0a 20 <32 Zeichen> │ 12 06 <6 Zeichen>
-        //   ^    ^    ^    ^                    ^
-        //   |    |    |    Feld 1: Kennung      Feld 2: Challenge
-        //   |    |    Laenge des protobuf-Rumpfes
-        //   |    protobuf Feld 9, laengenkodiert  <- konstant
-        //   Rahmenlaenge, um zwei Bit nach links geschoben
-        //
-        // Fest sind nur zwei Byte: die 0x4A an Position 1 und die 0x0A an
-        // Position 3. Alles andere sind Laengen oder Inhalte.
-        //
-        // Byte 0 ist der Rahmen von RustDesk: die Laenge des Restes, um zwei
-        // Bit nach links geschoben; die unteren zwei Bit sagen, in wie vielen
-        // Byte die Laenge selbst steht. Gemessen:
-        //
-        //   Client A   19 Byte   0x48 -> 18 == 19-1   Kennung  6 Zeichen
-        //   Client B   19 Byte   0x48 -> 18 == 19-1   Kennung  6 Zeichen
-        //   Client C   45 Byte   0xb0 -> 44 == 45-1   Kennung 32 Zeichen
-        //   Client D   45 Byte   0xb0 -> 44 == 45-1   Kennung 32 Zeichen
-        //
-        // Genau hier lag der Fehler der frueheren Fassung: sie las 0x48 als
-        // feste Marke und bestand auf 19 Byte. 0x48 ist aber 18<<2, also eine
-        // Laenge - ein Client mit laengerer Kennung schickt dort etwas anderes
-        // und fiel durch, obwohl er einer ist. Aus demselben Grund sind auch
-        // 0x10 und 0x06 nicht festgenagelt: das sind die Laengen des Rumpfes
-        // und der Kennung. Wie lang eine Kennung ist, laesst sich von aussen
-        // nicht entscheiden.
-        //
-        // Die feste Laenge war zusaetzlich unzuverlaessig: in etwa einem von
-        // acht Versuchen schiebt der Client drei Byte nach (ein zweiter Rahmen,
-        // 08 2a 00), die im selben Lesevorgang ankommen. Das Geraet wurde also
-        // mal erkannt und mal nicht. Darum wird auf ">= Rahmenlaenge" geprueft
-        // und nicht auf Gleichheit.
-        //
-        // Damit ist der Client vom Serverdienst (21115/21116/21117) getrennt:
-        // wer hier so antwortet, laesst sich im LAN direkt ueber seine IP
-        // fernsteuern.
-        if (service == ServiceType.RustdeskClient)
-        {
-            // Nur der einbytige Rahmen wird ausgewertet - er reicht bis 63 Byte
-            // Rumpf und damit fuer jede gemessene Kennung. Bei einer laengeren
-            // steht die Laenge in mehreren Byte; deren Reihenfolge ist hier
-            // nicht gemessen, und geraten wird sie nicht. Der Rahmen geht dann
-            // in die Pruefung nicht ein, das Geruest darunter schon.
-            bool singleByteFrame = response.Length > 0 && (response[0] & 0x03) == 0;
-            int framed = response.Length > 0 ? response[0] >> 2 : 0;
-
-            serviceMatched = response.Length >= 6
-                && response[1] == 0x4A                          // protobuf Feld 9
-                && response[3] == 0x0A                          // Feld 1: die Kennung
-                && response[4] > 0                              // sie ist nicht leer
-                && response[2] >= response[4] + 2               // der Rumpf traegt sie
-                && response.Length >= 5 + response[4]           // ... und sie ist da
-                && (!singleByteFrame
-                    || (response.Length >= framed + 1           // Rahmen vollstaendig
-                        && response[2] == framed - 2));         // und passt zum Rumpf
-        }
-
-        // ?? TeamViewer-Erkennung
-        if (service == ServiceType.TeamViewer)
-        {
-            byte[] teamViewerHeader1 = { 0x17, 0x24, 0x0A, 0x20 };  // Header 1
-            byte[] teamViewerHeader2 = { 0x11, 0x30, 0x36, 0x00 };  // Header 2
-
-            bool match1 = response.Take(4).SequenceEqual(teamViewerHeader1);
-            bool match2 = response.Skip(37).Take(4).SequenceEqual(teamViewerHeader2);
-            if (match1 && match2)
-            {
-                serviceMatched = true;
-            }
-        }
-
-
-        // BigFix Remote Control
-        if (service == ServiceType.BigFixRemote)
-        {
-            // BigFix Antwort-Paket 1: 04-2B-B4-90-05-02 / Paket 2: 00-00-00-00-00-00   antwort in c# wegen tcpclient in einem array
-            byte[] bigFixHeader = { 0x04, 0x2B, 0xB4, 0x90, 0x05, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-
-            if (response.Length == 12)
-            {
-                bool match = response.SequenceEqual(bigFixHeader);
-
-                if (match)
-                {
-                    serviceMatched = true;
-                }
-            }
-        }
-
-
-        // ?? AnyDesk
-        if (service == ServiceType.Anydesk)
-        {
-            string tada2 = Encoding.ASCII.GetString(response);
-            if (tada2.ToLower().Contains("anydesk client")) serviceMatched = true;
-        }
-
-        // ?? Microsoft SQL Server
-        if (service == ServiceType.MSSQLServer)
-        {
-            // MSSQL-TDS-Erkennung (Pre-Login-Paket)
-            if (response.Length > 8 && response[0] == 0x04 && response[1] == 0x01)
-            {
-                // Mindestlänge und typische Struktur prüfen
-                int packetLength = response[2] << 8 | response[3]; // Paketlänge aus Byte 2 und 3
-                if (packetLength > 8 && packetLength < 512)
-                {
-                    serviceMatched = true;
-                }
-            }
-        }
-
-
-        // ?? PostgreSQL-Erkennung: Antwort auf die SSLRequest ist ein einzelnes
-        // Byte - 'S' (0x53), wenn der Server TLS anbietet, 'N' (0x4e), wenn nicht.
-        // Server ohne TLS ueberwiegen in der Praxis nicht - ein Server, der die
-        // uebliche, sicherere Antwort 'S' gibt, wurde hier bisher schlicht
-        // uebersehen.
-        if (service == ServiceType.PostgreSQL)
-        {
-            if (response.Length == 1 && (response[0] == 0x53 || response[0] == 0x4e))
-            {
-                serviceMatched = true;
-            }
-            if (response.Length >= 8)
-            {
-                // Direkte "ReadyForQuery"/Fehlerantwort ohne SSL-Verhandlung.
-                if (response[0] == 0x52 && response[1] == 0x00 && response[2] == 0x00)
-                {
-                    serviceMatched = true;
-                }
-            }
-        }
-
-        // ?? MariaDB / MySQL: beide gruessen unaufgefordert mit dem
-        // Handshake-Paket - 3 Byte Laenge (little-endian), 1 Byte Sequenznummer
-        // (bei der Begruessung immer 0), dann 1 Byte Protokollversion (ueblich: 10).
-        // Nur an "mariadb" im Versionstext zu erkennen liesse jeden echten
-        // MySQL-Server (der das Wort nicht fuehrt) unentdeckt.
-        if (service == ServiceType.MariaDB || service == ServiceType.MySQL)
-        {
-            bool looksLikeHandshake = response.Length >= 5
-                && response[3] == 0x00
-                && response[4] == 0x0A;
-
-            bool isMariaDb = str_serviceResponse.ToLower().Contains("mariadb");
-
-            if (service == ServiceType.MariaDB)
-            {
-                serviceMatched = looksLikeHandshake && isMariaDb;
-            }
-            else
-            {
-                // Reines MySQL nennt sich nicht "mariadb" im Versionstext -
-                // ein gueltiges Handshake-Paket ohne diese Kennung ist der
-                // richtige Treffer.
-                serviceMatched = looksLikeHandshake && !isMariaDb;
-            }
-        }
-
-        // ?? Oracle TNS: Antworttyp steht in Byte 4 des TNS-Headers.
-        // 2 = Accept, 4 = Refuse (Dienst lehnt ab, ist aber da), 11 = Redirect.
-        if (service == ServiceType.OracleDB)
-        {
-            if (response.Length >= 8 && response[4] is 0x02 or 0x04 or 0x0B)
-            {
-                serviceMatched = true;
-            }
-        }
-
-        // ?? RDP: Antwort auf die X.224-Verbindungsanfrage ist ein TPKT-Paket
-        // (0x03 0x00 ...), das im COTP-Teil den Code 0xD0 (Connection Confirm)
-        // traegt.
-        if (service == ServiceType.RDP)
-        {
-            if (response.Length >= 6 && response[0] == 0x03 && response[1] == 0x00 && response[5] == 0xD0)
-            {
-                serviceMatched = true;
-            }
-        }
-
-
-        if (service == ServiceType.MongoDB)
-        {
-            // Typischer MongoDB-Header in der Antwort
-            byte[] bjsonHeader = { 0x49, 0x01, 0x00, 0x00 };  // BJSON format beginnt so
-
-            bool bjsonHeaderMatched = response.Take(4).SequenceEqual(bjsonHeader);
-            bool str_ContainsHelloOK = str_serviceResponse.ToLower().Contains("hellook");
-            bool str_Contains_topologyVersion = str_serviceResponse.ToLower().Contains("topologyversion");
-
-            if (bjsonHeaderMatched && str_ContainsHelloOK && str_Contains_topologyVersion)
-            {
-                serviceMatched = true;
-            }
-        }
-
-
-        // ?? InfluxDB 2
-        if (service == ServiceType.InfluxDB2)
-        {
-            if (str_serviceResponse.ToLower().Contains("influxdb"))
-            {
-                serviceMatched = true;
-            }
-        }
-
-
-        // ?? OPC UA
-        if (service == ServiceType.OPCUA)
-        {
-            if (response.Length >= 4)
-            {
-                byte[] opcUaHelloHeader = { 0x48, 0x45, 0x4C, 0x46 }; // HELF
-                byte[] opcUaAckHeader = { 0x41, 0x43, 0x4B, 0x46 };   // ACKF
-
-                if (response.Take(4).SequenceEqual(opcUaHelloHeader))
-                {
-                    //OPC UA Hello Frame erkannt
-                    serviceMatched = true;
-                }
-                else if (response.Take(4).SequenceEqual(opcUaAckHeader))
-                {
-                    //OPC UA Acknowledge Frame erkannt
-                    serviceMatched = true;
-                }
-            }
-        }
-
-        // ?? Modbus TCP-Erkennung
-        if (service == ServiceType.ModBus)
-        {
-            // Modbus TCP Header besteht aus 7 Bytes, der Funktionscode ist das
-            // erste Byte danach - also Index 7, und der ist nur gueltig zu lesen,
-            // wenn die Antwort mindestens 8 Byte lang ist. Mit ">= 7" warf response[7]
-            // bei einer genau 7 Byte langen Antwort eine IndexOutOfRangeException,
-            // gefangen von der pauschalen catch-Klausel in FindServicePortAsync und
-            // dort als "Fehler" statt als "kein Modbus" verbucht.
-            // [0-1] Transaction Identifier (2 Bytes)
-            // [2-3] Protocol Identifier (immer 0x00 0x00 für Modbus TCP)
-            // [4-5] Length Field (Länge der nachfolgenden Daten)
-            // [6]   Unit Identifier
-            // [7]   Function Code
-            if (response.Length >= 8)
-            {
-                // Protokollkennung überprüfen (muss 0x00 0x00 für Modbus TCP sein)
-                bool isModbusTcp = response[2] == 0x00 && response[3] == 0x00;
-
-                // Funktioncode prüfen: Gültige Modbus-Funktionscodes liegen zwischen 0x01 und 0x10
-                // Beispiele:
-                // 0x01 - Read Coils
-                // 0x02 - Read Discrete Inputs
-                // 0x03 - Read Holding Registers
-                // 0x04 - Read Input Registers
-                // 0x05 - Write Single Coil
-                // 0x06 - Write Single Register
-                // 0x10 - Write Multiple Registers
-                //
-                // Eine Fehlerantwort (Exception Response) traegt denselben
-                // Funktionscode mit gesetztem oberstem Bit, also 0x81-0x90 -
-                // etwa wenn das angefragte Register auf diesem Geraet nicht
-                // existiert. Das ist trotzdem eine Modbus-Antwort und kein
-                // Nichttreffer: das Geraet hat verstanden und geantwortet,
-                // nur eben mit "nein" statt mit Werten.
-                byte functionCode = response[7];
-                bool validFunctionCode = functionCode is >= 0x01 and <= 0x10 or >= 0x81 and <= 0x90;
-
-                // Wenn sowohl das Protokoll als auch der Funktionscode stimmen, erkennen wir Modbus TCP
-                if (isModbusTcp && validFunctionCode)
-                {
-                    serviceMatched = true;
-                }
-            }
-        }
-
-        // ?? Siemens S7: Antwort auf die COTP-Verbindungsanfrage ist ein
-        // TPKT-Paket (0x03 0x00 ...), dessen COTP-Teil den Code 0xD0
-        // (Connection Confirm) traegt - an derselben Stelle, an der die
-        // eigene Anfrage 0xE0 (Connection Request) trug.
-        if (service == ServiceType.S7)
-        {
-            if (response.Length >= 6 && response[0] == 0x03 && response[1] == 0x00 && response[5] == 0xD0)
-            {
-                serviceMatched = true;
-            }
-        }
-
-
-        return serviceMatched;
-    }
-
-
-
-
-
-
-    /// <summary>
-    /// Prueft einen Port: erreichbar, und falls ja, antwortet dort das
-    /// erwartete Protokoll - nicht nur irgendein Dienst.
-    /// <para>
-    /// Frueher zwei getrennte Verbindungen je Versuch: ein roher Socket nur
-    /// fuer offen/zu, sofort verworfen, danach ein zweiter <see cref="TcpClient"/>
-    /// fuer die eigentliche Sonde. Bei Industrieprotokollen wie S7 und Modbus
-    /// bedeutete das zwei bis sechs Verbindungsaufbauten gegen dieselbe SPS fuer
-    /// eine einzige Pruefung - unnoetige Last auf Geraeten, die dafuer nicht
-    /// ausgelegt sind. Jetzt eine Verbindung, die beides beantwortet.
-    /// </para>
-    /// <para>
-    /// Frueher ausserdem ein blockierender <c>WaitOne()</c> auf den
-    /// Verbindungsaufbau - das legt einen echten Thread-Pool-Thread fuer die
-    /// volle Wartezeit lahm, multipliziert mit <see cref="MaxParallelIPs"/> mal
-    /// der Zahl der Dienste, und war derselbe Fehler, der beim Ping-Scan schon
-    /// die Ergebnistabelle zum Stocken brachte.
-    /// </para>
-    /// </summary>
-    private async Task<PortResult> ScanPortAsync(string ip, int port, byte[] detectionPacket, ServiceType service)
-    {
-        var portResult = new PortResult { Ports = new List<int> { port } };
-        var logBuilder = new StringBuilder();
-
-        for (int attempt = 1; attempt <= RetryCount; attempt++)
-        {
-            using var client = new TcpClient();
-
-            try
-            {
-                Task connectTask = client.ConnectAsync(ip, port);
-
-                if (await Task.WhenAny(connectTask, Task.Delay(Timeout)) != connectTask)
-                {
-                    portResult.Status = PortStatus.Filtered;
-                    logBuilder.AppendLine("Timeout: Port möglicherweise durch Firewall blockiert.");
-                    portResult.PortLog = logBuilder.ToString();
-                    return portResult;
-                }
-
-                await connectTask; // wirft die eigentliche Verbindungsausnahme, falls es eine gab
-
-                portResult.Status = PortStatus.Open;
-
-                // Ein einziger Stream fuer Schreiben und Lesen - TcpClient.GetStream()
-                // liefert zwar bei jedem Aufruf dieselbe zugrundeliegende Verbindung,
-                // aber ihn zwischendurch zu entsorgen (etwa nur um den Schreibteil zu
-                // umklammern) schliesst den Socket mit - der zweite Aufruf traf dann
-                // auf "operation not allowed on non-connected sockets" statt zu lesen.
-                NetworkStream stream = client.GetStream();
-
-                if (detectionPacket.Length > 0)
-                {
-                    await stream.WriteAsync(detectionPacket, 0, detectionPacket.Length);
-                }
-
-                // Immer lesen, auch ohne eigene Nutzlast - Begruessungsprotokolle
-                // wie FTP, MySQL und MariaDB schicken ihre Kennung unaufgefordert.
-                var buffer = new byte[4096];
-                using var readCts = new CancellationTokenSource(Timeout);
-
-                try
-                {
-                    int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length, readCts.Token);
-
-                    if (bytesRead > 0)
-                    {
-                        byte[] response = buffer[..bytesRead];
-
-                        if (IdentifyServices(response, service))
-                        {
-                            portResult.Status = PortStatus.IsRunning;
-                            logBuilder.AppendLine("Antwort passt zum erwarteten Protokoll.");
-                        }
-                        else
-                        {
-                            logBuilder.AppendLine("Port offen, Antwort kam, passt aber nicht zum erwarteten Protokoll - vermutlich ein anderer Dienst auf demselben Port.");
-                        }
-                    }
-                    else
-                    {
-                        logBuilder.AppendLine("Port ist offen, aber keine Antwort von einer Anwendung.");
-                    }
-                }
-                catch (OperationCanceledException)
-                {
-                    logBuilder.AppendLine("Antwort vom Server dauerte zu lange.");
-                }
-
-                portResult.PortLog = logBuilder.ToString();
-                return portResult;
-            }
-            catch (SocketException ex)
-            {
-                if (ex.SocketErrorCode == SocketError.ConnectionRefused)
-                {
-                    portResult.Status = PortStatus.Closed;
-                    logBuilder.AppendLine("Verbindung verweigert: Kein Dienst lauscht auf diesem Port.");
-                    portResult.PortLog = logBuilder.ToString();
-                    return portResult;
-                }
-
-                if (attempt == RetryCount)
-                {
-                    portResult.Status = PortStatus.NoResponse;
-                    logBuilder.AppendLine($"Fehler nach {RetryCount} Versuchen: {ex.Message}");
-                }
-            }
-        }
-
-        portResult.PortLog = logBuilder.ToString();
-        return portResult;
-    }
-
-    
-
-
-    public async Task<List<string>> SendDhcpDiscoverAsync(byte[] dhcpDiscoverPacket)
-    {
-        List<string> dhcpServers = new List<string>();
-
-        try
-        {
-
-            using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp))
-            {
-                socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, true);
-                //socket.Bind(new IPEndPoint(IPAddress.Any, 68));  // Lausche auf Port 68 für eingehende Broadcasts
-                socket.Bind(new IPEndPoint(SupportMethods.SelectedNetworkInterfaceInfos.IPv4, 68));  // Lausche auf Port 68 für eingehende Broadcasts
-
-                IPEndPoint dhcpServerEndPoint = new IPEndPoint(IPAddress.Broadcast, 67);
-                Console.WriteLine($"?? Sende DHCP DISCOVER...");
-
-                // Sende DHCP DISCOVER
-                socket.SendTo(dhcpDiscoverPacket, dhcpServerEndPoint);
-
-                DateTime startTime = DateTime.Now;
-                int timeout = 2000;  // 2 Sekunden Timeout
-
-                try
-                {
-                    while ((DateTime.Now - startTime).TotalMilliseconds < timeout)
-                    {
-                        if (socket.Poll(100000, SelectMode.SelectRead))  // 100 ms warten, ob Daten verfügbar sind
-                        {
-                            byte[] buffer = new byte[1024];
-                            //EndPoint remoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
-                            EndPoint remoteEndPoint = new IPEndPoint(SupportMethods.SelectedNetworkInterfaceInfos.IPv4, 0);
-                            int receivedBytes = socket.ReceiveFrom(buffer, ref remoteEndPoint);
-
-                            if (receivedBytes >= 28)
-                            {
-                                string dhcpServerIp = GetDhcpServerIp(buffer);
-                                if (!string.IsNullOrEmpty(dhcpServerIp) && !dhcpServers.Contains(dhcpServerIp))
-                                {
-                                    dhcpServers.Add(dhcpServerIp);
-                                    Console.WriteLine($"? DHCP-Server gefunden: {dhcpServerIp}");
-                                }
-                            }
-                        }
-                    }
-                }
-                catch (SocketException ex)
-                {
-                    Console.WriteLine($"? Fehler beim Empfang: {ex.Message}");
-                }
-
-                return dhcpServers;
-            }
-        }
-        catch
-        {
-
-        }
-        return dhcpServers;
-    }
-
-
-
-
-
-    string GetDhcpServerIp(byte[] response)
-    {
-        // 1 Prüfe Option 54 (beste Methode)
-        int index = Array.IndexOf(response, (byte)54);
-        if (index > 0)
-            return new IPAddress(response.Skip(index + 2).Take(4).ToArray()).ToString();
-
-        // 2 Prüfe GIADDR (nur falls vorhanden)
-        string relayAgentIp = new IPAddress(response.Skip(24).Take(4).ToArray()).ToString();
-        if (relayAgentIp != "0.0.0.0")
-            return relayAgentIp;
-
-        // 3 Prüfe SIADDR (nur als letzte Option)
-        return new IPAddress(response.Skip(16).Take(4).ToArray()).ToString();
-    }
-
-
-
-
-
-
-
-    private async Task<List<int>> GetMSSQLDynamicPortsAsync(string serverIP)
-    {
-        const int MaxRetries = 3; // ?? Anzahl der Wiederholungen
-        const int TimeoutMilliseconds = 2000; // ? Timeout pro Versuch (3 Sekunden)
-        var foundPorts = new List<int>();
-
-        using (UdpClient udpClient = new UdpClient())
-        {
-            udpClient.Client.ReceiveTimeout = TimeoutMilliseconds;
-            IPEndPoint sqlServerEndpoint = new IPEndPoint(IPAddress.Parse(serverIP), 1434);
-            byte[] request = Encoding.ASCII.GetBytes("\x02"); // Anfrage für SQL-Browser-Information
-
-            for (int attempt = 1; attempt <= MaxRetries; attempt++)
-            {
-                try
-                {
-                    await udpClient.SendAsync(request, request.Length, sqlServerEndpoint);
-
-                    // Warte auf eine Antwort mit Timeout
-                    var receiveTask = udpClient.ReceiveAsync();
-                    if (await Task.WhenAny(receiveTask, Task.Delay(TimeoutMilliseconds)) == receiveTask)
-                    {
-                        // Antwort erhalten
-                        UdpReceiveResult response = await receiveTask;
-                        string responseText = Encoding.ASCII.GetString(response.Buffer);
-
-                        Console.WriteLine($"?? SQL Browser Antwort (Versuch {attempt}): {responseText}");
-
-                        // ?? Alle "tcp;" Ports suchen (nicht nur den ersten!)
-                        var matches = System.Text.RegularExpressions.Regex.Matches(responseText, @"tcp;(\d+)");
-                        foreach (System.Text.RegularExpressions.Match match in matches)
-                        {
-                            if (match.Groups.Count > 1 && int.TryParse(match.Groups[1].Value, out int port))
-                            {
-                                foundPorts.Add(port);
-                            }
-                        }
-
-                        if (foundPorts.Count > 0)
-                        {
-                            return foundPorts; // ? Erfolgreich gefundene Ports zurückgeben
-                        }
-                    }
-                    else
-                    {
-                        Console.WriteLine($"?? Versuch {attempt}: Timeout - Keine Antwort vom SQL Browser-Dienst.");
-                    }
-                }
-                catch (SocketException ex)
-                {
-                    Console.WriteLine($"?? Versuch {attempt}: Fehler beim Abrufen des SQL-Ports: {ex.Message}");
-                }
-            }
-        }
-
-        Console.WriteLine($"? Keine MSSQL-Dynamikports gefunden nach {MaxRetries} Versuchen.");
-        return foundPorts; // ? Leere Liste, falls nichts gefunden wurde
-    }
-
-   
-
-    private async Task<PortResult> CheckWebServicePortAsync(string ipAddress, int port)
-    {
-        PortResult portResult = new PortResult { Ports = new List<int> { port }, Status = PortStatus.NoResponse };
-
-        // **1?? Temporäre Status-Werte für HTTP & HTTPS**
-        PortStatus httpStatus = PortStatus.NoResponse;
-        PortStatus httpsStatus = PortStatus.NoResponse;
-
-        // **2?? Prüfe HTTP**
-        bool httpSuccess = await CheckHttpAsync(ipAddress, port, portResult);
-        httpStatus = portResult.Status; // Speichere HTTP-Ergebnis
-
-        // **3?? Prüfe HTTPS**
-        bool httpsSuccess = await CheckHttpsAsync(ipAddress, port, portResult);
-        httpsStatus = portResult.Status; // Speichere HTTPS-Ergebnis
-
-        // **4?? Priorisierung der Status-Werte**
-        if (httpSuccess || httpsSuccess)
-        {
-            portResult.Status = PortStatus.IsRunning;  // Höchste Priorität
-        }
-        else if (httpStatus == PortStatus.Error || httpsStatus == PortStatus.Error)
-        {
-            portResult.Status = PortStatus.Error;  // Fehler geht nicht verloren
-        }
-        else if (httpStatus == PortStatus.Open || httpsStatus == PortStatus.Open)
-        {
-            portResult.Status = PortStatus.Open;
-        }
-        else if (httpStatus == PortStatus.Filtered || httpsStatus == PortStatus.Filtered)
-        {
-            portResult.Status = PortStatus.Filtered;
-        }
-        else
-        {
-            portResult.Status = PortStatus.NoResponse;
-        }
-
-        return portResult;
-    }
-
-   
-
-    private async Task<bool> CheckHttpAsync(string ipAddress, int port, PortResult portResult)
-    {
-        using (var tcpClient = new TcpClient())
-        using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2))) // 2s Timeout
-        {
-            try
-            {
-                // Starte Verbindungsversuch
-                Task connectTask = tcpClient.ConnectAsync(ipAddress, port);
-                if (await Task.WhenAny(connectTask, Task.Delay(2000, cts.Token)) != connectTask)
-                {
-                    portResult.Status = PortStatus.NoResponse; // Timeout erreicht
-                    return false;
-                }
-
-                if (!tcpClient.Connected)
-                {
-                    portResult.Status = PortStatus.Filtered; // Verbindung verweigert
-                    return false;
-                }
-
-                using (NetworkStream stream = tcpClient.GetStream())
-                using (var writer = new StreamWriter(stream, Encoding.ASCII, leaveOpen: true))
-                using (var reader = new StreamReader(stream, Encoding.UTF8, leaveOpen: true))
-                {
-                    writer.NewLine = "\r\n"; // HTTP erfordert CRLF
-                    writer.AutoFlush = true;
-
-                    // **HTTP-Header korrekt setzen**
-                    await writer.WriteLineAsync($"GET / HTTP/1.1");
-                    await writer.WriteLineAsync($"Host: {ipAddress}");
-                    await writer.WriteLineAsync("Connection: close");
-                    await writer.WriteLineAsync("User-Agent: Mozilla/5.0 (compatible; MyScanner/1.0)");
-                    await writer.WriteLineAsync("Accept: */*"); // Erlaubt alle Antworten
-                    await writer.WriteLineAsync("Accept-Encoding: identity"); // Verhindert GZIP-Probleme
-                    await writer.WriteLineAsync(""); // Leere Zeile für HTTP-Protokollkonformität
-
-                    // **Lese Antwort mit Timeout**
-                    Task<string> readTask = reader.ReadToEndAsync();
-                    if (await Task.WhenAny(readTask, Task.Delay(2000, cts.Token)) != readTask)
-                    {
-                        portResult.Status = PortStatus.NoResponse; // Antwort zu lange gebraucht
-                        return false;
-                    }
-
-                    string response = await readTask;
-
-                    // **Überprüfe, ob Server antwortet**
-                    //if (response.Contains("HTTP/1.1") || response.Contains("302 Redirect") || (response.Contains("200 OK") || response.Contains("<html")))
-
-                    // [2345] → Erfasst alle wichtigen HTTP-Statuscodes:
-                    // 2xx = Erfolg
-                    // 3xx = Weiterleitung
-                    // 4xx = Client - Fehler(z.B.falsche Anfrage, aber Gerät antwortet)
-                    // 5xx = Server - Fehler
-
-                    if (Regex.IsMatch(response, @"^HTTP/\d\.\d [2345]\d{2}") || response.ToLower().Contains("<html"))
-                    {
-                        portResult.Status = PortStatus.IsRunning; // Webseite erkannt
-                        return true;
-                    }
-
-                    portResult.Status = PortStatus.Open; // Verbindung offen, aber kein Webserver erkannt
-                    return false;
-                }
-            }
-            catch (SocketException ex)
-            {
-                if (ex.SocketErrorCode == SocketError.ConnectionRefused)
-                {
-                    portResult.Status = PortStatus.Filtered; // Firewall oder kein Service aktiv
-                }
-                else
-                {
-                    portResult.Status = PortStatus.Error; // Netzwerkfehler
-                }
-            }
-            catch (IOException ex)
-            {
-                portResult.Status = PortStatus.Error; // Verbindung wurde unerwartet geschlossen
-            }
-            catch (OperationCanceledException)
-            {
-                portResult.Status = PortStatus.NoResponse; // Timeout erreicht
-            }
-        }
-        return false;
-    }
-
-
-
-
-
-    private async Task<bool> CheckHttpsAsync(string ipAddress, int port, PortResult portResult)
-    {
-        using (var tcpClient = new TcpClient())
-        using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(1))) // Timeout von 1 Sekunde für Verbindung
-        {
-            try
-            {
-                Task connectTask = tcpClient.ConnectAsync(ipAddress, port);
-                if (await Task.WhenAny(connectTask, Task.Delay(1000, cts.Token)) != connectTask)
-                {
-                    portResult.Status = PortStatus.NoResponse; // Keine Antwort vom Port.
-                    return false;
-                }
-
-                if (!tcpClient.Connected)
-                {
-                    portResult.Status = PortStatus.Filtered; // Verbindung verweigert ? Firewall.
-                    return false;
-                }
-
-                using (SslStream sslStream = new SslStream(tcpClient.GetStream(), false, (sender, cert, chain, sslPolicyErrors) => true))
-                using (var sslCts = new CancellationTokenSource(TimeSpan.FromSeconds(2))) // Timeout für SSL-Handshake
-                {
-                    var sslTask = sslStream.AuthenticateAsClientAsync(ipAddress);
-                    if (await Task.WhenAny(sslTask, Task.Delay(2000, sslCts.Token)) != sslTask)
-                    {
-                        portResult.Status = PortStatus.NoResponse; // SSL-Timeout ? Server antwortet nicht.
-                        return false;
-                    }
-
-                    // **WICHTIG**: Prüfen, ob der SSL-Handshake wirklich erfolgreich war
-                    if (!sslStream.IsAuthenticated)
-                    {
-                        portResult.Status = PortStatus.Error; // SSL-Fehler
-                        return false;
-                    }
-
-                    // **Nur jetzt darf die Anfrage gesendet werden**
-                    byte[] requestBytes = Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: " + ipAddress + "\r\nConnection: close\r\n\r\n");
-                    await sslStream.WriteAsync(requestBytes, 0, requestBytes.Length, sslCts.Token);
-
-                    byte[] buffer = new byte[4096];
-                    var readTask = sslStream.ReadAsync(buffer, 0, buffer.Length, sslCts.Token);
-                    if (await Task.WhenAny(readTask, Task.Delay(2000, sslCts.Token)) != readTask)
-                    {
-                        portResult.Status = PortStatus.NoResponse; // Antwort nicht erhalten.
-                        return false;
-                    }
-
-                    int bytesRead = await readTask;
-                    if (bytesRead > 0)
-                    {
-                        string response = Encoding.ASCII.GetString(buffer, 0, bytesRead);
-
-                        //if (response.Contains("HTTP/1.1") && (response.Contains("200 OK") || response.Contains("<html")))
-
-                        // [2345] → Erfasst alle wichtigen HTTP-Statuscodes:
-                        // 2xx = Erfolg
-                        // 3xx = Weiterleitung
-                        // 4xx = Client - Fehler(z.B.falsche Anfrage, aber Gerät antwortet)
-                        // 5xx = Server - Fehler
-
-                        if (Regex.IsMatch(response, @"^HTTP/\d\.\d [2345]\d{2}") || response.ToLower().Contains("<html"))
-                        {
-                            portResult.Status = PortStatus.IsRunning; // Webseite erkannt.
-                            return true;
-                        }
-
-                        portResult.Status = PortStatus.Open; // Port ist offen, aber keine Webseite.
-                        return false;
-                    }
-                }
-            }
-            catch (InvalidOperationException ex)
-            {
-                portResult.Status = PortStatus.Error; // SSL-Verbindung konnte nicht hergestellt werden.
-            }
-            catch (SocketException ex) when (ex.SocketErrorCode == SocketError.ConnectionRefused)
-            {
-                portResult.Status = PortStatus.Filtered; // Verbindung verweigert.
-            }
-            catch (Exception ex)
-            {
-                portResult.Status = PortStatus.Error; // Sonstiger Fehler.
-            }
-        }
-        return false;
-    }
-
-
-
-
-
-
-
-
-
-    private async Task<PortResult> GetBacNetInfos(string targetIP, int targetPort, byte[] bacnetRequestPacket)
-    {
-
-        PortResult portResult = new PortResult { Ports = new List<int> { targetPort }, Status = PortStatus.NoResponse };
-        Dictionary<string, string> collectedData = new Dictionary<string, string>();
-
-        try
-        {
-            using (UdpClient udpClient = new UdpClient())
-            {
-                IPEndPoint targetEndPoint = new IPEndPoint(IPAddress.Parse(targetIP), targetPort);
-
-                Console.WriteLine($"Sende BACnet-Request an {targetIP}:{targetPort}...");
-
-                // 🟢 ZUERST das Paket senden
-                await udpClient.SendAsync(bacnetRequestPacket, bacnetRequestPacket.Length, targetEndPoint);
-
-                // ⏳ Warte auf Antwort (Timeout: 2 Sekunden)
-                using var cts = new CancellationTokenSource(3000);
-                var receiveTask = udpClient.ReceiveAsync();
-
-                if (await Task.WhenAny(receiveTask, Task.Delay(2000, cts.Token)) == receiveTask)
-                {
-                    byte[] response = receiveTask.Result.Buffer;
-                    Console.WriteLine("Antwort erhalten von: " + receiveTask.Result.RemoteEndPoint);
-
-
-                 
-
-                    // Erste Antwort erhalten - jetzt die weiteren Infos sammeln
-                    foreach (byte propertyId in propertyIds)
-                    {
-                        byte[] value = await QueryBacnetProperty(udpClient, targetEndPoint, propertyId);
-                        if (PropertyIdToName(propertyId) == "ObjectID")
-                        {
-                            collectedData[PropertyIdToName(propertyId)] = ExtractBacnetObjectInstanceAsString("ObjectID", value);
-                        }
-                        else if (PropertyIdToName(propertyId) == "VendorID")
-                        {
-                            collectedData[PropertyIdToName(propertyId)] = ExtractBacnetObjectInstanceAsString("VendorID", value);
-                        }
-                        else
-                        {
-                            collectedData[PropertyIdToName(propertyId)] = ExtractBacnetAsciiString(value);// BitConverter.ToString(value); //Encoding.UTF8.GetString(value.Where(b => b >= 32 && b <= 126).ToArray());
-                        }
-                    }
-
-                    portResult.Status = PortStatus.IsRunning;
-                    //portResult.PortLog = decodedResponse;
-                }
-                else
-                {
-                    Console.WriteLine("⏳ Timeout: Keine Antwort erhalten.");
-                    portResult.Status = PortStatus.NoResponse;
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine("❌ Fehler beim Senden/Empfangen: " + ex.Message);
-        }
-
-        return portResult;
-    }
-
-    private readonly List<byte> propertyIds = new List<byte>
-    {
-        0x4B, // Device ID
-        0x78, // Vendor
-        0x79, // Vendor Name
-        0x2C, // Firmware Revision
-        0x0C, // Application Software
-        0x4D, // Object Name
-        0x46, // Model Name
-        0x1C, // Description
-        0x3A  // Location
-    };
-
-    private string PropertyIdToName(byte propertyId)
-    {
-        return propertyId switch
-        {
-            0x4B => "ObjectID",
-            0x78 => "VendorID",
-            0x79 => "Vendor Name",
-            0x2C => "Firmware Revision",
-            0x0C => "Application Software",
-            0x4D => "Object Name",
-            0x46 => "Model Name",
-            0x1C => "Description",
-            0x3A => "Location",
-            _ => $"Unbekannte Property (0x{propertyId:X2})"
-        };
-    }
-
-    public static string ExtractBacnetObjectInstanceAsString(string BacNetPropertie, byte[] data)
-    {
-        //if (data == null || data.Length < 23) // Sicherstellen, dass genug Bytes vorhanden sind
-        //    return string.Empty;
-        int ID = 0;
-
-
-        if (BacNetPropertie == "ObjectID") 
-        {
-            // Bytes 20, 21, 22 (Index 19, 20, 21)
-            int byte20 = data[19];
-            int byte21 = data[20];
-            int byte22 = data[21];
-
-            // 22-Bit-Wert aus den 3 Bytes zusammenfügen
-             ID = ((byte20 & 0x3F) << 16) | (byte21 << 8) | byte22;            
-        }
-        if (BacNetPropertie == "VendorID")
-        {
-            // Vendor-ID ist in den letzten 2 Bytes des Pakets
-            //int byte1 = data[data.Length - 3]; // Drittletztes Byte
-            int byte2 = data[data.Length - 2]; // Vorletztes Byte
-
-            // 16-Bit-Wert aus 2 Bytes berechnen
-            //ID = (byte1 << 8) | byte2;
-            ID = byte2;
-        }
-        return ID.ToString(); // Rückgabe als String
-    }
-
-
-
-
-    public static string ExtractBacnetAsciiString(byte[] data)
-    {
-        if (data == null || data.Length < 20)
-            return string.Empty;
-        int index = data.ToList().IndexOf(117);
-        //int index = Array.IndexOf(data, 0x75); // Suche nach `0x75` (ASCII-String-Tag)
-        if (index == -1 || index + 2 >= data.Length)
-            return string.Empty; // Falls kein String gefunden wurde
-
-        int length = data[index + 1]; // Das nächste Byte gibt die Länge des Strings an
-        if (index + 2 + length > data.Length)
-            return string.Empty; // Falls Länge fehlerhaft ist
-        string bla = Encoding.ASCII.GetString(data, index + 2, length).Trim().Replace("\\0", "");
-        return bla;
-    }
-
-
-    private async Task<byte[]> QueryBacnetProperty(UdpClient udpClient, IPEndPoint targetEndPoint, byte propertyId)
-    {
-        byte[] requestPacket = new byte[]
-        {
-            0x81, 0x0A,  // BACnet/IP Header
-            0x00, 0x11,  // Paketlänge (17 Bytes)
-            0x01,        // PDU-Type: Complex-ACK (Antwort auf eine ReadProperty-Anfrage)
-            0x04,        // Invoke ID (Antwort auf die Anfrage mit ID 4)
-            0x00,        // Service Choice: ReadProperty Response
-            0x05,        // Anzahl der Objekte: 1
-            0x01, 0x0C,  // Object Type: Device (0x0C = 12)
-            0x0C,        // Object Instance (Device ID)
-            0x02,        // Anzahl der Properties: 2
-            0x3F, 0xFF, 0xFF,  // Property Identifier (Fehler oder unbekannte Property)
-            0x19,         // Property Data (muss weiter analysiert werden)
-            propertyId  // Property Identifier
-        };
-
-        Console.WriteLine($"🔍 Sende Anfrage für Property {PropertyIdToName(propertyId)} (0x{propertyId:X2})...");
-        await udpClient.SendAsync(requestPacket, requestPacket.Length, targetEndPoint);
-
-        // Warte auf die Antwort
-        using var cts = new CancellationTokenSource(2000);
-        var receiveTask = udpClient.ReceiveAsync();
-
-        if (await Task.WhenAny(receiveTask, Task.Delay(2000, cts.Token)) == receiveTask)
-        {
-            byte[] response = receiveTask.Result.Buffer;
-            Console.WriteLine($"📥 Antwort für Property {PropertyIdToName(propertyId)} erhalten!");
-
-            // Dekodierung der Antwort (Hier nur als Hex)
-            return response;
-        }
-
-        Console.WriteLine($"⏳ Timeout für Property {PropertyIdToName(propertyId)}!");
-        return null;
-    }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-static async Task<PortResult> SendTcpDnsQuery(string dnsServer, byte[] query, int port)
-    {
-        PortResult portResult = new PortResult { Ports = new List<int> { port }, Status = PortStatus.NoResponse };
-
-        for (int attempt = 1; attempt <= 3; attempt++) // Maximal 3 Wiederholungen
-        {
-            try
-            {
-                using TcpClient client = new TcpClient();
-                var connectTask = client.ConnectAsync(dnsServer, port);
-                var timeoutTask = Task.Delay(2000); // 2 Sekunden Timeout für Verbindung
-
-                if (await Task.WhenAny(connectTask, timeoutTask) != connectTask)
-                {
-                    portResult.Status = PortStatus.Filtered; // Verbindung zu lange ? Port gefiltert
-                    return portResult;
-                }
-
-                if (!client.Connected)
-                {
-                    portResult.Status = PortStatus.NoResponse; // Verbindung nicht erfolgreich
-                    return portResult;
-                }
-
-                portResult.Status = PortStatus.Open;
-                using NetworkStream stream = client.GetStream();
-
-                // DNS-Anfrage mit Längenpräfix
-                byte[] tcpQuery = new byte[query.Length + 2];
-                tcpQuery[0] = (byte)(query.Length >> 8);
-                tcpQuery[1] = (byte)(query.Length & 0xFF);
-                Buffer.BlockCopy(query, 0, tcpQuery, 2, query.Length);
-
-                await stream.WriteAsync(tcpQuery, 0, tcpQuery.Length);
-
-                // Antwort-Längenfeld zuerst lesen (mit Timeout)
-                byte[] lengthBuffer = new byte[2];
-                var cts = new CancellationTokenSource(2000); // Antwort-Timeout (2s)
-                int lengthRead = await stream.ReadAsync(lengthBuffer, 0, 2, cts.Token);
-
-                if (lengthRead < 2)
-                {
-                    portResult.Status = PortStatus.NoResponse;
-                    continue; // Erneut versuchen
-                }
-
-                int responseLength = (lengthBuffer[0] << 8) | lengthBuffer[1];
-
-                // Antwortdaten lesen (mit Timeout)
-                byte[] responseBuffer = new byte[responseLength];
-                int bytesRead = await stream.ReadAsync(responseBuffer, 0, responseLength, cts.Token);
-
-                if (bytesRead > 0)
-                {
-                    portResult.Status = PortStatus.IsRunning;
-                    portResult.PortLog = Encoding.ASCII.GetString(responseBuffer);
-                    return portResult; // Erfolgreich!
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                portResult.Status = PortStatus.NoResponse;
-            }
-            catch (Exception ex)
-            {
-                //Console.WriteLine($"?? Versuch {attempt}: Fehler beim DNS-Request - {ex.Message}");
-            }
-
-            await Task.Delay(200); // Kürzere Pause vor nächstem Versuch
-        }
-
-        return portResult; // Keine Antwort nach 3 Versuchen
-    }
-
-
-   
-    static async Task<PortResult> SendUdpDnsQuery(string dnsServer, byte[] query, int port = 53)
-    {
-        PortResult portResult = new PortResult { Ports = new List<int> { port }, Status = PortStatus.NoResponse };
-
-        using UdpClient udpClient = new UdpClient();
-        udpClient.Connect(dnsServer, port);       
-
-
-        for (int attempt = 1; attempt <= 3; attempt++) // Maximal 3 Wiederholungen
-        {
-            try
-            {
-                await udpClient.SendAsync(query, query.Length);
-
-                using var cts = new CancellationTokenSource(1000); // 1 Sekunde Timeout
-                var receiveTask = udpClient.ReceiveAsync();
-
-                if (await Task.WhenAny(receiveTask, Task.Delay(1000, cts.Token)) == receiveTask)
-                {
-                    // ? Antwort erhalten
-                    portResult.Status = PortStatus.IsRunning;
-                    portResult.PortLog = Encoding.ASCII.GetString(receiveTask.Result.Buffer);
-                    return portResult;
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                portResult.Status = PortStatus.NoResponse;
-            }
-            catch (Exception ex)
-            {
-                //Console.WriteLine($"?? Versuch {attempt}: Fehler beim DNS-Request - {ex.Message}");
-            }
-
-            if (attempt < 3) await Task.Delay(200); // Schnellere Wiederholungen (200ms)
-        }
-
-        return portResult; // Falls nach 3 Versuchen keine Antwort kam
-    }
-
-
-
-    static byte[] BuildDnsRequest(string domain)
-    {
-        byte[] header = new byte[]
-        {
-            0xAA, 0xAA,  // Transaction ID
-            0x01, 0x00,  // Standard Query mit rekursiver Abfrage
-            0x00, 0x01,  // Eine Frage
-            0x00, 0x00,  // Keine Antworten vorhanden
-            0x00, 0x00,  // Keine Autoritätsantworten
-            0x00, 0x00   // Keine zusätzlichen Antworten
-        };
-
-        byte[] question = BuildDnsQuestion(domain);
-        byte[] query = new byte[header.Length + question.Length];
-        Buffer.BlockCopy(header, 0, query, 0, header.Length);
-        Buffer.BlockCopy(question, 0, query, header.Length, question.Length);
-        return query;
-    }
-
-    static byte[] BuildDnsQuestion(string domain)
-    {
-        var parts = domain.Split('.');
-        byte[] question = new byte[domain.Length + 2 + 4];
-        int position = 0;
-
-        foreach (var part in parts)
-        {
-            question[position++] = (byte)part.Length;
-            Encoding.ASCII.GetBytes(part, 0, part.Length, question, position);
-            position += part.Length;
-        }
-        question[position++] = 0x00; // Null-Terminierung
-        question[position++] = 0x00; // Type: A (IPv4-Adresse anfragen)
-        question[position++] = 0x01;
-        question[position++] = 0x00; // Class: IN (Internet)
-        question[position++] = 0x01;
-
-        return question;
-    }
 
 
     private DataTable _dt_Servives = new DataTable();
@@ -2099,73 +584,16 @@ static async Task<PortResult> SendTcpDnsQuery(string dnsServer, byte[] query, in
 
 
 
-    public static List<int> GetDefaultServicePorts(ServiceType service)
-    {
-        return service switch
-        {
-            // ?? Netzwerk-Dienste
-            ServiceType.WebServices => new List<int> { 80, 443, 1880, 3000, 5000, 5001, 8080, 8086, 8443 }, // HTTP/S
-            ServiceType.DNS_TCP => new List<int> { 53 },  // Domain Name Service
-            ServiceType.DNS_UDP => new List<int> { 53 },  // Domain Name Service
-            ServiceType.DHCP => new List<int> { 67 },  // Dynamic Host Configuration Protocol
-            ServiceType.SSH => new List<int> { 22 },  // Secure Shell
-            ServiceType.FTP => new List<int> { 21 },  // File Transfer Protocol
-
-            // ??? Remote-Desktop & Fernwartung
-            ServiceType.RDP => new List<int> { 3389 },  // Microsoft Remote Desktop
-            ServiceType.UltraVNC => new List<int> { 5900, 5901, 5902, 5903 }, // VNC
-            ServiceType.TeamViewer => new List<int> { 5938 },  // Teamviewer
-            ServiceType.BigFixRemote => new List<int> { 888 },  // BigFix Remote
-            ServiceType.Anydesk => new List<int> { 7070 },  // AnyDesk
-            // 21115 NAT-Test, 21116 ID-Registrierung/Heartbeat, 21117 Relay.
-            // Stand frueher auf 5900 - demselben Port wie UltraVNC. Weil ein
-            // VNC-Server beim Verbinden von sich aus mit "RFB 003.008" gruesst
-            // und RustdeskServer unten nicht geprueft wird (jede Antwort zaehlt
-            // als Treffer), wurde an jedem VNC-Rechner zusaetzlich ein
-            // RustDesk-Server gemeldet. An einem echten Geraet nachgewiesen.
-            // Ein RustDesk-Server belegt einen Block von fuenf Ports um seinen
-            // Basisport herum: Basis-1 NAT-Test, Basis ID/Heartbeat, Basis+1
-            // Relay, Basis+2 und +3 WebSocket. Mit der Vorgabe 21116 sind das
-            // 21115-21119.
-            //
-            // Aufgefuehrt sind nur die beiden, die den NAT-Test beantworten -
-            // nur sie koennen die Pruefung unten bestehen. Der Relay-Port
-            // schweigt auf alles, die WebSocket-Ports sprechen HTTP; beide
-            // waeren hier nur ein Verbindungsversuch ohne moegliches Ergebnis.
-            //
-            // 5990/5991 sind keine RustDesk-Vorgabe, sondern ein abweichender
-            // Basisport (5991, also 5990-5994 am Lauschen), wie er bei einem
-            // selbst betriebenen Server vorkommt. Aufgenommen, weil ein solcher
-            // Server sonst nie gefunden
-            // wuerde, und ungefaehrlich, weil die Antwort unten echt geprueft
-            // wird - ein fremder Dienst auf 5990/5991 geht damit nicht als
-            // RustDesk durch. Wer sie nicht braucht, streicht sie hier.
-            ServiceType.RustdeskServer => new List<int> { 5990, 5991, 21115, 21116 },  // Rustdesk Server
-            ServiceType.RustdeskClient => new List<int> { 21118}, // Rustdesk Remote (Direct IP Access)
-
-            // ??? Datenbanken
-            ServiceType.MSSQLServer => new List<int> { 1433 }, // Microsoft SQL Server
-            ServiceType.PostgreSQL => new List<int> { 5432 }, // PostgreSQL
-            ServiceType.MongoDB => new List<int> { 27017 }, // MongoDB
-            ServiceType.MariaDB => new List<int> { 3306 }, // MariaDB
-            ServiceType.MySQL => new List<int> { 3306 }, // MySQL
-            ServiceType.OracleDB => new List<int> { 1521 }, // Oracle DB
-            ServiceType.InfluxDB2 => new List<int> { 8086},
-            
-
-            // ?? Industrieprotokolle (OT, Automatisierung)
-            ServiceType.OPCUA => new List<int> { 4840 }, // OPC UA
-            ServiceType.ModBus => new List<int> { 502 }, // ModBus TCP
-
-            // ?? SPS / Industrielle Steuerungen
-            ServiceType.S7 => new List<int> { 102, 1020 }, // Siemens S7 ISO-on-TCP
-
-            ServiceType.BacNet => new List<int> { 47808 },
-
-            _ => new List<int>()
-        };
-
-    }
+    /// <summary>
+    /// Die Standardports eines Dienstes. Sie stehen bei seiner Sonde unter
+    /// Scanning/ServiceScans - je Dienst eine Datei, in der Ports, Hello-Paket
+    /// und Antwortpruefung beieinander liegen. Hier steht nur noch der Zugang
+    /// fuer die Dienstverwaltung und die beiden Oberflaechen.
+    /// </summary>
+    public static List<int> GetDefaultServicePorts(ServiceType service) =>
+        ServiceProbes.Has(service)
+            ? [.. ServiceProbes.For(service).DefaultPorts]
+            : [];
 
 
     private string GetServiceGroup(ServiceType serviceType)
@@ -2196,9 +624,16 @@ static async Task<PortResult> SendTcpDnsQuery(string dnsServer, byte[] query, in
     }
 
 
+    /// <summary>
+    /// Das Hello-Paket als Hex-Text fuer die Spalte "HelloBytePackage" der
+    /// Dienstverwaltung. Die Pakete selbst liegen bei den Sonden unter
+    /// Scanning/ServiceScans - je Dienst eine Datei.
+    /// </summary>
     public string GetDetectionPackageString(ServiceType serviceType)
     {
-        byte[] packet = GetDetectionPacket(serviceType);
+        byte[] packet = ServiceProbes.Has(serviceType)
+            ? ServiceProbes.For(serviceType).Hello
+            : [];
 
         if (packet == null || packet.Length == 0)
         {
@@ -2209,345 +644,4 @@ static async Task<PortResult> SendTcpDnsQuery(string dnsServer, byte[] query, in
         return string.Join(", ", packet.Select(b => b.ToString("X2")));
     }
 
-
-    public static byte[] GetDetectionPacket(ServiceType service)
-    {
-        return service switch
-        {
-            // ?? Netzwerk-Dienste
-
-            // Domain Name Service
-            //ServiceType.DNS => new byte[]
-            //{
-            //    0xAA, 0xAA, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x07, 0x65, 0x78, 0x61,
-            //    0x6D, 0x70, 0x6C, 0x65, 0x03, 0x63, 0x6F, 0x6D, 0x00, 0x00, 0x01, 0x00, 0x01
-            //},            
-            ServiceType.DHCP => new byte[]
-            {
-                0x01, 0x01, 0x06, 0x00, 0x60, 0xE7, 0xC5, 0x78, 0x00, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xDE, 0xAD, 0xC0, 0xDE,
-                0xCA, 0xFE, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x63, 0x82, 0x53, 0x63,
-                0x35, 0x01, 0x01, 0x37, 0x40, 0xFC, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A,
-                0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A,
-                0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2A,
-                0x2B, 0x2C, 0x2D, 0x2E, 0x2F, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3A,
-                0x3B, 0x3C, 0x3D, 0x43, 0x42, 0xFF
-            },
-
-            // Secure Shell
-            ServiceType.SSH => Encoding.ASCII.GetBytes("SSH-2.0-MySSHClient\r\n"),  
-
-            // File Transfer Protocol - grüsst von sich aus (Banner "220 ..."), es gibt
-            // nichts zu senden. Frueher stand hier faelschlich das rohe TCP-SYN-Paket
-            // aus dem Wireshark-Mitschnitt statt einer Anwendungsnutzlast - fiel nie
-            // auf, weil der FTP-Server ohnehin antwortet, egal was ankommt.
-            ServiceType.FTP => Array.Empty<byte>(),
-
-
-
-
-
-            // ??? Remote-Desktop & Fernwartung
-
-            ServiceType.RDP => new byte[] { 0x03, 0x00, 0x00, 0x13, 0x0e, 0xe0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x08, 0x00, 0x03, 0x00, 0x00, 0x00 },
-            ServiceType.UltraVNC => new byte[] { 0x52, 0x46, 0x42, 0x20, 0x30, 0x30, 0x33 },
-            ServiceType.BigFixRemote => new byte[] { 0x14, 0x2B, 0xB4, 0x91, 0x05, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
-
-            //ServiceType.RustdeskServer => new byte[] { 0x52, 0x44, 0x50 },
-            ServiceType.RustdeskServer => new byte[] { 0x14, 0xa2, 0x01, 0x02, 0x08, 0x03 },
-
-            // Die drei ASCII-Felder (Adresse, Client-Kennung, Client-Key)
-            // tragen Platzhalter. Sie stammten aus einem Mitschnitt und
-            // benannten damit einen echten Rechner - in einem oeffentlichen
-            // Projekt hat das nichts zu suchen.
-            //
-            // Auf die Erkennung wirkt sich das nicht aus: der Client gruesst,
-            // sobald die TCP-Verbindung steht, und zwar unabhaengig vom Inhalt
-            // des Pakets. Nachgemessen an drei erreichbaren Clients, je zwei
-            // Verbindungen mit dem alten und dem neuen Paket - die Antworten
-            // waren nicht zu unterscheiden. Die Feldlaengen sind unveraendert,
-            // damit der Aufbau derselbe bleibt.
-            ServiceType.RustdeskClient => new byte[]
-            {
-                0x59, 0x01,                                                                 // Magic Number / ID
-                0x3A, 0x54,                                                                 // Paketlänge (wahrscheinlich 84 Bytes)
-                0x0A, 0x0C,                                                                 // Länge der folgenden IP-Adresse (12 Bytes)
-                0x31, 0x39, 0x38, 0x2E, 0x35, 0x31, 0x2E, 0x31, 0x30, 0x30, 0x2E, 0x31,     // IP-Adresse (ASCII), Beispielbereich RFC 5737
-                0x22, 0x09,                                                                 // Länge der Client-ID (9 Bytes)
-                0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39,                       // Client-ID (ASCII), Platzhalter
-                0x2A, 0x06,                                                                 // Länge des Client-Keys (6 Bytes)
-                0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x32,                                   // Client-Key (ASCII), Platzhalter; 0x32 gehört schon zum nächsten Feld
-                0x14, 0x48, 0x02,                                                           // Unbekannte Flags/Einstellungen
-                0x52, 0x10,                                                                 // Versionsstring / Protokoll
-                0x08, 0x01, 0x10, 0x01, 0x18, 0x01, 0x28, 0x01, 0x30, 0x01,                 // Verbindungsoptionen (z. B. Encryption, P2P)
-                0x3A, 0x04, 0x10, 0x01, 0x18, 0x01,                                         // Verschlüsselungsparameter
-                0x50, 0xFA, 0x8E, 0xF4, 0xBD, 0xDD, 0x8F, 0x88, 0xF0, 0x9F, 0x01,           // Wahrscheinlich eine Signatur oder ein Hash
-                0x5A, 0x05, 0x31, 0x2E, 0x33, 0x2E, 0x37,                                   // RustDesk-Version "1.3.7"
-                0x62, 0x00,                                                                 // Unbekannt (möglicherweise Terminator/Trennzeichen)
-                0x6A, 0x07, 0x57, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73,                       // Plattform (Windows)
-                0x08,                                                                       // Typ des Pakets (Möglicherweise ACK oder Keep-Alive)
-                0x2A,                                                                       // Möglicherweise ein Status-Code oder eine ID
-                0x00                                                                        // Terminierung / Ende des Pakets
-            },
-
-            ////Teamviewer 11-15
-            ServiceType.TeamViewer => new byte[]
-            {
-                0x17, 0x24, 0x0A, 0x20, 0x00, 0xE1, 0xBF, 0xE5,
-                0x2A, 0x88, 0x13, 0x80, 0x00, 0x48, 0x00, 0x80,
-                0x00, 0x01, 0x00, 0x00, 0x00, 0x14, 0x80, 0x00,
-                0x00, 0x4F, 0xB3, 0x80, 0x80, 0x6E, 0xBD, 0xF3,
-                0x9B, 0x8E, 0xDF, 0xA9, 0x03
-            },
-            ////Teamviewer 15
-            //ServiceType.Teamviewer => new byte[]
-            // {
-            //     0x11, 0x30, 0x0A, 0x00, 0x28, 0x00, 0x00, 0x00,
-            //     0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            //     0x1B, 0x00, 0x00, 0x00, 0x18, 0x00, 0x00, 0x00,
-            //     0x61, 0xBF, 0xE5, 0x2A, 0x88, 0x13, 0x80, 0x00,
-            //     0x48, 0x00, 0x80, 0x00, 0x01, 0x00, 0x00, 0x00,
-            //     0x14, 0x80, 0x00, 0x00, 0x6D, 0xB7, 0x8C, 0x80,
-            //     0x6E, 0xBD, 0xD3, 0x9B, 0x8E, 0xDF, 0xA9, 0x1C,
-            //     0xE1, 0xBF, 0xE5, 0x2A, 0x80, 0x00, 0x00, 0x00
-            // },
-
-            ServiceType.Anydesk => new byte[]
-            {
-                0x16, 0x03, 0x01, 0x00, 0xb7, 0x01, 0x00, 0x00, 0xb3, 0x03, 0x03, 0xf9, 0x37, 0x7f, 0xaa, 0xd3,
-                0xa2, 0x95, 0x53, 0x76, 0xeb, 0xf1, 0x63, 0x7c, 0xa9, 0x23, 0x80, 0x4e, 0x48, 0x92, 0xc8, 0x90,
-                0x8d, 0x6c, 0x03, 0x4c, 0xc5, 0xe3, 0x83, 0x79, 0xec, 0xb3, 0x8b, 0x00, 0x00, 0x38, 0xc0, 0x2c,
-                0xc0, 0x30, 0x00, 0x9f, 0xcc, 0xa9, 0xcc, 0xa8, 0xcc, 0xaa, 0xc0, 0x2b, 0xc0, 0x2f, 0x00, 0x9e,
-                0xc0, 0x24, 0xc0, 0x28, 0x00, 0x6b, 0xc0, 0x23, 0xc0, 0x27, 0x00, 0x67, 0xc0, 0x0a, 0xc0, 0x14,
-                0x00, 0x39, 0xc0, 0x09, 0xc0, 0x13, 0x00, 0x33, 0x00, 0x9d, 0x00, 0x9c, 0x00, 0x3d, 0x00, 0x3c,
-                0x00, 0x35, 0x00, 0x2f, 0x00, 0xff, 0x01, 0x00, 0x00, 0x52, 0x00, 0x0b, 0x00, 0x04, 0x03, 0x00,
-                0x01, 0x02, 0x00, 0x0a, 0x00, 0x0c, 0x00, 0x0a, 0x00, 0x1d, 0x00, 0x17, 0x00, 0x1e, 0x00, 0x19,
-                0x00, 0x18, 0x00, 0x23, 0x00, 0x00, 0x00, 0x16, 0x00, 0x00, 0x00, 0x17, 0x00, 0x00, 0x00, 0x0d,
-                0x00, 0x2a, 0x00, 0x28, 0x04, 0x03, 0x05, 0x03, 0x06, 0x03, 0x08, 0x07, 0x08, 0x08, 0x08, 0x09,
-                0x08, 0x0a, 0x08, 0x0b, 0x08, 0x04, 0x08, 0x05, 0x08, 0x06, 0x04, 0x01, 0x05, 0x01, 0x06, 0x01,
-                0x03, 0x03, 0x03, 0x01, 0x03, 0x02, 0x04, 0x02, 0x05, 0x02, 0x06, 0x02
-            },
-
-
-
-
-            // ??? Datenbanken
-
-            //ServiceType.MSSQLServer => new byte[]
-            // {
-            //    0x12, 0x01, 0x00, 0x66, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x24, 0x00, 0x06, 0x01, 0x00, 0x2a,
-            //    0x00, 0x01, 0x02, 0x00, 0x2b, 0x00, 0x09, 0x03, 0x00, 0x34, 0x00, 0x04, 0x04, 0x00, 0x38, 0x00,
-            //    0x01, 0x05, 0x00, 0x39, 0x00, 0x24, 0x06, 0x00, 0x5d, 0x00, 0x01, 0xff, 0x03, 0x0f, 0x5a, 0xfc,
-            //    0x01, 0x00, 0x00, 0x6e, 0x65, 0x78, 0x65, 0x6e, 0x73, 0x6f, 0x73, 0x00, 0x00, 0x00, 0x2a, 0x60,
-            //    0x00, 0xe9, 0xd5, 0x1f, 0xc3, 0x85, 0xa4, 0x0d, 0x46, 0x8b, 0xd1, 0x68, 0x48, 0x52, 0x80, 0x1d,
-            //    0x28, 0xe2, 0xed, 0xe7, 0xba, 0xed, 0x5a, 0xaf, 0x49, 0xad, 0x3e, 0xb5, 0x19, 0xba, 0x6c, 0xcc,
-            //    0xc6, 0x02, 0x00, 0x00, 0x00, 0x01
-            // },
-            ServiceType.MSSQLServer => new byte[]
-            {
-                0x12, 0x01, 0x00, 0x66, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x24, 0x00, 0x06, 0x01, 0x00, 0x2a,
-                0x00, 0x01, 0x02, 0x00, 0x2b, 0x00, 0x09, 0x03, 0x00, 0x34, 0x00, 0x04, 0x04, 0x00, 0x38, 0x00,
-                0x01, 0x05, 0x00, 0x39, 0x00, 0x24, 0x06, 0x00, 0x5d, 0x00, 0x01, 0xff, 0x03, 0x0f, 0x5a, 0xfc,
-                0x01, 0x00, 0x00, 0x6e, 0x65, 0x78, 0x65, 0x6e, 0x73, 0x6f, 0x73, 0x00, 0x00, 0x00, 0x65, 0x00,
-                0x00, 0xf2, 0x82, 0x2a, 0x72, 0x26, 0x01, 0x5c, 0x4b, 0xb8, 0x8d, 0xd4, 0x59, 0x35, 0xb5, 0x28,
-                0xe7, 0xc3, 0xa9, 0x3e, 0x17, 0xbc, 0x75, 0xa4, 0x4a, 0x8e, 0x94, 0x7e, 0xfd, 0xcf, 0x33, 0x44,
-                0x86, 0x02, 0x00, 0x00, 0x00, 0x01 
-            },
-
-            //ServiceType.PostgreSQL => new byte[]
-            //{
-            //    0x00, 0x00, 0x00, 0x16,  // Paketlänge (22 Bytes)
-            //    0x00, 0x03, 0x00, 0x00,  // Protokollversion 3.0
-            //    0x75, 0x73, 0x65, 0x72,  // "user"
-            //    0x00,                    // Null-Terminator
-            //    0x61, 0x64, 0x6D, 0x69,  // "admin"
-            //    0x6E, 0x00,              // Null-Terminator
-            //    0x00                     // Doppelte Null = Ende der Nachricht 
-            //},
-            //ServiceType.PostgreSQL => new byte[]
-            //{
-            //    0xC3, 0xA4, 0x15, 0x38, 0x68, 0x84, 0xA9, 0x3C,
-            //    0x00, 0x00, 0x00, 0x00, 0x80, 0x02, 0xFA, 0xF0,
-            //    0xE5, 0xD7, 0x00, 0x00, 0x02, 0x04, 0x05, 0xB4,
-            //    0x01, 0x03, 0x03, 0x08, 0x01, 0x01, 0x04, 0x02
-            //},
-            ServiceType.PostgreSQL => new byte[]
-            {
-                0x00, 0x00, 0x00, 0x08, 0x04, 0xD2, 0x16, 0x2F
-            },
-
-            ServiceType.MongoDB => new byte[]
-           {
-                0x4C, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xD4, 0x07, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x61, 0x64, 0x6D, 0x69, 0x6E, 0x2E, 0x24, 0x63, 0x6D, 0x64, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x25, 0x01, 0x00, 0x00, 0x10, 0x69, 0x73, 0x6D, 0x61,
-                0x73, 0x74, 0x65, 0x72, 0x00, 0x01, 0x00, 0x00, 0x00, 0x08, 0x68, 0x65, 0x6C, 0x6C, 0x6F, 0x4F,
-                0x6B, 0x00, 0x01, 0x03, 0x63, 0x6C, 0x69, 0x65, 0x6E, 0x74, 0x00, 0xE2, 0x00, 0x00, 0x00, 0x03,
-                0x61, 0x70, 0x70, 0x6C, 0x69, 0x63, 0x61, 0x74, 0x69, 0x6F, 0x6E, 0x00, 0x1F, 0x00, 0x00, 0x00,
-                0x02, 0x6E, 0x61, 0x6D, 0x65, 0x00, 0x10, 0x00, 0x00, 0x00, 0x4D, 0x6F, 0x6E, 0x67, 0x6F, 0x44,
-                0x42, 0x20, 0x43, 0x6F, 0x6D, 0x70, 0x61, 0x73, 0x73, 0x00, 0x00, 0x03, 0x64, 0x72, 0x69, 0x76,
-                0x65, 0x72, 0x00, 0x2A, 0x00, 0x00, 0x00, 0x02, 0x6E, 0x61, 0x6D, 0x65, 0x00, 0x07, 0x00, 0x00,
-                0x00, 0x6E, 0x6F, 0x64, 0x65, 0x6A, 0x73, 0x00, 0x02, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6F, 0x6E,
-                0x00, 0x07, 0x00, 0x00, 0x00, 0x36, 0x2E, 0x31, 0x32, 0x2E, 0x30, 0x00, 0x00, 0x02, 0x70, 0x6C,
-                0x61, 0x74, 0x66, 0x6F, 0x72, 0x6D, 0x00, 0x15, 0x00, 0x00, 0x00, 0x4E, 0x6F, 0x64, 0x65, 0x2E,
-                0x6A, 0x73, 0x20, 0x76, 0x32, 0x30, 0x2E, 0x31, 0x38, 0x2E, 0x31, 0x2C, 0x20, 0x4C, 0x45, 0x00,
-                0x03, 0x6F, 0x73, 0x00, 0x58, 0x00, 0x00, 0x00, 0x02, 0x6E, 0x61, 0x6D, 0x65, 0x00, 0x06, 0x00,
-                0x00, 0x00, 0x77, 0x69, 0x6E, 0x33, 0x32, 0x00, 0x02, 0x61, 0x72, 0x63, 0x68, 0x69, 0x74, 0x65,
-                0x63, 0x74, 0x75, 0x72, 0x65, 0x00, 0x04, 0x00, 0x00, 0x00, 0x78, 0x36, 0x34, 0x00, 0x02, 0x76,
-                0x65, 0x72, 0x73, 0x69, 0x6F, 0x6E, 0x00, 0x0B, 0x00, 0x00, 0x00, 0x31, 0x30, 0x2E, 0x30, 0x2E,
-                0x31, 0x39, 0x30, 0x34, 0x34, 0x00, 0x02, 0x74, 0x79, 0x70, 0x65, 0x00, 0x0B, 0x00, 0x00, 0x00,
-                0x57, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73, 0x5F, 0x4E, 0x54, 0x00, 0x00, 0x00, 0x04, 0x63, 0x6F,
-                0x6D, 0x70, 0x72, 0x65, 0x73, 0x73, 0x69, 0x6F, 0x6E, 0x00, 0x11, 0x00, 0x00, 0x00, 0x02, 0x30,
-                0x00, 0x05, 0x00, 0x00, 0x00, 0x6E, 0x6F, 0x6E, 0x65, 0x00, 0x00, 0x00
-           },
-
-
-            // Dasselbe wie FTP: MariaDB/MySQL schicken ihr Greeting-Paket unaufgefordert.
-            // Frueher stand auch hier das rohe TCP-SYN-Paket, nur mit dem Zielport 3306
-            // im Header - deshalb sahen alle drei Sonden (FTP/MariaDB/MySQL) nur im
-            // Zielport verschieden aus, obwohl sie fuer drei verschiedene Protokolle
-            // stehen sollten.
-            ServiceType.MariaDB => Array.Empty<byte>(),
-            ServiceType.MySQL => Array.Empty<byte>(),
-
-            // Oracle TNS spricht nicht von sich aus - anders als FTP/MySQL/MariaDB
-            // braucht es ein echtes Connect-Paket, sonst bleibt die Leitung stumm.
-            // TNS-Header (8 Byte: Laenge, Pruefsumme 0, Typ 1=Connect, Flag 0,
-            // Header-Pruefsumme 0) gefolgt vom Connect-Deskriptor als ASCII.
-            ServiceType.OracleDB => BuildOracleTnsConnectPacket(),
-
-            // Ein echter, unauthentifizierter Health-Check statt eines Login-Versuchs
-            // mit fest einprogrammierten Zugangsdaten - eine Anmeldung ist kein
-            // passiver Scan mehr, sondern ein Zugriffsversuch, der auf einem echten
-            // System Sperren oder Alarme ausloesen kann. /health antwortet ohne
-            // Authentifizierung mit "influxdb" im Namen, das reicht zur Erkennung.
-            ServiceType.InfluxDB2 => Encoding.ASCII.GetBytes(
-                "GET /health HTTP/1.1\r\nHost: influxdb\r\nConnection: close\r\n\r\n"),
-
-
-
-
-            // ?? Industrieprotokolle (OT, Automatisierung)
-            //ServiceType.OPCUA => new byte[] { 0x48, 0x45, 0x4c, 0x4c, 0x4f },
-            ServiceType.OPCUA => new byte[] 
-            {
-                0x48, 0x45, 0x4C, 0x46, 0x3F, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x00,
-                0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0xA0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1F, 0x00, 0x00, 0x00,
-                0x6F, 0x70, 0x63, 0x2E, 0x74, 0x63, 0x70, 0x3A, 0x2F, 0x2F, 0x31, 0x37, 0x33, 0x2E, 0x31, 0x38,
-                0x33, 0x2E, 0x31, 0x34, 0x37, 0x2E, 0x31, 0x30, 0x33, 0x3A, 0x34, 0x38, 0x34, 0x30, 0x2F
-
-            },
-
-            ServiceType.ModBus => new byte[] { 0x00, 0x01, 0x00, 0x00, 0x00, 0x06, 0x01, 0x03, 0x00, 0x00, 0x00, 0x01 },
-
-
-
-            // ?? SPS / Industrielle Steuerungen
-
-             // Siemens S7 ISO-on-TCP
-            ServiceType.S7 => new byte[] 
-            {
-                0x03, 0x00, 0x00, 0x16, 0x11, 0xE0, 0x00, 0x00, 0x00, 0x01,
-                0x00, 0xC0, 0x01, 0x0A, 0xC1, 0x02, 0x01, 0x00, 0xC2, 0x02,
-                0x01, 0x02
-            },
-
-            //BacNet
-            ServiceType.BacNet => new byte[]
-            {
-                0x81, 0x0A,             // BACnet/IP Header
-                0x00, 0x0F,             // Paketlänge (15 Bytes)
-                0x01,                   // PDU-Type (Confirmed Request)
-                0x00,                   // Invoke ID
-                0x0C,                   // ReadProperty Service Request
-                0x0C,                   // Object Type (Device)
-                0x00, 0x00, 0x00, 0x01, // Device Instance (1)
-                0x19, 0x00,             // Property Identifier (Object_Name)
-                0x4E                    // End-Of-List                
-            },
-
-            //ServiceType.BacNet => new byte[]
-            //{
-            //    0x81, 0x0A,             // BACnet/IP Header
-            //    0x00, 0x1F,             // Paketlänge (31 Bytes)
-            //    0x01,                   // PDU-Type (Confirmed Request)
-            //    0x00,                   // Invoke ID
-            //    0x0E,                   // ReadPropertyMultiple Service Request
-            //    0x0C,                   // Object Type (Device)
-            //    0x00, 0x00, 0x00, 0x00, // Device Instance (1)
-            //    0x1E,                   // Opening List
-            //    0x19, 0x00,             // Property Identifier (Object_Name)
-            //    0x19, 0x01,             // Property Identifier (Object_Identifier)
-            //    0x19, 0x02,             // Property Identifier (Object_Type)
-            //    0x19, 0x0A,             // Property Identifier (System_Status)
-            //    0x19, 0x0B,             // Property Identifier (Vendor_Name)
-            //    0x19, 0x0C,             // Property Identifier (Vendor_Identifier)
-            //    0x19, 0x0D,             // Property Identifier (Model_Name)
-            //    0x19, 0x0E,             // Property Identifier (Firmware_Revision)
-            //    0x19, 0x11,             // Property Identifier (Application_Software_Version)
-            //    0x1F                    // Closing List
-            //},
-
-            _ => new byte[0]
-        };
-    }
-
-    /// <summary>
-    /// Baut ein TNS-Connect-Paket nach dem Oracle-Net-Grundformat: ein 8-Byte-Header
-    /// (Gesamtlaenge, Pruefsumme 0, Pakettyp 1 = Connect, Flag 0, Header-Pruefsumme 0)
-    /// gefolgt von der Version, Verbindungsoptionen und dem Connect-Deskriptor als
-    /// ASCII-Text. Ungetestet gegen einen echten Oracle-Server - anders als bei SMB
-    /// stand hier keiner zur Verfuegung, um es nachzumessen. Ersetzt aber in jedem
-    /// Fall die vorherige Sonde, die nachweislich ueberhaupt nichts bewirkte (siehe
-    /// GetDetectionPacket: dort stand das rohe TCP-SYN-Paket aus einem
-    /// Wireshark-Mitschnitt statt einer TNS-Nachricht).
-    /// </summary>
-    private static byte[] BuildOracleTnsConnectPacket()
-    {
-        const string connectDescriptor =
-            "(DESCRIPTION=(CONNECT_DATA=(SERVICE_NAME=orcl)(CID=(PROGRAM=)(HOST=)(USER=)))" +
-            "(ADDRESS=(PROTOCOL=TCP)(HOST=localhost)(PORT=1521)))";
-
-        byte[] descriptorBytes = Encoding.ASCII.GetBytes(connectDescriptor);
-
-        // Version 3.10 (0x013A), "Service Options" 0x0801, SDU/TDU 0x0800 je,
-        // Protocolcharacteristics 0x7F08 - uebliche Werte aus oeffentlich
-        // dokumentierten TNS-Connect-Mitschnitten.
-        byte[] body = new byte[]
-        {
-            0x01, 0x3A, 0x01, 0x2C, 0x08, 0x01, 0x08, 0x00, 0x08, 0x00, 0x7F, 0x08,
-            0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        };
-
-        byte[] packet = new byte[8 + body.Length + descriptorBytes.Length];
-        int totalLength = packet.Length;
-
-        packet[0] = (byte)(totalLength >> 8);
-        packet[1] = (byte)(totalLength & 0xFF);
-        packet[2] = 0x00; // Pruefsumme (nicht genutzt)
-        packet[3] = 0x00;
-        packet[4] = 0x01; // Pakettyp: Connect
-        packet[5] = 0x00; // Flag
-        packet[6] = 0x00; // Header-Pruefsumme (nicht genutzt)
-        packet[7] = 0x00;
-
-        Array.Copy(body, 0, packet, 8, body.Length);
-        Array.Copy(descriptorBytes, 0, packet, 8 + body.Length, descriptorBytes.Length);
-
-        return packet;
-    }
 }

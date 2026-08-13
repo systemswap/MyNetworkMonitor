@@ -346,11 +346,26 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             {
                 foreach (ServiceScanData.PortResult port in service.Ports)
                 {
+                    List<int> ports = port.Ports is null ? [] : [.. port.Ports];
+
+                    // Den Dienstnamen traegt nur, wer die Signatur seines
+                    // Protokolls geliefert hat. Ein Port, der bloss die
+                    // Verbindung annimmt, ist ein offener Port - und heisst
+                    // hier so wie die uebrigen unerkannten weiter unten.
+                    //
+                    // Vorher stand an Port 3306 eines MariaDB-Servers
+                    // zusaetzlich "MySQL", weil die MySQL-Sonde dort ebenfalls
+                    // eine Verbindung bekam und ihre Zeile trotz nicht
+                    // passender Antwort den Namen der Sonde behielt. So fallen
+                    // mehrere durchgefallene Sonden auf demselben Port zu
+                    // einer einzigen Zeile zusammen.
+                    bool unidentifiedOpen = port.Status == PortStatus.Open && ports.Count == 1;
+
                     DeviceServiceResult entry = new()
                     {
-                        ServiceName = service.Service.ToString(),
-                        Category = CategoryOf(service.Service),
-                        Ports = port.Ports is null ? [] : [.. port.Ports],
+                        ServiceName = unidentifiedOpen ? $"TCP {ports[0]}" : service.Service.ToString(),
+                        Category = unidentifiedOpen ? "Open ports" : CategoryOf(service.Service),
+                        Ports = ports,
                         PortLog = NullIfBlank(port.PortLog)
                     };
 
