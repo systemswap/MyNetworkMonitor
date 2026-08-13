@@ -661,16 +661,56 @@ public partial class ShellView : Window
     {
         List<Control> rows = [];
 
+        // Die Liste kommt nach Kategorie geordnet. Wechselt sie, steht sie als
+        // Zwischenueberschrift darueber und die Dienste ruecken darunter ein -
+        // sonst sieht die Reihenfolge zufaellig aus, weil die Kategorie sonst
+        // nirgends auftaucht.
+        string? lastCategory = null;
+
         foreach (ServiceFacet facet in _shell.Devices.AvailableServices)
         {
+            string category = string.IsNullOrWhiteSpace(facet.Category) ? "Other" : facet.Category;
+
+            if (!string.Equals(category, lastCategory, StringComparison.CurrentCultureIgnoreCase))
+            {
+                rows.Add(new TextBlock
+                {
+                    Text = category,
+                    FontSize = 9.5,
+                    FontWeight = FontWeight.SemiBold,
+                    Foreground = new SolidColorBrush(Color.Parse("#7E979C")),
+                    // Ueber der ersten Ueberschrift weniger Luft als ueber den
+                    // folgenden - oben schliesst das Menue schon ab.
+                    Margin = new global::Avalonia.Thickness(10, lastCategory is null ? 4 : 8, 10, 2)
+                });
+
+                lastCategory = category;
+            }
+
+            // Eine Zahl je Zeile statt zweier nebeneinander:
+            //   alle erkannt   -> "32 running"
+            //   keiner erkannt -> "32 open"     (offene Ports ohne Protokoll)
+            //   gemischt       -> "32, 8 running"
+            // Vorher stand dort "32  (32 running)" - dieselbe Zahl zweimal.
+            string zahlen =
+                facet.RunningCount == 0 ? $"{facet.DeviceCount} open"
+                : facet.RunningCount == facet.DeviceCount ? $"{facet.DeviceCount} running"
+                : $"{facet.DeviceCount}, {facet.RunningCount} running";
+
             CheckBox box = new()
             {
                 IsChecked = _shell.Devices.Filter.Services.Contains(facet.Name),
                 FontSize = 10.5,
-                Margin = new global::Avalonia.Thickness(10, 2, 10, 2),
+                // Eingerueckt unter ihrer Ueberschrift.
+                Margin = new global::Avalonia.Thickness(22, 2, 10, 2),
+                // Ueber die ganze Menuebreite, damit die Zahlen rechts
+                // untereinander stehen statt am Namen zu kleben.
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                HorizontalContentAlignment = HorizontalAlignment.Stretch,
                 Content = new Grid
                 {
                     ColumnDefinitions = new ColumnDefinitions("*,Auto"),
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
                     Children =
                     {
                         new TextBlock
@@ -680,12 +720,12 @@ public partial class ShellView : Window
                         },
                         new TextBlock
                         {
-                            Text = facet.RunningCount > 0
-                                ? $"{facet.DeviceCount}  ({facet.RunningCount} running)"
-                                : $"{facet.DeviceCount}",
+                            Text = zahlen,
                             FontSize = 9.5,
                             Foreground = new SolidColorBrush(Color.Parse("#93A5A9")),
                             VerticalAlignment = VerticalAlignment.Center,
+                            TextAlignment = global::Avalonia.Media.TextAlignment.Right,
+                            Margin = new global::Avalonia.Thickness(12, 0, 0, 0),
                             [Grid.ColumnProperty] = 1
                         }
                     }

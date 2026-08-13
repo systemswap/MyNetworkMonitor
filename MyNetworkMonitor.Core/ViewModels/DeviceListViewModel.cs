@@ -302,12 +302,39 @@ namespace MyNetworkMonitor.Core.ViewModels
                 }
             }
 
+            // Nach Kategorie, darin alphabetisch nach Namen. Die Auswahl
+            // schreibt die Kategorie als Zwischenueberschrift und rueckt die
+            // Dienste darunter ein - ohne diese Ueberschriften sah die
+            // Reihenfolge aus, als sei sie zufaellig, weil die Kategorie
+            // nirgends zu sehen war.
+            //
+            // Gross- und Kleinschreibung bleibt aussen vor, sonst stuenden
+            // "MSSQLServer" und "MariaDB" weit auseinander.
             return
             [
                 .. facets.Values
-                    .OrderBy(f => f.Category, StringComparer.CurrentCulture)
-                    .ThenBy(f => f.Name, StringComparer.CurrentCulture)
+                    .OrderBy(f => f.Category, StringComparer.CurrentCultureIgnoreCase)
+                    .ThenBy(f => SortKey(f.Name).Text, StringComparer.CurrentCultureIgnoreCase)
+                    .ThenBy(f => SortKey(f.Name).Number)
             ];
+        }
+
+        /// <summary>
+        /// Zerlegt einen Dienstnamen in Text und angehaengte Zahl.
+        /// <para>
+        /// Die Platzhalter der offenen Ports heissen "TCP 21", "TCP 5900" und
+        /// so fort. Rein alphabetisch sortiert stuende "TCP 102" vor "TCP 21" -
+        /// richtig nach Zeichen, aber niemand sucht so einen Port. Namen ohne
+        /// Zahl bleiben unberuehrt.
+        /// </para>
+        /// </summary>
+        private static (string Text, int Number) SortKey(string name)
+        {
+            int space = name.LastIndexOf(' ');
+
+            return space > 0 && int.TryParse(name[(space + 1)..], out int number)
+                ? (name[..space], number)
+                : (name, -1);
         }
 
         /// <summary>
