@@ -141,6 +141,23 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                         logBuilder.AppendLine($"Fehler nach {context.RetryCount} Versuchen: {ex.Message}");
                     }
                 }
+                catch (IOException ex)
+                {
+                    // Die Gegenseite hat die Verbindung waehrend des Lesens
+                    // zugeschlagen ("connection reset by peer"). Das ist ein
+                    // Ergebnis dieses einen Ports und kein Fehler des Laufs:
+                    // die Verbindung stand, also bleibt es bei "offen", nur
+                    // ohne verwertbare Antwort.
+                    //
+                    // Ungefangen kam die Ausnahme frueher bis in den Ablauf
+                    // hinauf und beendete den ganzen Dienstelauf - alles, was
+                    // nach dem betroffenen Dienst an der Reihe gewesen waere,
+                    // wurde nie geprueft.
+                    logBuilder.AppendLine($"Verbindung wurde von der Gegenseite geschlossen: {ex.Message}");
+
+                    portResult.PortLog = logBuilder.ToString();
+                    return portResult;
+                }
             }
 
             portResult.PortLog = logBuilder.ToString();

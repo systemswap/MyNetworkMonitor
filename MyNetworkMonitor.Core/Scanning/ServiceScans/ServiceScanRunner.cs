@@ -97,7 +97,16 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                     continue;
                 }
 
-                await probe.PrepareAsync(Context, targets, token);
+                try
+                {
+                    await probe.PrepareAsync(Context, targets, token);
+                }
+                catch (Exception) when (!token.IsCancellationRequested)
+                {
+                    // Misslingt die Vorbereitung eines Dienstes, wird eben
+                    // dieser Dienst nichts finden - die uebrigen 23 gehen das
+                    // nichts an.
+                }
 
                 await RunProbeAsync(probe, targets, ports, step, probes.Count, total, token);
             }
@@ -135,6 +144,19 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                 {
                     // Abbruch ist kein Fehlschlag dieses Ziels.
                 }
+                catch (Exception) when (!token.IsCancellationRequested)
+                {
+                    // Ein einzelnes Ziel darf den Lauf nicht beenden.
+                    //
+                    // Der Ablauf geht Dienst fuer Dienst: eine Ausnahme, die
+                    // bis hierher steigt, riss frueher die ganze Schleife mit,
+                    // und jeder Dienst, der noch an der Reihe gewesen waere,
+                    // wurde nie geprueft. Genau so ist ein Lauf nach dem
+                    // zehnten von 24 Diensten geendet - eine Gegenstelle hatte
+                    // die Verbindung zugeschlagen (IOException). Gemeldet wurde
+                    // er trotzdem als beendet, und es sah aus, als kenne die
+                    // Erkennung die Haelfte der Dienste nicht mehr.
+                }
                 finally
                 {
                     Report(probe, step, stepCount, total);
@@ -166,6 +188,11 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                 catch (OperationCanceledException)
                 {
                     // siehe oben
+                }
+                catch (Exception) when (!token.IsCancellationRequested)
+                {
+                    // Und ein einzelner Port darf weder das Ziel noch den Lauf
+                    // beenden - siehe die Anmerkung eine Ebene hoeher.
                 }
                 finally
                 {
