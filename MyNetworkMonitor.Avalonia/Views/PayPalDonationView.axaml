@@ -2,10 +2,21 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="MyNetworkMonitor.Avalonia.Views.PayPalDonationView"
         Title="Thanks to support this project"
-        Width="801" Height="628" MinWidth="500" MinHeight="500"
+        Width="785" Height="589" MinWidth="484" MinHeight="461"
         WindowStartupLocation="CenterOwner">
 
-    <!-- Originalgetreue Portierung von PayPalDonation.xaml (WPF). -->
+    <!--
+        Originalgetreue Portierung von PayPalDonation.xaml (WPF).
+
+        Die Masse sind nicht die des WPF-Fensters, sondern ergeben dasselbe
+        Bild: WPF zaehlt bei Width/Height das ganze Fenster samt Rahmen,
+        Avalonia nur die Innenflaeche. Aus 801 x 628 aussen werden bei
+        Standardrahmen (8 Punkt je Seite, 31 Punkt Titelzeile) 785 x 589 innen -
+        nachgemessen mit GetWindowRect/GetClientRect. Mit 801 x 628 waere die
+        Flaeche 16 Punkt breiter und 39 Punkt hoeher, und damit zeigte das
+        Hintergrundbild einen anderen Ausschnitt und die weisse Karte saesse
+        an anderer Stelle. Dasselbe gilt fuer die Mindestmasse (500 x 500).
+    -->
 
     <Window.Resources>
         <!--
@@ -52,8 +63,14 @@
                Stretch="UniformToFill" Opacity="0.9"
                RenderOptions.BitmapInterpolationMode="HighQuality"/>
 
+        <!--
+            Der Schatten entspricht dem DropShadowEffect des WPF-Fensters:
+            dort ShadowDepth 3 bei der Standardrichtung 315 Grad, also 3 * cos45
+            = rund 2 Punkte nach rechts und nach unten - nicht 3 je Achse.
+            BlurRadius 10, Schwarz mit Deckkraft 0,2 (= Alpha 0x33).
+        -->
         <Border Background="White" Padding="20" CornerRadius="20" Margin="151,64,151,140"
-                BoxShadow="3 3 10 0 #33000000">
+                BoxShadow="2 2 10 0 #33000000">
 
             <StackPanel Margin="-20,0,-20,3">
 

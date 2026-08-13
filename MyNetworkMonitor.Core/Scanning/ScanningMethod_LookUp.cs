@@ -380,25 +380,10 @@ namespace MyNetworkMonitor
         //}
 
 
-        public async Task<IPHostEntry> nsLookup(string Hostname)
-        {
-            if (_cts.Token.IsCancellationRequested) return null;
-
-            try
-            {               
-                IPHostEntry _entry = await Dns.GetHostEntryAsync(Hostname).WaitAsync(TimeSpan.FromSeconds(3), _cts.Token);
-                return _entry.AddressList.Length > 0 ? _entry : null;
-            }
-            catch (OperationCanceledException)
-            {
-                return null; // 🔹 Abbruch sicherstellen
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Fehler bei nsLookup für {Hostname}: {ex.Message}");
-                return null;
-            }
-        }
-
+        // nsLookup(string) stand hier bis zum 13.08.2026. Aufrufer waren allein
+        // die alten Oberflaechen (WPF und MainWindowView); mit ihnen ist sie
+        // weggefallen. Die Namensaufloesung des Laufs geht ueber
+        // ReverseLookup/Hostname, die ihren DNS-Server aus dem Bereich kennen -
+        // etwas, das dieser Methode ohne IPToScan nie zur Verfuegung stand.
     }
 }

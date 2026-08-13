@@ -1329,25 +1329,25 @@ public partial class ShellView : Window
     }
 
     /// <summary>
-    /// Oeffnet die bisherige Oberflaeche als zweites Fenster. Sie haelt noch
-    /// die Ansichten, die hier erst Platzhalter sind - bis sie umgezogen sind,
-    /// ist ein Klick besser als ein Neustart mit --classic.
+    /// Das Spendenfenster. Es hing bisher am alten Fenster; mit dessen
+    /// Wegfall braucht es einen eigenen Aufruf, sonst waere es nicht mehr
+    /// erreichbar.
     /// </summary>
-    private MainWindowView? _classicWindow;
+    private PayPalDonationView? _donationWindow;
 
-    private void bt_OpenClassic_Click(object? sender, RoutedEventArgs e)
+    private void bt_Donate_Click(object? sender, RoutedEventArgs e)
     {
         // Ein bereits offenes Fenster nur nach vorn holen, nicht doppelt
-        // erzeugen - zwei Instanzen wuerden auf denselben Dateien arbeiten.
-        if (_classicWindow is not null)
+        // erzeugen.
+        if (_donationWindow is not null)
         {
-            _classicWindow.Activate();
+            _donationWindow.Activate();
             return;
         }
 
-        _classicWindow = new MainWindowView();
-        _classicWindow.Closed += (_, _) => _classicWindow = null;
-        _classicWindow.Show();
+        _donationWindow = new PayPalDonationView();
+        _donationWindow.Closed += (_, _) => _donationWindow = null;
+        _donationWindow.Show(this);
     }
 
     /// <summary>

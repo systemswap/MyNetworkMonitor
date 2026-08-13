@@ -34,15 +34,16 @@ namespace MyNetworkMonitor
 
         private void LoadMacVendors()
         {
-            // Zuerst neben der Anwendung suchen, dann im Arbeitsverzeichnis:
-            // wird die App aus einem anderen Verzeichnis gestartet, existiert
-            // ".\MacVendors" nicht und Directory.GetFiles wirft - der Scan
-            // (ARP-Request ruft GetVendorFromMac) wuerde die App beenden.
+            // Reihenfolge siehe AppDataPaths: erst die selbst erneuerte Liste im
+            // Benutzerverzeichnis, dann die mitgelieferte neben der Anwendung,
+            // zuletzt das Arbeitsverzeichnis. Der letzte Schritt ist wichtig,
+            // weil ".\MacVendors" fehlt, wenn die App aus einem anderen
+            // Verzeichnis gestartet wird - der Scan (ARP-Request ruft
+            // GetVendorFromMac) wuerde die App sonst beenden.
             string csvPath = string.Empty;
 
-            foreach (string root in new[] { AppContext.BaseDirectory, Directory.GetCurrentDirectory() })
+            foreach (string candidate in Core.Services.AppDataPaths.MacVendorCsvCandidates)
             {
-                string candidate = Path.Combine(root, "MacVendors", "mac_vendors.csv");
                 if (File.Exists(candidate))
                 {
                     csvPath = candidate;

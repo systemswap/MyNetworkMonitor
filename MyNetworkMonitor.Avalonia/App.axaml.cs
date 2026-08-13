@@ -28,14 +28,6 @@ public partial class App : Application
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            // Ab jetzt startet die neue Oberflaeche. Die bisherige bleibt
-            // vollstaendig erhalten und laesst sich mit --classic oeffnen -
-            // sie haelt noch die Ansichten, die im neuen Fenster erst
-            // Platzhalter sind: Topologie, Portsammlungen, Dienstdefinitionen,
-            // Namenszuordnung und die Verwaltung der IP-Gruppen.
-            UseClassicShell = desktop.Args?.Any(a =>
-                string.Equals(a, "--classic", StringComparison.OrdinalIgnoreCase)) == true;
-
             // Der Lizenzhinweis: siehe NoticeSuspended. Mit --notice laesst er
             // sich einzeln wieder anfordern, ohne etwas umzustellen - damit
             // pruefbar bleibt, dass er noch funktioniert.
@@ -69,14 +61,10 @@ public partial class App : Application
     /// </summary>
     private const bool NoticeSuspended = true;
 
-    /// <summary>Die bisherige Oberflaeche wurde ueber --classic angefordert.</summary>
-    private static bool UseClassicShell { get; set; }
-
     /// <summary>Der Lizenzhinweis wird uebersprungen - siehe oben.</summary>
     private static bool SkipEnterpriseNotice { get; set; }
 
-    private static global::Avalonia.Controls.Window CreateMainWindow() =>
-        UseClassicShell ? new MainWindowView() : new ShellView();
+    private static global::Avalonia.Controls.Window CreateMainWindow() => new ShellView();
 
     /// <summary>
     /// Im Firmennetz steht der Lizenzhinweis vor dem Hauptfenster: erst ein Klick

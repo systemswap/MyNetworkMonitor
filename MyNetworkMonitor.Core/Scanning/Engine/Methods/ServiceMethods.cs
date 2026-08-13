@@ -1,5 +1,6 @@
 using MyNetworkMonitor.Core.Model;
 using MyNetworkMonitor.Core.Network;
+using MyNetworkMonitor.Core.Scanning.ServiceScans;
 
 namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 {
@@ -366,36 +367,75 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                 ? ScanMethodAvailability.Available
                 : ScanMethodAvailability.NotApplicable(NoIpv4Targets);
 
+        /// <summary>
+        /// Laeuft ueber <see cref="ServiceScanRunner"/>, also Dienst fuer
+        /// Dienst statt Ziel fuer Ziel. Die Dienstdefinitionen kommen
+        /// weiterhin aus der XML - was gesucht wird und auf welchen Ports,
+        /// entscheidet die Dienstverwaltung und nicht der Ablauf.
+        /// </summary>
         public override async Task ExecuteAsync(ScanContext context, CancellationToken cancellationToken)
         {
             LegacyTargets targets = BuildTargets(context);
             if (targets.Count == 0) return;
 
-            ScanningMethod_Services services = new(serviceXmlPath);
+            ScanningMethod_Services definitions = new(serviceXmlPath);
 
             (List<ServiceType> wanted, Dictionary<ServiceType, List<int>> ports) =
-                SelectServices(services, context.Settings.Services);
+                SelectServices(definitions, context.Settings.Services);
 
             if (wanted.Count == 0) return;
 
-            void OnProgress(int c, int r, int t) => context.ReportProgress(c, r, t);
-            void OnFound(IPToScan ip) => ReportResult(context, ip, targets);
+            List<string> addresses =
+                [.. targets.Items.Select(t => t.IPorHostname).Where(a => !string.IsNullOrEmpty(a))];
 
-            services.ProgressUpdated += OnProgress;
-            services.ServiceIPScanFinished += OnFound;
-            using CancellationTokenRegistration reg = BridgeCancellation(cancellationToken, services.StopScan);
+            if (addresses.Count == 0) return;
+
+            ServiceScanRunner runner = new();
+
+            void OnProgress(ServiceScanProgress p) =>
+                context.ReportStepProgress(p.Current, p.Responded, p.Total, p.Service, p.Step, p.StepCount);
+
+            void OnFound(ServiceFinding finding) =>
+                ReportResult(context, ToLegacyResult(finding), targets);
+
+            runner.ProgressUpdated += OnProgress;
+            runner.Found += OnFound;
 
             try
             {
-                await services.ScanIPsAsync(targets.Items, wanted, ports);
+                await runner.RunAsync(addresses, wanted, ports, cancellationToken);
             }
             finally
             {
-                services.ProgressUpdated -= OnProgress;
-                services.ServiceIPScanFinished -= OnFound;
+                runner.ProgressUpdated -= OnProgress;
+                runner.Found -= OnFound;
             }
 
             cancellationToken.ThrowIfCancellationRequested();
+        }
+
+        /// <summary>
+        /// Verpackt einen Befund in die Form, die der Ergebnisweg erwartet.
+        /// <para>
+        /// Bewusst ein frisches, schlankes Exemplar je Befund statt des
+        /// Ziels aus der Liste: gemeldet wird jetzt nach <em>jedem</em> Dienst
+        /// und nicht mehr einmal am Ende, und traege das Ziel dabei seine
+        /// bisherigen Funde mit, gingen dieselben Dienstzeilen bis zu 24 Mal
+        /// durch die Zusammenfuehrung. Adresse und Bereich genuegen - alles
+        /// Weitere traegt der Bestand ohnehin schon.
+        /// </para>
+        /// </summary>
+        private static IPToScan ToLegacyResult(ServiceFinding finding)
+        {
+            IPToScan result = new()
+            {
+                IPorHostname = finding.Address,
+                UsedScanMethod = ScanMethod.Services
+            };
+
+            result.Services.Services.Add(finding.Result);
+
+            return result;
         }
 
         /// <summary>

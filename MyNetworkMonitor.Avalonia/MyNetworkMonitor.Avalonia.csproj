@@ -21,9 +21,9 @@
       Setzt die Zaehlung des bisherigen WPF-Projekts fort (dort zuletzt 4.6.3.12),
       damit die veroeffentlichten Versionen aufsteigend bleiben.
     -->
-    <Version>7.1.0.11</Version>
-    <AssemblyVersion>7.1.0.11</AssemblyVersion>
-    <FileVersion>7.1.0.11</FileVersion>
+    <Version>7.1.0.12</Version>
+    <AssemblyVersion>7.1.0.12</AssemblyVersion>
+    <FileVersion>7.1.0.12</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -79,9 +79,5 @@
     <AvaloniaResource Include="Images\DevDonationCuted.jpg" />
     <AvaloniaResource Include="Images\PayPal.png" />
     <AvaloniaResource Include="Resources\paypalDonate.png" />
-    <!-- Status-Punkte der Ergebnistabelle (in WPF ueber Properties.Resources) -->
-    <AvaloniaResource Include="Resources\green_dot_s.png" />
-    <AvaloniaResource Include="Resources\red_dot_s.png" />
-    <AvaloniaResource Include="Resources\gray_dot_s.png" />
   </ItemGroup>
 </Project>

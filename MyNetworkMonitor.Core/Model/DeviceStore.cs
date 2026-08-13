@@ -596,6 +596,22 @@ namespace MyNetworkMonitor.Core.Model
         {
             foreach (DeviceServiceResult incoming in o.Services!)
             {
+                // Ein Port, den ein Verfahren namentlich erkannt hat, braucht
+                // daneben keine Zeile "TCP {Port}" - das ist dieselbe Tuer,
+                // einmal mit Namen. In welcher Reihenfolge die Befunde
+                // eintreffen, ist nicht festgelegt, darum beide Richtungen:
+                // der Platzhalter weicht dem Namen, und wo schon ein Name
+                // steht, kommt kein Platzhalter mehr dazu.
+                if (IsOpenPortPlaceholder(incoming))
+                {
+                    if (device.Services.Any(s => !IsOpenPortPlaceholder(s) && s.IsRunning && Covers(s, incoming)))
+                        continue;
+                }
+                else if (incoming.IsRunning)
+                {
+                    device.Services.RemoveAll(s => IsOpenPortPlaceholder(s) && Covers(incoming, s));
+                }
+
                 DeviceServiceResult? existing = device.Services.FirstOrDefault(s => IsSameFinding(s, incoming));
 
                 if (existing is null)
@@ -615,6 +631,18 @@ namespace MyNetworkMonitor.Core.Model
         /// macht aus dem IPv4- und dem IPv6-Lauf eine Zeile und laesst zugleich
         /// die einzelnen Ports desselben Dienstes nebeneinander bestehen.
         /// </summary>
+        /// <summary>
+        /// Ein offener Port ohne erkannten Dienst - "TCP 3306", "UDP 5353".
+        /// Angelegt wird er von den Verfahren, deren Sonde zwar eine
+        /// Verbindung bekam, aber keine passende Antwort.
+        /// </summary>
+        private static bool IsOpenPortPlaceholder(DeviceServiceResult s) =>
+            string.Equals(s.Category, "Open ports", StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>Der benannte Befund deckt den Port des Platzhalters ab.</summary>
+        private static bool Covers(DeviceServiceResult named, DeviceServiceResult placeholder) =>
+            placeholder.Ports.Count == 1 && named.Ports.Contains(placeholder.Ports[0]);
+
         private static bool IsSameFinding(DeviceServiceResult a, DeviceServiceResult b) =>
             string.Equals(a.ServiceName, b.ServiceName, StringComparison.OrdinalIgnoreCase) &&
             a.Ports.Count == b.Ports.Count &&

@@ -255,6 +255,50 @@
     </Style>
 
     <!--
+        Der Spendenknopf im Gold von PayPal (#FFC439), als Glasknopf: der harte
+        Farbsprung in der Mitte macht den Glanz - obere Haelfte hell, untere
+        dunkler und nach unten wieder aufhellend, wie eine gewoelbte Flaeche.
+        Schrift schwarz, das Herz rot; beides steht als eigener Run in der
+        Beschriftung, weil ein Knopf nur eine Schriftfarbe kennt.
+    -->
+    <Style Selector="Button.donate">
+      <Setter Property="Foreground" Value="Black"/>
+      <Setter Property="BorderBrush" Value="#C8940B"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="3"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+    <Style Selector="Button.donate /template/ ContentPresenter">
+      <Setter Property="Background">
+        <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+          <GradientStop Offset="0"    Color="#FFF3BE"/>
+          <GradientStop Offset="0.48" Color="#FFD256"/>
+          <GradientStop Offset="0.52" Color="#F7B300"/>
+          <GradientStop Offset="1"    Color="#FFDE7C"/>
+        </LinearGradientBrush>
+      </Setter>
+    </Style>
+    <Style Selector="Button.donate:pointerover /template/ ContentPresenter">
+      <Setter Property="BorderBrush" Value="#C8940B"/>
+      <Setter Property="Background">
+        <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+          <GradientStop Offset="0"    Color="#FFFAD8"/>
+          <GradientStop Offset="0.48" Color="#FFE083"/>
+          <GradientStop Offset="0.52" Color="#FFC02A"/>
+          <GradientStop Offset="1"    Color="#FFEBA8"/>
+        </LinearGradientBrush>
+      </Setter>
+    </Style>
+    <Style Selector="Button.donate:pressed /template/ ContentPresenter">
+      <Setter Property="Background">
+        <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+          <GradientStop Offset="0"    Color="#E5A400"/>
+          <GradientStop Offset="1"    Color="#FFD256"/>
+        </LinearGradientBrush>
+      </Setter>
+    </Style>
+
+    <!--
         Eine Schaltflaeche, die wie die ComboBox daneben aussieht. Noetig, weil
         die Bereichsauswahl mehrere Haken zugleich haelt und beim Anhaken offen
         bleiben muss - eine echte ComboBox schliesst sich beim ersten Klick.
@@ -729,7 +773,9 @@
           </StackPanel>
         </Border>
 
-        <Grid Margin="10,0" Height="26" ColumnDefinitions="Auto,*,Auto">
+        <!-- Etwas hoeher als die reine Textzeile, damit die Knoepfe rechts
+             nicht bis an den Rand stossen. -->
+        <Grid Margin="10,0" Height="30" ColumnDefinitions="Auto,*,Auto">
           <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
             <TextBlock Classes="mono" FontSize="10.5" Foreground="#93ADB2">
               <Run Text="{Binding Devices.TotalCount}" Foreground="#D3E4E6"/><Run Text=" devices"/>
@@ -750,10 +796,27 @@
                      HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"/>
 
           <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-            <Button x:Name="bt_Export" Classes="cmd" Content="Export" Height="19" FontSize="10"
+            <Button x:Name="bt_Export" Classes="cmd" Content="Export" Height="21" FontSize="10"
                     Click="bt_Export_Click"/>
-            <Button x:Name="bt_Clear" Classes="cmd" Content="Clear" Height="19" FontSize="10"
+            <Button x:Name="bt_Clear" Classes="cmd" Content="Clear" Height="21" FontSize="10"
                     Command="{Binding ClearResultsCommand}"/>
+            <!-- Das Spendenfenster hing bisher am alten Fenster und war mit
+                 ihm nicht mehr erreichbar. -->
+            <Button x:Name="bt_Donate" Classes="donate" Height="21" FontSize="10"
+                    Padding="10,0" Click="bt_Donate_Click">
+              <!--
+                  Das Herz auf rund drei Viertel der Knopfhoehe (21), die
+                  Beschriftung bleibt bei der Groesse der Nachbarknoepfe.
+                  Bewusst zwei Textblöcke nebeneinander statt zweier Runs in
+                  einem: Runs teilen sich eine Grundlinie, und an der grossen
+                  Herzschrift ausgerichtet saesse "Donate" zu tief. So wird
+                  jedes fuer sich mittig gesetzt.
+              -->
+              <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                <TextBlock Text="♥" Foreground="#D62B3A" FontSize="21" VerticalAlignment="Center"/>
+                <TextBlock Text="Donate" Foreground="Black" VerticalAlignment="Center"/>
+              </StackPanel>
+            </Button>
           </StackPanel>
         </Grid>
       </StackPanel>
@@ -3183,13 +3246,6 @@
             <TextBlock x:Name="tb_PlaceholderText" FontSize="11.5" Foreground="{StaticResource Dimmer}"
                        HorizontalAlignment="Center" TextAlignment="Center" MaxWidth="420"
                        TextWrapping="Wrap"/>
-
-            <!-- Solange eine Ansicht hier fehlt, gibt es sie im bisherigen
-                 Fenster noch - ein Klick statt eines Neustarts. -->
-            <Button x:Name="bt_OpenClassic" Content="Open in the previous window"
-                    HorizontalAlignment="Center" Margin="0,10,0,0"
-                    Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
-                    Click="bt_OpenClassic_Click"/>
           </StackPanel>
         </Border>
       </Grid>

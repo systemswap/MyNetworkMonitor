@@ -26,8 +26,20 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
         /// <summary>Meldet eine Sichtung. Threadsicher ueber die Sperre des Aufrufers.</summary>
         public required Action<DeviceObservation> Report { get; init; }
 
-        /// <summary>Meldet den Fortschritt des laufenden Verfahrens.</summary>
-        public required Action<int, int, int> ReportProgress { get; init; }
+        /// <summary>
+        /// Meldet den Fortschritt einschliesslich des laufenden Teilschritts.
+        /// Nur die Diensterkennung hat welche - sie geht Dienst fuer Dienst
+        /// vor, und "Services" allein sagt eine Minute lang nichts darueber,
+        /// wo der Lauf steht.
+        /// </summary>
+        public required Action<int, int, int, string?, int, int> ReportStepProgress { get; init; }
+
+        /// <summary>
+        /// Meldet den Fortschritt eines Verfahrens, das aus einem Stueck
+        /// besteht - der Normalfall.
+        /// </summary>
+        public void ReportProgress(int current, int responded, int total) =>
+            ReportStepProgress(current, responded, total, null, 0, 0);
 
         /// <summary>Die Ziele einer Adressfamilie.</summary>
         public IEnumerable<ScanTargetEntry> TargetsOf(Network.IpFamily family) =>

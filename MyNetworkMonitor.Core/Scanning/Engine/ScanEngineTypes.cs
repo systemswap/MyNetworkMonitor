@@ -138,9 +138,30 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
 
         public ScanStatus Status { get; init; } = ScanStatus.running;
 
+        /// <summary>
+        /// Der Teilschritt innerhalb des Verfahrens - bei der Diensterkennung
+        /// der Dienst, der gerade an der Reihe ist. Leer bei Verfahren, die
+        /// aus einem Stueck bestehen, und das sind alle uebrigen.
+        /// </summary>
+        public string? Detail { get; init; }
+
+        /// <summary>Der wievielte Teilschritt, und von wie vielen. 0 heisst: keine.</summary>
+        public int Step { get; init; }
+
+        public int StepCount { get; init; }
+
+        public bool HasSteps => StepCount > 1 && !string.IsNullOrEmpty(Detail);
+
+        /// <summary>
+        /// Was im Kommandobalken steht. Ohne Teilschritte der Verfahrensname
+        /// wie bisher, mit ihnen zusaetzlich der laufende Schritt: ein Lauf
+        /// ueber 24 Dienste sagt sonst eine Minute lang nur "Services".
+        /// </summary>
+        public string Label => HasSteps ? $"{MethodName} · {Detail} ({Step} of {StepCount})" : MethodName;
+
         public double Fraction => Total <= 0 ? 0 : Math.Clamp((double)Current / Total, 0, 1);
 
-        public override string ToString() => $"{MethodName} {Current}/{Total}";
+        public override string ToString() => $"{Label} {Current}/{Total}";
     }
 
     /// <summary>
