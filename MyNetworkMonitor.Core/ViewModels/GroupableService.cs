@@ -22,7 +22,22 @@ namespace MyNetworkMonitor.Core.ViewModels
     /// </summary>
     public partial class GroupableService : ObservableObject
     {
+        /// <summary>
+        /// Der Schluessel des Dienstes - so, wie er in den Definitionen und in
+        /// <see cref="ServiceDisplay.Grouped"/> steht. Nicht fuer die Anzeige;
+        /// dafuer ist <see cref="DisplayName"/> da.
+        /// </summary>
         public required string Name { get; init; }
+
+        /// <summary>
+        /// Was in der Oberflaeche steht. Standardmaessig der Name, aber ein
+        /// Dienst kann einen sprechenderen tragen - "S7 PLC (SPS)" statt "S7".
+        /// Der Schluessel <see cref="Name"/> bleibt davon unberuehrt, damit die
+        /// Gruppierungslogik weiter greift.
+        /// </summary>
+        public string? DisplayNameOverride { get; init; }
+
+        public string DisplayName => DisplayNameOverride ?? Name;
 
         [ObservableProperty] private bool _isGrouped;
 

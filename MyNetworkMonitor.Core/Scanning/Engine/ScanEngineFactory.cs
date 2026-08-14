@@ -64,6 +64,12 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
             engine.Register(new OnvifScanMethod());
             engine.Register(new SwitchPortScanMethod());
             engine.Register(new TcpPortScanMethod());
+
+            // Direkt unter dem gewoehnlichen Portscan: die Variante ueber alle
+            // Ports steht in der Oberflaeche eingerueckt darunter. Nie
+            // vorausgewaehlt - in keinem Profil.
+            engine.Register(new AllTcpPortScanMethod());
+
             engine.Register(new UdpPortScanMethod());
             engine.Register(new SmbVersionScanMethod());
             engine.Register(new ServiceDetectionScanMethod(serviceXmlPath));

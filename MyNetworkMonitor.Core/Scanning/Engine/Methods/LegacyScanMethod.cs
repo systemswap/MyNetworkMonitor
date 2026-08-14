@@ -31,6 +31,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         public virtual FamilySupport Families => FamilySupport.IPv4;
         public virtual bool IsPassive => false;
         public virtual bool RequiresElevation => false;
+        public virtual bool Indented => false;
 
         // Die grosse Mehrheit der Module arbeitet eine Zielliste ab; die
         // Ausnahmen - SSDP, mDNS, ARP-Cache - sagen es selbst.

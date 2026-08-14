@@ -20,6 +20,27 @@ namespace MyNetworkMonitor
         public event EventHandler<ScanTask_Finished_EventArgs>? TcpPortScan_Task_Finished;
         public event Action<ScanStatus>? TcpPortScan_Finished;
 
+        /// <summary>
+        /// Fortschritt waehrend des Laufs: geprueft, offen gefunden, gesamt -
+        /// ueber alle Ziele und Ports. Ohne das stand die Anzeige still,
+        /// solange ein Ziel lief; bei der eingestellten Auswahl faellt das nicht
+        /// auf, bei allen 65535 Ports sitzt sie minutenlang fest, weil ein Ziel
+        /// erst ganz am Ende gemeldet wird.
+        /// </summary>
+        public event Action<int, int, int>? ProgressUpdated;
+
+        private int _checked;
+        private int _open;
+        private int _total;
+
+        /// <summary>
+        /// Wie oft der Fortschritt hoechstens gemeldet wird - jede geprueften
+        /// so viele Ports einmal. Fein genug, dass sich die Anzeige spuerbar
+        /// bewegt, grob genug, dass nicht jeder einzelne Port den
+        /// Oberflaechen-Thread erreicht.
+        /// </summary>
+        private const int ProgressStep = 100;
+
         private CancellationTokenSource _cts = new CancellationTokenSource();
         public CancellationToken CancelPortScan
         {
@@ -65,6 +86,13 @@ namespace MyNetworkMonitor
             using SemaphoreSlim gate = new(MaxConcurrentPortScans);
             var tasks = new List<Task>();
 
+            // Ausgangspunkt fuer die Fortschrittsanzeige: alle Portpruefungen
+            // ueber alle gueltigen Ziele.
+            int validIps = IPs.Count(ip => !string.IsNullOrEmpty(ip.IPorHostname));
+            _checked = 0;
+            _open = 0;
+            _total = validIps * TCP_Ports.Count;
+
             foreach (var ip in IPs.Where(ip => !string.IsNullOrEmpty(ip.IPorHostname)))
             {
                 tasks.Add(ScanTCPPorts_Task(ip, TCP_Ports, TimeOut, gate));
@@ -72,6 +100,10 @@ namespace MyNetworkMonitor
             }
 
             await Task.WhenAll(tasks);
+
+            // Zum Abschluss der Vollstand, falls die letzte Meldung vor dem
+            // Erreichen der naechsten Stufe lag.
+            ProgressUpdated?.Invoke(Volatile.Read(ref _checked), Volatile.Read(ref _open), _total);
 
             TcpPortScan_Finished?.Invoke(ScanStatus.finished);
         }
@@ -169,7 +201,19 @@ namespace MyNetworkMonitor
         {
             try
             {
-                return await ScanTCP_Port_via_Socket_Async(ip, port, timeout);
+                PortScanResult result = await ScanTCP_Port_via_Socket_Async(ip, port, timeout);
+
+                if (result.PortState == PortScanState.PortIsOpen) Interlocked.Increment(ref _open);
+
+                // Nur alle paar hundert Ports melden, nicht bei jedem einzelnen -
+                // sonst erreichen 65535 Meldungen je Ziel den Oberflaechen-Thread.
+                int done = Interlocked.Increment(ref _checked);
+                if (done % ProgressStep == 0)
+                {
+                    ProgressUpdated?.Invoke(done, Volatile.Read(ref _open), _total);
+                }
+
+                return result;
             }
             finally
             {

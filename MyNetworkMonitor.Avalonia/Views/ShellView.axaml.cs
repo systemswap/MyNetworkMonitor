@@ -496,11 +496,15 @@ public partial class ShellView : Window
 
             foreach (ScanMethodChoice choice in methods)
             {
+                // Eingerueckte Verfahren stehen als Variante unter dem Verfahren
+                // darueber - derselbe Einzug wie beim DNS-Quervergleich.
+                double left = choice.Indented ? 14 : 0;
+
                 CheckBox box = new()
                 {
                     Content = choice.DisplayName,
                     FontSize = 10.5,
-                    Margin = new global::Avalonia.Thickness(0, 0, 0, 2)
+                    Margin = new global::Avalonia.Thickness(left, 0, 0, 2)
                 };
 
                 box.Bind(ToggleButton.IsCheckedProperty,
