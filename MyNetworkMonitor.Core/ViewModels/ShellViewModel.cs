@@ -2487,7 +2487,7 @@ namespace MyNetworkMonitor.Core.ViewModels
 
                     DeviceServiceResult result = new()
                     {
-                        ServiceName = unidentifiedOpen ? $"TCP {port.Ports[0]}" : service.ToString(),
+                        ServiceName = unidentifiedOpen ? $"TCP {port.Ports[0]}" : ServiceNames.Of(service),
                         Category = unidentifiedOpen ? "Open ports" : ServiceCategories.Of(service),
                         Ports = [.. port.Ports],
                         PortLog = string.IsNullOrWhiteSpace(port.PortLog) ? null : port.PortLog
@@ -2502,11 +2502,30 @@ namespace MyNetworkMonitor.Core.ViewModels
 
             if (results.Count == 0) return;
 
+            // Wie im vollen Lauf: was die Industrieprotokolle ueber sich
+            // erzaehlen, gehoert in die Details und nicht nur in die Zeile
+            // "laeuft".
+            Dictionary<string, string>? details = null;
+
+            string? label = ServiceNames.InfoLabelOf(service);
+
+            if (!string.IsNullOrEmpty(label))
+            {
+                string? log = results
+                    .FirstOrDefault(r => r.IsRunning && !string.IsNullOrWhiteSpace(r.PortLog))?.PortLog;
+
+                if (!string.IsNullOrWhiteSpace(log))
+                {
+                    details = new Dictionary<string, string> { [label] = log };
+                }
+            }
+
             _store.Observe(new DeviceObservation
             {
                 Source = "Port search",
                 Address = address,
                 IsResponding = true,
+                Details = details,
                 Services = results
             });
         }

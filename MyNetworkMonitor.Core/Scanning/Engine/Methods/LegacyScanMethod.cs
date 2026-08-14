@@ -260,6 +260,15 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             // war nirgends zu sehen.
             Detail("NetBIOS", NetBiosDetail(result));
 
+            // Was die Industrieprotokolle ueber sich erzaehlen - Hersteller,
+            // Modell, Firmware, Anwendungsname. Die Sonden fragen das ohnehin
+            // ab; ohne diese Zeilen stuende in den Details nur, dass der Dienst
+            // laeuft.
+            foreach ((ServiceType service, string label) in ServiceNames.WithDeviceInfo)
+            {
+                Detail(label, ServiceLog(result, service));
+            }
+
             if (!string.IsNullOrWhiteSpace(result.SNMP_SysName)) Detail("SNMP", result.SNMPInfos);
             if (result.IsIPCam) Detail("Camera", $"{result.IPCamName} {result.IPCamXAddress}".Trim());
             Detail("mDNS", result.mDNS_toMultiLineString);
@@ -387,6 +396,31 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             services.Add(entry);
         }
 
+        /// <summary>
+        /// Das Protokoll des Ports, an dem der genannte Dienst erkannt wurde.
+        /// Nur von einem laufenden Dienst - bei "offen, aber nichts erkannt"
+        /// steht dort die Notiz des Versuchs und keine Auskunft ueber das Geraet.
+        /// </summary>
+        private static string? ServiceLog(IPToScan r, ServiceType service)
+        {
+            if (r.Services?.Services is null) return null;
+
+            foreach (ServiceScanData.ServiceResult entry in r.Services.Services)
+            {
+                if (entry.Service != service || entry.Ports is null) continue;
+
+                foreach (ServiceScanData.PortResult port in entry.Ports)
+                {
+                    if (port.Status == PortStatus.IsRunning && !string.IsNullOrWhiteSpace(port.PortLog))
+                    {
+                        return port.PortLog;
+                    }
+                }
+            }
+
+            return null;
+        }
+
         private static List<DeviceServiceResult>? BuildServices(IPToScan r, IpFamily family)
         {
             List<DeviceServiceResult> services = [];
@@ -412,7 +446,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 
                     DeviceServiceResult entry = new()
                     {
-                        ServiceName = unidentifiedOpen ? $"TCP {ports[0]}" : service.Service.ToString(),
+                        ServiceName = unidentifiedOpen ? $"TCP {ports[0]}" : ServiceNames.Of(service.Service),
                         Category = unidentifiedOpen ? "Open ports" : CategoryOf(service.Service),
                         Ports = ports,
                         PortLog = NullIfBlank(port.PortLog)

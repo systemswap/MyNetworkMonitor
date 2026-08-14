@@ -18,18 +18,43 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         public override IReadOnlyList<int> DefaultPorts => [47808];
 
 
-        /// <summary>Woertlich aus dem alten Schalter uebernommen - kein Byte veraendert.</summary>
+        /// <summary>
+        /// ReadProperty auf den Objektnamen des Geraets - dasselbe Paket, das
+        /// <see cref="QueryBacnetProperty"/> fuer jede weitere Eigenschaft
+        /// verwendet, nur mit der Property 0x4D.
+        /// <para>
+        /// Das frueher hier stehende Paket war falsch kodiert und blieb bei
+        /// zwei von zwei geprueften Stacks ohne oder ohne verwertbare Antwort:
+        /// im NPDU fehlte das Bit "expecting reply" (0x00 statt 0x04), der
+        /// APDU-Kopf fehlte ganz - PDU-Typ, maximale APDU-Groesse und
+        /// Invoke-ID -, die Objektkennung nannte Typ 0 (Analog-Input) statt 8
+        /// (Device), und die Property war 0x00 (acked_transitions) statt 0x4D
+        /// (Object_Name), obwohl der Kommentar Object_Name behauptete.
+        /// </para>
+        /// <para>
+        /// Der YABE-Simulator verwarf das Paket wortlos - damit endete
+        /// <c>GetBacNetInfos</c> vor der Eigenschaftsschleife und meldete
+        /// "keine Antwort", obwohl das Geraet auf die nachfolgenden Pakete
+        /// vollstaendig antwortete. Der CAS-Stack von Chipkin schickte ein
+        /// Reject mit Grund 9 ("unrecognized service"); das beginnt ebenfalls
+        /// mit 0x81 und besteht <see cref="IsBacNet"/>, weshalb die Erkennung
+        /// dort zufaellig trotzdem gelang. Die Erkennung hing also daran, ob
+        /// ein Geraet auf ein ungueltiges Paket ueberhaupt etwas zurueckgibt.
+        /// </para>
+        /// <para>
+        /// Gegengeprueft gegen beide Stacks: der Objektname kommt jetzt in
+        /// einem Complex-ACK zurueck, die anschliessend gesammelten
+        /// Eigenschaften sind byte-gleich zu vorher.
+        /// </para>
+        /// </summary>
         public override byte[] Hello => new byte[]
             {
-                0x81, 0x0A,             // BACnet/IP Header
-                0x00, 0x0F,             // Paketlänge (15 Bytes)
-                0x01,                   // PDU-Type (Confirmed Request)
-                0x00,                   // Invoke ID
-                0x0C,                   // ReadProperty Service Request
-                0x0C,                   // Object Type (Device)
-                0x00, 0x00, 0x00, 0x01, // Device Instance (1)
-                0x19, 0x00,             // Property Identifier (Object_Name)
-                0x4E                    // End-Of-List
+                0x81, 0x0A,             // BVLC: BACnet/IP, Original-Unicast-NPDU
+                0x00, 0x11,             // Gesamtlaenge einschliesslich BVLC-Kopf (17 Bytes)
+                0x01, 0x04,             // NPDU: Version 1, "expecting reply"
+                0x00, 0x05, 0x01, 0x0C, // APDU: Confirmed-Request, max. APDU, Invoke-ID 1, ReadProperty
+                0x0C, 0x02, 0x3F, 0xFF, 0xFF, // Objekt: Typ 8 (Device), Instanz 4194303 = "dieses Geraet"
+                0x19, 0x4D              // Property 0x4D (Object_Name)
             };
         /// <summary>Die Eigenschaften, die nach der ersten Antwort einzeln nachgefragt werden.</summary>
         private static readonly List<byte> PropertyIds = new List<byte>
@@ -125,6 +150,13 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                         }
 
                         portResult.Status = PortStatus.IsRunning;
+
+                        // Die gesammelten Angaben ins Protokoll des Ports - dort
+                        // holt die Detailansicht sie ab. Vorher wurden sie
+                        // Eigenschaft fuer Eigenschaft abgefragt und danach
+                        // verworfen: die Klasse versprach sie im Protokoll,
+                        // geschrieben hat sie nie jemand.
+                        portResult.PortLog = FormatDeviceInfo(collectedData);
                     }
                     else
                     {
@@ -138,6 +170,32 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             }
 
             return portResult;
+        }
+
+        /// <summary>
+        /// Die abgefragten Eigenschaften als Text, eine je Zeile.
+        /// <para>
+        /// Leere Werte bleiben draussen: nicht jedes Geraet pflegt Standort
+        /// oder Beschreibung, und eine Zeile "Location:" ohne Inhalt sagt
+        /// weniger als gar keine. Eine Objektnummer 0 heisst, dass die Antwort
+        /// nicht auszuwerten war, und zaehlt hier ebenfalls als leer.
+        /// </para>
+        /// </summary>
+        private static string FormatDeviceInfo(Dictionary<string, string> collectedData)
+        {
+            List<string> lines = [];
+
+            foreach (KeyValuePair<string, string> entry in collectedData)
+            {
+                string value = entry.Value?.Trim() ?? string.Empty;
+
+                if (value.Length == 0) continue;
+                if (value == "0" && entry.Key is "ObjectID" or "VendorID") continue;
+
+                lines.Add($"{entry.Key}: {value}");
+            }
+
+            return string.Join(Environment.NewLine, lines);
         }
 
         private static string PropertyIdToName(byte propertyId)
@@ -183,7 +241,18 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             return ID.ToString();
         }
 
-        /// <summary>Textwerte stehen hinter dem Tag 0x75, mit Laengenbyte davor.</summary>
+        /// <summary>
+        /// Textwerte stehen hinter dem Tag 0x75, mit Laengenbyte davor.
+        /// <para>
+        /// Auf das Laengenbyte folgt noch die Nummer des Zeichensatzes, und
+        /// erst dann der Text; die Laenge zaehlt dieses Byte mit. Vorher wurde
+        /// es als erstes Zeichen mitgelesen, weshalb jeder Wert mit einem
+        /// Nullzeichen begann - in der Anzeige ein Kaestchen oder eine Luecke
+        /// vor dem eigentlichen Text. Das <c>Replace("\\0", "")</c>, das das
+        /// abfangen sollte, suchte den Backslash gefolgt von einer Null als
+        /// zwei Zeichen und nicht das Nullzeichen selbst.
+        /// </para>
+        /// </summary>
         private static string ExtractBacnetAsciiString(byte[]? data)
         {
             if (data == null || data.Length < 20)
@@ -197,25 +266,24 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             if (index + 2 + length > data.Length)
                 return string.Empty; // Falls Laenge fehlerhaft ist
 
-            return Encoding.ASCII.GetString(data, index + 2, length).Trim().Replace("\\0", "");
+            // Das Byte des Zeichensatzes ueberspringen; es zaehlt zur Laenge,
+            // gehoert aber nicht zum Text.
+            if (length < 1) return string.Empty;
+
+            return Encoding.ASCII.GetString(data, index + 3, length - 1).Trim('\0', ' ');
         }
 
         private static async Task<byte[]?> QueryBacnetProperty(UdpClient udpClient, IPEndPoint targetEndPoint, byte propertyId)
         {
             byte[] requestPacket = new byte[]
             {
-                0x81, 0x0A,  // BACnet/IP Header
-                0x00, 0x11,  // Paketlaenge (17 Bytes)
-                0x01,        // PDU-Type: Complex-ACK (Antwort auf eine ReadProperty-Anfrage)
-                0x04,        // Invoke ID (Antwort auf die Anfrage mit ID 4)
-                0x00,        // Service Choice: ReadProperty Response
-                0x05,        // Anzahl der Objekte: 1
-                0x01, 0x0C,  // Object Type: Device (0x0C = 12)
-                0x0C,        // Object Instance (Device ID)
-                0x02,        // Anzahl der Properties: 2
-                0x3F, 0xFF, 0xFF,  // Property Identifier (Fehler oder unbekannte Property)
-                0x19,        // Property Data (muss weiter analysiert werden)
-                propertyId   // Property Identifier
+                0x81, 0x0A,  // BVLC: BACnet/IP, Original-Unicast-NPDU
+                0x00, 0x11,  // Gesamtlaenge einschliesslich BVLC-Kopf (17 Bytes)
+                0x01, 0x04,  // NPDU: Version 1, "expecting reply"
+                0x00, 0x05,  // APDU: Confirmed-Request, maximale APDU-Groesse
+                0x01, 0x0C,  // Invoke-ID 1, Service-Choice 0x0C (ReadProperty)
+                0x0C, 0x02, 0x3F, 0xFF, 0xFF, // Objekt: Typ 8 (Device), Instanz 4194303 = "dieses Geraet"
+                0x19, propertyId              // die gefragte Property
             };
 
             await udpClient.SendAsync(requestPacket, requestPacket.Length, targetEndPoint);
