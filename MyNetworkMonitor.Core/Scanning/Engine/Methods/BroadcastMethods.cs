@@ -102,19 +102,27 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         // Zuhoeren auf der Multicast-Gruppe, keine Zielliste.
         public override bool EnumeratesTargets => false;
 
-        public override ScanMethodAvailability CheckAvailability(ScanContext context)
-        {
-            ScopeRuntime? withInterface = context.Scopes.FirstOrDefault(s => s.Interface is not null);
-
-            return withInterface is null
-                ? ScanMethodAvailability.Blocked("No network adapter assigned.")
+        // Wie SSDP an der global gewaehlten Schnittstelle festgemacht, nicht am
+        // Adapter eines Bereichs: <c>EnsureLocalInterfaceSelected</c> fuellt die
+        // auch dann, wenn kein Bereich angehakt ist. Vorher war mDNS ausgegraut,
+        // sobald kein Bereich gewaehlt war - obwohl der Rechner sehr wohl einen
+        // Adapter hat, auf dem sich lauschen laesst.
+        public override ScanMethodAvailability CheckAvailability(ScanContext context) =>
+            SupportMethods.SelectedNetworkInterfaceInfos.IPv4 is null
+                ? ScanMethodAvailability.Blocked(
+                    "No network adapter selected. mDNS has to bind its listener to a local IPv4 address.")
                 : ScanMethodAvailability.Available;
-        }
 
         public override async Task ExecuteAsync(ScanContext context, CancellationToken cancellationToken)
         {
-            ScopeRuntime? runtime = context.Scopes.FirstOrDefault(s => s.Interface is not null);
-            if (runtime?.Interface is null) return;
+            // Der Adapter des Bereichs, wenn es einen gibt; sonst der lokale
+            // Standard - damit mDNS auch beim erneuten Scannen einzelner Geraete
+            // laeuft, wo kein Bereich mit Adapter dahintersteht.
+            string? interfaceName =
+                context.Scopes.FirstOrDefault(s => s.Interface is not null)?.Interface?.Name
+                ?? SupportMethods.SelectedNetworkInterfaceInfos.Name;
+
+            if (string.IsNullOrEmpty(interfaceName)) return;
 
             LegacyTargets targets = BuildTargets(context);
 
@@ -132,7 +140,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                 // der fruehere Task.WhenAny-Umweg (ohne echtes StopScan lief
                 // die Empfangsschleife im Hintergrund weiter, auch nachdem
                 // hier laengst nicht mehr gewartet wurde) ist damit ueberfluessig.
-                await mdns.DiscoverAsync(runtime.Interface.Name, ListenTimeMs, cancellationToken);
+                await mdns.DiscoverAsync(interfaceName, ListenTimeMs, cancellationToken);
             }
             finally
             {

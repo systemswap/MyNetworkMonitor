@@ -2885,7 +2885,7 @@
                                     <ItemsControl ItemsSource="{Binding Services}" Margin="14,0,0,0">
                                       <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="vm:GroupableService">
-                                          <CheckBox Content="{Binding Name}" FontSize="11"
+                                          <CheckBox Content="{Binding DisplayName}" FontSize="11"
                                                     MinHeight="0" Padding="7,0,0,0" Margin="0,1"
                                                     IsChecked="{Binding IsGrouped}"/>
                                         </DataTemplate>
@@ -2907,7 +2907,7 @@
                                     <ItemsControl ItemsSource="{Binding Services}" Margin="14,0,0,0">
                                       <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="vm:GroupableService">
-                                          <CheckBox Content="{Binding Name}" FontSize="11"
+                                          <CheckBox Content="{Binding DisplayName}" FontSize="11"
                                                     MinHeight="0" Padding="7,0,0,0" Margin="0,1"
                                                     IsChecked="{Binding IsGrouped}"/>
                                         </DataTemplate>

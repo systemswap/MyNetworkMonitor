@@ -59,8 +59,10 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             ScanningMethod_PortsTCP tcp = new();
 
             void OnFound(object? _, ScanTask_Finished_EventArgs e) => ReportResult(context, e.ipToScan, targets);
+            void OnProgress(int c, int r, int t) => context.ReportProgress(c, r, t);
 
             tcp.TcpPortScan_Task_Finished += OnFound;
+            tcp.ProgressUpdated += OnProgress;
             using CancellationTokenRegistration reg = BridgeCancellation(cancellationToken, tcp.StopScan);
 
             try
@@ -71,6 +73,73 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             finally
             {
                 tcp.TcpPortScan_Task_Finished -= OnFound;
+                tcp.ProgressUpdated -= OnProgress;
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+    }
+
+    /// <summary>
+    /// Wie <see cref="TcpPortScanMethod"/>, aber ueber alle 65535 Ports statt
+    /// der eingestellten Auswahl - und zeigt, welche offen sind.
+    /// <para>
+    /// Steht in der Oberflaeche eingerueckt unter dem gewoehnlichen Portscan
+    /// und ist nie vorausgewaehlt: der volle Durchlauf dauert deutlich laenger
+    /// und ist eine bewusste Entscheidung, kein Standard. Wer nur wissen will,
+    /// welche Tueren ueberhaupt offen stehen - unabhaengig davon, welche Ports
+    /// hinterlegt sind -, waehlt dieses Verfahren.
+    /// </para>
+    /// </summary>
+    public sealed class AllTcpPortScanMethod : LegacyScanMethod
+    {
+        public override string Id => "ports.tcp.all";
+        public override string DisplayName => "All TCP ports";
+        public override bool Indented => true;
+
+        public override string Explanation =>
+            "The same knock as the TCP port check, but on every one of the 65535 doors " +
+            "instead of the configured list - and it reports the ones that open. This is " +
+            "the way to find a service on an unusual port that no preset would ever try: a " +
+            "web interface on 8443, a remote desktop moved off its default. It takes " +
+            "noticeably longer than the configured check, so no preset turns it on - tick " +
+            "it yourself when you want the full picture.";
+
+        public override ScanPhase Phase => ScanPhase.Services;
+        public override FamilySupport Families => FamilySupport.IPv4;
+
+        public override ScanMethodAvailability CheckAvailability(ScanContext context) =>
+            context.HasTargetsOf(IpFamily.IPv4)
+                ? ScanMethodAvailability.Available
+                : ScanMethodAvailability.NotApplicable(NoIpv4Targets);
+
+        public override async Task ExecuteAsync(ScanContext context, CancellationToken cancellationToken)
+        {
+            LegacyTargets targets = BuildTargets(context);
+            if (targets.Count == 0) return;
+
+            // Bewusst der ganze Bereich, unabhaengig von der Portauswahl und dem
+            // Schalter "alle Ports": dieses Verfahren ist die Auswahl.
+            List<int> ports = [.. Enumerable.Range(1, 65535)];
+
+            ScanningMethod_PortsTCP tcp = new();
+
+            void OnFound(object? _, ScanTask_Finished_EventArgs e) => ReportResult(context, e.ipToScan, targets);
+            void OnProgress(int c, int r, int t) => context.ReportProgress(c, r, t);
+
+            tcp.TcpPortScan_Task_Finished += OnFound;
+            tcp.ProgressUpdated += OnProgress;
+            using CancellationTokenRegistration reg = BridgeCancellation(cancellationToken, tcp.StopScan);
+
+            try
+            {
+                await tcp.ScanTCPPortsAsync(targets.Items, ports,
+                    TimeSpan.FromMilliseconds(context.Settings.PortTimeoutMs));
+            }
+            finally
+            {
+                tcp.TcpPortScan_Task_Finished -= OnFound;
+                tcp.ProgressUpdated -= OnProgress;
             }
 
             cancellationToken.ThrowIfCancellationRequested();

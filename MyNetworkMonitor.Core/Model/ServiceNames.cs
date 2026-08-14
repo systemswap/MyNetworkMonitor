@@ -22,6 +22,14 @@ namespace MyNetworkMonitor.Core.Model
         };
 
         /// <summary>
+        /// Der Anzeigename zu einem gespeicherten Dienstnamen. Laesst sich der
+        /// Text als <see cref="ServiceType"/> lesen, gilt dessen Anzeigename;
+        /// sonst bleibt der Text stehen - etwa fuer Sammelzeilen wie "TCP Ports".
+        /// </summary>
+        public static string DisplayFor(string rawName) =>
+            Enum.TryParse(rawName, out ServiceType service) ? Of(service) : rawName;
+
+        /// <summary>
         /// Die Dienste, deren Sonde mehr zurueckbringt als "laeuft", und die
         /// Ueberschrift, unter der es in den Details steht. Wer hier fehlt,
         /// dessen Protokoll bleibt in der Dienstzeile und wandert nicht in die

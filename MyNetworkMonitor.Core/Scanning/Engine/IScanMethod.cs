@@ -150,6 +150,14 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
         bool RequiresElevation { get; }
 
         /// <summary>
+        /// Steht in der Oberflaeche eingerueckt unter dem Verfahren darueber -
+        /// fuer Varianten, die thematisch dazugehoeren, etwa der vollstaendige
+        /// Portscan unter dem gewoehnlichen. Reine Darstellung, ohne Wirkung
+        /// auf den Lauf. Vorgabe: nicht eingerueckt.
+        /// </summary>
+        bool Indented => false;
+
+        /// <summary>
         /// Prueft vor dem Lauf, ob das Verfahren hier etwas ausrichten kann.
         /// Muss guenstig sein - keine Netzwerkzugriffe.
         /// </summary>

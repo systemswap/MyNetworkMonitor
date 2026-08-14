@@ -268,7 +268,7 @@ namespace MyNetworkMonitor.Core.ViewModels
         private static readonly string[] DefaultOnlyKnownTargetsFor =
         [
             "dns.reverse", "dns.lookup", "netbios", "onvif",
-            "ports.tcp", "ports.udp", "smb.version", "services"
+            "ports.tcp", "ports.tcp.all", "ports.udp", "smb.version", "services"
         ];
 
         /// <summary>
@@ -410,6 +410,21 @@ namespace MyNetworkMonitor.Core.ViewModels
             foreach (string id in ExpandLegacyIds(stored))
             {
                 Settings.OnlyKnownTargetsFor.Add(id);
+            }
+
+            // Der Vollport-Scan ist nach den anderen dazugekommen; wer bereits
+            // eine gespeicherte Auswahl hatte, hat ihn darum nicht drin. Einmal
+            // nachtragen - ein voller Durchlauf ueber alle 65535 Ports auf einen
+            // ganzen Bereich waere sonst der Normalfall statt die Ausnahme. Der
+            // Merker sorgt dafuer, dass ein spaeteres Abwaehlen bestehen bleibt.
+            if (!_userSettings.GetBool("OnlyKnownTargetsFor.seededAllPorts", false))
+            {
+                if (!Settings.OnlyKnownTargetsFor.Contains("ports.tcp.all"))
+                {
+                    Settings.OnlyKnownTargetsFor.Add("ports.tcp.all");
+                }
+
+                _userSettings.SetBool("OnlyKnownTargetsFor.seededAllPorts", true);
             }
 
             // Hat das Auspacken etwas veraendert, den bereinigten Stand
@@ -775,6 +790,7 @@ namespace MyNetworkMonitor.Core.ViewModels
                     GroupableService entry = new()
                     {
                         Name = name,
+                        DisplayNameOverride = ServiceNames.DisplayFor(name),
                         IsGrouped = ServiceDisplay.Grouped.Contains(name)
                     };
 
@@ -1342,7 +1358,18 @@ namespace MyNetworkMonitor.Core.ViewModels
         [RelayCommand]
         private async Task RescanSelectedAsync()
         {
-            if (IsRunning || SelectedMethodCount == 0) return;
+            if (IsRunning) return;
+
+            // Bewusst nicht SelectedMethodCount: der zaehlt nur, was gegen die
+            // gewaehlten Bereiche wirksam ist, und beim erneuten Scannen ist oft
+            // kein Bereich gewaehlt. Gefragt ist, ob ueberhaupt ein Verfahren
+            // angehakt ist - die Ziele kommen aus den markierten Zeilen, nicht
+            // aus einem Bereich.
+            if (!Methods.Any(m => m.IsSelected))
+            {
+                StatusText = "No scan method selected.";
+                return;
+            }
 
             List<ScanScope> scopes = BuildRescanScopes(Devices.ActionTargets);
 
@@ -2046,7 +2073,17 @@ namespace MyNetworkMonitor.Core.ViewModels
             // des vorherigen Laufs, als haetten sie gerade gearbeitet.
             foreach (ScanMethodChoice method in Methods) method.ResetProgress();
 
-            List<ScanMethodChoice> chosen = [.. Methods.Where(m => m.IsEffective)];
+            // Wirksam gegen die Bereiche dieses Laufs, nicht gegen die global
+            // angehakten. Beim erneuten Scannen einzelner Geraete kommen die
+            // Ziele aus der Tabelle, und dann ist oft gar kein Bereich gewaehlt -
+            // gegen die leere Auswahl gemessen waere jedes Verfahren
+            // "nicht anwendbar" und der Lauf bliebe leer. Fuer den normalen Scan
+            // sind die uebergebenen Bereiche die gewaehlten, das Ergebnis ist
+            // dasselbe wie zuvor.
+            ScanContext runProbe = BuildProbeContext(ScopeRuntimeFactory.Build(scopes));
+
+            List<ScanMethodChoice> chosen =
+                [.. Methods.Where(m => m.IsSelected && m.Method.CheckAvailability(runProbe).CanRun)];
             List<string> methods = [.. chosen.Select(m => m.Id)];
 
             // Der Ablaufplan steht vor dem Start fest - die Statuszeile kann
@@ -2612,12 +2649,12 @@ namespace MyNetworkMonitor.Core.ViewModels
         /// IPv6-Beurteilung -, die Zielaufzaehlung waere hier aber
         /// verschwendet, weil sie bei jedem Haken neu liefe.
         /// </summary>
-        private ScanContext BuildProbeContext()
+        private ScanContext BuildProbeContext(IReadOnlyList<ScopeRuntime>? forRuntimes = null)
         {
             // Ein einzelnes Ziel je Bereich genuegt, damit die Verfahren die
             // vorhandenen Adressfamilien erkennen.
             List<ScanTargetEntry> sample = [];
-            List<ScopeRuntime> runtimes = _lastRuntimes;
+            IReadOnlyList<ScopeRuntime> runtimes = forRuntimes ?? _lastRuntimes;
 
             foreach (ScopeRuntime runtime in runtimes)
             {

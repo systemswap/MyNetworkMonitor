@@ -40,10 +40,19 @@ namespace MyNetworkMonitor.Core.ViewModels
 
         [ObservableProperty] private ScanMethodAvailability _availability = ScanMethodAvailability.Available;
 
-        /// <summary>Kann angehakt werden.</summary>
-        public bool IsEnabled => Availability.CanRun;
+        /// <summary>
+        /// Kann angehakt werden. Nur eine harte Sperre nimmt das Kaestchen weg -
+        /// fehlende Adminrechte, kein Adapter, kein Raw-Socket. "Kein passendes
+        /// Ziel" (<see cref="ScanMethodState.NotApplicable"/>) sperrt dagegen
+        /// nicht mehr: das haengt am gewaehlten Bereich, und ohne einen Bereich
+        /// muss man die Verfahren trotzdem einstellen koennen - etwa um ein
+        /// einzelnes Geraet aus der Tabelle erneut zu scannen. Ob ein Verfahren
+        /// dann tatsaechlich laeuft, entscheidet der Lauf gegen seine eigenen
+        /// Ziele, nicht dieses Kaestchen.
+        /// </summary>
+        public bool IsEnabled => Availability.State != ScanMethodState.Blocked;
 
-        /// <summary>Erklaerung fuer den Tooltip. Leer, wenn das Verfahren laeuft.</summary>
+        /// <summary>Leer, wenn das Verfahren laeuft.</summary>
         public string BlockReason => Availability.CanRun ? string.Empty : Availability.Reason;
 
         /// <summary>Was das Verfahren findet und wofuer man es benutzt.</summary>
@@ -60,13 +69,28 @@ namespace MyNetworkMonitor.Core.ViewModels
         /// wenn nirgends steht, warum es ausgegraut ist.
         /// </para>
         /// </summary>
-        public string Hint =>
-            BlockReason.Length == 0
-                ? Explanation
-                : $"{Explanation}\n\nNot available right now: {BlockReason}";
+        public string Hint
+        {
+            get
+            {
+                if (BlockReason.Length == 0) return Explanation;
+
+                // Zwei verschiedene Lagen: hart gesperrt (Kaestchen weg) oder
+                // nur "passt gerade nicht" (Kaestchen bleibt, laeuft aber nicht,
+                // solange es so eingestellt ist).
+                string lead = Availability.State == ScanMethodState.Blocked
+                    ? "Not available right now:"
+                    : "Won't run as things are set:";
+
+                return $"{Explanation}\n\n{lead} {BlockReason}";
+            }
+        }
 
         /// <summary>Nur IPv6 - traegt in der Oberflaeche die Indigo-Kennzeichnung.</summary>
         public bool IsIpv6Only => Families == FamilySupport.IPv6;
+
+        /// <summary>Steht eingerueckt unter dem Verfahren darueber - siehe <see cref="IScanMethod.Indented"/>.</summary>
+        public bool Indented => Method.Indented;
 
         /// <summary>Kann beide Familien - selten, aber sichtbar zu machen.</summary>
         public bool IsDualStack => Families == FamilySupport.Both;
