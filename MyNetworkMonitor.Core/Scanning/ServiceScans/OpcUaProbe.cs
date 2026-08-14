@@ -236,13 +236,49 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             }
 
             List<string> lines = [];
-            if (!string.IsNullOrWhiteSpace(application)) lines.Add($"Application: {application}");
-            if (!string.IsNullOrWhiteSpace(applicationUri)) lines.Add($"Application URI: {applicationUri}");
-            if (!string.IsNullOrWhiteSpace(productUri)) lines.Add($"Product URI: {productUri}");
+            if (!string.IsNullOrWhiteSpace(application)) lines.Add($"Application: {Readable(application)}");
+            if (!string.IsNullOrWhiteSpace(applicationUri)) lines.Add($"Application URI: {Readable(applicationUri)}");
+            if (!string.IsNullOrWhiteSpace(productUri)) lines.Add($"Product URI: {Readable(productUri)}");
             if (!string.IsNullOrWhiteSpace(endpoint)) lines.Add($"Endpoint: {endpoint}");
             if (policies.Count > 0) lines.Add($"Security policies: {string.Join(", ", policies)}");
 
             return lines.Count == 0 ? null : string.Join(Environment.NewLine, lines);
+        }
+
+        /// <summary>
+        /// Loest Prozentzeichen-Ersatzdarstellungen auf, wie sie in einer
+        /// Anwendungskennung vorkommen: aus "WAGO%20750" wird "WAGO 750".
+        /// <para>
+        /// Nur zweistellige Sedezimalfolgen werden ersetzt, und nur zu
+        /// druckbaren Zeichen. Ein einzelnes Prozentzeichen im Text bleibt
+        /// stehen, statt den Rest der Zeile zu verschlucken.
+        /// </para>
+        /// </summary>
+        private static string Readable(string value)
+        {
+            if (!value.Contains('%')) return value;
+
+            var result = new StringBuilder(value.Length);
+
+            for (int i = 0; i < value.Length; i++)
+            {
+                if (value[i] == '%' && i + 2 < value.Length &&
+                    Uri.IsHexDigit(value[i + 1]) && Uri.IsHexDigit(value[i + 2]))
+                {
+                    int code = Convert.ToInt32(value.Substring(i + 1, 2), 16);
+
+                    if (code is >= 0x20 and <= 0x7E)
+                    {
+                        result.Append((char)code);
+                        i += 2;
+                        continue;
+                    }
+                }
+
+                result.Append(value[i]);
+            }
+
+            return result.ToString();
         }
 
         /// <summary>Sprachkennzeichen wie "en-US" gehoeren zum Namen, sind aber nicht der Name.</summary>
