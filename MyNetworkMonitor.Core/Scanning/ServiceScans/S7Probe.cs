@@ -143,49 +143,106 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         /// </summary>
         private readonly record struct TsapCandidate(byte[] Request, string Description);
 
+        /// <summary>Wie eine Gegenstelle auf eine Verbindungsanfrage reagiert hat.</summary>
+        private enum Attempt
+        {
+            /// <summary>Bestaetigt - dieser Anschlusspunkt ist der richtige.</summary>
+            Confirmed,
+
+            /// <summary>Abgewiesen. Nicht der richtige Punkt, aber jemand hat geantwortet.</summary>
+            Rejected,
+
+            /// <summary>Keine Antwort bis zum Zeitlimit.</summary>
+            Silent
+        }
+
         /// <summary>
-        /// Sucht einen Anschlusspunkt, den die Gegenstelle bestaetigt.
+        /// Sucht einen Anschlusspunkt, den die Gegenstelle bestaetigt - in zwei
+        /// Runden, deren zweite nur laeuft, wenn sie etwas bringen kann.
         /// <para>
-        /// Die Kandidaten werden aus Bereichen erzeugt und nicht als Liste
-        /// gepflegt: Verbindungsart mal Rack mal Slot. Eine feste Liste waere
-        /// dasselbe Problem in groesser - beim naechsten Aufbau, der nicht
-        /// darin steht, faengt die Suche von vorne an.
+        /// Die erste Runde fragt die gebraeuchlichen Punkte. Bestaetigt einer,
+        /// ist die Suche vorbei.
         /// </para>
         /// <para>
-        /// Gefragt wird nebenlaeufig. Nacheinander waere es untragbar: eine
-        /// Gegenstelle, die keinen einzigen Anschlusspunkt bestaetigt - etwa
-        /// ein Port 102, hinter dem gar keine Steuerung sitzt -, liesse jeden
-        /// Versuch einzeln in sein Zeitlimit laufen. Gewertet wird trotzdem in
-        /// fester Reihenfolge, damit bei mehreren bestaetigten Punkten immer
-        /// derselbe gewinnt.
+        /// Sonst entscheidet das Verhalten der Gegenstelle ueber die zweite
+        /// Runde, und nicht eine Einstellung: <b>hat sie abgewiesen</b>, ist sie
+        /// ansprechbar, und dann wird der vollstaendige Adressraum durchsucht -
+        /// alle Verbindungsarten, alle acht Racks, alle 32 Slots. Gemessen an
+        /// zwei Steuerungen weist eine SPS jeden falschen Punkt binnen weniger
+        /// Millisekunden ab, darum ist das billig. <b>War sie stumm</b>, wird
+        /// abgebrochen: wo nichts antwortet, findet auch der volle Raum nichts,
+        /// er wuerde nur Minuten verbrennen.
+        /// </para>
+        /// <para>
+        /// Der Sinn der zweiten Runde ist, dass niemand den Aufbau der Anlage
+        /// kennen muss. Wer den Scanner bedient, weiss nicht, auf welchem Rack
+        /// und Slot die CPU steckt - das weiss nur, wer sie projektiert hat.
+        /// </para>
+        /// <para>
+        /// Gefragt wird nebenlaeufig, gewertet in fester Reihenfolge, damit bei
+        /// mehreren bestaetigten Punkten immer derselbe gewinnt. Ueber allem
+        /// liegt ein Gesamtzeitbudget als Sicherung: verhaelt sich eine
+        /// Gegenstelle unerwartet, ist danach trotzdem Schluss.
         /// </para>
         /// </summary>
         private static async Task<TsapCandidate?> FindAcceptedTsapAsync(
             ProbeContext context, string address, int port, CancellationToken token)
         {
-            List<TsapCandidate> candidates = [.. BuildCandidates()];
-
-            // Kurzer als beim ersten Anlauf: hier geht es nur um die Frage, ob
+            // Kuerzer als beim ersten Anlauf: hier geht es nur um die Frage, ob
             // ueberhaupt bestaetigt wird, und es sind viele Versuche.
             int timeoutMs = Math.Min(context.TimeoutMs, 1500);
 
+            List<TsapCandidate> common = [.. CommonCandidates()];
+
+            (TsapCandidate? found, bool responded) = await TryAllAsync(
+                address, port, common, timeoutMs, token);
+
+            if (found is not null) return found;
+
+            // Niemand hat geantwortet - die zweite Runde koennte es auch nicht.
+            if (!responded) return null;
+
+            List<TsapCandidate> remaining = [.. RemainingCandidates()];
+
+            using var budget = CancellationTokenSource.CreateLinkedTokenSource(token);
+            budget.CancelAfter(FullSearchBudgetMs);
+
+            try
+            {
+                (found, _) = await TryAllAsync(address, port, remaining, timeoutMs, budget.Token);
+                return found;
+            }
+            catch (OperationCanceledException) when (!token.IsCancellationRequested)
+            {
+                // Zeitbudget abgelaufen. Der Befund der ersten Runde bleibt
+                // gueltig, es gibt nur keinen Anschlusspunkt dazu.
+                return null;
+            }
+        }
+
+        /// <summary>Obergrenze fuer die vollstaendige Suche, unabhaengig davon, wie sie laeuft.</summary>
+        private const int FullSearchBudgetMs = 5000;
+
+        /// <summary>
+        /// Fragt alle Kandidaten nebenlaeufig und liefert den ersten
+        /// bestaetigten in Reihenfolge - dazu, ob ueberhaupt jemand geantwortet
+        /// hat.
+        /// </summary>
+        private static async Task<(TsapCandidate? Found, bool Responded)> TryAllAsync(
+            string address, int port, List<TsapCandidate> candidates, int timeoutMs, CancellationToken token)
+        {
+            // Sechs gleichzeitig: genug, um die Wartezeiten zu ueberlappen, und
+            // wenig genug, dass eine kleine Steuerung nicht an ihre Grenze der
+            // gleichzeitigen Verbindungen stoesst.
             using var limit = new SemaphoreSlim(6);
 
-            Task<bool>[] attempts = [.. candidates.Select(async candidate =>
+            Task<Attempt>[] attempts = [.. candidates.Select(async candidate =>
             {
                 await limit.WaitAsync(token);
 
                 try
                 {
-                    return await ConfirmsAsync(address, port, candidate.Request, timeoutMs, token);
-                }
-                catch (OperationCanceledException) when (token.IsCancellationRequested)
-                {
-                    throw;
-                }
-                catch (Exception)
-                {
-                    return false;
+                    return await TryTsapAsync(address, port, candidate.Request, timeoutMs, token);
                 }
                 finally
                 {
@@ -193,47 +250,83 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                 }
             })];
 
-            bool[] results = await Task.WhenAll(attempts);
+            Attempt[] results = await Task.WhenAll(attempts);
+
+            bool responded = false;
 
             for (int i = 0; i < results.Length; i++)
             {
-                if (results[i]) return candidates[i];
+                if (results[i] == Attempt.Confirmed) return (candidates[i], true);
+                if (results[i] == Attempt.Rejected) responded = true;
             }
 
-            return null;
+            return (null, responded);
         }
 
+        /// <summary>Die Verbindungsarten, die im S7-Umfeld vorkommen.</summary>
+        private static readonly byte[] ConnectionTypes = [0x01, 0x02, 0x03];
+
         /// <summary>
-        /// Die Anschlusspunkte, in der Reihenfolge, in der sie gewertet
-        /// werden: erst Slot 1 - dort sitzt die CPU einer S7-1200 oder 1500 -,
-        /// dann Slot 0, dann die uebrigen. Rack 0 vor Rack 1, und je Stelle
-        /// die Verbindungsarten PG, OP und Basic.
+        /// Die gebraeuchlichen Anschlusspunkte fuer die erste Runde, in der
+        /// Reihenfolge, in der sie gewertet werden: erst Slot 1 - dort sitzt
+        /// die CPU einer S7-1200 oder 1500 -, dann Slot 0, dann die uebrigen.
+        /// Rack 0 vor Rack 1, und je Stelle die Verbindungsarten PG, OP und
+        /// Basic.
         /// <para>
         /// Rack 0, Slot 2 mit Verbindungsart PG fehlt bewusst: das ist das
         /// Erkennungspaket, und wenn diese Suche laeuft, ist es bereits
         /// erfolglos geblieben.
         /// </para>
         /// </summary>
-        private static IEnumerable<TsapCandidate> BuildCandidates()
+        private static IEnumerable<TsapCandidate> CommonCandidates()
         {
-            int[] slotOrder = [1, 0, 2, 3];
-            byte[] connectionTypes = [0x01, 0x02, 0x03];
-
-            foreach (int slot in slotOrder)
+            foreach (int slot in (int[])[1, 0, 2, 3])
             {
                 for (int rack = 0; rack <= 1; rack++)
                 {
-                    foreach (byte type in connectionTypes)
+                    foreach (byte type in ConnectionTypes)
                     {
-                        if (type == 0x01 && rack == 0 && slot == 2) continue;
+                        if (IsDetectionPacket(type, rack, slot)) continue;
 
-                        yield return new TsapCandidate(
-                            ConnectionRequest(type, rack, slot),
-                            $"{TypeName(type)}, rack {rack}, slot {slot}");
+                        yield return Candidate(type, rack, slot);
                     }
                 }
             }
         }
+
+        /// <summary>
+        /// Alles Uebrige fuer die zweite Runde: der vollstaendige Adressraum
+        /// ohne das, was die erste Runde schon hatte.
+        /// <para>
+        /// Im zweiten TSAP-Byte tragen die oberen drei Bit das Rack und die
+        /// unteren fuenf den Slot - mehr als acht Racks und 32 Slots gibt es
+        /// also nicht. Mal drei Verbindungsarten sind das 768 Punkte
+        /// insgesamt, von denen hier die 24 der ersten Runde fehlen.
+        /// </para>
+        /// </summary>
+        private static IEnumerable<TsapCandidate> RemainingCandidates()
+        {
+            for (int rack = 0; rack <= 7; rack++)
+            {
+                for (int slot = 0; slot <= 31; slot++)
+                {
+                    foreach (byte type in ConnectionTypes)
+                    {
+                        if (IsDetectionPacket(type, rack, slot)) continue;
+                        if (rack <= 1 && slot <= 3) continue;   // hatte die erste Runde
+
+                        yield return Candidate(type, rack, slot);
+                    }
+                }
+            }
+        }
+
+        private static bool IsDetectionPacket(byte connectionType, int rack, int slot) =>
+            connectionType == 0x01 && rack == 0 && slot == 2;
+
+        private static TsapCandidate Candidate(byte connectionType, int rack, int slot) =>
+            new(ConnectionRequest(connectionType, rack, slot),
+                $"{TypeName(connectionType)}, rack {rack}, slot {slot}");
 
         private static string TypeName(byte connectionType) => connectionType switch
         {
@@ -267,25 +360,65 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             ];
         }
 
-        /// <summary>Schickt eine Verbindungsanfrage und prueft, ob sie bestaetigt wird.</summary>
-        private static async Task<bool> ConfirmsAsync(
+        /// <summary>
+        /// Schickt eine Verbindungsanfrage und meldet, wie die Gegenstelle
+        /// reagiert hat.
+        /// <para>
+        /// Die Unterscheidung zwischen "abgewiesen" und "stumm" ist der Kern
+        /// der zweiten Runde. Abgewiesen heisst: es hat jemand geantwortet, nur
+        /// nicht an diesem Punkt - dann lohnt das Weitersuchen. Eine Steuerung
+        /// weist einen falschen Punkt binnen weniger Millisekunden ab, meist
+        /// indem sie die Verbindung zuruecksetzt oder ohne Antwort schliesst.
+        /// </para>
+        /// </summary>
+        private static async Task<Attempt> TryTsapAsync(
             string address, int port, byte[] request, int timeoutMs, CancellationToken token)
         {
-            using var client = new TcpClient();
+            try
+            {
+                using var client = new TcpClient();
 
-            Task connect = client.ConnectAsync(address, port, token).AsTask();
-            if (await Task.WhenAny(connect, Task.Delay(timeoutMs, token)) != connect) return false;
-            await connect;
+                Task connect = client.ConnectAsync(address, port, token).AsTask();
+                if (await Task.WhenAny(connect, Task.Delay(timeoutMs, token)) != connect) return Attempt.Silent;
+                await connect;
 
-            NetworkStream stream = client.GetStream();
+                NetworkStream stream = client.GetStream();
 
-            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
-            timeout.CancelAfter(timeoutMs);
+                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
+                timeout.CancelAfter(timeoutMs);
 
-            await stream.WriteAsync(request, timeout.Token);
+                await stream.WriteAsync(request, timeout.Token);
 
-            byte[]? confirm = await ReadTpktAsync(stream, timeout.Token);
-            return confirm is not null && confirm.Length >= 6 && confirm[5] == 0xD0;
+                byte[]? confirm = await ReadTpktAsync(stream, timeout.Token);
+
+                if (confirm is null) return Attempt.Rejected;   // ohne Antwort geschlossen
+
+                return confirm.Length >= 6 && confirm[5] == 0xD0
+                    ? Attempt.Confirmed
+                    : Attempt.Rejected;                         // etwa ein Disconnect Request
+            }
+            catch (OperationCanceledException) when (token.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (OperationCanceledException)
+            {
+                return Attempt.Silent;                          // eigenes Zeitlimit abgelaufen
+            }
+            catch (SocketException ex) when (ex.SocketErrorCode == SocketError.ConnectionRefused)
+            {
+                // Der Port ist inzwischen zu. Weitersuchen waere sinnlos, aber
+                // es ist auch kein Zeichen von Ansprechbarkeit.
+                return Attempt.Silent;
+            }
+            catch (IOException)
+            {
+                return Attempt.Rejected;                        // Verbindung zurueckgesetzt
+            }
+            catch (Exception)
+            {
+                return Attempt.Silent;
+            }
         }
 
         /// <summary>
