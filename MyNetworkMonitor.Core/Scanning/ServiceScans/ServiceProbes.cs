@@ -51,7 +51,8 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             [ServiceType.OPCUA] = () => new OpcUaProbe(),
             [ServiceType.ModBus] = () => new ModBusProbe(),
             [ServiceType.S7] = () => new S7Probe(),
-            [ServiceType.BacNet] = () => new BacNetProbe()
+            [ServiceType.BacNet] = () => new BacNetProbe(),
+            [ServiceType.Wago] = () => new WagoProbe()
         };
 
         /// <summary>

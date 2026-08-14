@@ -33,7 +33,8 @@ namespace MyNetworkMonitor.Core.Model
             (ServiceType.BacNet, "BACnet device"),
             (ServiceType.ModBus, "Modbus device"),
             (ServiceType.OPCUA,  "OPC UA server"),
-            (ServiceType.S7,     "S7 PLC")
+            (ServiceType.S7,     "S7 PLC"),
+            (ServiceType.Wago,   "WAGO device")
         ];
 
         /// <summary>Die Ueberschrift fuer diesen Dienst, oder <c>null</c>, wenn er keine Auskunft liefert.</summary>

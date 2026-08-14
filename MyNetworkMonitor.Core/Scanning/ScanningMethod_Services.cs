@@ -71,7 +71,8 @@ public enum ServiceType
     OPCUA,
     ModBus,
     S7,
-    BacNet
+    BacNet,
+    Wago
 }
 
 
@@ -616,7 +617,7 @@ public class ScanningMethod_Services
                 => "📦 NoSQL-Datenbanken",
 
             // Industrieprotokolle
-            ServiceType.OPCUA or ServiceType.ModBus or ServiceType.S7 or ServiceType.BacNet
+            ServiceType.OPCUA or ServiceType.ModBus or ServiceType.S7 or ServiceType.BacNet or ServiceType.Wago
                 => "🏭 Industrieprotokolle",
 
             _ => "❓ Sonstige"
