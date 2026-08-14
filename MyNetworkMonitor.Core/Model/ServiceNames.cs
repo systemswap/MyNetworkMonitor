@@ -1,0 +1,50 @@
+namespace MyNetworkMonitor.Core.Model
+{
+    /// <summary>
+    /// Der Name, unter dem ein Dienst in der Oberflaeche steht.
+    /// <para>
+    /// Bisher stand dort <c>ServiceType.ToString()</c>, also der Bezeichner aus
+    /// dem Quelltext. Der taugt als Schluessel, aber nicht immer als Auskunft:
+    /// "S7" sagt nur etwas, wer das Protokoll ohnehin kennt.
+    /// </para>
+    /// <para>
+    /// Der Umweg ueber diese Tabelle statt einer Umbenennung im Enum ist
+    /// Absicht - der Enum-Name steht in gespeicherten Bestaenden und in den
+    /// Einstellungen der Verfahren; ihn zu aendern wuerde beide entwerten.
+    /// </para>
+    /// </summary>
+    public static class ServiceNames
+    {
+        public static string Of(ServiceType service) => service switch
+        {
+            ServiceType.S7 => "S7 PLC (SPS)",
+            _ => service.ToString()
+        };
+
+        /// <summary>
+        /// Die Dienste, deren Sonde mehr zurueckbringt als "laeuft", und die
+        /// Ueberschrift, unter der es in den Details steht. Wer hier fehlt,
+        /// dessen Protokoll bleibt in der Dienstzeile und wandert nicht in die
+        /// Detailansicht - dort stuende sonst bei jedem zweiten Dienst die
+        /// Notiz "Antwort passt zum erwarteten Protokoll".
+        /// </summary>
+        public static readonly (ServiceType Service, string Label)[] WithDeviceInfo =
+        [
+            (ServiceType.BacNet, "BACnet device"),
+            (ServiceType.ModBus, "Modbus device"),
+            (ServiceType.OPCUA,  "OPC UA server"),
+            (ServiceType.S7,     "S7 PLC")
+        ];
+
+        /// <summary>Die Ueberschrift fuer diesen Dienst, oder <c>null</c>, wenn er keine Auskunft liefert.</summary>
+        public static string? InfoLabelOf(ServiceType service)
+        {
+            foreach ((ServiceType candidate, string label) in WithDeviceInfo)
+            {
+                if (candidate == service) return label;
+            }
+
+            return null;
+        }
+    }
+}
