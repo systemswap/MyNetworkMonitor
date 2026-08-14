@@ -412,6 +412,114 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             }
 
             cancellationToken.ThrowIfCancellationRequested();
+
+            // Erst nachdem alle Dienste durch sind: der Bestand traegt jetzt,
+            // was S7, BACnet und Modbus an Firmware gemeldet haben, und genau
+            // daran entscheidet sich, ob die OPC-UA-Sitzung noetig ist.
+            await AddOpcUaFirmwareAsync(context, addresses, cancellationToken);
+        }
+
+        /// <summary>Der uebliche OPC-UA-Port - hier nur, um laufende Dienste zu erkennen.</summary>
+        private const int OpcUaPort = 4840;
+
+        /// <summary>
+        /// Nachlauf fuer die Firmware ueber OPC UA - der einzige Schritt, der
+        /// eine Sitzung <em>aufbaut</em> statt nur zu fragen.
+        /// <para>
+        /// Angemeldet wird nur, wo es noetig ist: das Geraet muss OPC UA
+        /// sprechen, und es darf noch keine Firmware aus einem anderen Dienst
+        /// bekannt sein. S7, BACnet und die WAGO-Register liefern sie ohne
+        /// Sitzung; bei diesen Geraeten unterbleibt der Login. Uebrig bleiben
+        /// die, bei denen OPC UA der einzige Weg ist - etwa eine reine
+        /// OPC-UA-Steuerung. Die Sitzung laeuft ausschliesslich anonym.
+        /// </para>
+        /// </summary>
+        private async Task AddOpcUaFirmwareAsync(
+            ScanContext context, List<string> addresses, CancellationToken token)
+        {
+            List<(string Address, IpAddressInfo Info)> candidates = [];
+
+            lock (context.Store.SyncRoot)
+            {
+                foreach (string address in addresses)
+                {
+                    if (!IpAddressAnalyzer.TryAnalyze(address, out IpAddressInfo? info) || info is null) continue;
+
+                    Device? device = context.Store.FindByAddress(info);
+                    if (device is null) continue;
+
+                    bool opcUaRunning = device.Services.Any(s => s.IsRunning && s.Ports.Contains(OpcUaPort));
+                    if (!opcUaRunning) continue;
+
+                    if (FirmwareAlreadyKnown(device)) continue;
+
+                    candidates.Add((address, info));
+                }
+            }
+
+            if (candidates.Count == 0) return;
+
+            ProbeContext probeContext = new() { TimeoutMs = context.Settings.PortTimeoutMs };
+            using SemaphoreSlim slots = new(4);
+
+            IEnumerable<Task> reads = candidates.Select(async candidate =>
+            {
+                await slots.WaitAsync(token);
+
+                try
+                {
+                    string? build = await OpcUaProbe.ReadBuildInfoAsync(
+                        probeContext, candidate.Address, OpcUaPort, token);
+
+                    if (string.IsNullOrWhiteSpace(build)) return;
+
+                    context.Report(new DeviceObservation
+                    {
+                        Source = DisplayName,
+                        Address = candidate.Info,
+                        IsResponding = true,
+                        Details = new Dictionary<string, string> { ["OPC UA build info"] = build }
+                    });
+                }
+                catch (OperationCanceledException) when (token.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception)
+                {
+                    // Ein Server, der anonyme Sitzungen ablehnt oder unterwegs
+                    // abbricht, bleibt ohne Firmware - der uebrige Befund steht.
+                }
+                finally
+                {
+                    slots.Release();
+                }
+            });
+
+            await Task.WhenAll(reads);
+        }
+
+        /// <summary>
+        /// Ob zu diesem Geraet schon Firmware feststeht - aus den Details oder
+        /// dem Protokoll eines laufenden Dienstes. Alle Sonden, die Firmware
+        /// melden, schreiben das Wort "Firmware" in ihre Ausgabe.
+        /// </summary>
+        private static bool FirmwareAlreadyKnown(Device device)
+        {
+            foreach (string value in device.Details.Values)
+            {
+                if (value.Contains("Firmware", StringComparison.OrdinalIgnoreCase)) return true;
+            }
+
+            foreach (DeviceServiceResult service in device.Services)
+            {
+                if (service.PortLog is { } log && log.Contains("Firmware", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>

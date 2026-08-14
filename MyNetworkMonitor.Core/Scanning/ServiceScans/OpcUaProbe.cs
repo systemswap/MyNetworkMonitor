@@ -192,6 +192,310 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
+        /// Liest die BuildInfo eines Servers ueber eine <b>anonyme</b> Sitzung:
+        /// Hersteller, Softwarestand und Baudatum. <c>null</c>, wenn der Server
+        /// keine anonyme Sitzung zulaesst oder nichts Verwertbares liefert.
+        /// <para>
+        /// Dies ist der einzige Schritt, der ueber die reine Auskunft
+        /// hinausgeht und eine Sitzung <em>aufbaut</em>. Er laeuft ausdruecklich
+        /// nur ohne Zugangsdaten - der Scanner fuehrt keine Passwoerter mit -,
+        /// und nur dort, wo sonst keine Firmware zu bekommen ist. Ein Server,
+        /// der anonyme Sitzungen ablehnt, liefert hier nichts, und dabei bleibt es.
+        /// </para>
+        /// </summary>
+        internal static async Task<string?> ReadBuildInfoAsync(
+            ProbeContext context, string address, int port, CancellationToken token)
+        {
+            using var client = new TcpClient();
+
+            Task connect = client.ConnectAsync(address, port, token).AsTask();
+            if (await Task.WhenAny(connect, Task.Delay(context.TimeoutMs, token)) != connect) return null;
+            await connect;
+
+            NetworkStream stream = client.GetStream();
+
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
+            timeout.CancelAfter(context.TimeoutMs * 4);
+            CancellationToken read = timeout.Token;
+
+            string url = $"opc.tcp://{address}:{port}/";
+            byte[] urlBytes = Encoding.UTF8.GetBytes(url);
+
+            // --- Hello ---
+            List<byte> hello = [.. "HELF"u8];
+            hello.AddRange(BitConverter.GetBytes((uint)(32 + urlBytes.Length)));
+            hello.AddRange(BitConverter.GetBytes(0u));
+            hello.AddRange(BitConverter.GetBytes(65535u));
+            hello.AddRange(BitConverter.GetBytes(65535u));
+            hello.AddRange(BitConverter.GetBytes(10485760u));
+            hello.AddRange(BitConverter.GetBytes(0u));
+            hello.AddRange(BitConverter.GetBytes((uint)urlBytes.Length));
+            hello.AddRange(urlBytes);
+            await stream.WriteAsync(hello.ToArray(), read);
+
+            if (await ReadMessageAsync(stream, read) is not { Type: "ACKF" }) return null;
+
+            // --- Sicherheitskanal ohne Verschluesselung ---
+            List<byte> openBody = [0x01, 0x00, 0xBE, 0x01];
+            openBody.AddRange(RequestHeader(1));
+            openBody.AddRange(BitConverter.GetBytes(0u));
+            openBody.AddRange(BitConverter.GetBytes(0u));
+            openBody.AddRange(BitConverter.GetBytes(1u));
+            openBody.AddRange(NullValue);
+            openBody.AddRange(BitConverter.GetBytes(3600000u));
+
+            List<byte> openHeader = [.. BitConverter.GetBytes(0u)];
+            openHeader.AddRange(EncodeString("http://opcfoundation.org/UA/SecurityPolicy#None"));
+            openHeader.AddRange(NullValue);
+            openHeader.AddRange(NullValue);
+            openHeader.AddRange(BitConverter.GetBytes(1u));
+            openHeader.AddRange(BitConverter.GetBytes(1u));
+
+            List<byte> open = [.. "OPNF"u8];
+            open.AddRange(BitConverter.GetBytes((uint)(8 + openHeader.Count + openBody.Count)));
+            open.AddRange(openHeader);
+            open.AddRange(openBody);
+            await stream.WriteAsync(open.ToArray(), read);
+
+            (string Type, byte[] Body)? opened = await ReadMessageAsync(stream, read);
+            if (opened is not { Type: "OPNF" }) return null;
+            if (!TryReadChannelToken(opened.Value.Body, out uint channel, out uint tokenId)) return null;
+
+            // --- CreateSession ---
+            List<byte> create = [0x01, 0x00, 0xCD, 0x01];   // CreateSessionRequest (461)
+            create.AddRange(RequestHeader(2));
+            create.AddRange(EncodeString("urn:mynetworkmonitor:client"));   // ClientDescription.ApplicationUri
+            create.AddRange(EncodeString("urn:mynetworkmonitor:client"));   // ProductUri
+            create.AddRange([0x02]);                                        // ApplicationName: nur Text
+            create.AddRange(EncodeString("MyNetworkMonitor"));
+            create.AddRange(BitConverter.GetBytes(1u));                     // ApplicationType: Client
+            create.AddRange(NullValue);                                     // GatewayServerUri
+            create.AddRange(NullValue);                                     // DiscoveryProfileUri
+            create.AddRange(NullValue);                                     // DiscoveryUrls
+            create.AddRange(NullValue);                                     // ServerUri
+            create.AddRange(EncodeString(url));                            // EndpointUrl
+            create.AddRange(EncodeString("MyNetworkMonitor"));            // SessionName
+            byte[] nonce = new byte[32];
+            Random.Shared.NextBytes(nonce);
+            create.AddRange(BitConverter.GetBytes(32u));                    // ClientNonce
+            create.AddRange(nonce);
+            create.AddRange(NullValue);                                     // ClientCertificate
+            create.AddRange(BitConverter.GetBytes(60000.0));               // RequestedSessionTimeout
+            create.AddRange(BitConverter.GetBytes(0u));                     // MaxResponseMessageSize
+            await SendSecureMessage(stream, channel, tokenId, 2, 2, create, read);
+
+            (string Type, byte[] Body)? session = await ReadMessageAsync(stream, read);
+            if (session is not { Type: "MSGF" }) return null;
+
+            byte[] sb = session.Value.Body;
+            int q = 16 + 4 + 24;                 // Sicherheitskopf, TypeId, ResponseHeader
+            q = SkipNodeId(sb, q);               // SessionId
+            int tokenStart = q;
+            q = SkipNodeId(sb, q);               // AuthenticationToken
+            if (q > sb.Length) return null;
+            byte[] authToken = sb[tokenStart..q];
+
+            // --- ActivateSession, anonym ---
+            List<byte> activate = [0x01, 0x00, 0xD3, 0x01];   // ActivateSessionRequest (467)
+            activate.AddRange(RequestHeader(3, authToken));
+            activate.AddRange(NullValue); activate.AddRange(NullValue);   // ClientSignature
+            activate.AddRange(NullValue);                                 // SoftwareCertificates
+            activate.AddRange(NullValue);                                 // LocaleIds
+            byte[] policy = EncodeString("Anonymous");
+            activate.AddRange([0x01, 0x00, 0x41, 0x01]);                  // AnonymousIdentityToken (321)
+            activate.AddRange([0x01]);                                    // Body als ByteString
+            activate.AddRange(BitConverter.GetBytes((uint)policy.Length));
+            activate.AddRange(policy);
+            activate.AddRange(NullValue); activate.AddRange(NullValue);   // UserTokenSignature
+            await SendSecureMessage(stream, channel, tokenId, 3, 3, activate, read);
+
+            (string Type, byte[] Body)? activated = await ReadMessageAsync(stream, read);
+            if (activated is not { Type: "MSGF" } || activated.Value.Body.Length < 16 + 4 + 16) return null;
+
+            uint status = BitConverter.ToUInt32(activated.Value.Body, 16 + 4 + 12);   // ServiceResult
+            if (status != 0) return null;                // etwa Bad_IdentityTokenRejected
+
+            // --- Read auf die BuildInfo-Knoten ---
+            uint[] nodes = [2263, 2264, 2265, 2266, 2267];
+
+            List<byte> readRequest = [0x01, 0x00, 0x77, 0x02];   // ReadRequest (631)
+            readRequest.AddRange(RequestHeader(4, authToken));
+            readRequest.AddRange(BitConverter.GetBytes(0.0));    // MaxAge
+            readRequest.AddRange(BitConverter.GetBytes(3u));     // TimestampsToReturn: Neither
+            readRequest.AddRange(BitConverter.GetBytes((uint)nodes.Length));
+
+            foreach (uint node in nodes)
+            {
+                readRequest.AddRange([0x01, 0x00]);                       // NodeId FourByte, Namensraum 0
+                readRequest.AddRange(BitConverter.GetBytes((ushort)node));
+                readRequest.AddRange(BitConverter.GetBytes(13u));         // AttributeId: Value
+                readRequest.AddRange(NullValue);                          // IndexRange
+                readRequest.AddRange([0x00, 0x00]);                       // DataEncoding: leere QualifiedName
+                readRequest.AddRange(NullValue);
+            }
+
+            await SendSecureMessage(stream, channel, tokenId, 4, 4, readRequest, read);
+
+            (string Type, byte[] Body)? values = await ReadMessageAsync(stream, read);
+            if (values is not { Type: "MSGF" }) return null;
+
+            return FormatBuildInfo(values.Value.Body);
+        }
+
+        /// <summary>Verpackt einen Rumpf in eine MSG-Nachricht mit Sicherheitskopf und sendet sie.</summary>
+        private static async Task SendSecureMessage(
+            NetworkStream stream, uint channel, uint tokenId, uint sequence, uint requestId,
+            List<byte> body, CancellationToken token)
+        {
+            List<byte> message = [.. "MSGF"u8];
+            message.AddRange(BitConverter.GetBytes((uint)(24 + body.Count)));
+            message.AddRange(BitConverter.GetBytes(channel));
+            message.AddRange(BitConverter.GetBytes(tokenId));
+            message.AddRange(BitConverter.GetBytes(sequence));
+            message.AddRange(BitConverter.GetBytes(requestId));
+            message.AddRange(body);
+            await stream.WriteAsync(message.ToArray(), token);
+        }
+
+        /// <summary>Wie <see cref="RequestHeader(uint)"/>, aber mit einem Sitzungstoken statt der leeren NodeId.</summary>
+        private static byte[] RequestHeader(uint handle, byte[] authToken)
+        {
+            List<byte> header = [.. authToken];
+            header.AddRange(BitConverter.GetBytes(DateTime.UtcNow.ToFileTimeUtc()));
+            header.AddRange(BitConverter.GetBytes(handle));
+            header.AddRange(BitConverter.GetBytes(0u));
+            header.AddRange(NullValue);
+            header.AddRange(BitConverter.GetBytes(10000u));
+            header.AddRange([0x00, 0x00, 0x00]);
+            return [.. header];
+        }
+
+        /// <summary>Ueberspringt eine NodeId in ihren verschiedenen Kodierungen.</summary>
+        private static int SkipNodeId(byte[] d, int p)
+        {
+            byte encoding = (byte)(d[p] & 0x0F);
+            return encoding switch
+            {
+                0x00 => p + 2,                                                     // TwoByte
+                0x01 => p + 4,                                                     // FourByte
+                0x02 => p + 7,                                                     // Numeric
+                0x03 => p + 3 + Math.Max(0, BitConverter.ToInt32(d, p + 3)) + 4,   // String
+                0x04 => p + 3 + 16,                                                // Guid
+                0x05 => p + 3 + Math.Max(0, BitConverter.ToInt32(d, p + 3)) + 4,   // ByteString
+                _ => p + 2
+            };
+        }
+
+        /// <summary>
+        /// Macht aus den fuenf gelesenen BuildInfo-Werten die Zeilen fuer die
+        /// Detailansicht.
+        /// <para>
+        /// Die Hersteller belegen die einzelnen Felder uneinheitlich - der eine
+        /// legt die Version in "ProductName", der andere in "SoftwareVersion".
+        /// Darum wird nicht nach Feldnamen zugeordnet, sondern nach Form: der
+        /// Hersteller steht im ersten Feld, die Version ist die erste
+        /// versionsartige Zeichenkette, das Baudatum der erste Zeitwert.
+        /// </para>
+        /// </summary>
+        private static string? FormatBuildInfo(byte[] body)
+        {
+            int p = 16 + 4 + 24;
+            if (p + 4 > body.Length) return null;
+
+            int count = BitConverter.ToInt32(body, p); p += 4;
+            if (count is < 1 or > 20) return null;
+
+            List<string> texts = [];
+            string? date = null;
+
+            for (int i = 0; i < count; i++)
+            {
+                (string? text, string? asDate) = ReadDataValue(body, ref p);
+                if (!string.IsNullOrWhiteSpace(text)) texts.Add(text);
+                date ??= asDate;
+            }
+
+            if (texts.Count == 0 && date is null) return null;
+
+            List<string> lines = [];
+
+            // Erstes Textfeld ist der Hersteller.
+            string? manufacturer = texts.Count > 0 ? texts[0] : null;
+            if (!string.IsNullOrWhiteSpace(manufacturer)) lines.Add($"Manufacturer: {manufacturer}");
+
+            string? version = texts.Skip(1).FirstOrDefault(LooksLikeVersion);
+            if (!string.IsNullOrWhiteSpace(version)) lines.Add($"Software version: {version}");
+
+            if (!string.IsNullOrWhiteSpace(date)) lines.Add($"Build date: {date}");
+
+            return lines.Count == 0 ? null : string.Join(Environment.NewLine, lines);
+        }
+
+        /// <summary>Eine Zeichenkette mit Ziffern und Punkt, oder mit fuehrendem V - etwa "1.2.3.4" oder "V01.02.03".</summary>
+        private static bool LooksLikeVersion(string text)
+        {
+            if (text.Contains('.') && text.Any(char.IsDigit)) return true;
+            return text.Length >= 2 && (text[0] is 'V' or 'v') && char.IsDigit(text[1]);
+        }
+
+        /// <summary>
+        /// Ein DataValue: der Wert und, wo vorhanden, ein Zeitwert. Die Felder
+        /// stehen in fester Reihenfolge, jedes nur, wenn sein Bit in der Maske
+        /// steht - werden die Zeitstempel nicht abgezogen, verrutscht der
+        /// naechste Wert.
+        /// </summary>
+        private static (string? Text, string? AsDate) ReadDataValue(byte[] d, ref int p)
+        {
+            if (p >= d.Length) return (null, null);
+
+            byte mask = d[p++];
+            string? text = null;
+            string? asDate = null;
+
+            if ((mask & 0x01) != 0 && p < d.Length)
+            {
+                byte variant = d[p++];
+                int type = variant & 0x3F;
+
+                switch (type)
+                {
+                    case 12:                       // String
+                    case 15:                       // ByteString
+                        int len = BitConverter.ToInt32(d, p); p += 4;
+                        if (len > 0 && p + len <= d.Length) { text = Encoding.UTF8.GetString(d, p, len); p += len; }
+                        break;
+
+                    case 13:                       // DateTime
+                        long ticks = BitConverter.ToInt64(d, p); p += 8;
+                        if (ticks > 0)
+                        {
+                            try { asDate = DateTime.FromFileTimeUtc(ticks).ToString("yyyy-MM-dd"); }
+                            catch (ArgumentOutOfRangeException) { }
+                        }
+                        break;
+
+                    case 21:                       // LocalizedText: Maske, dann Sprache und Text
+                        byte lt = d[p++];
+                        if ((lt & 0x01) != 0) p = SkipByteString(d, p);
+                        if ((lt & 0x02) != 0)
+                        {
+                            int tl = BitConverter.ToInt32(d, p); p += 4;
+                            if (tl > 0 && p + tl <= d.Length) { text = Encoding.UTF8.GetString(d, p, tl); p += tl; }
+                        }
+                        break;
+                }
+            }
+
+            if ((mask & 0x02) != 0) p += 4;        // StatusCode
+            if ((mask & 0x04) != 0) p += 8;        // SourceTimestamp
+            if ((mask & 0x10) != 0) p += 2;        // SourcePicoseconds
+            if ((mask & 0x08) != 0) p += 8;        // ServerTimestamp
+            if ((mask & 0x20) != 0) p += 2;        // ServerPicoseconds
+
+            return (text?.Trim(), asDate);
+        }
+
+        /// <summary>
         /// Aus den Zeichenketten der Antwort das machen, was in der
         /// Detailansicht stehen soll. Sortiert wird nach der Form: eine
         /// Anwendungskennung beginnt mit "urn:", eine Sicherheitsrichtlinie
