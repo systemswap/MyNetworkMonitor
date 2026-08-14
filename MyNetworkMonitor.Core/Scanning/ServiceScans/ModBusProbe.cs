@@ -96,10 +96,21 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
             if (portResult.Status != PortStatus.IsRunning) return portResult;
 
+            string? info = null;
+
             try
             {
-                string? info = await ReadDeviceIdentificationAsync(context, address, port, token);
-                portResult.PortLog = info ?? "Unit ID 1 answered, device identification not supported.";
+                // Erst die beiden genormten Wege, in der Reihenfolge ihrer
+                // Ergiebigkeit: 0x2B liefert einzelne benannte Felder, 0x11 nur
+                // eine Zeichenkette, die der Hersteller frei belegt.
+                info = await ReadDeviceIdentificationAsync(context, address, port, token);
+                info ??= await ReadServerIdAsync(context, address, port, token);
+
+                // Und zum Schluss der herstellereigene Weg. Nicht jeder kennt
+                // die genormten: WAGO antwortet auf beide mit "unzulaessige
+                // Funktion", legt dieselben Angaben aber in eigenen
+                // Halteregistern ab.
+                info ??= await ReadWagoIdentificationAsync(context, address, port, token);
             }
             catch (OperationCanceledException) when (token.IsCancellationRequested)
             {
@@ -109,6 +120,8 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             {
                 // Der Fund steht bereits fest; die Auskunft ist die Zugabe.
             }
+
+            portResult.PortLog = info ?? "Unit ID 1 answered, device identification not supported.";
 
             return portResult;
         }
@@ -184,6 +197,196 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             }
 
             return lines.Count == 0 ? null : string.Join(Environment.NewLine, lines);
+        }
+
+        /// <summary>
+        /// Funktionscode 0x11 "Report Server ID" - der zweite genormte Weg.
+        /// <para>
+        /// Was in der Antwort steht, legt der Hersteller fest: meist ein Name
+        /// im Klartext, manchmal nur eine Zahl. Darum wird nur der druckbare
+        /// Teil uebernommen und alles ab dem ersten Steuerzeichen verworfen.
+        /// </para>
+        /// <para>
+        /// <c>null</c>, wenn das Geraet die Funktion nicht kennt - es antwortet
+        /// dann mit 0x91 und einem Grund. Keines der bisher geprueften Geraete
+        /// unterstuetzt sie; sie steht hier, weil sie genormt ist und eine
+        /// einzige Anfrage kostet.
+        /// </para>
+        /// </summary>
+        private static async Task<string?> ReadServerIdAsync(
+            ProbeContext context, string address, int port, CancellationToken token)
+        {
+            // MBAP-Kopf: Vorgang 3, Protokoll 0, Laenge 2, Einheit 1, dann der
+            // Funktionscode allein - die Anfrage hat keine weiteren Angaben.
+            byte[] request = [0x00, 0x03, 0x00, 0x00, 0x00, 0x02, 0x01, 0x11];
+
+            using var client = new TcpClient();
+
+            Task connect = client.ConnectAsync(address, port, token).AsTask();
+            if (await Task.WhenAny(connect, Task.Delay(context.TimeoutMs, token)) != connect) return null;
+            await connect;
+
+            NetworkStream stream = client.GetStream();
+
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
+            timeout.CancelAfter(context.TimeoutMs);
+
+            await stream.WriteAsync(request, timeout.Token);
+
+            byte[] buffer = new byte[512];
+            int read = await stream.ReadAsync(buffer, timeout.Token);
+
+            const int HeaderLength = 7;
+
+            if (read < HeaderLength + 2) return null;
+            if (buffer[HeaderLength] != 0x11) return null;   // 0x91 waere die Ablehnung
+
+            int count = buffer[HeaderLength + 1];
+            if (count <= 0 || HeaderLength + 2 + count > read) return null;
+
+            var text = new StringBuilder();
+
+            for (int i = HeaderLength + 2; i < HeaderLength + 2 + count; i++)
+            {
+                if (buffer[i] is >= 0x20 and <= 0x7E) text.Append((char)buffer[i]);
+                else break;
+            }
+
+            string id = text.ToString().Trim();
+            return id.Length >= 2 ? $"Server ID: {id}" : null;
+        }
+
+        /// <summary>
+        /// Die Kennung einer WAGO-Steuerung aus ihren Halteregistern.
+        /// <para>
+        /// WAGO beantwortet den genormten Funktionscode 0x2B nicht, legt die
+        /// Angaben aber ab Register 0x2010 ab - lesbar ohne Anmeldung, waehrend
+        /// die Weboberflaeche desselben Geraets ohne Zugangsdaten nur 401
+        /// zurueckgibt.
+        /// </para>
+        /// <para>
+        /// Der Text steht je Register mit vertauschten Bytes: aus
+        /// "AWOG" wird "WAGO".
+        /// </para>
+        /// <para>
+        /// Die Kurzbeschreibung ist zugleich die Absicherung: nur wenn dort
+        /// "WAGO" steht, gelten die uebrigen Register als Kennung. An diesen
+        /// Adressen kann bei einem anderen Hersteller alles Moegliche liegen -
+        /// Prozesswerte etwa -, und die duerfen nicht als Geraetename
+        /// durchgehen.
+        /// </para>
+        /// </summary>
+        private static async Task<string?> ReadWagoIdentificationAsync(
+            ProbeContext context, string address, int port, CancellationToken token)
+        {
+            using var client = new TcpClient();
+
+            Task connect = client.ConnectAsync(address, port, token).AsTask();
+            if (await Task.WhenAny(connect, Task.Delay(context.TimeoutMs, token)) != connect) return null;
+            await connect;
+
+            NetworkStream stream = client.GetStream();
+
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
+            timeout.CancelAfter(context.TimeoutMs);
+            CancellationToken read = timeout.Token;
+
+            string? description = SwappedText(await ReadHoldingAsync(stream, 0x2020, 16, read));
+
+            if (description is null ||
+                !description.StartsWith("WAGO", StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            List<string> lines = [$"Device: {description}"];
+
+            int? series = await ReadWordAsync(stream, 0x2011, read);
+            int? item = await ReadWordAsync(stream, 0x2012, read);
+
+            if (series is not null && item is not null)
+            {
+                lines.Add($"Order number: {series}-{item}");
+            }
+
+            int? major = await ReadWordAsync(stream, 0x2013, read);
+            int? minor = await ReadWordAsync(stream, 0x2014, read);
+
+            if (major is not null && minor is not null)
+            {
+                lines.Add($"Firmware: V{major}.{minor}");
+            }
+
+            string? date = SwappedText(await ReadHoldingAsync(stream, 0x2022, 8, read));
+            if (!string.IsNullOrWhiteSpace(date)) lines.Add($"Firmware date: {date}");
+
+            return string.Join(Environment.NewLine, lines);
+        }
+
+        /// <summary>Ein einzelnes Halteregister als Zahl.</summary>
+        private static async Task<int?> ReadWordAsync(
+            NetworkStream stream, int register, CancellationToken token)
+        {
+            byte[]? data = await ReadHoldingAsync(stream, register, 1, token);
+            return data is { Length: >= 2 } ? (data[0] << 8) | data[1] : null;
+        }
+
+        /// <summary>
+        /// Liest Halteregister mit Funktionscode 0x03 und liefert den reinen
+        /// Datenteil. <c>null</c>, wenn das Geraet mit einer Ausnahme
+        /// antwortet - etwa, weil es die Adresse nicht kennt.
+        /// </summary>
+        private static async Task<byte[]?> ReadHoldingAsync(
+            NetworkStream stream, int register, int count, CancellationToken token)
+        {
+            byte[] request =
+            [
+                0x00, 0x01, 0x00, 0x00, 0x00, 0x06, 0x01, 0x03,
+                (byte)(register >> 8), (byte)(register & 0xFF),
+                (byte)(count >> 8), (byte)(count & 0xFF)
+            ];
+
+            await stream.WriteAsync(request, token);
+
+            byte[] buffer = new byte[512];
+            int read = await stream.ReadAsync(buffer, token);
+
+            // Kopf, Funktionscode und Laengenbyte muessen da sein, und der
+            // Funktionscode darf nicht das Fehlerbit tragen.
+            if (read < 9 || buffer[7] != 0x03) return null;
+
+            int length = buffer[8];
+            if (length <= 0 || 9 + length > read) return null;
+
+            return buffer[9..(9 + length)];
+        }
+
+        /// <summary>
+        /// Text aus Registern, in denen die beiden Bytes je Register vertauscht
+        /// abgelegt sind. Nicht druckbare Zeichen beenden ihn.
+        /// </summary>
+        private static string? SwappedText(byte[]? data)
+        {
+            if (data is null || data.Length < 2) return null;
+
+            var text = new StringBuilder();
+
+            for (int i = 0; i + 1 < data.Length; i += 2)
+            {
+                foreach (byte b in (byte[])[data[i + 1], data[i]])
+                {
+                    if (b is >= 0x20 and <= 0x7E) text.Append((char)b);
+                    else return Trimmed(text);
+                }
+            }
+
+            return Trimmed(text);
+        }
+
+        private static string? Trimmed(StringBuilder text)
+        {
+            string result = text.ToString().Trim();
+            return result.Length >= 2 ? result : null;
         }
 
         /// <summary>Die Objektnummern der Grunddaten, wie sie die Modbus-Spezifikation vergibt.</summary>
