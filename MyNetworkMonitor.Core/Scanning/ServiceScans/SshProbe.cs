@@ -44,5 +44,47 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
             return serviceMatched;
         }
+
+        /// <summary>
+        /// Zerlegt die Begruessungszeile, an der der Dienst ohnehin erkannt
+        /// wird. Ihr Aufbau ist festgelegt:
+        /// <c>SSH-&lt;Protokoll&gt;-&lt;Software&gt; &lt;Bemerkung&gt;</c>.
+        /// <para>
+        /// Die Software nennt Programm und Version - "OpenSSH_8.9p1" -, und die
+        /// Bemerkung dahinter ist der Zusatz, den Linux-Ausgaben ihrem Paket
+        /// mitgeben: "Ubuntu-3ubuntu0.4" sagt Betriebssystem und Paketstand.
+        /// Beides kommt ungefragt und vor jeder Anmeldung.
+        /// </para>
+        /// </summary>
+        protected override string? Describe(byte[] response)
+        {
+            string banner = FirstLine(Encoding.ASCII.GetString(response));
+            if (banner.Length == 0) return null;
+
+            // Hinter "SSH-2.0-" beginnt die Kennung der Gegenseite. Der zweite
+            // Bindestrich trennt sie vom Protokollteil und gehoert nicht dazu.
+            int softwareStart = banner.IndexOf('-', banner.IndexOf('-') + 1);
+            if (softwareStart < 0 || softwareStart + 1 >= banner.Length) return null;
+
+            string identification = banner[(softwareStart + 1)..].Trim();
+            if (identification.Length == 0) return null;
+
+            // Das erste Leerzeichen trennt Software von der freien Bemerkung.
+            int space = identification.IndexOf(' ');
+            string software = space > 0 ? identification[..space] : identification;
+            string remark = space > 0 ? identification[(space + 1)..].Trim() : string.Empty;
+
+            List<string> lines = [$"Software: {software}"];
+
+            if (remark.Length > 0) lines.Add($"Remark: {remark}");
+
+            // Die Protokollfassung steht zwischen den beiden Bindestrichen.
+            // Praktisch immer 2.0; ein Server, der noch 1.99 anbietet, spricht
+            // auch das alte SSH-1 und ist damit ein Befund fuer sich.
+            string protocol = banner[4..softwareStart];
+            if (protocol.Length > 0 && protocol != "2.0") lines.Add($"Protocol: {protocol}");
+
+            return string.Join(Environment.NewLine, lines);
+        }
     }
 }

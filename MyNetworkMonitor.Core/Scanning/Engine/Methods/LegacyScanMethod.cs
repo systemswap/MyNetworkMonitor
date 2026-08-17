@@ -1,6 +1,7 @@
 using System.Net.NetworkInformation;
 using MyNetworkMonitor.Core.Model;
 using MyNetworkMonitor.Core.Network;
+using MyNetworkMonitor.Core.Scanning.ServiceScans;
 
 namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 {
@@ -401,6 +402,13 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         /// Das Protokoll des Ports, an dem der genannte Dienst erkannt wurde.
         /// Nur von einem laufenden Dienst - bei "offen, aber nichts erkannt"
         /// steht dort die Notiz des Versuchs und keine Auskunft ueber das Geraet.
+        /// <para>
+        /// Uebergangen wird ausserdem der blosse Bestaetigungssatz einer
+        /// geglueckten Erkennung. Er steht ueberall dort, wo eine Sonde nichts
+        /// weiter zu melden hatte - etwa bei einem FTP-Server, dessen
+        /// Begruessung keinen Namen traegt -, und als Detailzeile stuende dann
+        /// unter "FTP server" nur, dass FTP laeuft.
+        /// </para>
         /// </summary>
         private static string? ServiceLog(IPToScan r, ServiceType service)
         {
@@ -412,7 +420,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 
                 foreach (ServiceScanData.PortResult port in entry.Ports)
                 {
-                    if (port.Status == PortStatus.IsRunning && !string.IsNullOrWhiteSpace(port.PortLog))
+                    if (port.Status == PortStatus.IsRunning && IsDeviceInfo(port.PortLog))
                     {
                         return port.PortLog;
                     }
@@ -421,6 +429,14 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 
             return null;
         }
+
+        /// <summary>
+        /// Ob ein Protokolltext eine Auskunft ueber das Geraet ist und nicht
+        /// blosse Buchhaltung des Versuchs.
+        /// </summary>
+        internal static bool IsDeviceInfo(string? portLog) =>
+            !string.IsNullOrWhiteSpace(portLog) &&
+            !portLog.Trim().Equals(ServiceProbeBase.ProtocolMatched, StringComparison.Ordinal);
 
         private static List<DeviceServiceResult>? BuildServices(IPToScan r, IpFamily family)
         {

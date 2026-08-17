@@ -35,5 +35,70 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
             return serviceMatched;
         }
+
+        /// <summary>
+        /// Liest Fassung und Zustand aus der Antwort auf <c>/health</c> - der
+        /// Auskunftsseite, die InfluxDB ohne Anmeldung fuer genau diesen Zweck
+        /// bereithaelt. Gefragt wird sie ohnehin schon; die Antwort traegt die
+        /// Fassung sowohl im Kopf <c>X-Influxdb-Version</c> als auch im Text.
+        /// </summary>
+        protected override string? Describe(byte[] response)
+        {
+            string text = Encoding.ASCII.GetString(response);
+
+            List<string> lines = [];
+
+            string version = HeaderValue(text, "X-Influxdb-Version");
+            if (version.Length > 0) lines.Add($"Version: {version}");
+
+            string build = HeaderValue(text, "X-Influxdb-Build");
+            if (build.Length > 0) lines.Add($"Build: {build}");
+
+            // Der Zustandsbericht steht als JSON im Rumpf. Ohne Parser gelesen:
+            // gebraucht wird ein einziges Feld, und dafuer lohnt keine
+            // Abhaengigkeit.
+            string status = JsonValue(text, "status");
+            if (status.Length > 0) lines.Add($"Status: {status}");
+
+            return lines.Count > 0 ? string.Join(Environment.NewLine, lines) : null;
+        }
+
+        /// <summary>Der Wert eines HTTP-Kopffeldes, oder leer.</summary>
+        private static string HeaderValue(string response, string name)
+        {
+            foreach (string raw in response.Split('\n'))
+            {
+                string line = raw.TrimEnd('\r');
+
+                if (!line.StartsWith(name + ":", StringComparison.OrdinalIgnoreCase)) continue;
+
+                return Printable(line[(name.Length + 1)..].Trim(), 60);
+            }
+
+            return string.Empty;
+        }
+
+        /// <summary>
+        /// Der Wert eines JSON-Feldes aus dem Rumpf. Bewusst schlicht: gesucht
+        /// wird der Name in Anfuehrungszeichen, genommen wird die Zeichenkette
+        /// dahinter. Fuer verschachtelte Felder taugt das nicht - hier steht
+        /// aber nur eine flache Auskunft.
+        /// </summary>
+        private static string JsonValue(string response, string field)
+        {
+            int key = response.IndexOf($"\"{field}\"", StringComparison.OrdinalIgnoreCase);
+            if (key < 0) return string.Empty;
+
+            int colon = response.IndexOf(':', key);
+            if (colon < 0) return string.Empty;
+
+            int open = response.IndexOf('"', colon);
+            if (open < 0) return string.Empty;
+
+            int close = response.IndexOf('"', open + 1);
+            if (close <= open) return string.Empty;
+
+            return Printable(response[(open + 1)..close], 60);
+        }
     }
 }
