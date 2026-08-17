@@ -47,5 +47,34 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
             return serviceMatched;
         }
+
+        /// <summary>
+        /// Ob der Server Verschluesselung anbietet - die einzige Auskunft, die
+        /// vor der Anmeldung zu haben ist.
+        /// <para>
+        /// Eine Fassungsnummer gibt PostgreSQL nicht heraus: sie steht in einer
+        /// Sitzungsvariablen, die erst nach geglueckter Anmeldung uebertragen
+        /// wird. Was die SSLRequest beantwortet, ist genau ein Byte - und das
+        /// beantwortet die Frage, die hier zaehlt: laeuft die Anmeldung dieses
+        /// Servers verschluesselt oder im Klartext.
+        /// </para>
+        /// </summary>
+        protected override string? Describe(byte[] response)
+        {
+            if (response.Length == 1)
+            {
+                return response[0] switch
+                {
+                    // 'S' - der Server steigt auf TLS um.
+                    0x53 => "Encryption: offered (TLS)",
+
+                    // 'N' - er lehnt ab; die Anmeldung liefe unverschluesselt.
+                    0x4E => "Encryption: not offered - credentials would travel unencrypted",
+                    _ => null
+                };
+            }
+
+            return null;
+        }
     }
 }

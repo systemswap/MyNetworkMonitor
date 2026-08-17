@@ -11,6 +11,7 @@ using MyNetworkMonitor.Core.Persistence;
 using MyNetworkMonitor.Core.Models;
 using MyNetworkMonitor.Core.SatelliteLink;
 using MyNetworkMonitor.Core.Scanning.Engine;
+using MyNetworkMonitor.Core.Scanning.Engine.Methods;
 using MyNetworkMonitor.Core.Services;
 
 namespace MyNetworkMonitor.Core.ViewModels
@@ -2548,8 +2549,11 @@ namespace MyNetworkMonitor.Core.ViewModels
 
             if (!string.IsNullOrEmpty(label))
             {
+                // Wie im vollen Lauf: der blosse Bestaetigungssatz einer
+                // geglueckten Erkennung ist keine Auskunft und gehoert nicht
+                // unter eine Ueberschrift in den Details.
                 string? log = results
-                    .FirstOrDefault(r => r.IsRunning && !string.IsNullOrWhiteSpace(r.PortLog))?.PortLog;
+                    .FirstOrDefault(r => r.IsRunning && LegacyScanMethod.IsDeviceInfo(r.PortLog))?.PortLog;
 
                 if (!string.IsNullOrWhiteSpace(log))
                 {

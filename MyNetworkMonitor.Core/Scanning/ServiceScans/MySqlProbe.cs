@@ -75,5 +75,12 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
             return serviceMatched;
         }
+
+        /// <summary>
+        /// Der Versionstext aus der Begruessung - dieselbe Zeichenkette, an der
+        /// die Erkennung schon entscheidet, ob hier MySQL oder MariaDB laeuft.
+        /// Gelesen wurde sie bisher also ohnehin, nur nirgends angezeigt.
+        /// </summary>
+        protected override string? Describe(byte[] response) => MySqlDetails(response);
     }
 }

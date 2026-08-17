@@ -54,13 +54,19 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                 using CancellationTokenSource cts = CancellationTokenSource.CreateLinkedTokenSource(token);
                 cts.CancelAfter(BrowserTimeout);
 
-                List<int> dynamicPorts = await GetMSSQLDynamicPortsAsync(address)
+                BrowserAnswer browser = await GetMSSQLDynamicPortsAsync(address)
                     .WaitAsync(cts.Token);
 
-                if (dynamicPorts.Count > 0)
+                if (browser.Ports.Count > 0)
                 {
-                    portResult.Ports = dynamicPorts;
+                    portResult.Ports = browser.Ports;
                     portResult.Status = PortStatus.IsRunning;
+
+                    // Der Browser nennt die Instanzen beim Namen und mit ihrer
+                    // Fassung. Bisher wurde aus derselben Antwort nur die
+                    // Portnummer gelesen und der Rest verworfen - dabei ist
+                    // gerade er die Auskunft, die auf 1433 nicht zu holen war.
+                    if (browser.Description.Length > 0) portResult.PortLog = browser.Description;
                 }
             }
             catch (Exception) when (!token.IsCancellationRequested)
@@ -74,16 +80,29 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
+        /// Was der SQL-Browser zurueckgemeldet hat: die Ports, an denen die
+        /// Instanzen sitzen, und die Beschreibung fuer die Detailansicht.
+        /// </summary>
+        private readonly record struct BrowserAnswer(List<int> Ports, string Description);
+
+        /// <summary>
         /// Die Rueckfrage beim SQL-Browser auf UDP 1434, wortgleich aus
         /// <c>ScanningMethod_Services</c> uebernommen: drei Versuche, je zwei
         /// Sekunden, und aus der Antwort werden <em>alle</em> "tcp;"-Ports
         /// gelesen - ein Server kann mehrere benannte Instanzen tragen.
+        /// <para>
+        /// Neu ist allein, dass die Antwort nicht mehr nur nach Portnummern
+        /// durchsucht, sondern vollstaendig gelesen wird. Dasselbe Paket, das
+        /// die Ports traegt, nennt zu jeder Instanz auch ihren Namen und ihre
+        /// Fassung - ohne Anmeldung, denn der Browser ist genau dafuer da.
+        /// </para>
         /// </summary>
-        private static async Task<List<int>> GetMSSQLDynamicPortsAsync(string serverIP)
+        private static async Task<BrowserAnswer> GetMSSQLDynamicPortsAsync(string serverIP)
         {
             const int MaxRetries = 3;
             const int TimeoutMilliseconds = 2000;
             var foundPorts = new List<int>();
+            string description = string.Empty;
 
             using (UdpClient udpClient = new UdpClient())
             {
@@ -116,7 +135,8 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
                             if (foundPorts.Count > 0)
                             {
-                                return foundPorts;
+                                description = DescribeInstances(responseText);
+                                return new BrowserAnswer(foundPorts, description);
                             }
                         }
                     }
@@ -127,7 +147,66 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                 }
             }
 
-            return foundPorts;
+            return new BrowserAnswer(foundPorts, description);
+        }
+
+        /// <summary>
+        /// Macht aus der Browser-Antwort die Zeilen fuer die Detailansicht.
+        /// <para>
+        /// Der Aufbau ist eine Kette aus Name-Wert-Paaren, durch Semikolon
+        /// getrennt, und je Instanz beginnt sie neu mit <c>ServerName</c>:
+        /// <c>ServerName;HOST;InstanceName;SQLEXPRESS;IsClustered;No;Version;15.0.2000.5;tcp;1433;;</c>
+        /// </para>
+        /// </summary>
+        private static string DescribeInstances(string response)
+        {
+            List<string> lines = [];
+
+            // Der Trenner steht am Anfang jedes Abschnitts; der erste Teil vor
+            // dem ersten "ServerName" ist leer und faellt weg.
+            string[] blocks = response.Split("ServerName;", StringSplitOptions.RemoveEmptyEntries);
+
+            foreach (string block in blocks)
+            {
+                string[] parts = block.Split(';');
+
+                string instance = ValueOf(parts, "InstanceName");
+                string version = ValueOf(parts, "Version");
+                string clustered = ValueOf(parts, "IsClustered");
+
+                if (instance.Length == 0 && version.Length == 0) continue;
+
+                List<string> fields = [];
+
+                if (instance.Length > 0) fields.Add(instance);
+                if (version.Length > 0) fields.Add($"version {version}");
+
+                // Nur erwaehnen, wenn es zutrifft - "IsClustered: No" ist bei
+                // den allermeisten Servern der Normalfall und keine Auskunft.
+                if (clustered.Equals("Yes", StringComparison.OrdinalIgnoreCase)) fields.Add("clustered");
+
+                lines.Add($"Instance: {string.Join(", ", fields)}");
+            }
+
+            return lines.Count > 0 ? string.Join(Environment.NewLine, lines) : string.Empty;
+        }
+
+        /// <summary>
+        /// Der Wert hinter einem Schluessel in der Semikolon-Kette. Der erste
+        /// Abschnitt eines Blocks ist der Servername selbst und traegt keinen
+        /// eigenen Schluessel mehr - er wurde beim Trennen verbraucht.
+        /// </summary>
+        private static string ValueOf(string[] parts, string key)
+        {
+            for (int i = 0; i < parts.Length - 1; i++)
+            {
+                if (parts[i].Equals(key, StringComparison.OrdinalIgnoreCase))
+                {
+                    return Printable(parts[i + 1].Trim(), 40);
+                }
+            }
+
+            return string.Empty;
         }
 
         /// <summary>Woertlich aus der alten Antwortpruefung uebernommen - keine Bedingung veraendert.</summary>
@@ -153,5 +232,105 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
             return serviceMatched;
         }
+
+        /// <summary>
+        /// Liest Fassung und Verschluesselungshaltung aus der PRELOGIN-Antwort.
+        /// <para>
+        /// Sie ist der erste Zug jeder TDS-Verbindung und laeuft vor jeder
+        /// Anmeldung ab - ein Client muss wissen, ob er auf TLS umschalten muss,
+        /// bevor er ein Passwort schickt. Der Server nennt darin ungefragt seine
+        /// Fassung. Genau dieses Paket beantwortet das Erkennungspaket bereits;
+        /// gelesen wurden bisher nur die ersten vier Byte.
+        /// </para>
+        /// </summary>
+        protected override string? Describe(byte[] response)
+        {
+            // Hinter dem 8 Byte langen TDS-Kopf beginnt die Merkmalsliste. Ihre
+            // Eintraege sind je 5 Byte - Kennung, Abstand, Laenge -, und die
+            // Abstaende zaehlen ab dem Beginn dieser Liste.
+            const int payload = 8;
+            const int entrySize = 5;
+
+            if (response.Length <= payload) return null;
+
+            List<string> lines = [];
+
+            for (int at = payload; at + entrySize <= response.Length; at += entrySize)
+            {
+                byte token = response[at];
+
+                // 0xFF schliesst die Liste ab.
+                if (token == 0xFF) break;
+
+                int offset = payload + (response[at + 1] << 8 | response[at + 2]);
+                int length = response[at + 3] << 8 | response[at + 4];
+
+                if (offset + length > response.Length) continue;
+
+                switch (token)
+                {
+                    // VERSION: Hauptfassung, Nebenfassung, Baunummer.
+                    case 0x00 when length >= 4:
+                    {
+                        int major = response[offset];
+                        int minor = response[offset + 1];
+                        int build = response[offset + 2] << 8 | response[offset + 3];
+
+                        string product = ProductName(major, minor);
+
+                        lines.Add(product.Length > 0
+                            ? $"Version: {major}.{minor}.{build} ({product})"
+                            : $"Version: {major}.{minor}.{build}");
+
+                        break;
+                    }
+
+                    // ENCRYPTION: was der Server von der Verschluesselung haelt.
+                    case 0x01 when length >= 1:
+                    {
+                        string state = EncryptionState(response[offset]);
+                        if (state.Length > 0) lines.Add($"Encryption: {state}");
+
+                        break;
+                    }
+                }
+            }
+
+            return lines.Count > 0 ? string.Join(Environment.NewLine, lines) : null;
+        }
+
+        /// <summary>
+        /// Der Handelsname zur Fassungsnummer. Die Nebenfassung zaehlt nur bei
+        /// der 10 - 10.0 ist 2008, 10.50 ist 2008 R2.
+        /// </summary>
+        private static string ProductName(int major, int minor) => major switch
+        {
+            8 => "SQL Server 2000",
+            9 => "SQL Server 2005",
+            10 => minor >= 50 ? "SQL Server 2008 R2" : "SQL Server 2008",
+            11 => "SQL Server 2012",
+            12 => "SQL Server 2014",
+            13 => "SQL Server 2016",
+            14 => "SQL Server 2017",
+            15 => "SQL Server 2019",
+            16 => "SQL Server 2022",
+            17 => "SQL Server 2025",
+            _ => string.Empty
+        };
+
+        /// <summary>
+        /// Die vier Haltungen aus der TDS-Festlegung. Der Unterschied zwischen
+        /// "moeglich" und "gefordert" ist der, auf den es ankommt: nur bei
+        /// "gefordert" ist ausgeschlossen, dass ein Client sein Passwort
+        /// unverschluesselt schickt.
+        /// </summary>
+        private static string EncryptionState(byte value) => value switch
+        {
+            0x00 => "available, but not required",
+            0x01 => "in use for login",
+            0x02 => "not supported by server",
+            0x03 => "required by server",
+            _ => string.Empty
+        };
     }
 }

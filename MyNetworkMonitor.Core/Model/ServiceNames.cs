@@ -42,7 +42,24 @@ namespace MyNetworkMonitor.Core.Model
             (ServiceType.ModBus, "Modbus device"),
             (ServiceType.OPCUA,  "OPC UA server"),
             (ServiceType.S7,     "S7 PLC"),
-            (ServiceType.Wago,   "WAGO device")
+            (ServiceType.Wago,   "WAGO device"),
+
+            // Dienste, die sich beim Verbindungsaufbau selbst vorstellen. Sie
+            // sagen nicht so viel ueber sich wie eine Steuerung, aber Software,
+            // Fassung und Anmeldeverfahren stehen vor jeder Anmeldung fest -
+            // und gerade das Anmeldeverfahren ist bei VNC und RDP der Befund,
+            // wegen dessen man ueberhaupt sucht.
+            (ServiceType.FTP,          "FTP server"),
+            (ServiceType.SSH,          "SSH server"),
+            (ServiceType.RDP,          "Remote Desktop"),
+            (ServiceType.UltraVNC,     "VNC server"),
+            (ServiceType.MySQL,        "MySQL server"),
+            (ServiceType.MariaDB,      "MariaDB server"),
+            (ServiceType.MSSQLServer,  "SQL Server"),
+            (ServiceType.PostgreSQL,   "PostgreSQL server"),
+            (ServiceType.OracleDB,     "Oracle listener"),
+            (ServiceType.MongoDB,      "MongoDB server"),
+            (ServiceType.InfluxDB2,    "InfluxDB server")
         ];
 
         /// <summary>Die Ueberschrift fuer diesen Dienst, oder <c>null</c>, wenn er keine Auskunft liefert.</summary>

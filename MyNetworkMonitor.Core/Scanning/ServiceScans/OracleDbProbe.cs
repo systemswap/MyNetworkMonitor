@@ -82,5 +82,89 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
             return serviceMatched;
         }
+
+        /// <summary>
+        /// Was der Listener in seiner Antwort ueber sich preisgibt.
+        /// <para>
+        /// Der ergiebige Fall ist ausgerechnet die Ablehnung: sie kommt als
+        /// Klartext-Beschreibung zurueck und traegt <c>VSNNUM</c> - die
+        /// Fassungsnummer des Servers als Dezimalzahl - sowie den Fehlercode,
+        /// der sagt, <em>warum</em> abgelehnt wurde. Das kostet keine Anmeldung;
+        /// die Auskunft steht in der Antwort auf das Connect-Paket, das ohnehin
+        /// geschickt wird.
+        /// </para>
+        /// </summary>
+        protected override string? Describe(byte[] response)
+        {
+            List<string> lines = [];
+
+            // Der Pakettyp steht in Byte 4 und sagt, wie der Listener die
+            // Anfrage aufgenommen hat.
+            string reaction = response.Length >= 8
+                ? response[4] switch
+                {
+                    0x02 => "accepted the connection",
+                    0x04 => "refused the connection",
+                    0x0B => "redirected to another listener",
+                    _ => string.Empty
+                }
+                : string.Empty;
+
+            if (reaction.Length > 0) lines.Add($"Listener: {reaction}");
+
+            string text = Encoding.ASCII.GetString(response);
+
+            if (ReadVersionNumber(text) is { } version) lines.Add($"Version: {version}");
+
+            // Der Fehlercode benennt die Ablehnung. 12514 etwa heisst, dass der
+            // Listener laeuft, den angefragten Dienstnamen aber nicht kennt -
+            // erwartbar, denn geraten wurde "orcl".
+            string error = FieldValue(text, "ERR");
+            if (error.Length > 0 && error != "0") lines.Add($"Oracle error: ORA-{error}");
+
+            return lines.Count > 0 ? string.Join(Environment.NewLine, lines) : null;
+        }
+
+        /// <summary>
+        /// Rechnet <c>VSNNUM</c> in die uebliche Schreibweise um. Die Zahl ist
+        /// eine gepackte Fassungsnummer: das oberste Byte traegt die
+        /// Hauptfassung, danach folgen in Halbbyte- und Byte-Schritten die
+        /// weiteren Stellen. Aus 186647552 wird so 11.2.0.4.0.
+        /// </summary>
+        private static string? ReadVersionNumber(string text)
+        {
+            string raw = FieldValue(text, "VSNNUM");
+            if (raw.Length == 0) return null;
+
+            if (!uint.TryParse(raw, out uint packed) || packed == 0) return null;
+
+            int major = (int)(packed >> 24 & 0xFF);
+            int minor = (int)(packed >> 20 & 0x0F);
+            int update = (int)(packed >> 12 & 0xFF);
+            int portRelease = (int)(packed >> 8 & 0x0F);
+            int portUpdate = (int)(packed & 0xFF);
+
+            // Eine Hauptfassung von 0 waere keine Oracle-Fassung, sondern ein
+            // falsch gelesenes Feld.
+            return major == 0 ? null : $"{major}.{minor}.{update}.{portRelease}.{portUpdate}";
+        }
+
+        /// <summary>
+        /// Der Wert eines Feldes aus der Klartext-Beschreibung. Sie ist in
+        /// Klammern geschachtelt aufgebaut - <c>(SCHLUESSEL=Wert)</c> -, und
+        /// gebraucht werden hier nur einzelne Blaetter daraus.
+        /// </summary>
+        private static string FieldValue(string text, string key)
+        {
+            int start = text.IndexOf($"({key}=", StringComparison.OrdinalIgnoreCase);
+            if (start < 0) return string.Empty;
+
+            int valueStart = start + key.Length + 2;
+            int end = text.IndexOf(')', valueStart);
+
+            if (end <= valueStart) return string.Empty;
+
+            return Printable(text[valueStart..end], 40);
+        }
     }
 }

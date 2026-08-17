@@ -74,5 +74,12 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
             return serviceMatched;
         }
+
+        /// <summary>
+        /// Der Versionstext aus der Begruessung. Angezeigt wird die echte
+        /// Fassung ohne das Scheinpraefix "5.5.5-", das MariaDB alten Clients
+        /// zuliebe voranstellt.
+        /// </summary>
+        protected override string? Describe(byte[] response) => MySqlDetails(response);
     }
 }

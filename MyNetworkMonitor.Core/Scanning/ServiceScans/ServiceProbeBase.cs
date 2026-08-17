@@ -41,6 +41,53 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         public virtual Task PrepareAsync(ProbeContext context, IReadOnlyList<string> targets, CancellationToken token) =>
             Task.CompletedTask;
 
+        /// <summary>
+        /// Der Satz, der im Protokoll steht, wenn eine Sonde nichts weiter ueber
+        /// das Geraet zu sagen hat. Oeffentlich, weil die Detailansicht ihn
+        /// erkennen muss: er ist der Beleg einer geglueckten Erkennung, aber
+        /// keine Auskunft, und hat unter "MORE DETAILS" nichts verloren.
+        /// </summary>
+        public const string ProtocolMatched = "Antwort passt zum erwarteten Protokoll.";
+
+        /// <summary>
+        /// Was die erste Antwort ueber das Geraet verraet - Version, Software,
+        /// Sicherheitslage. <c>null</c>, wenn sie nichts hergibt.
+        /// <para>
+        /// Der Puffer wird ohnehin gelesen, auch bei Diensten ohne Hello-Paket;
+        /// bisher pruefte <see cref="Identify"/> nur ja/nein und der Rest fiel
+        /// weg. Ein SSH-Server nennt in derselben Zeile, an der er erkannt wird,
+        /// seine Software samt Version - das ist der Unterschied zwischen "SSH
+        /// laeuft" und "OpenSSH 8.9p1 auf Ubuntu".
+        /// </para>
+        /// <para>
+        /// Ausdruecklich <b>keine</b> zweite Verbindung und kein Anmeldeversuch:
+        /// ausgewertet wird allein, was die Gegenseite von sich aus geschickt
+        /// hat. Die Erkennungspakete bleiben davon unberuehrt.
+        /// </para>
+        /// </summary>
+        protected virtual string? Describe(byte[] response) => null;
+
+        /// <summary>
+        /// Die Nachfrage auf der <em>bereits stehenden</em> Verbindung, nachdem
+        /// der Dienst erkannt ist. Fuer Protokolle, deren Auskunft nicht in der
+        /// Begruessung steht, sondern einen zweiten Zug braucht - FTP nennt sein
+        /// Betriebssystem erst auf <c>SYST</c>, VNC seine Anmeldeverfahren erst
+        /// nach dem Versionsaustausch.
+        /// <para>
+        /// Es bleibt bei der einen Verbindung, die ohnehin schon steht, und bei
+        /// Fragen, die jeder Client vor der Anmeldung stellt. Was hier
+        /// zurueckkommt, wird an das Ergebnis von <see cref="Describe"/>
+        /// angehaengt.
+        /// </para>
+        /// <para>
+        /// Fehler sind hier kein Fehler des Laufs: bricht die Nachfrage ab,
+        /// bleibt der Befund stehen, den die erste Antwort schon getragen hat.
+        /// </para>
+        /// </summary>
+        protected virtual Task<string?> InterrogateAsync(
+            NetworkStream stream, byte[] firstResponse, ProbeContext context, CancellationToken token) =>
+            Task.FromResult<string?>(null);
+
         public virtual async Task<PortResult> ProbeAsync(
             ProbeContext context, string address, int port, CancellationToken token)
         {
@@ -101,7 +148,42 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                             if (Identify(response))
                             {
                                 portResult.Status = PortStatus.IsRunning;
-                                logBuilder.AppendLine("Antwort passt zum erwarteten Protokoll.");
+
+                                // Erst lesen, was die Antwort selbst hergibt,
+                                // dann - nur wo eine Sonde es braucht - auf
+                                // derselben Verbindung nachfragen.
+                                string? description = Describe(response);
+
+                                try
+                                {
+                                    // Eigenes Zeitbudget statt des Restes von
+                                    // readCts: dessen Uhr laeuft seit vor der
+                                    // ersten Antwort, und ein Server, der sich
+                                    // mit der Begruessung Zeit gelassen hat,
+                                    // haette fuer die Nachfrage keine mehr.
+                                    using CancellationTokenSource askCts =
+                                        CancellationTokenSource.CreateLinkedTokenSource(token);
+                                    askCts.CancelAfter(context.TimeoutMs);
+
+                                    string? more = await InterrogateAsync(stream, response, context, askCts.Token);
+
+                                    if (!string.IsNullOrWhiteSpace(more))
+                                    {
+                                        description = string.IsNullOrWhiteSpace(description)
+                                            ? more
+                                            : description + Environment.NewLine + more;
+                                    }
+                                }
+                                catch (Exception) when (!token.IsCancellationRequested)
+                                {
+                                    // Zeitlimit, abgewiesene Nachfrage, geschlossene
+                                    // Verbindung: der Dienst ist erkannt, nur die
+                                    // Zusatzauskunft entfaellt. Kein Grund, den
+                                    // Befund des Ports zu verwerfen.
+                                }
+
+                                logBuilder.AppendLine(
+                                    string.IsNullOrWhiteSpace(description) ? ProtocolMatched : description);
                             }
                             else
                             {
@@ -242,6 +324,123 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             if (filler < response.Length && response[filler] != 0x00) return null;
 
             return Encoding.ASCII.GetString(response, 5, end - 5);
+        }
+
+        /// <summary>
+        /// Die Auskunft eines Servers der MySQL-Familie, wie sie in der
+        /// Detailansicht steht. Geteilt von beiden Sonden, weil beide dieselbe
+        /// Begruessung vor sich haben und sich nur darin unterscheiden, welche
+        /// von ihnen sie anerkennt.
+        /// <para>
+        /// MariaDB ab 10.0 stellt der echten Version das Scheinpraefix "5.5.5-"
+        /// voran. Angezeigt wird die echte Version; das Praefix ist ein Kniff
+        /// fuer alte Clients und keine Auskunft ueber den Server.
+        /// </para>
+        /// </summary>
+        protected static string? MySqlDetails(byte[] response)
+        {
+            string? version = ReadMySqlServerVersion(response);
+
+            if (version is null)
+            {
+                // Kein Handshake, aber vielleicht das Fehlerpaket, mit dem ein
+                // Server die Verbindung abweist - es nennt den Grund im
+                // Klartext, und der ist selbst eine Auskunft ("Host ... is not
+                // allowed to connect").
+                if (response.Length < 7 || response[3] != 0x00 || response[4] != 0xFF) return null;
+
+                // Aufbau des Fehlerpakets hinter der 0xFF: zwei Byte Fehlernummer,
+                // ab Protokoll 4.1 dann ein '#' mit fuenf Zeichen Zustandscode,
+                // und erst danach der Text. Wird die Nummer nicht uebersprungen,
+                // steht ihr unteres Byte als Buchstabe vor der Meldung.
+                int at = 5;
+
+                int code = response[at] | response[at + 1] << 8;
+                at += 2;
+
+                if (at < response.Length && response[at] == (byte)'#') at += 6;
+                if (at >= response.Length) return null;
+
+                string message = Printable(Encoding.ASCII.GetString(response, at, response.Length - at));
+
+                // Die Nummer gehoert dazu: 1130 heisst "Host nicht zugelassen",
+                // 1045 "Anmeldung abgelehnt" - zwei sehr verschiedene Lagen.
+                return message.Length > 0 ? $"Rejected ({code}): {message}" : null;
+            }
+
+            string real = version.StartsWith("5.5.5-", StringComparison.Ordinal) ? version[6..] : version;
+
+            return real.Length > 0 ? $"Version: {real}" : null;
+        }
+
+        /// <summary>
+        /// Schickt eine Textzeile und liest die Antwort - der Ablauf jedes
+        /// zeilenweisen Protokolls (FTP, SMTP, POP3). Leerer Text, wenn nichts
+        /// zurueckkommt.
+        /// </summary>
+        protected static async Task<string> AskLineAsync(
+            NetworkStream stream, string command, CancellationToken token)
+        {
+            byte[] request = Encoding.ASCII.GetBytes(command + "\r\n");
+            await stream.WriteAsync(request, token);
+
+            return await ReadTextAsync(stream, token);
+        }
+
+        /// <summary>
+        /// Liest, was gerade anliegt, und gibt es als Text zurueck. Bricht das
+        /// Zeitlimit dazwischen, gilt das bereits Gelesene - eine halbe Antwort
+        /// ist mehr als keine.
+        /// </summary>
+        protected static async Task<string> ReadTextAsync(NetworkStream stream, CancellationToken token)
+        {
+            byte[] buffer = new byte[4096];
+
+            try
+            {
+                int read = await stream.ReadAsync(buffer, token);
+                return read > 0 ? Encoding.ASCII.GetString(buffer, 0, read) : string.Empty;
+            }
+            catch (Exception)
+            {
+                return string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// Die erste Zeile eines Textes, ohne Zeilenende und ohne Steuerzeichen.
+        /// Was ein Server als Begruessung schickt, ist Text fuer Menschen - aber
+        /// nichts hindert ihn daran, Bytes mitzuschicken, die in einer
+        /// Oberflaeche nichts zu suchen haben.
+        /// </summary>
+        protected static string FirstLine(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return string.Empty;
+
+            int end = text.IndexOfAny(['\r', '\n']);
+            string line = end >= 0 ? text[..end] : text;
+
+            return Printable(line);
+        }
+
+        /// <summary>
+        /// Nur druckbare Zeichen, auf eine Zeilenlaenge begrenzt. Schutz gegen
+        /// Rohbytes und gegen einen Server, der auf eine harmlose Frage mit
+        /// Kilobytes antwortet.
+        /// </summary>
+        protected static string Printable(string text, int maxLength = 200)
+        {
+            if (string.IsNullOrEmpty(text)) return string.Empty;
+
+            StringBuilder clean = new(Math.Min(text.Length, maxLength));
+
+            foreach (char c in text)
+            {
+                if (clean.Length >= maxLength) break;
+                if (c is >= ' ' and <= '~') clean.Append(c);
+            }
+
+            return clean.ToString().Trim();
         }
 
         public override string ToString() => $"{Service} [{string.Join(", ", DefaultPorts)}]";

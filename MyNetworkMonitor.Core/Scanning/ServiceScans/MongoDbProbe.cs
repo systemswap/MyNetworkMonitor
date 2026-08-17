@@ -58,5 +58,160 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
             return serviceMatched;
         }
+
+        /// <summary>
+        /// Wertet die Antwort auf <c>isMaster</c> aus - die Frage, die das
+        /// Erkennungspaket ohnehin stellt und die jeder Server vor jeder
+        /// Anmeldung beantwortet, weil ein Client daraus erst lernt, wohin er
+        /// schreiben darf.
+        /// <para>
+        /// Eine Fassungsnummer steht nicht darin; <c>buildInfo</c> traegt sie,
+        /// verlangt aber je nach Einstellung eine Anmeldung. Was hier steht, ist
+        /// <c>maxWireVersion</c> - die Nummer des Protokollstandes, und die ist
+        /// fest an die Serverreihe gekoppelt.
+        /// </para>
+        /// </summary>
+        protected override string? Describe(byte[] response)
+        {
+            List<string> lines = [];
+
+            if (TryReadInt32Field(response, "maxWireVersion", out int wire))
+            {
+                string release = ReleaseOf(wire);
+
+                lines.Add(release.Length > 0
+                    ? $"Version: {release} (wire protocol {wire})"
+                    : $"Wire protocol: {wire}");
+            }
+
+            // Ein Satz mit "isdbgrid" kennzeichnet den Verteiler vor einem
+            // verteilten Bestand, keinen Server mit eigenen Daten.
+            string role = ReadStringField(response, "msg") == "isdbgrid"
+                ? "mongos router"
+                : RoleOf(response);
+
+            if (role.Length > 0) lines.Add($"Role: {role}");
+
+            string replicaSet = ReadStringField(response, "setName");
+            if (replicaSet.Length > 0) lines.Add($"Replica set: {replicaSet}");
+
+            // Wie der Server sich selbst nennt. Steht oft ein Name drin, den
+            // das DNS nicht kennt - der interne Name innerhalb des Verbunds.
+            string me = ReadStringField(response, "me");
+            if (me.Length > 0) lines.Add($"Reports itself as: {me}");
+
+            return lines.Count > 0 ? string.Join(Environment.NewLine, lines) : null;
+        }
+
+        /// <summary>
+        /// Die Rolle im Verbund. Der Name des Feldes wechselte mit Fassung 5.0
+        /// von <c>ismaster</c> auf <c>isWritablePrimary</c>; beide werden
+        /// gelesen, weil beide Fassungen im Feld stehen.
+        /// </summary>
+        private static string RoleOf(byte[] response)
+        {
+            bool writable =
+                ReadBoolField(response, "isWritablePrimary") == true ||
+                ReadBoolField(response, "ismaster") == true;
+
+            if (writable) return "primary";
+
+            return ReadBoolField(response, "secondary") == true ? "secondary" : string.Empty;
+        }
+
+        /// <summary>
+        /// Die Serverreihe zu einem Protokollstand. Die Zuordnung ist von
+        /// MongoDB festgelegt und aendert sich rueckwirkend nicht - ein Server
+        /// mit Stand 21 ist ein 7.0er. Unbekannt heisst hier "neuer als das,
+        /// was zur Bauzeit bekannt war"; dann steht nur die Nummer da.
+        /// </summary>
+        private static string ReleaseOf(int wireVersion) => wireVersion switch
+        {
+            6 => "3.6",
+            7 => "4.0",
+            8 => "4.2",
+            9 => "4.4",
+            13 => "5.0",
+            14 => "5.1",
+            17 => "6.0",
+            21 => "7.0",
+            25 => "8.0",
+            _ => string.Empty
+        };
+
+        /// <summary>
+        /// Sucht ein Feld in der BSON-Antwort und liefert die Stelle, an der
+        /// sein Wert beginnt, sowie den Typ davor. BSON reiht Felder als
+        /// <c>&lt;Typ&gt;&lt;Name&gt;\0&lt;Wert&gt;</c>; gesucht wird der Name
+        /// samt der Null dahinter, damit "me" nicht in "message" trifft.
+        /// </summary>
+        private static bool TryFindField(byte[] data, string name, out int valueStart, out byte type)
+        {
+            valueStart = 0;
+            type = 0;
+
+            byte[] pattern = Encoding.ASCII.GetBytes(name + "\0");
+
+            for (int i = 1; i <= data.Length - pattern.Length; i++)
+            {
+                bool match = true;
+
+                for (int j = 0; j < pattern.Length; j++)
+                {
+                    if (data[i + j] != pattern[j]) { match = false; break; }
+                }
+
+                if (!match) continue;
+
+                // Das Byte vor dem Namen ist die Typkennung des Feldes.
+                type = data[i - 1];
+                valueStart = i + pattern.Length;
+
+                return valueStart < data.Length;
+            }
+
+            return false;
+        }
+
+        /// <summary>Ein 32-Bit-Feld (Typ 0x10), little-endian.</summary>
+        private static bool TryReadInt32Field(byte[] data, string name, out int value)
+        {
+            value = 0;
+
+            if (!TryFindField(data, name, out int start, out byte type)) return false;
+            if (type != 0x10 || start + 4 > data.Length) return false;
+
+            value = data[start] | data[start + 1] << 8 | data[start + 2] << 16 | data[start + 3] << 24;
+
+            return true;
+        }
+
+        /// <summary>Ein Wahrheitsfeld (Typ 0x08). <c>null</c>, wenn es fehlt.</summary>
+        private static bool? ReadBoolField(byte[] data, string name)
+        {
+            if (!TryFindField(data, name, out int start, out byte type)) return null;
+            if (type != 0x08 || start >= data.Length) return null;
+
+            return data[start] != 0;
+        }
+
+        /// <summary>
+        /// Ein Zeichenkettenfeld (Typ 0x02). Aufbau: vier Byte Laenge
+        /// einschliesslich der abschliessenden Null, dann der Text.
+        /// </summary>
+        private static string ReadStringField(byte[] data, string name)
+        {
+            if (!TryFindField(data, name, out int start, out byte type)) return string.Empty;
+            if (type != 0x02 || start + 4 > data.Length) return string.Empty;
+
+            int length = data[start] | data[start + 1] << 8 | data[start + 2] << 16 | data[start + 3] << 24;
+
+            // Die Laenge zaehlt die Null mit; unglaubwuerdige Werte werden
+            // verworfen, statt blind in den Puffer zu greifen.
+            if (length is < 2 or > 256) return string.Empty;
+            if (start + 4 + length > data.Length) return string.Empty;
+
+            return Printable(Encoding.UTF8.GetString(data, start + 4, length - 1), 80);
+        }
     }
 }
