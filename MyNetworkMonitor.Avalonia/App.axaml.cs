@@ -28,9 +28,10 @@ public partial class App : Application
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            // Der Lizenzhinweis: siehe NoticeSuspended. Mit --notice laesst er
-            // sich einzeln wieder anfordern, ohne etwas umzustellen - damit
-            // pruefbar bleibt, dass er noch funktioniert.
+            // Der Lizenzhinweis: siehe NoticeSuspended. --notice fordert ihn
+            // einzeln an, --no-notice unterdrueckt ihn fuer einen Lauf ohne
+            // Aufsicht; eine Instanz mit eigenem Zustandsordner (Testinstanz)
+            // bekommt ihn ebenfalls nicht.
             bool forced = desktop.Args?.Any(a =>
                 string.Equals(a, "--notice", StringComparison.OrdinalIgnoreCase)) == true;
 
@@ -45,21 +46,21 @@ public partial class App : Application
     }
 
     /// <summary>
-    /// Der Lizenzhinweis im Firmennetz ist <b>voruebergehend abgeschaltet</b> -
-    /// auf ausdrueckliche Anweisung, bis er wieder gewuenscht wird.
+    /// Der Lizenzhinweis im Firmennetz ist wieder <b>eingeschaltet</b>: wird ein
+    /// Firmennetz erkannt, steht er als Startfenster vor der Hauptoberflaeche.
     /// <para>
-    /// <b>Zum Wiedereinschalten genuegt es, hier auf <c>false</c> zu setzen.</b>
-    /// Am Hinweis selbst (<c>EnterpriseMessageView</c>) und an der Erkennung
-    /// des Firmennetzes ist nichts geaendert; beides ist unberuehrt und
-    /// funktioniert sofort wieder.
+    /// <b>Zum Abschalten genuegt es, hier auf <c>true</c> zu setzen.</b> Am
+    /// Hinweis selbst (<c>EnterpriseMessageView</c>) und an der Erkennung des
+    /// Firmennetzes muss dafuer nichts geaendert werden.
     /// </para>
     /// <para>
-    /// Der Grund fuer das Abschalten: der Hinweis ist das Startfenster, und
+    /// Zu bedenken beim Einschalten: der Hinweis ist das Startfenster, und
     /// solange er offen ist, existiert die Hauptoberflaeche noch gar nicht -
-    /// jeder Start ohne Mausklick bleibt daran haengen.
+    /// jeder Start ohne Mausklick bleibt daran haengen. Fuer unbeaufsichtigte
+    /// Laeufe gibt es deshalb <c>--no-notice</c>.
     /// </para>
     /// </summary>
-    private const bool NoticeSuspended = true;
+    private const bool NoticeSuspended = false;
 
     /// <summary>Der Lizenzhinweis wird uebersprungen - siehe oben.</summary>
     private static bool SkipEnterpriseNotice { get; set; }
