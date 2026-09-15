@@ -72,7 +72,8 @@ public enum ServiceType
     ModBus,
     S7,
     BacNet,
-    Wago
+    Wago,
+    SecsGem
 }
 
 
@@ -395,6 +396,11 @@ public class ScanningMethod_Services
         _dt_Servives.Columns.Add("ResponsedContainsString", typeof(string));
         _dt_Servives.Columns.Add("ServiceGroup", typeof(string)); // Gruppierungs-Spalte
 
+    // Nur fuer Dienste, deren Auskunft eine Frage braucht, die den Zustand der
+    // Gegenstelle veraendert - bei SECS/GEM ist das S1F13. Vorgabe ist aus, und
+    // das bleibt sie: einschalten muss, wer die Anlagen im eigenen Netz kennt.
+    _dt_Servives.Columns.Add("ActiveInquiry", typeof(bool));
+
 
         foreach (ServiceType serviceType in Enum.GetValues(typeof(ServiceType)))
         {
@@ -406,6 +412,7 @@ public class ScanningMethod_Services
             row["ResponsedBytePackagePart"] = "";
             row["ResponsedContainsString"] = "";
             row["ServiceGroup"] = GetServiceGroup(serviceType);
+        row["ActiveInquiry"] = false;
 
             _dt_Servives.Rows.Add(row);
         }
@@ -466,6 +473,14 @@ public class ScanningMethod_Services
 
                         // ToScan aktualisieren
                         existingRow["toScan"] = tempRow["toScan"];
+
+                        // Die aktive Nachfrage, sofern die Datei sie schon kennt.
+                        // Aeltere Dateien haben die Spalte nicht - dann bleibt es
+                        // bei der Vorgabe "aus".
+                        if (tempTable.Columns.Contains("ActiveInquiry") && tempRow["ActiveInquiry"] is bool wanted)
+                        {
+                            existingRow["ActiveInquiry"] = wanted;
+                        }
                     }
                 }
             }
@@ -617,7 +632,7 @@ public class ScanningMethod_Services
                 => "📦 NoSQL-Datenbanken",
 
             // Industrieprotokolle
-            ServiceType.OPCUA or ServiceType.ModBus or ServiceType.S7 or ServiceType.BacNet or ServiceType.Wago
+            ServiceType.OPCUA or ServiceType.ModBus or ServiceType.S7 or ServiceType.BacNet or ServiceType.Wago or ServiceType.SecsGem
                 => "🏭 Industrieprotokolle",
 
             _ => "❓ Sonstige"

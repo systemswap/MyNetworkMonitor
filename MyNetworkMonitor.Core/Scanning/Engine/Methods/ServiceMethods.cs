@@ -449,7 +449,9 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 
             ScanningMethod_Services definitions = new(serviceXmlPath);
 
-            (List<ServiceType> wanted, Dictionary<ServiceType, List<int>> ports) =
+            (List<ServiceType> wanted,
+             Dictionary<ServiceType, List<int>> ports,
+             HashSet<ServiceType> activeInquiry) =
                 SelectServices(definitions, context.Settings.Services);
 
             if (wanted.Count == 0) return;
@@ -459,7 +461,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 
             if (addresses.Count == 0) return;
 
-            ServiceScanRunner runner = new();
+            ServiceScanRunner runner = new() { ActiveInquiryServices = activeInquiry };
 
             void OnProgress(ServiceScanProgress p) =>
                 context.ReportStepProgress(p.Current, p.Responded, p.Total, p.Service, p.Step, p.StepCount);
@@ -625,12 +627,13 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         /// und wuerde trotzdem nichts tun, was niemand versteht.
         /// </para>
         /// </summary>
-        private static (List<ServiceType>, Dictionary<ServiceType, List<int>>) SelectServices(
+        private static (List<ServiceType>, Dictionary<ServiceType, List<int>>, HashSet<ServiceType>) SelectServices(
             ScanningMethod_Services module, List<ServiceType> fromSettings)
         {
             Dictionary<ServiceType, List<int>> ports = [];
             List<ServiceType> marked = [];
             List<ServiceType> all = [];
+            HashSet<ServiceType> activeInquiry = [];
 
             foreach (System.Data.DataRow row in module.Services.Rows)
             {
@@ -641,6 +644,14 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                 ports[type] = ParsePorts(row["Ports"]?.ToString());
 
                 if (row["toScan"] != DBNull.Value && row["toScan"] is true) marked.Add(type);
+
+                // Die Spalte gibt es erst seit der aktiven Nachfrage; aeltere
+                // Tabellen kennen sie nicht, und dann bleibt es bei "aus".
+                if (module.Services.Columns.Contains("ActiveInquiry") &&
+                    row["ActiveInquiry"] != DBNull.Value && row["ActiveInquiry"] is true)
+                {
+                    activeInquiry.Add(type);
+                }
             }
 
             List<ServiceType> wanted =
@@ -648,7 +659,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                 marked.Count > 0 ? marked :
                 all;
 
-            return (wanted, ports);
+            return (wanted, ports, activeInquiry);
         }
 
         private static List<int> ParsePorts(string? text)

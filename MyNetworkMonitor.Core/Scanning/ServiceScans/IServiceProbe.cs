@@ -21,6 +21,27 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
         /// <summary>Versuche je Port, bevor "keine Antwort" gilt.</summary>
         public int RetryCount { get; init; } = 3;
+
+        /// <summary>
+        /// Ob eine Sonde eine Frage stellen darf, die den Zustand der
+        /// Gegenstelle veraendert.
+        /// <para>
+        /// Vorgabe ist <c>false</c>, und das ist keine Vorsicht um ihrer selbst
+        /// willen. Bei SECS/GEM gibt es genau eine Nachricht, die eine Anlage im
+        /// Zustand "nicht kommunizierend" beantworten muss - S1F13. Sie
+        /// beantwortet sie auch, mit Modell und Softwarestand, geht dabei aber
+        /// in den kommunizierenden Zustand und haelt den Fragenden fuer ihr
+        /// Leitsystem: gemessen kamen binnen einer halben Sekunde eine
+        /// Alarmmeldung und laufend Ereignisse mit echten Produktionsdaten. Wo
+        /// Spooling eingerichtet ist, koennten sie dem echten Leitsystem
+        /// fehlen.
+        /// </para>
+        /// <para>
+        /// Darum entscheidet das nicht die Sonde, sondern wer die Anlagen im
+        /// eigenen Netz kennt - je Dienst, in der Dienstverwaltung.
+        /// </para>
+        /// </summary>
+        public bool ActiveInquiry { get; init; }
     }
 
     /// <summary>

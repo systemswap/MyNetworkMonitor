@@ -461,6 +461,21 @@ namespace MyNetworkMonitor.Core.Model
 
         public bool HasDetails => Details.Count > 0;
 
+        /// <summary>
+        /// Die Details als Liste - das, woran die Detailansicht haengt.
+        /// <para>
+        /// Bewusst bei jedem Zugriff neu erzeugt. <see cref="Details"/> ist ein
+        /// Dictionary: seine Instanz bleibt ueber den ganzen Lauf dieselbe, und
+        /// es meldet keine Aenderungen seines Inhalts. Eine gebundene
+        /// <c>ItemsControl</c> baut ihre Zeilen aber nur neu auf, wenn die
+        /// Quelle eine andere ist - so blieb die Ansicht auf dem Stand des
+        /// ersten Bindens stehen. Die Auskunft eines Dienstes war dann zwar
+        /// gemeldet und gespeichert, aber erst nach einem Neustart der
+        /// Anwendung zu sehen.
+        /// </para>
+        /// </summary>
+        public IReadOnlyList<KeyValuePair<string, string>> DetailPairs => [.. Details];
+
         /// <summary>Wann das Geraet zuletzt gesehen wurde, in Worten.</summary>
         public string LastSeenText
         {
@@ -512,6 +527,7 @@ namespace MyNetworkMonitor.Core.Model
             OnPropertyChanged(nameof(OpenPortCount));
             OnPropertyChanged(nameof(HasServices));
             OnPropertyChanged(nameof(HasDetails));
+            OnPropertyChanged(nameof(DetailPairs));
             OnPropertyChanged(nameof(LastSeenText));
             OnPropertyChanged(nameof(IsOnline));
             OnPropertyChanged(nameof(IsIpv6Capable));
