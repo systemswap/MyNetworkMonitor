@@ -18,6 +18,14 @@ namespace MyNetworkMonitor.Core.ViewModels
     public partial class ServiceEntry : ObservableObject
     {
         [ObservableProperty] private bool _toScan;
+
+        /// <summary>
+        /// Aktiv nachfragen - nur dort sichtbar, wo es ueberhaupt etwas
+        /// bedeutet. Was es bedeutet, steht bei <c>ProbeContext.ActiveInquiry</c>:
+        /// die Frage veraendert den Zustand der Gegenstelle, darum entscheidet
+        /// sie der Betreiber und nicht die Sonde.
+        /// </summary>
+        [ObservableProperty] private bool _activeInquiry;
         [ObservableProperty] private string _ports = string.Empty;
 
         public required string Name { get; init; }
@@ -29,6 +37,12 @@ namespace MyNetworkMonitor.Core.ViewModels
         public string ResponseContains { get; init; } = string.Empty;
 
         public bool HasDetectionPacket => !string.IsNullOrWhiteSpace(DetectionPacket);
+
+        /// <summary>
+        /// Ob dieser Dienst eine aktive Nachfrage kennt. Nur SECS/GEM hat eine:
+        /// bei allen anderen waere das Kaestchen ein Schalter ohne Wirkung.
+        /// </summary>
+        public bool SupportsActiveInquiry => Name == nameof(ServiceType.SecsGem);
 
         /// <summary>Die Ports als Zahlen - fuer die Anzeige der Anzahl.</summary>
         public int PortCount =>
@@ -106,6 +120,7 @@ namespace MyNetworkMonitor.Core.ViewModels
                         Name = row["Service"]?.ToString() ?? string.Empty,
                         Group = row["ServiceGroup"]?.ToString() ?? string.Empty,
                         ToScan = row["toScan"] is true,
+                        ActiveInquiry = row.Table.Columns.Contains("ActiveInquiry") && row["ActiveInquiry"] is true,
                         Ports = row["Ports"]?.ToString() ?? string.Empty,
                         DetectionPacket = row["HelloBytePackage"]?.ToString() ?? string.Empty,
                         ResponseContains = row["ResponsedContainsString"]?.ToString() ?? string.Empty
@@ -193,12 +208,13 @@ namespace MyNetworkMonitor.Core.ViewModels
             table.Columns.Add("ResponsedBytePackagePart", typeof(string));
             table.Columns.Add("ResponsedContainsString", typeof(string));
             table.Columns.Add("ServiceGroup", typeof(string));
+            table.Columns.Add("ActiveInquiry", typeof(bool));
 
             foreach (ServiceEntry entry in All)
             {
                 table.Rows.Add(entry.ToScan, entry.Name, entry.Ports ?? string.Empty,
                                entry.DetectionPacket, string.Empty,
-                               entry.ResponseContains, entry.Group);
+                               entry.ResponseContains, entry.Group, entry.ActiveInquiry);
             }
 
             return table;

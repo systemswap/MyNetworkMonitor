@@ -47,6 +47,29 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
         public ProbeContext Context { get; init; } = new();
 
+        /// <summary>
+        /// Die Dienste, bei denen aktiv nachgefragt werden darf - eingeschaltet
+        /// in der Dienstverwaltung, Vorgabe ist leer.
+        /// <para>
+        /// Je Dienst und nicht fuer den ganzen Lauf, weil die Frage nur bei
+        /// einzelnen Protokollen ueberhaupt etwas veraendert. Was das bei
+        /// SECS/GEM bedeutet, steht bei <see cref="ProbeContext.ActiveInquiry"/>.
+        /// </para>
+        /// </summary>
+        public IReadOnlySet<ServiceType> ActiveInquiryServices { get; init; } =
+            new HashSet<ServiceType>();
+
+        /// <summary>Der Kontext fuer eine Sonde - mit ihrer eigenen Erlaubnis zum Nachfragen.</summary>
+        private ProbeContext ContextFor(IServiceProbe probe) =>
+            ActiveInquiryServices.Contains(probe.Service)
+                ? new ProbeContext
+                {
+                    TimeoutMs = Context.TimeoutMs,
+                    RetryCount = Context.RetryCount,
+                    ActiveInquiry = true
+                }
+                : Context;
+
         /// <summary>Ein Ziel ist fuer einen Dienst fertig geprueft.</summary>
         public event Action<ServiceFinding>? Found;
 
@@ -99,7 +122,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
                 try
                 {
-                    await probe.PrepareAsync(Context, targets, token);
+                    await probe.PrepareAsync(ContextFor(probe), targets, token);
                 }
                 catch (Exception) when (!token.IsCancellationRequested)
                 {
@@ -181,7 +204,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
                 try
                 {
-                    PortResult portResult = await probe.ProbeAsync(Context, address, port, token);
+                    PortResult portResult = await probe.ProbeAsync(ContextFor(probe), address, port, token);
 
                     lock (result.Ports) result.Ports.Add(portResult);
                 }

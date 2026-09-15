@@ -1372,7 +1372,7 @@
                     <Border Padding="12,9" IsVisible="{Binding HasDetails}">
                       <StackPanel>
                         <SelectableTextBlock Text="MORE DETAILS" Classes="sectionHead"/>
-                        <ItemsControl ItemsSource="{Binding Details}">
+                        <ItemsControl ItemsSource="{Binding DetailPairs}">
                           <ItemsControl.ItemTemplate>
                             <DataTemplate>
                               <StackPanel Margin="0,0,0,5">
@@ -1777,6 +1777,24 @@
               <DataGridTextColumn Header="SERVICE" Binding="{Binding Name}" Width="200" IsReadOnly="True"/>
               <DataGridTextColumn Header="GROUP" Binding="{Binding Group}" Width="150" IsReadOnly="True"/>
               <DataGridTextColumn Header="PORTS" Binding="{Binding Ports}" Width="220"/>
+
+              <!--
+                  Aktiv nachfragen: nur dort ein Kaestchen, wo es etwas
+                  bedeutet - bei SECS/GEM. Die Frage holt Modell und
+                  Softwarestand auch aus einer Anlage, die von sich aus
+                  schweigt, versetzt sie dabei aber kurz in den
+                  kommunizierenden Zustand. Darum aus als Vorgabe.
+              -->
+              <DataGridTemplateColumn Header="ASK ACTIVELY" Width="110">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <CheckBox IsChecked="{Binding ActiveInquiry}"
+                              IsVisible="{Binding SupportsActiveInquiry}"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                              ToolTip.Tip="Off by default. Asks the equipment directly (SECS/GEM S1F13) instead of only listening. This briefly puts the equipment into its communicating state, so it may send event data. Only possible while no host is connected."/>
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
 
               <!--
                   Das Erkennungspaket wird gezeigt, nicht bearbeitet. Es ist das

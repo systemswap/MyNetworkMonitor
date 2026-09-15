@@ -18,6 +18,7 @@ namespace MyNetworkMonitor.Core.Model
         public static string Of(ServiceType service) => service switch
         {
             ServiceType.S7 => "S7 PLC (SPS)",
+            ServiceType.SecsGem => "SECS/GEM",
             _ => service.ToString()
         };
 
@@ -43,6 +44,7 @@ namespace MyNetworkMonitor.Core.Model
             (ServiceType.OPCUA,  "OPC UA server"),
             (ServiceType.S7,     "S7 PLC"),
             (ServiceType.Wago,   "WAGO device"),
+            (ServiceType.SecsGem, "SECS/GEM equipment"),
 
             // Dienste, die sich beim Verbindungsaufbau selbst vorstellen. Sie
             // sagen nicht so viel ueber sich wie eine Steuerung, aber Software,
