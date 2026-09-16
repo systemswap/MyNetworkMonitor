@@ -123,36 +123,32 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
             List<string> lines = [];
 
-            // Die Select-Antwort und die Vorstellung koennen im selben Stueck
-            // angekommen sein - TCP kennt keine Nachrichtengrenzen. Dann steht
-            // die Auskunft schon da und muss nicht erfragt werden.
-            if (firstResponse.Length > 14)
-            {
-                AppendFrom(lines, firstResponse.AsSpan(14).ToArray());
-            }
-
-            if (lines.Count == 0)
-            {
-                await AskAsync(stream, context, token);
-
-                Message? answer = await ReadDataAsync(stream, token);
-
-                if (answer is not null)
-                {
-                    AppendIdentity(lines, answer.Body, answer.Header.SessionId);
-                    await AcknowledgeAsync(stream, answer, token);
-                }
-            }
-
-            // Separate.req loest die eigene Sitzung auf. Ohne sie bliebe die
-            // Anlage auf einem Zeitgeber sitzen, bis er ablaeuft.
             try
             {
-                await stream.WriteAsync(Frame(0xFFFF, 0x00, 0x00, SType.SeparateReq, 99), token);
+                // Die Select-Antwort und die Vorstellung koennen im selben Stueck
+                // angekommen sein - TCP kennt keine Nachrichtengrenzen. Dann steht
+                // die Auskunft schon da und muss nicht erfragt werden.
+                if (firstResponse.Length > 14)
+                {
+                    AppendFrom(lines, firstResponse.AsSpan(14).ToArray());
+                }
+
+                if (lines.Count == 0)
+                {
+                    await AskAsync(stream, context, token);
+
+                    Message? answer = await ReadDataAsync(stream, token);
+
+                    if (answer is not null)
+                    {
+                        AppendIdentity(lines, answer.Body, answer.Header.SessionId);
+                        await AcknowledgeAsync(stream, answer, token);
+                    }
+                }
             }
-            catch (Exception)
+            finally
             {
-                // Hoeflichkeit, kein Ergebnis - ein Fehler hier aendert am Fund nichts.
+                await SeparateAsync(stream);
             }
 
             return lines.Count == 0 ? null : string.Join(Environment.NewLine, lines);
@@ -304,26 +300,24 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
                 List<string> lines = [];
 
-                // Auch hier gefragt und nicht nur gelauscht: der erste Anlauf
-                // ist an seiner knappen Zeitgrenze gescheitert, nicht daran,
-                // dass die Anlage nichts zu sagen haette.
-                await AskAsync(stream, context, listen);
-
-                Message? introduction = await ReadDataAsync(stream, listen);
-
-                if (introduction is not null)
-                {
-                    AppendIdentity(lines, introduction.Body, introduction.Header.SessionId);
-                    await AcknowledgeAsync(stream, introduction, listen);
-                }
-
                 try
                 {
-                    await stream.WriteAsync(Frame(0xFFFF, 0x00, 0x00, SType.SeparateReq, 99), listen);
+                    // Auch hier gefragt und nicht nur gelauscht: der erste Anlauf
+                    // ist an seiner knappen Zeitgrenze gescheitert, nicht daran,
+                    // dass die Anlage nichts zu sagen haette.
+                    await AskAsync(stream, context, listen);
+
+                    Message? introduction = await ReadDataAsync(stream, listen);
+
+                    if (introduction is not null)
+                    {
+                        AppendIdentity(lines, introduction.Body, introduction.Header.SessionId);
+                        await AcknowledgeAsync(stream, introduction, listen);
+                    }
                 }
-                catch (Exception)
+                finally
                 {
-                    // Hoeflichkeit, kein Ergebnis.
+                    await SeparateAsync(stream);
                 }
 
                 return lines.Count == 0 ? null : string.Join(Environment.NewLine, lines);
@@ -631,6 +625,50 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                 Frame(request.Header.SessionId, 0x01, 0x0E, SType.Data, request.Header.SystemBytes, body),
                 token);
         }
+
+        /// <summary>
+        /// Loest die eigene Sitzung auf: Separate.req, das Trennsignal von
+        /// HSMS. Die Gegenseite weiss damit sofort, dass die Leitung frei ist,
+        /// und wartet auf keinen Zeitgeber.
+        /// <para>
+        /// Steht bei jedem Aufrufer in einem <c>finally</c>, und das ist der
+        /// Punkt: der haeufigste Ausgang ist eine Anlage, die nichts sagt und
+        /// das Lesen in sein Zeitlimit laufen laesst. Stand das Trennen
+        /// dahinter, wurde es genau dann uebersprungen, wenn es am ehesten
+        /// gebraucht wird.
+        /// </para>
+        /// <para>
+        /// Mit eigener, kurzer Zeitgrenze statt des uebergebenen Tokens - das
+        /// ist an dieser Stelle meist schon abgelaufen, und mit ihm wuerde das
+        /// Schreiben abgewiesen, bevor ein Byte das Haus verlaesst. Auch ein
+        /// abgebrochener Lauf soll sich noch ordentlich verabschieden; es
+        /// kostet Mikrosekunden.
+        /// </para>
+        /// <para>
+        /// Dass die Sitzung <em>haengen</em> bleibt, kann trotzdem nicht
+        /// passieren: sie lebt nur innerhalb der TCP-Verbindung, und die wird
+        /// in jedem Fall geschlossen. Separate.req macht das Ende nur
+        /// ausdruecklich, statt es die Gegenseite aus dem Verbindungsabbau
+        /// schliessen zu lassen.
+        /// </para>
+        /// </summary>
+        private static async Task SeparateAsync(NetworkStream stream)
+        {
+            try
+            {
+                using CancellationTokenSource quick = new(SeparateTimeoutMs);
+
+                await stream.WriteAsync(Frame(0xFFFF, 0x00, 0x00, SType.SeparateReq, 99), quick.Token);
+            }
+            catch (Exception)
+            {
+                // Hoeflichkeit, kein Ergebnis. Ist die Verbindung schon weg,
+                // ist auch die Sitzung weg - dann war nichts mehr zu trennen.
+            }
+        }
+
+        /// <summary>Zeitgrenze fuer das Trennsignal - es geht raus oder gar nicht.</summary>
+        private const int SeparateTimeoutMs = 500;
 
         /// <summary>Die Steuernachrichten von HSMS, wie SEMI E37 sie nummeriert.</summary>
         private static class SType
