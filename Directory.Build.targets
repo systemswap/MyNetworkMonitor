@@ -1,0 +1,8 @@
+<Project>
+    <!-- No usage data to Avalonia: the package Avalonia.BuildServices (comes with Avalonia) otherwise reports project,
+         version, IDE, system and a device ID to its server on every build. The environment variable
+         AVALONIA_TELEMETRY_OPTOUT=1 only helps where it is set; this empty target replaces the one of the same name from
+         the package on every machine and in every IDE. Directory.Build.targets is loaded after the package targets, so the
+         last definition wins. Do not delete. -->
+    <Target Name="AvaloniaStats" />
+</Project>

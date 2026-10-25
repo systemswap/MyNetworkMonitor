@@ -11,6 +11,11 @@ permissions:
 
 env:
   DOTNET_VERSION: '10.0.x'
+  # No usage data from the build tools (also set in Directory.Build.targets for Avalonia)
+  DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+  DOTNET_NOLOGO: '1'
+  AVALONIA_TELEMETRY_OPTOUT: '1'
+  DO_NOT_TRACK: '1'
   PROJECT_PATH: MyNetworkMonitor.Avalonia/MyNetworkMonitor.Avalonia.csproj
 
 jobs:
