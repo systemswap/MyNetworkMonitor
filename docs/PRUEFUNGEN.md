@@ -17,7 +17,8 @@ GitHub-Bau (`.github/workflows/build-and-release.yml`), sobald sich `<Version>` 
 
     dotnet test MyNetworkMonitor.Core.Tests -c Release -p:UseArtifactsOutput=true -p:ArtifactsPath=<testordner>/artifacts
 
-`MyNetworkMonitor.Core.Tests` (xUnit) prüft die Fachlogik ohne Netz: Pakete und Antworten bauen die Tests selbst,
+`MyNetworkMonitor.Core.Tests` (xUnit) läuft auch im GitHub-Bau vor dem Linux-Paket; schlägt ein Test fehl, gibt es
+kein Release. Die Tests prüfen die Fachlogik ohne Netz: Pakete und Antworten bauen die Tests selbst,
 Namen und Adressen sind erfunden. Was ein echtes Netz braucht, wird im Testnetz mit dem fertigen Programm geprüft;
 was nur auf einer Plattform geprüft ist, steht in `PLATFORM_TESTING_NOTES.md`.
 

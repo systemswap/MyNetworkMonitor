@@ -16,8 +16,13 @@ env:
   DOTNET_NOLOGO: '1'
   AVALONIA_TELEMETRY_OPTOUT: '1'
   DO_NOT_TRACK: '1'
+  TESTINGPLATFORM_TELEMETRY_OPTOUT: '1'
   PROJECT_PATH: MyNetworkMonitor.Avalonia/MyNetworkMonitor.Avalonia.csproj
 
+# Every action is pinned to a commit, with its version as a comment: a tag can be moved to other code at any time,
+# a commit cannot. To update, look up the commit of the new tag (git ls-remote --tags <repository>) and replace both.
+#   GitHub's own actions: https://github.com/actions/{checkout,setup-dotnet,upload-artifact,download-artifact}
+#   release upload: https://github.com/softprops/action-gh-release (MIT)
 jobs:
   # Baut nur, wenn sich <Version> in der csproj gegenueber dem vorherigen
   # Commit geaendert hat - oder wenn der Workflow manuell gestartet wurde.
@@ -28,7 +33,7 @@ jobs:
       version: ${{ steps.check.outputs.version }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 2
 
@@ -66,9 +71,9 @@ jobs:
     if: needs.check-version.outputs.changed == 'true'
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
@@ -95,7 +100,7 @@ jobs:
           Compress-Archive -Path publish\win-x64\* -DestinationPath $zipName
           echo "zipname=$zipName" >> $env:GITHUB_OUTPUT
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: windows-build
           path: ${{ steps.zip.outputs.zipname }}
@@ -105,11 +110,15 @@ jobs:
     if: needs.check-version.outputs.changed == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      # No release from a state whose tests fail.
+      - name: Tests
+        run: dotnet test MyNetworkMonitor.Core.Tests -c Release
 
       - name: Publish (self-contained, single Datei)
         run: |
@@ -157,7 +166,7 @@ jobs:
           ARCH=x86_64 ./appimagetool.AppImage --appimage-extract-and-run --no-appstream AppDir "$file"
           echo "file=$file" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: linux-build
           path: ${{ steps.appimage.outputs.file }}
@@ -167,12 +176,12 @@ jobs:
     if: needs.check-version.outputs.changed == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: windows-build
           path: dist
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: linux-build
           path: dist
@@ -195,7 +204,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: GitHub Release erstellen
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
           tag_name: v${{ needs.check-version.outputs.version }}
           name: Release ${{ needs.check-version.outputs.version }}

@@ -10,9 +10,6 @@ im Fehlergedächtnis). Grundlage ist die Prüfung gegen die gemeinsamen Regeln v
 
 ### Bauen und Ausliefern
 
-- Die Fremd-Action `softprops/action-gh-release` im GitHub-Bau auf eine feste Commit-Kennung festlegen (die
-  Actions von GitHub selbst hängen ebenfalls nur an Tags).
-
 ### Startprüfung
 
 - Rechte für das Mitlesen unter IPv6 (`cap_net_raw`) werden erst gemeldet, wenn ein Verfahren scheitert; eine
