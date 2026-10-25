@@ -35,9 +35,6 @@ im Fehlergedächtnis). Grundlage ist die Prüfung gegen die gemeinsamen Regeln v
 
 ## Vermutete Fehler
 
-- **Satellitenkanal ohne Grenze für entpackte Daten** (`SatelliteLink/MessageChannel.ReceiveAsync`): begrenzt nur die
-  gepackte Größe; eine kleine gepackte Nachricht kann beim Entpacken sehr groß werden (Gzip-Bombe). Entpackte Größe
-  begrenzen.
 - **DNS-Sonden fragen echte Domains** (`gotme.tcp.com`, `gotme.udp.com` in den DNS-Sonden): Namen unter einer
   registrierbaren Domain können auflösen und gehen an fremde Server. Besser ein Name unter `.invalid` (RFC 6761, 6.4).
 - **Windows-Dienststeuerung** (`WindowsServiceControl.Run`): liest stdout und danach stderr nacheinander – dasselbe

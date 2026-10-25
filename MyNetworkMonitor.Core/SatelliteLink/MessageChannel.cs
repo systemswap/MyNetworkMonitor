@@ -33,6 +33,15 @@ namespace MyNetworkMonitor.Core.SatelliteLink
         /// </summary>
         public const int MaxMessageBytes = 32 * 1024 * 1024;
 
+        /// <summary>
+        /// Upper limit per message after decompression. The frame limit alone
+        /// does not bound memory: a few hundred kilobytes of gzip can expand to
+        /// gigabytes (a "gzip bomb"). JSON results compress by roughly a factor
+        /// of ten, so four times the frame limit leaves ample room for real
+        /// messages. See docs/FEHLERGEDAECHTNIS.md, No. 20.
+        /// </summary>
+        public const int MaxPlainBytes = 4 * MaxMessageBytes;
+
         private const uint CompressedFlag = 0x8000_0000;
 
         private static readonly JsonSerializerOptions Options = new()
@@ -51,12 +60,20 @@ namespace MyNetworkMonitor.Core.SatelliteLink
         /// <param name="message">The message to send.</param>
         /// <param name="token">Cancels the write.</param>
         /// <exception cref="ArgumentNullException"><paramref name="message"/> is null.</exception>
-        /// <exception cref="InvalidOperationException">The payload exceeds <see cref="MaxMessageBytes"/>.</exception>
+        /// <exception cref="InvalidOperationException">The payload exceeds <see cref="MaxPlainBytes"/>, or <see cref="MaxMessageBytes"/> after compression.</exception>
         public async Task SendAsync(SatelliteMessage message, CancellationToken token)
         {
             ArgumentNullException.ThrowIfNull(message);
 
             byte[] payload = JsonSerializer.SerializeToUtf8Bytes(message, Options);
+
+            // The receiver rejects anything larger; failing here names the cause.
+            if (payload.Length > MaxPlainBytes)
+            {
+                throw new InvalidOperationException(
+                    $"Message of {payload.Length} bytes exceeds the limit of {MaxPlainBytes}.");
+            }
+
             bool compress = payload.Length >= CompressAbove;
 
             if (compress)
@@ -97,7 +114,7 @@ namespace MyNetworkMonitor.Core.SatelliteLink
         /// </summary>
         /// <param name="token">Cancels the read.</param>
         /// <returns>The message, or <c>null</c> if the peer closed the connection cleanly between two messages.</returns>
-        /// <exception cref="InvalidDataException">The announced length is out of range.</exception>
+        /// <exception cref="InvalidDataException">The announced length is out of range, or the decompressed payload exceeds <see cref="MaxPlainBytes"/>.</exception>
         /// <exception cref="EndOfStreamException">The connection closed in the middle of a message.</exception>
         public async Task<SatelliteMessage?> ReceiveAsync(CancellationToken token)
         {
@@ -120,16 +137,32 @@ namespace MyNetworkMonitor.Core.SatelliteLink
                 throw new EndOfStreamException("Connection closed in the middle of a message.");
             }
 
-            if (compressed)
-            {
-                using MemoryStream packed = new(payload);
-                using GZipStream gzip = new(packed, CompressionMode.Decompress);
-                using MemoryStream plain = new();
-                await gzip.CopyToAsync(plain, token);
-                payload = plain.ToArray();
-            }
+            if (compressed) payload = await DecompressAsync(payload, token);
 
             return JsonSerializer.Deserialize<SatelliteMessage>(payload, Options);
+        }
+
+        /// <summary>
+        /// Unpacks a gzip payload, stopping as soon as it grows beyond
+        /// <see cref="MaxPlainBytes"/> instead of after it has filled memory.
+        /// </summary>
+        private static async Task<byte[]> DecompressAsync(byte[] packed, CancellationToken token)
+        {
+            using MemoryStream source = new(packed);
+            using GZipStream gzip = new(source, CompressionMode.Decompress);
+            using MemoryStream plain = new();
+            byte[] chunk = new byte[81920];
+            int read;
+            while ((read = await gzip.ReadAsync(chunk, token)) > 0)
+            {
+                if (plain.Length + read > MaxPlainBytes)
+                {
+                    throw new InvalidDataException(
+                        $"Decompressed message exceeds the limit of {MaxPlainBytes} bytes.");
+                }
+                plain.Write(chunk, 0, read);
+            }
+            return plain.ToArray();
         }
 
         /// <summary>

@@ -287,3 +287,23 @@ Automatische Tests stehen in `MyNetworkMonitor.Core.Tests` (`docs/PRUEFUNGEN.md`
   `ShellView.axaml` (Einstellungen, Block „LICENSE“).
 - **Abgesichert durch:** Testprogramm im lokalen Testordner, das den Hinweis öffnet und die Lage der Texte misst (der
   OK-Knopf endet bei 266 von 311 Bildpunkten, alle drei Zeilen sichtbar).
+
+## Nr. 20 – Satellitenkanal: keine Grenze für entpackte Nachrichten
+
+- **Entdeckt:** 25.10.2026, Version 7.3.0.21 (Durchsicht der Kommentare, als Verdacht in den offenen Punkten).
+  **Behoben:** 7.3.0.23.
+- **Was passiert ist:** `MessageChannel.ReceiveAsync` begrenzte nur die gepackte Größe eines Rahmens (32 MiB). Eine
+  gepackte Nachricht von wenigen hundert Kilobyte kann beim Entpacken auf Gigabytes anwachsen („Gzip-Bombe“); der
+  Kanal entpackte sie vollständig in den Speicher. Ein Gegenüber im Netz hätte so Hauptscanner oder Satellit zum
+  Absturz bringen können, schon mit der ersten Nachricht.
+- **Warum:** Die Grenze war als Schutz gegen eine falsche Längenangabe gedacht; dass die Daten danach noch wachsen,
+  wurde nicht bedacht.
+- **Lösung:** Entpacken in Stücken mit Abbruch, sobald `MaxPlainBytes` (das Vierfache der Rahmengrenze, 128 MiB)
+  überschritten wird (`InvalidDataException`, die Verbindung endet wie bei einer falschen Länge). Der Sender prüft
+  dieselbe Grenze vor dem Packen, damit er nichts schickt, was die Gegenseite ablehnt. Das Vierfache, weil
+  JSON-Ergebnisse etwa um den Faktor zehn schrumpfen und die gepackte Grenze damit schon vorher greift.
+- **Nicht tun:** `CopyToAsync` aus einem Entpack-Stream in einen Speicher ohne Grenze; eine Grenze nur für die
+  gepackte Größe.
+- **Im Code:** `MyNetworkMonitor.Core/SatelliteLink/MessageChannel.cs` (`DecompressAsync`, `MaxPlainBytes`).
+- **Abgesichert durch:** `MessageChannelTests.GzipBomb_IsRejectedBeforeItFillsMemory` (schlägt mit dem alten Code
+  fehl: die Nachricht wurde vollständig entpackt und gelesen), dazu Rundlauf, Längengrenze und sauberes Ende.
