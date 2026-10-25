@@ -1,0 +1,151 @@
+# Fehlergedächtnis – MyNetworkMonitor
+
+Jeder behobene Fehler bekommt hier einen Eintrag – auch kleine, sobald man aus ihnen
+etwas lernen kann. Zweck: Wer später an derselben Stelle arbeitet, soll wissen, was schon
+schiefging, warum, und warum die Lösung so aussieht – damit derselbe Fehler bei einem Umbau
+nicht wiederkommt.
+
+Regeln:
+
+- Zeitlich geordnet nach der Behebung, neue Einträge ans Ende, fortlaufend nummeriert.
+- Versionen aus `git log` nachsehen, nicht schätzen. Der Commit zu einer Version ist über seine
+  Nachricht „Version x.y.z.w: …“ zu finden (Commit-Nummern ändern sich, wenn die Historie
+  bereinigt wird).
+- Einträge bleiben stehen, auch wenn der Code inzwischen anders aussieht.
+- Ohne persönliche Daten: keine echten Adressen, Gerätenamen oder Netzbeschreibungen –
+  Beispieladressen aus den Dokumentationsbereichen (192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24).
+- Vor Änderungen an einer Stelle hier nach ihr suchen (Datei- oder Klassenname).
+- Die Einträge 1–8 sind am 25.10.2026 aus den früheren Testnotizen übernommen; ältere Fehler stehen
+  nur in den Commit-Nachrichten.
+
+Das Projekt hat noch keine automatischen Tests (`docs/OFFENE-PUNKTE.md`); „Abgesichert durch“ nennt
+deshalb die Prüfung im Testnetz.
+
+---
+
+## Nr. 1 – Firmennetz: Erkennung über IP-Bereiche unzuverlässig
+
+- **Behoben:** Version 5.1.0.31 (09.08.2026)
+- **Wie bemerkt:** Hinweis „Firmennetz“ erschien bzw. fehlte unpassend.
+- **Was passiert ist:** Die Erkennung schloss aus privaten Adressbereichen und Adapternamen auf ein
+  Firmennetz; solche Bereiche kommen in Heimnetzen (Docker, VPN, WSL) genauso vor.
+- **Warum:** Adressbereiche sagen nichts darüber, ob ein Netz von einer Firma verwaltet wird.
+- **Lösung:** `ActiveDirectoryDetector.DomainControllerReachable()`: DNS-SRV-Abfrage
+  `_ldap._tcp.dc._msdcs.<domain>` mit kurzen Zeitgrenzen; nur ein erreichbarer Domänencontroller zählt.
+- **Warum diese Lösung:** Ein Domänencontroller ist das eindeutige Merkmal eines verwalteten Netzes;
+  die Abfrage braucht keinen Scan.
+- **Nicht tun:** wieder von Adressbereichen oder Adapternamen auf ein Firmennetz schließen.
+- **Im Code:** `MyNetworkMonitor.Core/Services/ActiveDirectoryDetector.cs`, `WindowsEnterpriseEnvironment`,
+  `LinuxEnterpriseEnvironment`.
+- **Abgesichert durch:** unter Linux im Heimnetz geprüft (`false`, rund 75 ms); Windows-Test offen
+  (`PLATFORM_TESTING_NOTES.md`).
+
+## Nr. 2 – Diensterkennung: Antworten nicht geprüft, Sonden schickten TCP-SYN-Pakete
+
+- **Behoben:** Version 6.0.0.0 (10.08.2026)
+- **Wie bemerkt:** Durchsicht aller IPv4-Scanverfahren; Dienste wurden auf Geräten gemeldet, die sie
+  nicht haben.
+- **Was passiert ist:** Jede Antwort auf eine Sonde galt als Treffer. Vier Sonden schickten statt
+  Anwendungsdaten rohe TCP-SYN-Pakete (aus einem Netzmitschnitt kopiert).
+- **Warum:** Die Antwortprüfung fehlte; die Byte-Folgen der Sonden waren falsch übernommen.
+- **Lösung:** Jede Sonde (`IServiceProbe`) prüft die Antwort nach dem Protokoll; Sonden senden echte
+  Anwendungsdaten.
+- **Nicht tun:** eine Antwort ohne Prüfung als erkannten Dienst werten; Byte-Folgen aus Mitschnitten
+  ungeprüft als Sonde übernehmen.
+- **Im Code:** `MyNetworkMonitor.Core/Scanning/ServiceScans/`.
+- **Abgesichert durch:** im Testnetz gegen echte Server (SSH, FTP, Samba, DNS, Kamera) geprüft, nur
+  unter Linux.
+
+## Nr. 3 – SMB: SMB1 als unterstützt gemeldet
+
+- **Behoben:** Version 6.0.0.0 (10.08.2026)
+- **Was passiert ist:** SMB1 erschien als unterstützt, obwohl der Server es ablehnte.
+- **Warum:** Die Ablehnung in der Antwort wurde nicht ausgewertet.
+- **Lösung:** Die Antwort des Servers entscheidet, nicht der erfolgreiche Verbindungsaufbau.
+- **Im Code:** SMB-Prüfung in `MyNetworkMonitor.Core/Scanning/`.
+- **Abgesichert durch:** im Testnetz gegen einen Samba-Server ohne SMB1 geprüft.
+
+## Nr. 4 – UDP-Portscan fragte nie das Ziel
+
+- **Behoben:** Version 6.0.0.0 (10.08.2026)
+- **Was passiert ist:** Der UDP-Portscan meldete die eigenen lokalen UDP-Listener statt der Ports des Ziels.
+- **Lösung:** Neu geschrieben: verbundener UDP-Socket je Port; „zu“ heißt, eine ICMP-Meldung „Port
+  nicht erreichbar“ kommt als `SocketException` mit `ConnectionReset`/`ConnectionRefused` zurück.
+- **Nicht tun:** lokale Listener als Ergebnis eines Scans verwenden.
+- **Offen:** Unter Windows hat der Socket-Stapel hier Eigenheiten (`SIO_UDP_CONNRESET`) – noch nicht
+  dort geprüft (`PLATFORM_TESTING_NOTES.md`).
+- **Abgesichert durch:** unter Linux mit einem offenen und einem geschlossenen Port geprüft.
+
+## Nr. 5 – mDNS fand unter Linux nie ein Gerät
+
+- **Behoben:** Version 6.0.0.0 (10.08.2026)
+- **Was passiert ist:** 0 statt 14 Treffer im Testnetz.
+- **Warum:** Der Socket war an die eigene Unicast-Adresse gebunden statt an `IPAddress.Any`; Antworten
+  an die Multicast-Gruppe kamen so nie an.
+- **Lösung:** Bindung an `IPAddress.Any`, Multicast-Schnittstelle über `SocketOptionName.MulticastInterface`.
+- **Nicht tun:** Multicast-Empfänger an eine Unicast-Adresse binden.
+- **Offen:** unter Windows gegenprüfen (`PLATFORM_TESTING_NOTES.md`).
+
+## Nr. 6 – Reverse-DNS: zweiteilige Namen nicht in Host und Domäne getrennt
+
+- **Behoben:** Version 6.0.0.1 (10.08.2026)
+- **Was passiert ist:** Ein zweiteiliger PTR-Name (Muster `router.example`) landete komplett im Feld
+  Hostname, die Domäne blieb leer.
+- **Warum:** Getrennt wurde erst ab drei Teilen (`Count > 2`).
+- **Lösung:** Schwelle `Count > 1`.
+- **Im Code:** `ScanningMethod_ReverseLookupToHostAndAliases`, `ReverseLookupScanMethod`.
+- **Abgesichert durch:** gegen den Heimrouter, öffentliche Server (IPv4 und IPv6) und den Fall „kein PTR“
+  geprüft.
+
+## Nr. 7 – Reverse-DNS verlor bei einem Scan des ganzen Netzes die meisten Antworten
+
+- **Behoben:** Version 6.0.0.2 (10.08.2026)
+- **Wie bemerkt:** Nutzer: Ein Gerät mit erkanntem Dienst stand in der Tabelle nur mit seiner Adresse.
+- **Was passiert ist:** Bei einem /24-Netz mit rund 30 Geräten kamen 4 Namen zurück.
+- **Warum:** (1) 50 gleichzeitige PTR-Abfragen – ein kleiner lokaler DNS-Server verliert unter so einem
+  Ansturm die meisten UDP-Antworten. (2) Der äußere Abbruch nutzte dieselbe Zeit wie ein einzelner
+  Versuch, die Wiederholungen des DNS-Clients kamen nie zum Zug.
+- **Lösung:** 8 gleichzeitige Abfragen, je Versuch 1 s mit 3 Wiederholungen, äußeres Zeitbudget =
+  Zeit × (Wiederholungen + 1) + Puffer. Ergebnis: praktisch alle Geräte in 37 s.
+- **Nicht tun:** die Nebenläufigkeit wieder hochsetzen; das äußere Zeitbudget kürzer als alle
+  Wiederholungen zusammen machen.
+- **Im Code:** `ScanningMethod_ReverseLookupToHostAndAliases`.
+
+## Nr. 8 – Namensauflösung über den Resolver des Systems langsam und unvollständig
+
+- **Behoben:** Version 6.0.0.3 (Rückwärts) und 6.0.0.4 (Vorwärts), 10.08.2026
+- **Wie bemerkt:** Wunsch des Nutzers, direkt beim DNS-Server zu fragen; der Vergleich bestätigte es.
+- **Was passiert ist:** Ohne eigenen DNS-Server im Scan fragte der DNS-Client den Resolver des Systems
+  (unter Linux mit systemd-resolved der Stub `127.0.0.53`), der weiterleitet: 21–32 Namen in 13–17 s
+  statt aller Namen in unter 100 ms direkt beim Router.
+- **Warum:** DnsClient ohne Serverangabe liest `/etc/resolv.conf`; ein Heimrouter ist für seinen lokalen
+  Namensraum selbst zuständig, ein weiterleitender Server dazwischen kostet Zeit und Antworten.
+- **Lösung:** `LegacyScanMethod.BuildTargets` trägt ohne eigenen DNS-Server das IPv4-Gateway der
+  Schnittstelle als Server ein, für Rückwärts- und Vorwärtsauflösung (`ScanningMethod_LookUp`).
+  Ein eigener DNS-Server im Scan geht vor.
+- **Warum diese Lösung:** Die meisten Heimrouter beantworten DNS selbst; wo nicht, bleibt die Adresse
+  ohne Namen, ein stiller Rückfall auf das System würde den Fehler verdecken.
+- **Nicht tun:** wieder auf den Resolver des Systems zurückfallen.
+- **Im Code:** `LegacyScanMethod.BuildTargets`, `ScanningMethod_LookUp.cs`, `IPToScan.DNSServerList`.
+
+## Nr. 9 – Bauen: Schalter gegen Nutzungsdaten fehlte im Repository
+
+- **Entdeckt und behoben:** 25.10.2026, nach Version 7.3.0.11 (Commit „Bauen: keine Nutzungsdaten …“)
+- **Wie bemerkt:** Prüfung des Projekts gegen die gemeinsamen Regeln.
+- **Was passiert ist:** `Directory.Build.targets` mit dem leeren Ziel `AvaloniaStats` lag nur in einer
+  lokalen Kopie, nicht im Repository. Ein frischer Klon und der GitHub-Bau meldeten bei jedem Bau
+  Projekt, Version, System und eine Geräte-Kennung an Avalonia; der GitHub-Bau schaltete auch die
+  Telemetrie der .NET-Werkzeuge nicht ab.
+- **Lösung:** `Directory.Build.targets` eingecheckt; im Workflow `DOTNET_CLI_TELEMETRY_OPTOUT`,
+  `DOTNET_NOLOGO`, `AVALONIA_TELEMETRY_OPTOUT`, `DO_NOT_TRACK`.
+- **Nicht tun:** Schalter nur lokal oder nur als Umgebungsvariable setzen.
+- **Im Code:** `Directory.Build.targets`, `.github/workflows/build-and-release.yml`.
+
+## Nr. 10 – Doku: persönliche Angaben in Beispielen und Testnotizen
+
+- **Entdeckt und behoben:** 25.10.2026, nach Version 7.3.0.11
+- **Wie bemerkt:** Prüfung des Projekts gegen die gemeinsamen Regeln (Hooks, Durchsicht).
+- **Was passiert ist:** Ein Beispieltext enthielt einen echten Vornamen; die Testnotizen beschrieben
+  das eigene Heimnetz (Router, Adressbereich, Gerätenamen, Ausstattung) – im öffentlichen Repository.
+- **Lösung:** Erfundene Namen; Testnotizen neutral, behobene Fehler hierher (Nr. 1–8); Historie bereinigt.
+- **Nicht tun:** echte Adressen, Gerätenamen oder Netzbeschreibungen in Doku, Kommentare oder Commits.
