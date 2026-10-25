@@ -217,6 +217,31 @@ namespace MyNetworkMonitor.Core.Network
             address.Equals(IPAddress.Any) || address.Equals(IPAddress.IPv6Any);
 
         /// <summary>
+        /// The range a new IPv4 scope should start with: the hosts of the
+        /// network of <paramref name="address"/>, without network and broadcast
+        /// address. Networks larger than a /24 are narrowed to the /24 around
+        /// the address: a /16 would be 65,534 targets, which nobody means by
+        /// "my network".
+        /// </summary>
+        /// <param name="address">An IPv4 address of this machine.</param>
+        /// <param name="prefixLength">Its prefix length.</param>
+        /// <returns>First and last address, or null for IPv6, invalid input or networks without hosts (/31, /32).</returns>
+        public static (string First, string Last)? SuggestedRange(string address, int prefixLength)
+        {
+            if (!IPAddress.TryParse(address, out IPAddress? ip) || ip.AddressFamily != AddressFamily.InterNetwork) return null;
+            if (prefixLength is < 0 or > 30) return null;
+
+            int prefix = Math.Max(prefixLength, 24);
+            uint value = (uint)IPAddress.NetworkToHostOrder(BitConverter.ToInt32(ip.GetAddressBytes(), 0));
+            uint mask = prefix == 0 ? 0 : uint.MaxValue << (32 - prefix);
+            uint network = value & mask;
+            uint broadcast = network | ~mask;
+
+            static string Text(uint v) => new IPAddress(BitConverter.GetBytes(IPAddress.HostToNetworkOrder((int)v))).ToString();
+            return (Text(network + 1), Text(broadcast - 1));
+        }
+
+        /// <summary>
         /// Converts address and prefix length into network notation, that is
         /// <c>192.0.2.22</c> with 24 to <c>192.0.2.0/24</c>.
         /// </summary>

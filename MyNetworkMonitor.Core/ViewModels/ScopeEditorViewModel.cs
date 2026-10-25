@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MyNetworkMonitor.Core.Model;
 using MyNetworkMonitor.Core.Models;
+using MyNetworkMonitor.Core.Network;
 using MyNetworkMonitor.Core.Persistence;
 
 namespace MyNetworkMonitor.Core.ViewModels
@@ -253,16 +254,27 @@ namespace MyNetworkMonitor.Core.ViewModels
 
         // ----------------------------------------------------------- Commands
 
+        /// <summary>
+        /// Adds a range for the network this machine is in (the first IPv4
+        /// network with a gateway, narrowed to a /24, see
+        /// <see cref="SiteInfo.SuggestedRange"/>). Without such a network it
+        /// falls back to the most common home network.
+        /// </summary>
         [RelayCommand]
         private void Add()
         {
+            SiteAddress? own = SiteInfo.Read().Ipv4.FirstOrDefault(a => a.HasGateway);
+            (string First, string Last) range =
+                (own is null ? null : SiteInfo.SuggestedRange(own.Address, own.PrefixLength))
+                ?? ("192.168.1.1", "192.168.1.254");
+
             ScanScope scope = new()
             {
                 Index = NextIndex(),
                 Kind = ScanScopeKind.IPv4Range,
                 GroupDescription = "New range",
-                FirstIP = "192.168.1.1",
-                LastIP = "192.168.1.254",
+                FirstIP = range.First,
+                LastIP = range.Last,
                 IsSelected = false
             };
 

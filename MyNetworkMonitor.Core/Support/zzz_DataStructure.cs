@@ -175,8 +175,6 @@ namespace MyNetworkMonitor
 
                     sb.Append(serviceWithIcon.PadRight(25, ' '));
 
-                    int portCounter = 0;
-
                     bool firstLine = true;
                     foreach (var portResult in filteredPorts)
                     {

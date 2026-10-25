@@ -35,11 +35,6 @@ im Fehlergedächtnis). Grundlage ist die Prüfung gegen die gemeinsamen Regeln v
 
 ## Vermutete Fehler
 
-- `TopologyLauncher.cs`: Ordnername `3dFoceGraph` (Tippfehler); `NullServiceControl` meldet „not supported on this
-  platform yet“; in `zzz_DataStructure.cs` ist `portCounter` unbenutzt; `ScopeEditorViewModel` schlägt `192.168.1.1–254`
-  als Bereich vor (besser aus der eigenen Schnittstelle ableiten).
-
-- `Ipv6MulticastGroupScanMethod.cs`: `ff05::1:3` ist als LLMNR beschriftet, gemeint ist All-DHCP-Servers.
 
 ## Später
 

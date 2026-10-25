@@ -389,3 +389,21 @@ Automatische Tests stehen in `MyNetworkMonitor.Core.Tests` (`docs/PRUEFUNGEN.md`
   `ProcessRunner.cs`, `MyNetworkMonitor.Core/Models/WiFiSignalResult.cs`, `MyNetworkMonitor.Core/Network/NmcliTerse.cs`.
 - **Abgesichert durch:** `WifiTests` (beide Umrechnungen, Zerlegen mit Escapes); im Testnetz `nmcli` mit und ohne
   `LC_ALL=C` verglichen („nein“ gegen „no“). Windows noch nicht gelaufen (`PLATFORM_TESTING_NOTES.md`).
+
+## Nr. 25 – Kleinigkeiten: IPv6-Gruppen falsch benannt, Vorschlag für neue Bereiche, Ordnername
+
+- **Entdeckt:** 25.10.2026, Version 7.3.0.21 (Durchsicht der Kommentare). **Behoben:** 7.3.0.28.
+- **Was:** `Ipv6MulticastGroupScanMethod` nannte ein Gerät in der Gruppe `ff02::1:2` „DHCPv6 client (looking for a
+  server)“ – Mitglied dieser Gruppe sind aber Server und Relays, Clients senden nur an sie (RFC 8415, Abschnitt 7.1) –
+  und `ff05::1:3` LLMNR statt All-DHCP-Servers; `ff05::1:2` ist keine vergebene Gruppe. Ein neuer Bereich im
+  Bereichseditor war immer `192.168.1.1–254`, auch in jedem anderen Netz. Der Ordner der 3D-Ansicht hieß
+  `3dFoceGraph`. Unter Linux meldete die Dienststeuerung „not supported on this platform yet“, obwohl der Dienst
+  nur für Windows vorgesehen ist. In `zzz_DataStructure` stand eine unbenutzte Variable.
+- **Lösung:** Gruppen nach RFC 8415 und RFC 4795 benannt; ein neuer Bereich nimmt das eigene IPv4-Netz mit Gateway,
+  größere Netze als /24 auf das /24 um die eigene Adresse begrenzt (`SiteInfo.SuggestedRange`), sonst wie bisher
+  `192.168.1.1–254`; der Ordner heißt `3dForceGraph`, ein vorhandener alter Ordner wird beim ersten Öffnen
+  umbenannt; die Meldung sagt „only available on Windows“.
+- **Nicht tun:** Gruppenadressen nach Gefühl beschriften; feste Beispielnetze als Vorgabe.
+- **Im Code:** `Scanning/Engine/Methods/Ipv6MulticastGroupScanMethod.cs` (`ServiceBehind`), `Network/SiteInfo.cs`,
+  `ViewModels/ScopeEditorViewModel.cs` (`Add`), `Services/TopologyLauncher.cs`, `Services/IServiceControl.cs`.
+- **Abgesichert durch:** `SiteInfoTests` (Netze /8 bis /32, IPv6, ungültige Eingabe).

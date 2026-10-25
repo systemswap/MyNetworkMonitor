@@ -18,13 +18,20 @@ namespace MyNetworkMonitor.Core.Services
         /// Storage location of the generated pages, below Documents in the
         /// user profile.
         /// </summary>
-        public static string DefaultGraphFolder { get; } = Path.Combine(
-            Path.Combine(
-                RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-                    ? Environment.ExpandEnvironmentVariables("%userprofile%")
-                    : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                "Documents"),
-            "MyNetworkMonitor", "3dFoceGraph");
+        public static string DefaultGraphFolder { get; } = Path.Combine(DocumentsFolder(), "MyNetworkMonitor", "3dForceGraph");
+
+        /// <summary>
+        /// The folder name used before the spelling was corrected. An existing
+        /// folder of that name is renamed once (see <see cref="AdoptOldFolder"/>),
+        /// so that its pages do not stay behind unnoticed.
+        /// </summary>
+        private static readonly string OldGraphFolder = Path.Combine(DocumentsFolder(), "MyNetworkMonitor", "3dFoceGraph");
+
+        private static string DocumentsFolder() => Path.Combine(
+            RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+                ? Environment.ExpandEnvironmentVariables("%userprofile%")
+                : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            "Documents");
 
         /// <summary>
         /// Shows the network topology built from the result table.
@@ -69,6 +76,7 @@ namespace MyNetworkMonitor.Core.Services
                                             string? graphFolder, Func<string, string> writePage)
         {
             string folder = graphFolder ?? DefaultGraphFolder;
+            if (graphFolder is null) AdoptOldFolder();
 
             TopologyGraph.EnsureLocalLibrary(folder);
             string htmlFilePath = writePage(folder);
@@ -79,6 +87,24 @@ namespace MyNetworkMonitor.Core.Services
 
             await webViewHost.EnsureInitializedAsync();
             webViewHost.Navigate(baseUrl + Path.GetFileName(htmlFilePath));
+        }
+
+        /// <summary>
+        /// Renames the folder with the old spelling to <see cref="DefaultGraphFolder"/>
+        /// if only the old one exists. A failure is not an error: the pages are
+        /// written anew each time.
+        /// </summary>
+        private static void AdoptOldFolder()
+        {
+            try
+            {
+                if (Directory.Exists(OldGraphFolder) && !Directory.Exists(DefaultGraphFolder))
+                    Directory.Move(OldGraphFolder, DefaultGraphFolder);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // The old folder stays; the new one is created as usual.
+            }
         }
     }
 }

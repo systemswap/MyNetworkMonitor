@@ -175,8 +175,11 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         {
             "ff02::fb" or "ff05::fb" => "mDNS (Bonjour/Avahi - Apple devices, printers, TVs)",
             "ff02::c" or "ff05::c" => "SSDP/UPnP (media servers, routers, smart home)",
-            "ff02::1:2" or "ff05::1:2" => "DHCPv6 client (looking for a server)",
-            "ff02::1:3" or "ff05::1:3" => "LLMNR (Windows name resolution)",
+            // A device that joins these groups answers DHCPv6 requests; clients
+            // only send to them (RFC 8415, section 7.1).
+            "ff02::1:2" => "DHCPv6 server or relay agent",
+            "ff05::1:3" => "DHCPv6 server",
+            "ff02::1:3" => "LLMNR (Windows name resolution, RFC 4795)",
             "ff02::2" => "Router",
             "ff02::16" => "MLDv2 capable",
             "ff02::6a" => "All snoopers",

@@ -81,7 +81,7 @@ namespace MyNetworkMonitor.Core.Services
     /// <summary>Used when no implementation is available - reports that the operation is not supported.</summary>
     public sealed class NullServiceControl : IServiceControl
     {
-        private const string NotHere = "Setting up a service is not supported on this platform yet.";
+        private const string NotHere = "Running MyNetworkMonitor as a service is only available on Windows.";
 
         public bool IsSupported => false;
         public bool IsElevated => false;
