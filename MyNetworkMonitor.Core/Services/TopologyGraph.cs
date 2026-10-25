@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LicenseRef-MyNetworkMonitor
 using System.Data;
 using System.Text;
 using Newtonsoft.Json;

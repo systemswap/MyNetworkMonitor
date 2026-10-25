@@ -1,4 +1,5 @@
-﻿using MyNetworkMonitor;
+﻿// SPDX-License-Identifier: LicenseRef-MyNetworkMonitor
+using MyNetworkMonitor;
 using MyNetworkMonitor.Core.Network;
 using System;
 using System.Collections.Concurrent;

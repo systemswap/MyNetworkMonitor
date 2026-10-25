@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LicenseRef-MyNetworkMonitor
 namespace MyNetworkMonitor.Core.Services
 {
     /// <summary>Registry root key (platform-neutral equivalent of Microsoft.Win32.RegistryHive).</summary>

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LicenseRef-MyNetworkMonitor
 using System;
 using System.Threading.Tasks;
 using Avalonia.Controls;

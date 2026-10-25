@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LicenseRef-MyNetworkMonitor
 namespace MyNetworkMonitor.Core.Models
 {
     /// <summary>Signal information of a Wi-Fi network (platform-neutral DTO).</summary>

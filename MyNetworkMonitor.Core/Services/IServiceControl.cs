@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LicenseRef-MyNetworkMonitor
 namespace MyNetworkMonitor.Core.Services
 {
     /// <summary>The state of the satellite service.</summary>

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LicenseRef-MyNetworkMonitor
 using static MyNetworkMonitor.ServiceScanData;
 
 namespace MyNetworkMonitor.Core.Scanning.ServiceScans

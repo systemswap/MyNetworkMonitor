@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: LicenseRef-MyNetworkMonitor
 # Trägt MyNetworkMonitor für den angemeldeten Benutzer ins Anwendungsmenü ein – mit Symbol und
 # (falls angegeben) den Dateiarten, damit es im Dateimanager unter „Öffnen mit …“ erscheint
 # (nicht als Standardprogramm). Ohne Root-Rechte; kopiert werden nur Menüeintrag, Symbol und

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LicenseRef-MyNetworkMonitor
 namespace MyNetworkMonitor.Core.Models
 {
     /// <summary>An entry of the ARP table (IP address to MAC address).</summary>

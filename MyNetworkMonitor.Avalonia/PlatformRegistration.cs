@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LicenseRef-MyNetworkMonitor
 using MyNetworkMonitor.Avalonia.Platform.Linux;
 #if WINDOWS
 using MyNetworkMonitor.Platform.Windows;

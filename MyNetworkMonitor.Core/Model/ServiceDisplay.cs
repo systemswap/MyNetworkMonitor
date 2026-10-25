@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LicenseRef-MyNetworkMonitor
 namespace MyNetworkMonitor.Core.Model
 {
     /// <summary>

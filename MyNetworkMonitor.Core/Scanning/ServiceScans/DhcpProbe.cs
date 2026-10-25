@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LicenseRef-MyNetworkMonitor
 using System.Net;
 using System.Net.Sockets;
 using MyNetworkMonitor;

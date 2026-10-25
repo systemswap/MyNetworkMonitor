@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LicenseRef-MyNetworkMonitor
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 

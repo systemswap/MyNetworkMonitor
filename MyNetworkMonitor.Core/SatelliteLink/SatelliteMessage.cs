@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LicenseRef-MyNetworkMonitor
 using System.Text.Json.Serialization;
 
 // The namespace is called SatelliteLink and not Satellite: the type

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: LicenseRef-MyNetworkMonitor
 set -Eeuo pipefail
 
 # Erstellt die fertigen Programme in published/:

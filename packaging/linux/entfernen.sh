@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: LicenseRef-MyNetworkMonitor
 # Entfernt Menüeintrag, Symbol und eigene Dateiart von MyNetworkMonitor. Der Programmordner und die
 # Einstellungen bleiben unberührt.
 set -euo pipefail

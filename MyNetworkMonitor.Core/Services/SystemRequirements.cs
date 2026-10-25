@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LicenseRef-MyNetworkMonitor
 namespace MyNetworkMonitor.Core.Services
 {
     /// <summary>Package-manager family whose install command is shown first.</summary>

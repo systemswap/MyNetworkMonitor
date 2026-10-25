@@ -1,4 +1,5 @@
-﻿namespace MyNetworkMonitor.Core.Services
+﻿// SPDX-License-Identifier: LicenseRef-MyNetworkMonitor
+namespace MyNetworkMonitor.Core.Services
 {
     /// <summary>
     /// Platform-independent abstraction for simple dialogs. Deliberately
