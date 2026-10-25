@@ -638,6 +638,18 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
 
+        // ------------------------------------------------- System check
+
+        /// <summary>Whether the user chose "Don't show again" for an optional item of the system check.</summary>
+        /// <param name="id">The <see cref="SystemRequirement.Id"/>.</param>
+        /// <returns>True if the item is not to be shown at start.</returns>
+        public bool IsSystemCheckHidden(string id) => _userSettings?.GetBool("SystemCheckHidden." + id, false) == true;
+
+        /// <summary>Remembers or clears "Don't show again" for an optional item of the system check.</summary>
+        /// <param name="id">The <see cref="SystemRequirement.Id"/>.</param>
+        /// <param name="hidden">True to stop showing it at start.</param>
+        public void SetSystemCheckHidden(string id, bool hidden) => _userSettings?.SetBool("SystemCheckHidden." + id, hidden);
+
         // ------------------------------------------------- MAC-Herstellerliste
 
         /// <summary>Waehrend des Herunterladens gesperrt, damit kein zweiter Versuch nebenher laeuft.</summary>

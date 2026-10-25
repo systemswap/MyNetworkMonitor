@@ -3029,6 +3029,19 @@
 
             <StackPanel Grid.Column="2" Spacing="14">
 
+              <!-- System check: programs of the system that MyNetworkMonitor calls -->
+              <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
+                      BorderThickness="1" CornerRadius="4" Padding="16,14">
+                <StackPanel Spacing="5">
+                  <TextBlock Text="SYSTEM CHECK" Classes="settingsHead"/>
+                  <Button x:Name="bt_SystemCheck" Content="Check system" HorizontalAlignment="Left"
+                          Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
+                          Click="bt_SystemCheck_Click"/>
+                  <TextBlock Classes="settingHint"
+                             Text="Shows which programs of the system MyNetworkMonitor uses, whether they are installed and the command to install what is missing. It also opens at start when something is missing."/>
+                </StackPanel>
+              </Border>
+
               <!-- Ablage -->
               <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
                       BorderThickness="1" CornerRadius="4" Padding="16,14">

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
@@ -64,6 +65,9 @@ public partial class ShellView : Window
         };
 
         DataContext = _shell;
+
+        // System check once the window is open: in the background, and only shown when something needs attention
+        Opened += async (_, _) => await ShowSystemCheckIfNeededAsync();
 
         // Die gespeicherten Einstellungen zuerst - Zeitlimit und Portschalter
         // gehen in die Verfuegbarkeitspruefung der Verfahren ein.
@@ -1075,9 +1079,11 @@ public partial class ShellView : Window
                    "it loads the page but never paints it (Avalonia.Controls.WebView issue, not a missing package).";
         }
 
+        // Fedora does not package WPE WebKit (packages.fedoraproject.org, checked 25.10.2026): no command to offer there
         return "Opened in your browser: this system has no embedded web engine. " +
                "To get the view back inside the window, install WPE WebKit - on Debian and " +
-               "Ubuntu that is: sudo apt install " + string.Join(' ', MissingWpePackages());
+               "Ubuntu that is: sudo apt install " + string.Join(' ', MissingWpePackages()) +
+               " (Fedora does not package WPE WebKit; there the view keeps opening in the browser).";
     }
 
     /// <summary>
@@ -1183,7 +1189,8 @@ public partial class ShellView : Window
                     : "No embedded web engine on this system, so the graph opens in your browser " +
                       "when you press Draw.\n\n" +
                       "To get it back inside this window, install WPE WebKit - on Debian and Ubuntu:\n" +
-                      "sudo apt install " + string.Join(' ', MissingWpePackages()),
+                      "sudo apt install " + string.Join(' ', MissingWpePackages()) + "\n\n" +
+                      "Fedora does not package WPE WebKit; there the graph keeps opening in your browser.",
                 FontSize = 11.5,
                 TextWrapping = global::Avalonia.Media.TextWrapping.Wrap,
                 Foreground = new SolidColorBrush(Color.Parse("#5C6F73")),
@@ -1429,6 +1436,26 @@ public partial class ShellView : Window
 
     private void bt_OpenSettingsFolder_Click(object? sender, RoutedEventArgs e) =>
         OpenFolder(_shell.SettingsFolder);
+
+    private void bt_SystemCheck_Click(object? sender, RoutedEventArgs e) =>
+        new SystemCheckWindow(_shell).ShowDialog(this);
+
+    /// <summary>
+    /// Runs the system check (<see cref="SystemRequirements"/>) after start and opens <see cref="SystemCheckWindow"/> if a
+    /// required program is missing or an optional one has not been dismissed. A failing check never blocks the start.
+    /// </summary>
+    private async Task ShowSystemCheckIfNeededAsync()
+    {
+        try
+        {
+            IReadOnlyList<SystemCheckResult> results = await Task.Run(SystemRequirements.Check);
+            if (SystemCheckWindow.NeedsAttention(_shell, results)) await new SystemCheckWindow(_shell).ShowDialog(this);
+        }
+        catch (Exception)
+        {
+            // The check is a help, not a condition for using the program
+        }
+    }
 
     private void bt_OpenAppFolder_Click(object? sender, RoutedEventArgs e) =>
         OpenFolder(_shell.ApplicationFolder);

@@ -24,10 +24,9 @@ im Fehlergedächtnis). Grundlage ist die Prüfung gegen die gemeinsamen Regeln v
 
 ### Startprüfung
 
-- Der Hinweis zu fehlenden WebKit-Paketen nennt nur `apt` – Befehle für Fedora ergänzen.
-- `ip`, `ping`, `nmcli`, `xdg-open` und die Berechtigung `cap_net_raw` beim Start prüfen und mit Paketnamen
-  für Debian und Fedora melden; heute liefern die Verfahren dann still leere Listen.
 - `ProcessRunner.cs`: `stderr` wird umgeleitet, aber nie gelesen – ein voller Puffer kann den Prozess hängen lassen.
+- Rechte für das Mitlesen unter IPv6 (`cap_net_raw`) werden erst gemeldet, wenn ein Verfahren scheitert; eine
+  AppImage kann diese Rechte nicht bekommen (FUSE-Einhängung ohne setuid), nur die Paketform „einzeln“.
 
 ### Kommentare und Doku
 

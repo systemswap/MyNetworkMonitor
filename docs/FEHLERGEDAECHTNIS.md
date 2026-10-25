@@ -224,3 +224,19 @@ deshalb die Prüfung im Testnetz.
   bisherigen, fünf Namenslisten gleich ausgewertet wie bisher, komprimierter Name, falsche Nummer/Fehlercode/Anfrage
   abgelehnt, 200 000 verdorbene Antworten ohne Absturz; live gegen einen Samba-Namensdienst (7 Namen, Rechnername und
   Arbeitsgruppe erkannt). Als Test übernehmen, sobald es ein Testprojekt gibt.
+
+## Nr. 16 – Start: fehlende Programme unter Linux nur still bemerkbar
+
+- **Entdeckt:** 25.10.2026, Version 7.3.0.11 (Prüfung gegen die gemeinsamen Regeln). **Behoben:** 7.3.0.20.
+- **Was passiert ist:** Fehlten `ip`, `ping`, `nmcli` oder `xdg-open`, lieferten die Verfahren still leere Listen;
+  nur die Meldung zur Webansicht nannte einen Befehl, und der nur für Debian.
+- **Lösung:** `SystemRequirements` (Liste an einer Stelle: Zweck, was ohne passiert, nötig/optional, Pakete für Debian
+  und Fedora, nachgesehen am 25.10.2026) und `SystemCheckWindow`: öffnet nach dem Start, wenn etwas Nötiges fehlt
+  oder etwas Optionales nicht mit „Don't show again at start“ weggeklickt ist; Befehle für das eigene System zuerst,
+  je mit „Copy“; „Check again“ ohne Neustart; jederzeit über Settings → System check. Die Meldung zur Webansicht
+  sagt, dass Fedora WPE WebKit nicht als Paket führt.
+- **Nicht tun:** Programme selbst installieren; Paketnamen raten; den Start von der Prüfung abhängig machen.
+- **Im Code:** `MyNetworkMonitor.Core/Services/SystemRequirements.cs`, `MyNetworkMonitor.Avalonia/Views/SystemCheckWindow.cs`,
+  `ShellView.axaml(.cs)` (`ShowSystemCheckIfNeededAsync`, `bt_SystemCheck_Click`), `ShellViewModel` (`IsSystemCheckHidden`).
+- **Abgesichert durch:** Start mit leerem Suchpfad (alle vier fehlen) – Fenster geöffnet, Inhalt geprüft; kein Test,
+  weil es noch kein Testprojekt gibt.
