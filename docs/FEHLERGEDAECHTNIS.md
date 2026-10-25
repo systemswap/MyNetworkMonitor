@@ -407,3 +407,28 @@ Automatische Tests stehen in `MyNetworkMonitor.Core.Tests` (`docs/PRUEFUNGEN.md`
 - **Im Code:** `Scanning/Engine/Methods/Ipv6MulticastGroupScanMethod.cs` (`ServiceBehind`), `Network/SiteInfo.cs`,
   `ViewModels/ScopeEditorViewModel.cs` (`Add`), `Services/TopologyLauncher.cs`, `Services/IServiceControl.cs`.
 - **Abgesichert durch:** `SiteInfoTests` (Netze /8 bis /32, IPv6, ungültige Eingabe).
+
+## Nr. 26 – Firmennetz-Erkennung: Domänenname auch an öffentliche Resolver und für Router-Domänen
+
+- **Entdeckt:** 25.10.2026, Version 7.3.0.21 (Prüfung gegen die gemeinsamen Regeln, als offener Punkt „Privatsphäre“).
+  **Behoben:** 7.3.0.29.
+- **Was passiert ist:** Bei jedem Start fragte `ActiveDirectoryDetector` `_ldap._tcp.dc._msdcs.<Domäne>` für die globale
+  Domäne und jedes Adapter-Suffix bei den Namensservern des Systems. Im Heimnetz ist das Suffix die Domäne des Routers
+  (z. B. `fritz.box`), die Abfrage kann nie einen Domänencontroller finden; ist ein großer öffentlicher Resolver
+  eingetragen, erfuhr dieser bei jedem Start den Domänennamen des Netzes.
+- **Warum:** Die Erkennung kannte keine Fälle, in denen die Frage sinnlos ist.
+- **Lösung:** Keine Abfrage für Router-Domänen als ganzer Name (`fritz.box`, `speedport.ip`, `lan`, `home`,
+  `localdomain`, `local`), `home.arpa` und die reservierten Endungen `localhost`, `invalid`, `test`, `example`
+  (`IsLocalSuffix`); keine Abfrage bei den großen öffentlichen Resolvern (Google, Cloudflare, Quad9, OpenDNS,
+  `IsPublicResolver`), die nie einen internen Domänencontroller kennen. Alle anderen Namensserver aller aktiven
+  Adapter bleiben, auch VPN-Adapter.
+- **Verworfen:** nur Namensserver mit privater Adresse – große Firmen betreiben interne Namensserver auf eigenen
+  öffentlichen Bereichen, dort wäre die Erkennung ausgefallen. Endungen `.local`/`.lan` überspringen – viele
+  Active-Directory-Domänen heißen `firma.local`. Nur physische Adapter – der Namensserver eines Firmen-VPN fände den
+  Domänencontroller aus dem Homeoffice nicht mehr. Die LDAP-Prüfung in Firmennetzen soll bleiben (Wunsch des Nutzers).
+- **Nicht tun:** die Erkennung so einschränken, dass Firmennetze durchrutschen; den Domänennamen an Dienste schicken,
+  die ihn nie beantworten können.
+- **Im Code:** `MyNetworkMonitor.Core/Services/ActiveDirectoryDetector.cs`; Hinweis in `README.md` („Privatsphäre“).
+- **Abgesichert durch:** `ActiveDirectoryDetectorTests` (Resolver, Suffixe, darunter `company.local` und `company.lan`
+  als geprüft); im Testnetz „kein Firmennetz“ nach 26 ms ohne Abfrage. Ein Firmennetz steht noch aus
+  (`PLATFORM_TESTING_NOTES.md`).

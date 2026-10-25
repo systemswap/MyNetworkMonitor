@@ -38,6 +38,10 @@ Testnetze nur allgemein beschreiben – keine Adressen, Gerätenamen, Router- od
 
 ## Offen: auf beiden Plattformen
 
+- **Firmennetz-Erkennung (7.3.0.29, Fehlergedächtnis Nr. 26):** in einem Firmennetz mit Active Directory prüfen, dass der
+  Hinweis weiterhin erscheint – mit einer Domäne unter `.local`, und im Homeoffice über ein Firmen-VPN. Im Heimnetz
+  mit Router-Domäne erscheint er nicht und es wird nichts gefragt (Linux geprüft).
+
 - **Neutrale Sonden-Pakete (Version 7.3.0.17, Fehlergedächtnis Nr. 14):** MS-SQL (Standardinstanz), MongoDB
   (`isMaster` ohne Client-Angaben) und OPC UA (Endpoint `localhost`) gegen echte Server prüfen – erkannt wie vorher?
   MongoDB seit 7.3.0.25 mit neuer Antwortprüfung (Fehlergedächtnis Nr. 22): mehrere Serverfassungen, auch mit Replica

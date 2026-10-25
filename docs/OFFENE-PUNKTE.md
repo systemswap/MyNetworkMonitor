@@ -8,10 +8,6 @@ im Fehlergedächtnis). Grundlage ist die Prüfung gegen die gemeinsamen Regeln v
 
 ### Privatsphäre
 
-- **Firmennetz-Erkennung beim Start** fragt `_ldap._tcp.dc._msdcs.<Domäne>` bei den DNS-Servern des Systems –
-  sind dort öffentliche Server eingetragen, geht der Domänenname nach außen. Im Info-Fenster erwähnen oder
-  nur bei einer Domäne fragen.
-
 ### Bauen und Ausliefern
 
 - Die Fremd-Action `softprops/action-gh-release` im GitHub-Bau auf eine feste Commit-Kennung festlegen (die

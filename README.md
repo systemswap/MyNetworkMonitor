@@ -24,7 +24,10 @@ Benötigt das .NET SDK 10. Die fertigen Programme liegen danach in `published/`.
 
 ## Privatsphäre
 
-MyNetworkMonitor sendet keine Nutzungsdaten. Ins Internet geht es nur, wenn du es auslöst: beim
+MyNetworkMonitor sendet keine Nutzungsdaten. Beim Start fragt es die Namensserver deines Netzes, ob es einen
+Domänencontroller gibt (Erkennung eines Firmennetzes für den Lizenzhinweis) – nicht bei den Domänen, die Heimrouter
+vergeben, und nie bei großen öffentlichen Diensten wie Google oder Cloudflare. Ins Internet geht es nur, wenn du es
+auslöst: beim
 Erneuern der Herstellerliste (Datei von wireshark.org) und, wenn der Haken „library from CDN“ gesetzt
 ist, beim Laden der 3D-Bibliothek. Scanne nur Netze, für die du die Erlaubnis hast.
 
