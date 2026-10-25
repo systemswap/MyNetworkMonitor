@@ -274,7 +274,7 @@ namespace MyNetworkMonitor.Platform.Windows
 
                 return process.HasExited && process.ExitCode == 0
                     ? new ServiceChangeResult(true, $"The service was {what}.")
-                    : new ServiceChangeResult(false, $"The service could not be {what} - see the log next to the settings.");
+                    : new ServiceChangeResult(false, $"The service could not be {what} - details are in {AppPaths.CrashLog}.");
             }
             catch (Win32Exception ex) when (ex.NativeErrorCode == 1223)
             {
@@ -336,10 +336,15 @@ namespace MyNetworkMonitor.Platform.Windows
                 using Process? process = Process.Start(info);
                 if (process is null) return (-1, $"{fileName} could not be started.");
 
-                string output = process.StandardOutput.ReadToEnd() + process.StandardError.ReadToEnd();
+                // Both streams at the same time: read one after the other, a
+                // tool that fills the pipe buffer of the second one waits for
+                // a reader that never comes (docs/FEHLERGEDAECHTNIS.md, No. 17
+                // and No. 23).
+                Task<string> errors = process.StandardError.ReadToEndAsync();
+                string output = process.StandardOutput.ReadToEnd();
                 process.WaitForExit(60_000);
 
-                return (process.HasExited ? process.ExitCode : -1, output);
+                return (process.HasExited ? process.ExitCode : -1, output + errors.Result);
             }
             catch (Exception ex)
             {

@@ -39,6 +39,14 @@ namespace MyNetworkMonitor.Core.Services
             _stateRoot = string.IsNullOrWhiteSpace(root) ? null : Path.GetFullPath(root);
         }
 
+        /// <summary>
+        /// The log for crashes and for the elevated setup run of the Windows
+        /// service, in the temporary folder of the account that runs the
+        /// program. Defined here because the user interface writes it and the
+        /// service control refers to it in its messages.
+        /// </summary>
+        public static string CrashLog { get; } = Path.Combine(Path.GetTempPath(), "MyNetworkMonitor_crash.log");
+
         /// <summary>Whether this instance uses a custom storage location.</summary>
         public static bool HasOwnState => _stateRoot is not null;
 

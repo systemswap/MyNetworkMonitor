@@ -17,10 +17,11 @@ namespace MyNetworkMonitor.Avalonia;
 class Program
 {
     /// <summary>
-    /// Crash log in the temporary folder. Without it, an error in a scan
-    /// callback cannot be diagnosed: the application would exit without a word.
+    /// Crash log in the temporary folder (<see cref="AppPaths.CrashLog"/>).
+    /// Without it, an error in a scan callback cannot be diagnosed: the
+    /// application would exit without a word.
     /// </summary>
-    private static readonly string CrashLog = Path.Combine(Path.GetTempPath(), "MyNetworkMonitor_crash.log");
+    private static string CrashLog => AppPaths.CrashLog;
 
     // Initialization code. Don't use any Avalonia, third-party APIs or any
     // SynchronizationContext-reliant code before AppMain is called: things aren't initialized

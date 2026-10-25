@@ -345,3 +345,23 @@ Automatische Tests stehen in `MyNetworkMonitor.Core.Tests` (`docs/PRUEFUNGEN.md`
   eine vom Lesepuffer abgeschnittene Antwort werden erkannt (mit dem alten Code fünf Fehlschläge); Antworten auf eine
   andere Anfrage, Anfragen, Fehlerantworten und Text werden abgelehnt. Gegen echte Server noch offen
   (`PLATFORM_TESTING_NOTES.md`).
+
+## Nr. 23 – Externe Werkzeuge: Fehlerausgabe nacheinander oder gar nicht gelesen (Windows-Dienst, ldconfig)
+
+- **Entdeckt:** 25.10.2026, Version 7.3.0.21 (Durchsicht der Kommentare, als Verdacht in den offenen Punkten; die
+  zweite Stelle beim Beheben). **Behoben:** 7.3.0.26.
+- **Was passiert ist:** `WindowsServiceControl.Run` (für `sc.exe` und `icacls.exe`) las erst die Standardausgabe bis
+  zum Ende und danach die Fehlerausgabe. Schreibt ein Werkzeug mehr in die Fehlerausgabe, als deren Puffer fasst
+  (`icacls /T` über viele Dateien), wartet es auf einen Leser, während das Programm auf das Ende der Standardausgabe
+  wartet – beide hängen. Die Bibliothekssuche der Webansicht (`ldconfig -p` in `ShellView`) leitete die
+  Fehlerausgabe um und las sie nie. Dazu nannte `Elevate` bei einem Fehlschlag „the log next to the settings“; das
+  Protokoll liegt aber im Temp-Ordner.
+- **Warum:** Wie Nr. 17: Ausgaben umgeleitet, ohne beide gleichzeitig zu lesen.
+- **Lösung:** Die Fehlerausgabe wird mit `ReadToEndAsync` neben der Standardausgabe gelesen (wie in `ProcessRunner`).
+  Der Protokollort steht an einer Stelle, `AppPaths.CrashLog`; die Meldung nennt den vollen Pfad.
+- **Nicht tun:** zwei umgeleitete Ausgaben nacheinander bis zum Ende lesen; eine Ausgabe umleiten und nicht lesen.
+- **Im Code:** `MyNetworkMonitor.Platform.Windows/WindowsServiceControl.cs` (`Run`, `Elevate`),
+  `MyNetworkMonitor.Avalonia/Views/ShellView.axaml.cs` (Suche über `ldconfig`), `MyNetworkMonitor.Core/Services/AppPaths.cs`
+  (`CrashLog`), `MyNetworkMonitor.Avalonia/Program.cs`.
+- **Abgesichert durch:** Bau für Linux und Windows; unter Windows noch nicht gelaufen (`PLATFORM_TESTING_NOTES.md`).
+  Kein automatischer Test: die Stellen rufen Systemwerkzeuge auf.

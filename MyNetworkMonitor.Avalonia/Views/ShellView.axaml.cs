@@ -1247,8 +1247,12 @@ public partial class ShellView : Window
 
             if (process is null) return names;
 
+            // Errors are read alongside, otherwise a full error pipe would
+            // stall ldconfig (docs/FEHLERGEDAECHTNIS.md, No. 23).
+            Task<string> errors = process.StandardError.ReadToEndAsync();
             string output = process.StandardOutput.ReadToEnd();
             process.WaitForExit(3000);
+            _ = errors.Result;
 
             // Line format: "\tlibfoo.so.1 (libc6,x86-64) => /usr/lib/libfoo.so.1"
             foreach (string line in output.Split('\n'))

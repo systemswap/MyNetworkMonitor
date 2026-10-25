@@ -28,6 +28,10 @@ Testnetze nur allgemein beschreiben – keine Adressen, Gerätenamen, Router- od
   - `WindowsArpProvider.cs` (Abbruch beendet `arp`, strengere Zeilenprüfung von `arp -a`): baut, unter Windows
     noch nicht gelaufen.
 
+- **Dienst einrichten und entfernen (7.3.0.26, Fehlergedächtnis Nr. 23):** `sc.exe`/`icacls.exe` werden mit gleichzeitig
+  gelesener Fehlerausgabe aufgerufen; bei einem Fehlschlag nennt die Meldung den Pfad des Protokolls im Temp-Ordner.
+  Unter Windows einrichten, entfernen und einen Fehlschlag (z. B. Dienst schon vorhanden) nachstellen.
+
 ## Offen: auf beiden Plattformen
 
 - **Neutrale Sonden-Pakete (Version 7.3.0.17, Fehlergedächtnis Nr. 14):** MS-SQL (Standardinstanz), MongoDB
