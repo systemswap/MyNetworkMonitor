@@ -122,7 +122,8 @@ deshalb die Prüfung im Testnetz.
   Namensraum selbst zuständig, ein weiterleitender Server dazwischen kostet Zeit und Antworten.
 - **Lösung:** `LegacyScanMethod.BuildTargets` trägt ohne eigenen DNS-Server das IPv4-Gateway der
   Schnittstelle als Server ein, für Rückwärts- und Vorwärtsauflösung (`ScanningMethod_LookUp`).
-  Ein eigener DNS-Server im Scan geht vor.
+  Ein eigener DNS-Server im Scan geht vor. Ist das Gateway nur erraten (keine Angabe der Schnittstelle), fragt der
+  Scan die DNS-Server, die an den Netzwerkkarten eingetragen sind – direkt, nicht über den Stub des Systems.
 - **Warum diese Lösung:** Die meisten Heimrouter beantworten DNS selbst; wo nicht, bleibt die Adresse
   ohne Namen, ein stiller Rückfall auf das System würde den Fehler verdecken.
 - **Nicht tun:** wieder auf den Resolver des Systems zurückfallen.

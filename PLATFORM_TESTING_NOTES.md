@@ -25,8 +25,8 @@ Testnetze nur allgemein beschreiben – keine Adressen, Gerätenamen, Router- od
   - `SocketOptionName.MulticastInterface` (SSDP, ONVIF) mit `byte[]`-Adresse.
   - Übrige reine .NET-Logik (Nebenläufigkeit von ARP und TCP-Portscan, SMB-Prüfung, NetBIOS `Connect()`
     vor `Send()`, Zeitbudget der Rückwärtsauflösung): geringeres Risiko.
-  - `WindowsArpProvider.cs` (Abbruch beendet `arp`, strengere Zeilenprüfung von `arp -a`) wurde nur
-    gelesen, nicht gebaut (Windows-Zielplattform).
+  - `WindowsArpProvider.cs` (Abbruch beendet `arp`, strengere Zeilenprüfung von `arp -a`): baut, unter Windows
+    noch nicht gelaufen.
 
 ## Offen: auf beiden Plattformen
 

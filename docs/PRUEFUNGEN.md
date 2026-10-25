@@ -9,8 +9,8 @@ und Gerätenamen.
 
     dotnet build MyNetworkMonitor.sln -c Release -p:UseArtifactsOutput=true -p:ArtifactsPath=<testordner>/artifacts
 
-Unter Linux baut das Oberflächenprojekt für `net10.0` ohne `MyNetworkMonitor.Platform.Windows`;
-die Windows-Teile lassen sich dort nicht übersetzen. Die Pakete (AppImage, Windows-Zip) baut der
+Unter Linux baut das Oberflächenprojekt für `net10.0` ohne `MyNetworkMonitor.Platform.Windows`; mit dem Ziel
+`win-x64` und `-p:EnableWindowsTargeting=true` (wie in `publish.sh`) baut es auch unter Linux für Windows. Die Pakete (AppImage, Windows-Zip) baut der
 GitHub-Bau (`.github/workflows/build-and-release.yml`), sobald sich `<Version>` ändert.
 
 ## Tests

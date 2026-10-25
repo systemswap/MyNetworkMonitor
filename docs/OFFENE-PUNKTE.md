@@ -26,13 +26,28 @@ im Fehlergedächtnis). Grundlage ist die Prüfung gegen die gemeinsamen Regeln v
 
 ### Kommentare und Doku
 
-- Kommentare auf Englisch (heute über 90 % deutsch, oft mit ae/oe/ue), Entstehungsgeschichte heraus (rund 250
-  Stellen wie „Wörtlich aus dem alten Schalter übernommen“, Daten, Versionen, WPF-Vorgänger, veraltete
-  Zukunftshinweise in den Schnittstellen) – mit Nachweis, dass das Programm gleich bleibt.
-- Vergleiche mit fremden Programmen neutral fassen (u. a. `BacNetProbe.cs`, `WagoProbe.cs`, `SnmpHelper.cs`).
+- Vergleiche mit fremden Programmen in Oberflächentexten prüfen (in Kommentaren erledigt).
 - `SATELLIT.md` auf den heutigen Stand bringen (Version, fehlender Abschnitt 8, widersprüchlicher Abschnitt 11).
+- Gemischte Sprache in Texten: einige Meldungen und Protokolltexte sind deutsch, die Oberfläche englisch
+  (`Ipv6Readiness`, `PlatformServices`, `MacVendorUpdater`, `ServiceGroups`, `ServiceProbeBase`, `WagoProbe`,
+  `SupportMethods.GetIPAddressByInterfaceName`, `PayPalDonationView`, `ScanningMethod_WiFi`); die erzeugten Seiten der
+  3D-Ansicht haben `lang="de"`, „Unbekannt“ und deutsche Kommentare im eingebetteten HTML/JS. Einheitlich machen.
+- Normabschnitte in den Kommentaren gegen die Texte prüfen (einige aus dem Gedächtnis: SEMI E5 S1F13, Modbus §6.13/§6.21,
+  OPC UA Part 6 §5.2.2.x, ASHRAE 135 §20.1.2, RFC 4861/4291/3810).
 
 ## Vermutete Fehler
+
+- **Satellitenkanal ohne Grenze für entpackte Daten** (`SatelliteLink/MessageChannel.ReceiveAsync`): begrenzt nur die
+  gepackte Größe; eine kleine gepackte Nachricht kann beim Entpacken sehr groß werden (Gzip-Bombe). Entpackte Größe
+  begrenzen.
+- **DNS-Sonden fragen echte Domains** (`gotme.tcp.com`, `gotme.udp.com` in den DNS-Sonden): Namen unter einer
+  registrierbaren Domain können auflösen und gehen an fremde Server. Besser ein Name unter `.invalid` (RFC 6761, 6.4).
+- **Windows-Dienststeuerung** (`WindowsServiceControl.Run`): liest stdout und danach stderr nacheinander – dasselbe
+  Blockier-Risiko wie Fehlergedächtnis Nr. 17. `Elevate` nennt „the log next to the settings“, das Protokoll liegt
+  aber im Temp-Ordner.
+- `TopologyLauncher.cs`: Ordnername `3dFoceGraph` (Tippfehler); `NullServiceControl` meldet „not supported on this
+  platform yet“; in `zzz_DataStructure.cs` ist `portCounter` unbenutzt; `ScopeEditorViewModel` schlägt `192.168.1.1–254`
+  als Bereich vor (besser aus der eigenen Schnittstelle ableiten).
 
 - **MongoDB-Erkennung hängt an der Antwortlänge** (`MongoDbProbe.Identify`): Die ersten vier Bytes der Antwort
   müssen `49 01 00 00` sein – das ist die Gesamtlänge 329 einer bestimmten Serverfassung; andere Fassungen
