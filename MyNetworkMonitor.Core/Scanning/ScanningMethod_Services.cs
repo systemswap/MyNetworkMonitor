@@ -524,7 +524,13 @@ public class ScanningMethod_Services
         // einem Mitschnitt und benannten damit einen echten Rechner. Im Code
         // stehen laengst Platzhalter; ohne diesen Eintrag verschickte eine
         // bestehende Datei weiterhin die alten Werte.
-        ("RustdeskClient", "HelloBytePackage", "D58106E650361454C362FD3FA4832D840E08493C4C36C50620243A8EB417FA46")
+        ("RustdeskClient", "HelloBytePackage", "D58106E650361454C362FD3FA4832D840E08493C4C36C50620243A8EB417FA46"),
+
+        // Packets taken from network captures that named a real SQL Server instance, the program and operating system
+        // of the capturing computer, and the address of a foreign OPC UA server; replaced by neutral packets in 7.3.0.17.
+        ("MSSQLServer", "HelloBytePackage", "884815CC8494B604E9E916384D941B5B55684CB125E646F7D246B31D8BFFF1DC"),
+        ("MongoDB", "HelloBytePackage", "90DCFBF16467625E757858845C4E5AD45E0DF8DAFF0BCED97223C6F5882DF545"),
+        ("OPCUA", "HelloBytePackage", "B4A94C948BDCFEF7219FC5276AC78AC44B2499A057923F323DB28ADE194BBB97")
     ];
 
     /// <summary>

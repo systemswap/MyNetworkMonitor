@@ -16,11 +16,6 @@ im Fehlergedächtnis). Grundlage ist die Prüfung gegen die gemeinsamen Regeln v
 - **Portliste** `Support/zzz_DataStructure.cs`: einzelne Beschreibungen stammen aus öffentlichen Portlisten
   (u. a. Wikipedia, CC BY-SA) – eigene Beschreibungen schreiben. Dabei Fehler beheben: Port 7 „ICMP Echo“
   (gemeint ist der Dienst echo), Port 5060 „SID“ statt „SIP“.
-- **Pakete aus Netzmitschnitten neutral machen** (wie schon beim RustDesk-Paket, alte Werte über
-  `SupersededDefaults` in `ScanningMethod_Services.cs`):
-  - `MsSqlServerProbe.cs`: PRELOGIN mit einem echten Instanznamen und fester TraceID;
-  - `MongoDbProbe.cs`: Handshake mit Programm-, Laufzeit- und Windows-Version des mitschneidenden Rechners;
-  - `OpcUaProbe.cs`: Hello mit der öffentlichen Adresse eines fremden Servers in der Endpoint-URL.
 ### Privatsphäre
 
 - **Beispieladressen** auf Dokumentationsbereiche umstellen: `192.0.2.*` (`DeviceFilter.cs`), `2003:*`
@@ -51,6 +46,10 @@ im Fehlergedächtnis). Grundlage ist die Prüfung gegen die gemeinsamen Regeln v
 - `SATELLIT.md` auf den heutigen Stand bringen (Version, fehlender Abschnitt 8, widersprüchlicher Abschnitt 11).
 
 ## Vermutete Fehler
+
+- **MongoDB-Erkennung hängt an der Antwortlänge** (`MongoDbProbe.Identify`): Die ersten vier Bytes der Antwort
+  müssen `49 01 00 00` sein – das ist die Gesamtlänge 329 einer bestimmten Serverfassung; andere Fassungen
+  werden nicht erkannt. Besser: Opcode `OP_REPLY`/`OP_MSG` und die Felder prüfen.
 
 - **WLAN unter Windows** (`MyNetworkMonitor.Platform.Windows/ScanningMethod_WiFi.cs`): Struktur
   `WLAN_AVAILABLE_NETWORK` unvollständig, Umrechnung in dBm falsch (`(q - 100) * 2` statt `q / 2 - 100`),

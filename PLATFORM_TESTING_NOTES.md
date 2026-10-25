@@ -28,6 +28,11 @@ Testnetze nur allgemein beschreiben – keine Adressen, Gerätenamen, Router- od
   - `WindowsArpProvider.cs` (Abbruch beendet `arp`, strengere Zeilenprüfung von `arp -a`) wurde nur
     gelesen, nicht gebaut (Windows-Zielplattform).
 
+## Offen: auf beiden Plattformen
+
+- **Neutrale Sonden-Pakete (Version 7.3.0.17, Fehlergedächtnis Nr. 14):** MS-SQL (Standardinstanz), MongoDB
+  (`isMaster` ohne Client-Angaben) und OPC UA (Endpoint `localhost`) gegen echte Server prüfen – erkannt wie vorher?
+
 ## Offen: braucht Test unter Linux
 
 - **IPv6: Router Advertisement und MLD mitlesen.** Mit `CAP_NET_RAW` öffnet der Rohsocket, empfängt im

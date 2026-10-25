@@ -187,3 +187,21 @@ deshalb die Prüfung im Testnetz.
 - **Lösung:** Die Zeile nennt nur noch die Version. Den eigenen Namen, unter dem sich der Satellit beim
   Hauptscanner meldet, legt der Nutzer im Programm fest – das bleibt.
 - **Im Code:** `MyNetworkMonitor.Core/SatelliteLink/SatelliteRuntime.cs` (`Start`).
+
+## Nr. 14 – Diensterkennung: Sonden-Pakete mit Angaben aus Netzmitschnitten
+
+- **Entdeckt:** 25.10.2026, Version 7.3.0.11 (Prüfung auf übernommene Daten). **Behoben:** 7.3.0.17.
+- **Was passiert ist:** Drei Sonden schickten Pakete aus Netzmitschnitten an jedes Ziel: MS-SQL den Namen einer
+  echten Instanz und feste Thread-/Trace-Kennungen, MongoDB Programm, Laufzeit und Windows-Version des
+  mitschneidenden Rechners, OPC UA die Adresse eines fremden Servers.
+- **Warum:** Die Pakete wurden aus Mitschnitten abgeschrieben, statt nach dem Protokoll gebaut.
+- **Lösung:** Neu gebaut: PRELOGIN für die Standardinstanz mit Null-Kennungen, `isMaster` mit `helloOk` ohne die
+  freiwilligen Client-Angaben, Hello mit `opc.tcp://localhost:4840/`. Alle übrigen Felder unverändert. Alte Werte in
+  einer gespeicherten Dienstdatei ersetzt `SupersededDefaults` (Prüfsummen mit dem Algorithmus von `Fingerprint`
+  nachgerechnet).
+- **Warum diese Lösung:** Die Antwortprüfung achtet auf keinen der geänderten Werte (MS-SQL: Typ und Länge der
+  Antwort, MongoDB: Antwortkopf und Felder `helloOk`/`topologyVersion`, OPC UA: `ACKF`/`HELF`).
+- **Nicht tun:** Pakete aus Mitschnitten ungeprüft übernehmen – Instanz-, Rechner- und Programmnamen stecken darin.
+- **Im Code:** `Scanning/ServiceScans/MsSqlServerProbe.cs`, `MongoDbProbe.cs`, `OpcUaProbe.cs`, `SupersededDefaults` in
+  `Scanning/ScanningMethod_Services.cs`.
+- **Abgesichert durch:** noch nicht gegen echte Server geprüft (`PLATFORM_TESTING_NOTES.md`).
