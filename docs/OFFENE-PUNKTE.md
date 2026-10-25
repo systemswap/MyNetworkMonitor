@@ -17,12 +17,6 @@ im Fehlergedächtnis). Grundlage ist die Prüfung gegen die gemeinsamen Regeln v
   `Support/SupportMethods.cs` (`LanguageUtils.IgnoreErrors`, `IPComparer`).
 - **Reste der Blog-Klasse IPInfo** in `ScanningMethod_ARP.cs` (Texte, `MacAddresstoString`) durch eigene ersetzen.
 - **URL ohne Bezug** in `ScanningMethod_PortsTCP.cs` (CodeProject-Artikel; der Code folgt ihm nicht) entfernen.
-- **Bilder unklarer Herkunft:**
-  - `MyNetworkMonitor.Avalonia/Images/logo.png` ist ein fremdes Motiv mit Urheberangabe eines Künstlers
-    (kein Bezug zum Programm, nicht benutzt, aber in jedem Paket) – entfernen, auch aus der Historie.
-  - `Images/DevDonationCuted.jpg` (Hintergrund des Spendenfensters) und `Resources/NetworkScanner.ico`
-    (Programmsymbol): Herkunft und Lizenz klären oder durch eigene ersetzen.
-  - `Resources/paypalDonate.png` wird nicht benutzt – entfernen.
 - **Herkunft der mitgelieferten Herstellerliste** `Assets/MacVendors/mac_vendors.csv` klären (Kopfzeile wie
   der CSV-Export eines Online-Dienstes); sonst mit dem vorhandenen Erneuern aus der Datei `manuf` neu erzeugen.
 - **Portliste** `Support/zzz_DataStructure.cs`: einzelne Beschreibungen stammen aus öffentlichen Portlisten

@@ -147,7 +147,7 @@ jobs:
           Terminal=false
           EOF
 
-          cp MyNetworkMonitor.Avalonia/Images/logo.png "$APPDIR/MyNetworkMonitor.png"
+          cp MyNetworkMonitor.Avalonia/Images/MyNetworkMonitor.png "$APPDIR/MyNetworkMonitor.png"
 
       - name: appimagetool laden
         run: |

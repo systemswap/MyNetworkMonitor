@@ -21,9 +21,9 @@
       Setzt die Zaehlung des bisherigen WPF-Projekts fort (dort zuletzt 4.6.3.12),
       damit die veroeffentlichten Versionen aufsteigend bleiben.
     -->
-    <Version>7.3.0.11</Version>
-    <AssemblyVersion>7.3.0.11</AssemblyVersion>
-    <FileVersion>7.3.0.11</FileVersion>
+    <Version>7.3.0.12</Version>
+    <AssemblyVersion>7.3.0.12</AssemblyVersion>
+    <FileVersion>7.3.0.12</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -70,14 +70,11 @@
           CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\Assets\3dForceGraphLib\3d-force-graph.min.js" Link="3dForceGraphLib\3d-force-graph.min.js"
           CopyToOutputDirectory="PreserveNewest" />
-    <!-- LoadLogo sucht das Logo relativ zum Arbeitsverzeichnis unter images/ -->
-    <None Include="Images\logo.png" Link="images\logo.png" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <!-- In die Assembly eingebettete Bilder (avares://) -->
   <ItemGroup>
     <AvaloniaResource Include="Images\DevDonationCuted.jpg" />
     <AvaloniaResource Include="Images\PayPal.png" />
-    <AvaloniaResource Include="Resources\paypalDonate.png" />
   </ItemGroup>
 </Project>

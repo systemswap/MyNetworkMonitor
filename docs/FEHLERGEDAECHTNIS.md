@@ -149,3 +149,16 @@ deshalb die Prüfung im Testnetz.
   das eigene Heimnetz (Router, Adressbereich, Gerätenamen, Ausstattung) – im öffentlichen Repository.
 - **Lösung:** Erfundene Namen; Testnotizen neutral, behobene Fehler hierher (Nr. 1–8); Historie bereinigt.
 - **Nicht tun:** echte Adressen, Gerätenamen oder Netzbeschreibungen in Doku, Kommentare oder Commits.
+
+## Nr. 11 – Pakete: fremdes Bild als Symbol der AppImage
+
+- **Entdeckt und behoben:** 25.10.2026, Version 7.3.0.12
+- **Wie bemerkt:** Prüfung der Herkunft aller Bilder (Urheberangabe in den Metadaten der Datei).
+- **Was passiert ist:** `Images/logo.png` war ein fremdes Motiv mit der Urheberangabe eines Künstlers, ohne
+  Bezug zum Programm und ohne Lizenz. Es kam in jedes Paket und diente im GitHub-Bau als Symbol der AppImage.
+  `Resources/paypalDonate.png` war eingebettet, aber nicht benutzt.
+- **Lösung:** Beide entfernt (auch aus der Historie); Symbol der AppImage ist jetzt
+  `Images/MyNetworkMonitor.png`, die 512-px-Fassung des Programmsymbols `Resources/NetworkScanner.ico`.
+- **Nicht tun:** Bilder aus dem Netz ohne Herkunft und Lizenz einbauen; vor dem Einchecken die Metadaten
+  ansehen (`THIRD-PARTY-NOTICES.md`, gemeinsame Regel „Fremder Code und Bibliotheken“).
+- **Im Code:** `MyNetworkMonitor.Avalonia.csproj`, `.github/workflows/build-and-release.yml`.
