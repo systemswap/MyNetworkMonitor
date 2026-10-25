@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LicenseRef-MyNetworkMonitor
 using System.Text;
+
 namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 {
     /// <summary>MongoDB. Asks with a wire protocol request.</summary>
@@ -22,30 +23,45 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                 0x6B, 0x00, 0x01, 0x00
             };
 
-        /// <summary>Matches the reply header and the fields <c>helloOk</c> and <c>topologyVersion</c>.</summary>
+        /// <summary>The request ID in <see cref="Hello"/> (bytes 4 to 7); a reply names it in <c>responseTo</c>.</summary>
+        private const int HelloRequestId = 1;
+
+        private const int OpReply = 1;
+        private const int OpMsg = 2013;
+
+        /// <summary>
+        /// Checks the reply by its structure, not by its length: the message
+        /// header of the wire protocol (messageLength, requestID, responseTo,
+        /// opCode, each a little-endian int32), a reply to this request, and
+        /// in the BSON document the fields every server sends on
+        /// <c>isMaster</c>: <c>maxWireVersion</c> and the role as
+        /// <c>ismaster</c> or, since 5.0, <c>isWritablePrimary</c>.
+        /// <para>
+        /// A server answers a request in OP_QUERY with OP_REPLY; OP_MSG is
+        /// accepted as well. The total length depends on the server version
+        /// and the replica set, so it is only checked for plausibility
+        /// (docs/FEHLERGEDAECHTNIS.md, No. 22).
+        /// </para>
+        /// </summary>
         public override bool Identify(byte[] response)
         {
-            ServiceType service = Service;
-            bool serviceMatched = false;
-            string str_serviceResponse = Encoding.ASCII.GetString(response);
+            if (response.Length < 16 + 5) return false;
 
-            if (service == ServiceType.MongoDB)
-            {
-                // Typical MongoDB header in the answer
-                byte[] bjsonHeader = { 0x49, 0x01, 0x00, 0x00 };  // start of the expected reply
+            int messageLength = ReadInt32(response, 0);
+            int responseTo = ReadInt32(response, 8);
+            int opCode = ReadInt32(response, 12);
 
-                bool bjsonHeaderMatched = response.Take(4).SequenceEqual(bjsonHeader);
-                bool str_ContainsHelloOK = str_serviceResponse.ToLower().Contains("hellook");
-                bool str_Contains_topologyVersion = str_serviceResponse.ToLower().Contains("topologyversion");
+            // The read may end before the message does (fixed read buffer), never after it.
+            if (messageLength < 16 + 5 || messageLength < response.Length) return false;
+            if (responseTo != HelloRequestId) return false;
+            if (opCode is not (OpReply or OpMsg)) return false;
 
-                if (bjsonHeaderMatched && str_ContainsHelloOK && str_Contains_topologyVersion)
-                {
-                    serviceMatched = true;
-                }
-            }
-
-            return serviceMatched;
+            bool hasRole = ReadBoolField(response, "ismaster") is not null || ReadBoolField(response, "isWritablePrimary") is not null;
+            return hasRole && TryReadInt32Field(response, "maxWireVersion", out _);
         }
+
+        private static int ReadInt32(byte[] data, int at) =>
+            data[at] | data[at + 1] << 8 | data[at + 2] << 16 | data[at + 3] << 24;
 
         /// <summary>
         /// Evaluates the answer to <c>isMaster</c>, the request the detection

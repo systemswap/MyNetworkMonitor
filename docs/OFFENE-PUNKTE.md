@@ -42,10 +42,6 @@ im Fehlergedächtnis). Grundlage ist die Prüfung gegen die gemeinsamen Regeln v
   platform yet“; in `zzz_DataStructure.cs` ist `portCounter` unbenutzt; `ScopeEditorViewModel` schlägt `192.168.1.1–254`
   als Bereich vor (besser aus der eigenen Schnittstelle ableiten).
 
-- **MongoDB-Erkennung hängt an der Antwortlänge** (`MongoDbProbe.Identify`): Die ersten vier Bytes der Antwort
-  müssen `49 01 00 00` sein – das ist die Gesamtlänge 329 einer bestimmten Serverfassung; andere Fassungen
-  werden nicht erkannt. Besser: Opcode `OP_REPLY`/`OP_MSG` und die Felder prüfen.
-
 - **WLAN unter Windows** (`MyNetworkMonitor.Platform.Windows/ScanningMethod_WiFi.cs`): Struktur
   `WLAN_AVAILABLE_NETWORK` unvollständig, Umrechnung in dBm falsch (`(q - 100) * 2` statt `q / 2 - 100`),
   `WlanCloseHandle` in der Schleife, kein `WlanFreeMemory`, SSID immer aus dem ersten Eintrag. Unter Windows

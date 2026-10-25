@@ -324,3 +324,24 @@ Automatische Tests stehen in `MyNetworkMonitor.Core.Tests` (`docs/PRUEFUNGEN.md`
 - **Im Code:** `MyNetworkMonitor.Core/Scanning/ServiceScans/DnsRequest.cs`, `DnsTcpProbe.cs`, `DnsUdpProbe.cs`.
 - **Abgesichert durch:** `DnsRequestTests` (Name unter `.invalid`, Kodierung der Anfrage, Zuordnung der Antwort);
   der Namensserver des Testnetzes beantwortet den Namen mit NXDOMAIN.
+
+## Nr. 22 – MongoDB-Erkennung hing an der Antwortlänge einer Serverfassung
+
+- **Entdeckt:** 25.10.2026, Version 7.3.0.21 (Durchsicht der Kommentare, als Verdacht in den offenen Punkten).
+  **Behoben:** 7.3.0.25.
+- **Was passiert ist:** `MongoDbProbe.Identify` verlangte als erste vier Bytes `49 01 00 00` – das ist das Feld
+  messageLength, also die Gesamtlänge 329 Byte einer bestimmten Antwort – und dazu die Wörter `helloOk` und
+  `topologyVersion`. Server anderer Fassungen, mit Replica Set oder anderem Rechnernamen antworten länger oder kürzer;
+  Server vor 4.4 senden `topologyVersion` gar nicht. Sie blieben „Open“ statt MongoDB.
+- **Warum:** Die Prüfung war aus einer einzigen mitgeschnittenen Antwort abgeleitet.
+- **Lösung:** Prüfung nach dem Aufbau des Protokolls: Kopf mit messageLength (plausibel, nicht kleiner als das
+  Gelesene), responseTo = Request-ID des Erkennungspakets (1), opCode OP_REPLY (1) oder OP_MSG (2013); im BSON-Dokument
+  `maxWireVersion` (Ganzzahl) und die Rolle als `ismaster` oder `isWritablePrimary` (Wahrheitswert) – die sendet
+  jeder Server auf `isMaster`. Das Erkennungspaket ist unverändert.
+- **Nicht tun:** Antworten an ihrer Länge oder an Feldern erkennen, die nur neuere Fassungen senden; das
+  Erkennungspaket anpassen, um die Prüfung zu vereinfachen.
+- **Im Code:** `MyNetworkMonitor.Core/Scanning/ServiceScans/MongoDbProbe.cs` (`Identify`).
+- **Abgesichert durch:** `MongoDbProbeTests` – Antworten wie von 4.0, 4.4, 7.0 im Replica Set und 8.0 (OP_MSG) sowie
+  eine vom Lesepuffer abgeschnittene Antwort werden erkannt (mit dem alten Code fünf Fehlschläge); Antworten auf eine
+  andere Anfrage, Anfragen, Fehlerantworten und Text werden abgelehnt. Gegen echte Server noch offen
+  (`PLATFORM_TESTING_NOTES.md`).

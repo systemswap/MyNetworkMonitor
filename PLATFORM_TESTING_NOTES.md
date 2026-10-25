@@ -32,6 +32,8 @@ Testnetze nur allgemein beschreiben – keine Adressen, Gerätenamen, Router- od
 
 - **Neutrale Sonden-Pakete (Version 7.3.0.17, Fehlergedächtnis Nr. 14):** MS-SQL (Standardinstanz), MongoDB
   (`isMaster` ohne Client-Angaben) und OPC UA (Endpoint `localhost`) gegen echte Server prüfen – erkannt wie vorher?
+  MongoDB seit 7.3.0.25 mit neuer Antwortprüfung (Fehlergedächtnis Nr. 22): mehrere Serverfassungen, auch mit Replica
+  Set, sollten jetzt erkannt werden.
 
 ## Offen: braucht Test unter Linux
 
