@@ -365,3 +365,27 @@ Automatische Tests stehen in `MyNetworkMonitor.Core.Tests` (`docs/PRUEFUNGEN.md`
   (`CrashLog`), `MyNetworkMonitor.Avalonia/Program.cs`.
 - **Abgesichert durch:** Bau für Linux und Windows; unter Windows noch nicht gelaufen (`PLATFORM_TESTING_NOTES.md`).
   Kein automatischer Test: die Stellen rufen Systemwerkzeuge auf.
+
+## Nr. 24 – WLAN-Messung: falsche Struktur unter Windows, übersetzte Ausgabe unter Linux
+
+- **Entdeckt:** 25.10.2026, Version 7.3.0.21 (Durchsicht der Kommentare; die Linux-Fehler beim Beheben). **Behoben:** 7.3.0.27.
+- **Was passiert ist:** Unter Windows las `ScanningMethod_WiFi` `WLAN_AVAILABLE_NETWORK` mit einer Struktur aus drei
+  Feldern statt 628 Byte – Signal und Name kamen aus falschen Stellen –, nahm den Namen immer aus dem ersten Eintrag,
+  schloss das Handle mitten in der Schleife, gab die Listen nie frei und rechnete dBm als `(q - 100) * 2` (100 % wurden
+  0 dBm, 0 % -200 dBm). Beim Beenden warf `StartScanningAsync` die Abbruch-Ausnahme nach außen. Unter Linux schrieb
+  `nmcli` in einer deutschen Sitzung „ja“/„nein“ statt „yes“/„no“ – das verbundene Netz wurde nie erkannt –, Namen mit
+  „:“ wurden zerschnitten, und dBm kam aus derselben falschen Formel. Aufgefallen war nichts, weil das Programm die
+  Messung nirgends anzeigt.
+- **Warum:** Strukturen nach Gefühl statt nach `wlanapi.h`; eine Formel für zwei verschiedene Skalen; maschinelles
+  Lesen übersetzter Ausgaben.
+- **Lösung:** Windows liest die Listen Feld für Feld an den Stellen aus `wlanapi.h`/`windot11.h` (Größen als Konstanten
+  mit Herleitung), nimmt den ersten verbundenen Adapter und das Netz mit `WLAN_AVAILABLE_NETWORK_CONNECTED`, gibt mit
+  `WlanFreeMemory` frei und schließt das Handle erst nach der Schleife. dBm je Skala: Windows 0–100 % = -100…-50 dBm
+  (`WindowsQualityToDbm`), NetworkManager -100…-40 dBm (`NetworkManagerSignalToDbm`). `ProcessRunner` startet alle
+  Werkzeuge mit `LC_ALL=C` (nmcli(1), „Internationalization notes“), `NmcliTerse` zerlegt die Zeilen mit Escapes.
+- **Nicht tun:** Ausgaben von Werkzeugen in der Sprache des Nutzers auswerten; Windows-Strukturen kürzen, „weil nur der
+  Anfang gebraucht wird“, wenn Einträge hintereinander in einer Liste liegen.
+- **Im Code:** `MyNetworkMonitor.Platform.Windows/ScanningMethod_WiFi.cs`, `MyNetworkMonitor.Avalonia/Platform/Linux/LinuxWifiProvider.cs`,
+  `ProcessRunner.cs`, `MyNetworkMonitor.Core/Models/WiFiSignalResult.cs`, `MyNetworkMonitor.Core/Network/NmcliTerse.cs`.
+- **Abgesichert durch:** `WifiTests` (beide Umrechnungen, Zerlegen mit Escapes); im Testnetz `nmcli` mit und ohne
+  `LC_ALL=C` verglichen („nein“ gegen „no“). Windows noch nicht gelaufen (`PLATFORM_TESTING_NOTES.md`).

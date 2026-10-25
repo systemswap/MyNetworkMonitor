@@ -39,13 +39,12 @@ im Fehlergedächtnis). Grundlage ist die Prüfung gegen die gemeinsamen Regeln v
   platform yet“; in `zzz_DataStructure.cs` ist `portCounter` unbenutzt; `ScopeEditorViewModel` schlägt `192.168.1.1–254`
   als Bereich vor (besser aus der eigenen Schnittstelle ableiten).
 
-- **WLAN unter Windows** (`MyNetworkMonitor.Platform.Windows/ScanningMethod_WiFi.cs`): Struktur
-  `WLAN_AVAILABLE_NETWORK` unvollständig, Umrechnung in dBm falsch (`(q - 100) * 2` statt `q / 2 - 100`),
-  `WlanCloseHandle` in der Schleife, kein `WlanFreeMemory`, SSID immer aus dem ersten Eintrag. Unter Windows
-  nachstellen, dann beheben.
 - `Ipv6MulticastGroupScanMethod.cs`: `ff05::1:3` ist als LLMNR beschriftet, gemeint ist All-DHCP-Servers.
 
 ## Später
+
+- **WLAN-Signal anzeigen:** `IWifiProvider` misst unter Windows und Linux das verbundene Netz, das Programm zeigt die
+  Messung aber nirgends an (Entscheidung des Nutzers, 25.10.2026: berichtigt lassen, Anzeige später).
 
 - **Weitere Tests** in `MyNetworkMonitor.Core.Tests`: Auswertung von `arp`/`ip`-Ausgaben, Sonden-Antworten, Dubletten,
   Host/Domain-Trennung, Speichern und Laden.

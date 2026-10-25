@@ -7,6 +7,11 @@ using System.Threading.Tasks;
 namespace MyNetworkMonitor.Avalonia.Platform.Linux
 {
     /// <summary>Runs a command-line tool and returns its standard output.</summary>
+    /// <remarks>
+    /// Every caller parses the output, so the tool runs with <c>LC_ALL=C</c>: tools such as nmcli translate their
+    /// values ("yes" becomes "ja" in a German session) and would otherwise not be understood
+    /// (docs/FEHLERGEDAECHTNIS.md, No. 24).
+    /// </remarks>
     internal static class ProcessRunner
     {
         public static async Task<string> RunAsync(string fileName, string arguments, CancellationToken cancellationToken = default)
@@ -18,6 +23,7 @@ namespace MyNetworkMonitor.Avalonia.Platform.Linux
                 UseShellExecute = false,
                 CreateNoWindow = true
             };
+            psi.Environment["LC_ALL"] = "C";
 
             using var process = Process.Start(psi);
             if (process == null) return string.Empty;

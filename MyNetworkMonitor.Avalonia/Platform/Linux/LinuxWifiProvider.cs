@@ -3,15 +3,16 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using MyNetworkMonitor.Core.Models;
+using MyNetworkMonitor.Core.Network;
 using MyNetworkMonitor.Core.Services;
 
 namespace MyNetworkMonitor.Avalonia.Platform.Linux
 {
     /// <summary>
     /// Linux implementation of <see cref="IWifiProvider"/> based on "nmcli".
-    /// Polls the active Wi-Fi network at an interval and reports its signal
-    /// quality (0-100), using the same dBm approximation as the Windows
-    /// provider: (signal - 100) * 2.
+    /// Polls the connected Wi-Fi network at an interval and reports its signal
+    /// (0-100) and the strength in dBm on the scale of NetworkManager
+    /// (<see cref="WiFiSignalResult.NetworkManagerSignalToDbm"/>).
     /// </summary>
     public sealed class LinuxWifiProvider : IWifiProvider
     {
@@ -50,8 +51,8 @@ namespace MyNetworkMonitor.Avalonia.Platform.Linux
 
             foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
             {
-                var fields = line.Split(':');
-                if (fields.Length < 3) continue;
+                var fields = NmcliTerse.SplitFields(line);
+                if (fields.Count < 3) continue;
                 if (!string.Equals(fields[0], "yes", StringComparison.OrdinalIgnoreCase)) continue;
 
                 string ssid = fields[1];
@@ -61,7 +62,7 @@ namespace MyNetworkMonitor.Avalonia.Platform.Linux
                 {
                     SSID = ssid,
                     SignalStrength = signal,
-                    SignalStrengthDbm = (signal - 100) * 2,
+                    SignalStrengthDbm = WiFiSignalResult.NetworkManagerSignalToDbm(signal),
                     Timestamp = DateTime.Now
                 });
             }

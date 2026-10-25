@@ -20,9 +20,9 @@
       Application version. The last component is incremented with every
       release; the main window shows it in its title.
     -->
-    <Version>7.3.0.26</Version>
-    <AssemblyVersion>7.3.0.26</AssemblyVersion>
-    <FileVersion>7.3.0.26</FileVersion>
+    <Version>7.3.0.27</Version>
+    <AssemblyVersion>7.3.0.27</AssemblyVersion>
+    <FileVersion>7.3.0.27</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>

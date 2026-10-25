@@ -32,6 +32,10 @@ Testnetze nur allgemein beschreiben – keine Adressen, Gerätenamen, Router- od
   gelesener Fehlerausgabe aufgerufen; bei einem Fehlschlag nennt die Meldung den Pfad des Protokolls im Temp-Ordner.
   Unter Windows einrichten, entfernen und einen Fehlschlag (z. B. Dienst schon vorhanden) nachstellen.
 
+- **WLAN-Messung (7.3.0.27, Fehlergedächtnis Nr. 24):** neu nach `wlanapi.h`; wird im Programm noch nicht angezeigt. Mit
+  einem kleinen Testprogramm `ScanningMethod_WiFi.StartScanningAsync` laufen lassen: Name und Signal des verbundenen
+  Netzes wie in `netsh wlan show interfaces`?
+
 ## Offen: auf beiden Plattformen
 
 - **Neutrale Sonden-Pakete (Version 7.3.0.17, Fehlergedächtnis Nr. 14):** MS-SQL (Standardinstanz), MongoDB
