@@ -240,3 +240,14 @@ deshalb die Prüfung im Testnetz.
   `ShellView.axaml(.cs)` (`ShowSystemCheckIfNeededAsync`, `bt_SystemCheck_Click`), `ShellViewModel` (`IsSystemCheckHidden`).
 - **Abgesichert durch:** Start mit leerem Suchpfad (alle vier fehlen) – Fenster geöffnet, Inhalt geprüft; kein Test,
   weil es noch kein Testprojekt gibt.
+
+## Nr. 17 – Kleinigkeiten aus der Prüfung: Portliste, Ausgabe externer Werkzeuge
+
+- **Entdeckt:** 25.10.2026, Version 7.3.0.11 (Prüfung gegen die gemeinsamen Regeln). **Behoben:** 7.3.0.21.
+- **Portliste** (`Support/zzz_DataStructure.cs`): Port 7 hieß „ICMP Echo Service Ping“ (Port 7 ist der TCP/UDP-Dienst
+  echo, Ping ist ICMP ohne Port), 5060 „SID Phone“ statt SIP; zwei Beschreibungen stammten aus einer öffentlichen
+  Portliste unter CC BY-SA (996, 3001) – ersetzt durch den IANA-Dienstnamen bzw. eine eigene Beschreibung. Wirkt
+  für neue Portlisten; eine gespeicherte `portsToScan.xml` behält ihre Texte.
+- **Externe Werkzeuge** (`Platform/Linux/ProcessRunner.cs`): `stderr` war umgeleitet, wurde aber nie gelesen; schreibt
+  ein Werkzeug viel auf `stderr`, füllt sich der Puffer und es bleibt stehen. Jetzt wird `stderr` gleichzeitig gelesen.
+- **Nicht tun:** Ausgaben umleiten, ohne sie zu lesen.

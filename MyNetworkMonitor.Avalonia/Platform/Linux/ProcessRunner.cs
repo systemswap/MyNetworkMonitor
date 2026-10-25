@@ -23,7 +23,10 @@ namespace MyNetworkMonitor.Avalonia.Platform.Linux
 
             try
             {
+                // Read stderr at the same time: it is redirected, and a full pipe buffer would block the tool forever
+                Task<string> errors = process.StandardError.ReadToEndAsync(cancellationToken);
                 string output = await process.StandardOutput.ReadToEndAsync().WaitAsync(cancellationToken).ConfigureAwait(false);
+                await errors.ConfigureAwait(false);
                 await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
                 return output;
             }

@@ -8,9 +8,6 @@ im Fehlergedächtnis). Grundlage ist die Prüfung gegen die gemeinsamen Regeln v
 
 ### Lizenz und Herkunft
 
-- **Portliste** `Support/zzz_DataStructure.cs`: einzelne Beschreibungen stammen aus öffentlichen Portlisten
-  (u. a. Wikipedia, CC BY-SA) – eigene Beschreibungen schreiben. Dabei Fehler beheben: Port 7 „ICMP Echo“
-  (gemeint ist der Dienst echo), Port 5060 „SID“ statt „SIP“.
 ### Privatsphäre
 
 - **Firmennetz-Erkennung beim Start** fragt `_ldap._tcp.dc._msdcs.<Domäne>` bei den DNS-Servern des Systems –
@@ -24,7 +21,6 @@ im Fehlergedächtnis). Grundlage ist die Prüfung gegen die gemeinsamen Regeln v
 
 ### Startprüfung
 
-- `ProcessRunner.cs`: `stderr` wird umgeleitet, aber nie gelesen – ein voller Puffer kann den Prozess hängen lassen.
 - Rechte für das Mitlesen unter IPv6 (`cap_net_raw`) werden erst gemeldet, wenn ein Verfahren scheitert; eine
   AppImage kann diese Rechte nicht bekommen (FUSE-Einhängung ohne setuid), nur die Paketform „einzeln“.
 

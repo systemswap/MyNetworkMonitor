@@ -520,7 +520,7 @@ namespace MyNetworkMonitor
             dt_Ports.Columns.Add("UDPScan", typeof(bool));
             dt_Ports.Columns.Add("Description", typeof(string));
 
-            dt_Ports.Rows.Add(7, true, true, "ICMP Echo Service Ping");
+            dt_Ports.Rows.Add(7, true, true, "Echo service");
             dt_Ports.Rows.Add(9, true, true, "Zero service for test purposes");
             dt_Ports.Rows.Add(20, true, false, "FTP data transfer");
             dt_Ports.Rows.Add(21, true, true, "FTP connection");
@@ -559,7 +559,7 @@ namespace MyNetworkMonitor
             dt_Ports.Rows.Add(989, false, true, "FTPS Protocol (data), FTP over TLS/SSL");
             dt_Ports.Rows.Add(990, false, true, "FTPS Protocol (control), FTP over TLS/SSL");
             dt_Ports.Rows.Add(992, true, true, "Telnet protocol over TLS/SSL");
-            dt_Ports.Rows.Add(996, false, true, "Central Point Software Xtree License Server");
+            dt_Ports.Rows.Add(996, false, true, "vsinet");
             dt_Ports.Rows.Add(1040, true, true, "Netarx");
             dt_Ports.Rows.Add(1043, false, true, "BOINC Client Control");
             dt_Ports.Rows.Add(1067, true, false, "Installation Bootstrap Proto. Serv.");
@@ -570,13 +570,13 @@ namespace MyNetworkMonitor
             dt_Ports.Rows.Add(1900, false, true, "SSDP UPnP");
             dt_Ports.Rows.Add(2179, true, false, "Microsoft RDP for virtual machines");
             dt_Ports.Rows.Add(3000, true, true, "User-level ppp daemon");
-            dt_Ports.Rows.Add(3001, true, false, "Miralix Phone Monitor (Unofficial)");
+            dt_Ports.Rows.Add(3001, true, false, "Various applications (no fixed assignment)");
             dt_Ports.Rows.Add(3306, true, true, "MySQL");
             dt_Ports.Rows.Add(4321, true, false, "Remote Who Is");
             dt_Ports.Rows.Add(4840, true, false, "OPC UA TCP Protocol");
             dt_Ports.Rows.Add(5000, true, false, "UPnP - Windows network device interoperability");
             dt_Ports.Rows.Add(5001, true, false, "");
-            dt_Ports.Rows.Add(5060, true, false, "SID Phone");
+            dt_Ports.Rows.Add(5060, true, false, "SIP (VoIP signalling)");
             dt_Ports.Rows.Add(5357, true, false, "Web Services for Devices (WSDAPI)");
             dt_Ports.Rows.Add(5432, true, false, "Postgre SQL Database");
 
