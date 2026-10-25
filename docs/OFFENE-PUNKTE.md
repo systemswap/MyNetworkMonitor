@@ -6,10 +6,7 @@ im Fehlergedächtnis). Grundlage ist die Prüfung gegen die gemeinsamen Regeln v
 
 ## Als Nächstes
 
-### Kommentare und Doku
-
-- Normabschnitte in den Kommentaren gegen die Texte prüfen (einige aus dem Gedächtnis: SEMI E5 S1F13, Modbus §6.13/§6.21,
-  OPC UA Part 6 §5.2.2.x, ASHRAE 135 §20.1.2, RFC 4861/4291/3810).
+Zurzeit nichts – alle Punkte der Prüfung vom 25.10.2026 sind erledigt.
 
 ## Vermutete Fehler
 
@@ -23,6 +20,8 @@ Zurzeit keine.
   `ListenPortChanged`, Hauptscanner als Dienst, Zeitplan, Dienst unter Linux).
 - **Weitere Tests** in `MyNetworkMonitor.Core.Tests`: Auswertung von `arp`/`ip`-Ausgaben, Sonden-Antworten, Dubletten,
   Host/Domain-Trennung, Speichern und Laden.
+- **Kostenpflichtige Normen gegenprüfen:** Die Angaben zu SEMI E5/E30/E37 (SECS/GEM) und ASHRAE 135 (BACnet) sind
+  nicht frei prüfbar; alle RFC- und OPC-UA-Abschnitte sind am 25.10.2026 gegen die Originale geprüft.
 - **Gespeicherte Daten mit Formatversion** (`lastScanResult.json`, `mainScanners.json`, `satellites.json`,
   `userSettings.txt`, IP-Gruppen).
 

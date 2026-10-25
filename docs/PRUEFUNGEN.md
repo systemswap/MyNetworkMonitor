@@ -55,3 +55,5 @@ Allgemein beschrieben, ohne Adressen und Gerätenamen:
 | 10.08.2026 | 6.0.0.0 | alle IPv4-Verfahren durchgesehen und einzeln im Testnetz geprüft (nur Linux) |
 | 10.08.2026 | 6.0.0.4 | Rückwärtsauflösung: alle rund 30 Geräte in unter 100 ms, Vorwärtsauflösung über 254 Ziele in 18 ms |
 | 25.10.2026 | 7.3.0.11 | Prüfung gegen die gemeinsamen Regeln (Doku, Lizenzen, Privatsphäre, Telemetrie) |
+| 25.10.2026 | 7.3.0.31 | Normabschnitte in den Kommentaren gegen die Originaltexte (rfc-editor.org, OPC-UA-Referenz 1.05.07): keine falsche Nummer; ungenaue Stellen berichtigt; SEMI und ASHRAE nicht frei prüfbar |
+| 25.10.2026 | 7.3.0.31 | 83 Tests grün; AppImage im Testordner gestartet: Titel mit Version, Startprüfung mit Hinweis auf Rohsocket-Rechte |
