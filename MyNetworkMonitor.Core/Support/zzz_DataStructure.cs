@@ -11,6 +11,7 @@ using static System.Net.Mime.MediaTypeNames;
 
 namespace MyNetworkMonitor
 {
+    /// <summary>State of a scan method in the scan progress display.</summary>
     public enum ScanStatus
     {
         ignored,
@@ -25,6 +26,7 @@ namespace MyNetworkMonitor
         wrongNetworkInterfaceSelected
     }
 
+    /// <summary>The scan method that produced a result.</summary>
     public enum ScanMethod
     {
         failed,
@@ -46,8 +48,10 @@ namespace MyNetworkMonitor
     }
 
 
+    /// <summary>Result types of the service scan.</summary>
     public class ServiceScanData
     {
+        /// <summary>The state of one or more ports of a service.</summary>
         public class PortResult
         {
             public List<int> Ports { get; set; }
@@ -55,12 +59,14 @@ namespace MyNetworkMonitor
             public string PortLog { get; set; }
         }
 
+        /// <summary>A detected service with its port results.</summary>
         public class ServiceResult
         {
             public ServiceType Service { get; set; }
             public List<PortResult> Ports { get; set; } = new List<PortResult>();
         }
 
+        /// <summary>All service results of one IP address.</summary>
         public class ServiceScanResult
         {
             public string IP { get; set; }
@@ -78,19 +84,14 @@ namespace MyNetworkMonitor
 
                 foreach (var service in Services)
                 {
-                    // Filtere die Ports nach dem gewünschten Status
-                    //List<PortResult> filteredPorts = service.Ports
-                    //    .Where(p => !ShowOnlyIsRunningServices || p.Status == PortStatus.IsRunning || p.Status == PortStatus.Error)
-                    //    .OrderBy(x => x.Ports)
-                    //    .ToList();
-
+                    // Filter the ports by the requested state.
                     List<PortResult> filteredPorts = service.Ports
                         .Where(p => !ShowOnlyIsRunningServices || p.Status == PortStatus.IsRunning || p.Status == PortStatus.Error)
                         .OrderBy(x => x.Ports != null && x.Ports.Any() ? x.Ports.Min() : int.MaxValue)
                         .ToList();
 
 
-                    // Wenn nach dem Filtern keine Ports übrig bleiben, den Service nicht anzeigen
+                    // Skip the service if no ports remain after filtering.
                     if (filteredPorts.Count == 0) continue;
 
                     string serviceWithIcon = string.Empty;
@@ -175,37 +176,12 @@ namespace MyNetworkMonitor
 
                     int portCounter = 0;
 
-                    //foreach (var port in filteredPorts)
-                    //{
-                    //    if (portCounter++ == 0)
-                    //        sb.Append($"\t{port.Ports.ToString().PadRight(6)}\t({port.Status})");
-                    //    else
-                    //        sb.Append("\n" + "".PadRight(35, ' ') + $"\t{port.Ports}\t({port.Status})");
-                    //}
-
-                    //foreach (var port in filteredPorts)
-                    //{
-                    //    //string portsString = string.Join(", ", port.Ports);
-                    //    string portsString = port.Ports != null ? string.Join(", ", port.Ports) : "keine Ports";
-
-                    //    if (portCounter++ == 0)
-                    //    {                            
-                    //        sb.Append($"\t{portsString.PadRight(10)}\t({port.Status})");
-
-                    //    }
-                    //    else
-                    //    {
-                    //        sb.Append("\n" + "".PadRight(35, ' ') + $"\t{portsString}\t({port.Status})");
-                    //    }
-                    //}
-
-
                     bool firstLine = true;
                     foreach (var portResult in filteredPorts)
                     {
                         if (portResult.Ports == null || portResult.Ports.Count == 0)
                         {
-                            // Optional: leere Ports behandeln
+                            // Port results without a port number get a placeholder line.
                             if (firstLine)
                             {
                                 sb.Append($"\t[no port]\t({portResult.Status})");
@@ -233,10 +209,10 @@ namespace MyNetworkMonitor
                     }
 
 
-                    sb.AppendLine(); // Nur eine Zeile nach einem kompletten Service-Block einfügen
+                    sb.AppendLine(); // One line break after each complete service block.
                 }
 
-                return sb.ToString().TrimEnd(); // Entfernt letzte leere Zeile
+                return sb.ToString().TrimEnd(); // Removes the trailing empty line.
             }
 
         }
@@ -245,6 +221,10 @@ namespace MyNetworkMonitor
 
 
 
+    /// <summary>
+    /// A scan target and everything the scan methods report about it. Passed
+    /// from method to method during a scan run.
+    /// </summary>
     [Serializable]
     public class IPToScan
     {
@@ -283,9 +263,9 @@ namespace MyNetworkMonitor
         public bool PingStatus { get { return _PingStatus; } set { _PingStatus = value; } }
         public string ResponseTime { get { return _ResponseTime; } set { _ResponseTime = value; } }
 
-        // Die Rest-TTL der Ping-Antwort. 0 heisst "nicht gemessen".
-        // Aus ihr laesst sich das Betriebssystem grob ableiten, ohne ein
-        // einziges zusaetzliches Paket zu senden - siehe TtlFingerprint.
+        // Remaining TTL of the ping reply. 0 means "not measured".
+        // It allows a rough guess of the operating system without sending a
+        // single additional packet - see TtlFingerprint.
         private int _TTL = 0;
         public int TTL { get { return _TTL; } set { _TTL = value; } }
 
@@ -351,14 +331,14 @@ namespace MyNetworkMonitor
         private string _NetBiosHostname = string.Empty;
         public string NetBiosHostname { get { return _NetBiosHostname; } set { _NetBiosHostname = value; } }
 
-        // Arbeitsgruppe bzw. Domaene aus derselben Antwort. Sie steht in der
-        // gleichen Namensliste wie der Rechnername und wurde bisher verworfen.
+        // Workgroup or domain from the same NetBIOS answer. It is part of the
+        // same name list as the computer name (RFC 1002, section 4.2.18).
         private string _NetBiosWorkgroup = string.Empty;
         public string NetBiosWorkgroup { get { return _NetBiosWorkgroup; } set { _NetBiosWorkgroup = value; } }
 
 
         public List<string> SMBVersions = new List<string>();
-        // 🔹 Eigene ToString()-Methode für SMBVersions
+        /// <summary>Returns the detected SMB versions as a comma-separated list.</summary>
         public string SMBVersionsToString()
         {
             return SMBVersions.Any() ? string.Join(", ", SMBVersions) : "Keine SMB-Versionen gefunden";
@@ -385,15 +365,11 @@ namespace MyNetworkMonitor
 
 
 
-        //private bool _LookUpStatus = false;
         private string _LookUpIPs = string.Empty;
         private IPHostEntry _IP_HostEntry = null;
-        //private string _str_DNSServers = string.Empty;
         private List<string> _lst_DNSServers;
-        //public bool LookUpStatus { get { return _LookUpStatus; } set { _LookUpStatus = value; } }
         public string LookUpIPs { get { return _LookUpIPs; } set { _LookUpIPs = value; } }
         public IPHostEntry IP_HostEntry { get { return _IP_HostEntry; } set { _IP_HostEntry = value; } }
-        //public string DNSServers { get { return _str_DNSServers; } set { _str_DNSServers = value; } }
         public List<string> DNSServerList { get { return _lst_DNSServers; } set { _lst_DNSServers = value; } }
 
 
@@ -453,6 +429,7 @@ namespace MyNetworkMonitor
 
 
 
+    /// <summary>The DataTable schema of the scan result table.</summary>
     public class ScanResults
     {
         public ScanResults()
@@ -475,8 +452,6 @@ namespace MyNetworkMonitor
 
             dt_NetworkResults.Columns.Add("SNMPSysName", typeof(string));
             dt_NetworkResults.Columns.Add("SNMPInfos", typeof(string));
-            //dt_NetworkResults.Columns.Add("SNMPSysDesc", typeof(string));
-            //dt_NetworkResults.Columns.Add("SNMPLocation", typeof(string));
 
             dt_NetworkResults.Columns.Add("mDNSInfos", typeof(string));
 
@@ -484,11 +459,8 @@ namespace MyNetworkMonitor
             dt_NetworkResults.Columns.Add("IPCamXAddress", typeof(string));
             dt_NetworkResults.Columns.Add("Domain", typeof(string));
             dt_NetworkResults.Columns.Add("Aliases", typeof(string));
-            //dt_NetworkResults.Columns.Add("LookUpStatus", typeof(byte[]));
-            //dt_NetworkResults.Columns.Add("MatchedWithInternal", typeof(byte[]));
             dt_NetworkResults.Columns.Add("LookUpIPs", typeof(string));
             dt_NetworkResults.Columns.Add("TCP_Ports", typeof(string));
-            //dt_NetworkResults.Columns.Add("OpenUDP_Ports", typeof(string));
             dt_NetworkResults.Columns.Add("Comment", typeof(string));
             dt_NetworkResults.Columns.Add("Mac", typeof(string));
             dt_NetworkResults.Columns.Add("Vendor", typeof(string));
@@ -496,7 +468,6 @@ namespace MyNetworkMonitor
             dt_NetworkResults.Columns.Add("DNSServers", typeof(string));
             dt_NetworkResults.Columns.Add("NMGatewayIP", typeof(string));
             dt_NetworkResults.Columns.Add("NMGatewayPort", typeof(string));
-            //dt_NetworkResults.Columns.Add("SendAlert", typeof(bool));
             dt_NetworkResults.Columns.Add("IPToSort", typeof(string));
         }
 
@@ -510,6 +481,7 @@ namespace MyNetworkMonitor
     }
 
 
+    /// <summary>The default list of TCP and UDP ports to scan, as a DataTable.</summary>
     public class PortCollection
     {
         public PortCollection()
@@ -601,6 +573,7 @@ namespace MyNetworkMonitor
         private DataTable dt_Ports = new DataTable();
         public DataTable TableOfPortsToScan { get { return dt_Ports; } set { dt_Ports = value; } }
 
+        /// <summary>The ports marked for the TCP scan.</summary>
         public List<int> TCPPorts
         {
             get
@@ -613,6 +586,7 @@ namespace MyNetworkMonitor
             }
         }
 
+        /// <summary>The ports marked for the UDP scan.</summary>
         public List<int> UDPPorts
         {
             get
@@ -627,6 +601,7 @@ namespace MyNetworkMonitor
     }
 
 
+    /// <summary>The DataTable schema of the IP group table.</summary>
     public class IPGroupData
     {
         public IPGroupData()
@@ -668,6 +643,7 @@ namespace MyNetworkMonitor
 
 
 
+    /// <summary>The DataTable schema of the table of internal device names.</summary>
     public class InternalDeviceNames
     {
         public InternalDeviceNames()

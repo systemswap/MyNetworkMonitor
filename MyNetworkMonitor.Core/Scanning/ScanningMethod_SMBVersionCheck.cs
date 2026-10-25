@@ -9,13 +9,22 @@ using MyNetworkMonitor;
 using System.Net;
 using System.Collections.Concurrent;
 
+/// <summary>
+/// Determines which SMB dialects (1.0, 2.0.2 to 3.1.1) the targets accept on port 445.
+/// </summary>
 public class ScanningMethod_SMBVersionCheck
 {
+    /// <summary>Reports progress as (processed, responded, total, status).</summary>
     public event Action<int, int, int, ScanStatus> ProgressUpdated;
+
+    /// <summary>Raised for every target that accepted at least one dialect.</summary>
     public event Action<IPToScan> SMBIPScanFinished;    
+
+    /// <summary>Raised when all targets of a run have been checked.</summary>
     public event Action SMBScanFinished;
 
 
+    /// <summary>Creates the SMB dialect check.</summary>
     public ScanningMethod_SMBVersionCheck()
     {
 
@@ -30,18 +39,20 @@ public class ScanningMethod_SMBVersionCheck
     private CancellationTokenSource _cts = new CancellationTokenSource(); 
   
 
+    /// <summary>
+    /// Cancels the running check and reports <see cref="ScanStatus.stopped"/>.
+    /// </summary>
     public void StopScan()
     {
         if (_cts != null && !_cts.IsCancellationRequested)
         {
             _cts.Cancel(); 
-            // Hier NICHT aufraeumen und ersetzen: die Schleifen lesen _cts ueber
-            // das Feld. Ein frisches CTS an dieser Stelle meldet ihnen wieder
-            // "nicht abgebrochen", und der Lauf geht weiter, statt zu enden.
-            // Das Zuruecksetzen erledigt StartNewScan beim naechsten Lauf.
+            // Do NOT dispose and replace the source here: the loops read _cts through the
+            // field. A fresh source at this point would report "not cancelled" to them and
+            // the run would continue instead of ending. StartNewScan resets it for the next run.
         }
 
-        ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped); // 🔹 UI auf 0 setzen
+        ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped); // Resets the progress display.
     }
 
     private void StartNewScan()
@@ -56,7 +67,7 @@ public class ScanningMethod_SMBVersionCheck
         }
         _cts = new CancellationTokenSource();
 
-        // 🔹 Zähler zurücksetzen
+        // Reset the counters.
         current = 0;
         responded = 0;
         total = 0;
@@ -64,6 +75,10 @@ public class ScanningMethod_SMBVersionCheck
 
 
 
+    /// <summary>
+    /// Checks every target for each SMB dialect and reports the accepted dialects.
+    /// </summary>
+    /// <param name="IPsToScan">The targets; each entry must be an IPv4 address.</param>
     public async Task ScanMultipleIPsAsync(List<IPToScan> IPsToScan)
     {
         StartNewScan();
@@ -71,11 +86,11 @@ public class ScanningMethod_SMBVersionCheck
         current = 0;
         responded = 0;
         total = IPsToScan.Count;
-        int port = 445; // SMB-Standardport
+        int port = 445; // SMB port (direct hosting over TCP)
 
         var options = new ParallelOptions
         {
-            MaxDegreeOfParallelism = 20, // Begrenze gleichzeitige SMB-Anfragen auf 20
+            MaxDegreeOfParallelism = 20, // At most 20 concurrent SMB requests
             CancellationToken = _cts.Token
         };
 
@@ -89,7 +104,7 @@ public class ScanningMethod_SMBVersionCheck
         {
             if (_cts.Token.IsCancellationRequested) break;
 
-            await semaphore.WaitAsync(_cts.Token); // Warte, bis ein Slot frei wird
+            await semaphore.WaitAsync(_cts.Token); // Wait for a free slot.
             tasks.Add(Task.Run(async () =>
             {
                 try
@@ -98,17 +113,17 @@ public class ScanningMethod_SMBVersionCheck
 
                     ipToScan.UsedScanMethod = ScanMethod.SMB;                
 
-                    // SMB-Protokollversion prüfen mit Timeout-Schutz
+                    // Check the SMB dialects, each with its own time limit.
                     await CheckProtocolsAsync(ipToScan, port);
                 }
                 finally
                 {
-                    semaphore.Release(); // Slot freigeben
+                    semaphore.Release();
                 }
             }, _cts.Token));
         }
 
-        // **Warte auf ALLE SMB-Scans, bevor das Event ausgelöst wird**
+        // Wait for all checks before raising the event.
         await Task.WhenAll(tasks.Where(t => t != null));
        
         SMBScanFinished?.Invoke();
@@ -118,9 +133,9 @@ public class ScanningMethod_SMBVersionCheck
 
 
     /// <summary>
-    /// Zaehlt den Fortschritt hoch, wenn das Ziel fertig geprueft ist - nicht,
-    /// wenn die Pruefung beginnt. Sonst stuende der Balken am Ende, waehrend
-    /// noch auf die Antworten der einzelnen Dialekte gewartet wird.
+    /// Counts the progress when the target has been checked completely, not when the check
+    /// starts; otherwise the progress bar would be full while the answers for the individual
+    /// dialects are still pending.
     /// </summary>
     private async Task CheckProtocolsAsync(IPToScan ipToScan, int port)
     {
@@ -151,7 +166,7 @@ public class ScanningMethod_SMBVersionCheck
                     socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
 
                     var connectTask = socket.ConnectAsync(IPAddress.Parse(ipToScan.IPorHostname), port);
-                    if (await Task.WhenAny(connectTask, Task.Delay(5000, cts.Token)) != connectTask) // Timeout nach 5 Sek
+                    if (await Task.WhenAny(connectTask, Task.Delay(5000, cts.Token)) != connectTask) // Timeout after 5 s
                     {
                         Console.WriteLine($"❌ Timeout: {ipToScan.IPorHostname} reagiert nicht.");
                         socket.Close();
@@ -168,7 +183,7 @@ public class ScanningMethod_SMBVersionCheck
 
                         byte[] tempResponse = new byte[1024];
                         var readTask = stream.ReadAsync(tempResponse, 0, tempResponse.Length, cts.Token);
-                        if (await Task.WhenAny(readTask, Task.Delay(2000, cts.Token)) != readTask) // Timeout für Response
+                        if (await Task.WhenAny(readTask, Task.Delay(2000, cts.Token)) != readTask) // Timeout for the answer
                         {
                             Console.WriteLine($"⚠ Keine SMB-Antwort von {ipToScan.IPorHostname}");
                             continue;
@@ -206,12 +221,10 @@ public class ScanningMethod_SMBVersionCheck
                         }
                     }
 
-                    // Kein Shutdown/Close hier: NetworkStream(socket, true) hat den
-                    // Socket beim Verlassen des using-Blocks bereits geschlossen.
-                    // Beide Aufrufe liefen bisher gegen ein schon entsorgtes Objekt
-                    // und warfen "Cannot access a disposed object" - gefangen von der
-                    // catch-Klausel unten und faelschlich als Verbindungsfehler
-                    // geloggt, obwohl die Antwort laengst ausgewertet war.
+                    // No Shutdown/Close here: NetworkStream(socket, true) has already closed the
+                    // socket on leaving the using block. Either call on the disposed socket throws
+                    // "Cannot access a disposed object", which the catch clause below would log as
+                    // a connection error although the answer has already been evaluated.
                 }
             }
             catch (SocketException se)
@@ -229,7 +242,7 @@ public class ScanningMethod_SMBVersionCheck
             int respondedValue = Interlocked.Increment(ref responded);
             ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running);
 
-            SMBIPScanFinished?.Invoke(ipToScan); // Event auslösen            
+            SMBIPScanFinished?.Invoke(ipToScan);            
         }
     }
 
@@ -247,29 +260,26 @@ public class ScanningMethod_SMBVersionCheck
     }
 
     /// <summary>
-    /// Ob die Antwort wirklich sagt "diesen Dialekt unterstuetze ich", statt nur
-    /// "hier kam irgendetwas zurueck".
+    /// Whether the answer really says "this dialect is supported" rather than only "something
+    /// came back".
     /// <para>
-    /// Live gegen einen Samba-Server mit deaktiviertem SMB1 nachgemessen
-    /// (2026-08-10): auf eine SMB1-Anfrage antwortet er trotzdem - mit
-    /// Status STATUS_SUCCESS und WordCount 1, aber DialectIndex 0xFFFF, dem
-    /// dokumentierten Wert fuer "keiner der angebotenen Dialekte passt" (MS-CIFS).
-    /// Ohne diese Pruefung zaehlte jede Antwort als Treffer, auch die
-    /// ausdrueckliche Ablehnung.
+    /// A Samba server with SMB1 disabled still answers an SMB1 request, with STATUS_SUCCESS and
+    /// WordCount 1 but DialectIndex 0xFFFF, the documented value for "none of the offered
+    /// dialects is supported" (MS-CIFS 2.2.4.52.2). Without this check every answer counts as a
+    /// hit, including the explicit refusal. See docs/FEHLERGEDAECHTNIS.md, No. 3.
     /// </para>
     /// <para>
-    /// Fuer SMB2/3 gilt dasselbe ueber das Status-Feld im 64-Byte-Header
-    /// (MS-SMB2): 0 heisst angenommen, jeder andere Wert - ueblicherweise
-    /// STATUS_NOT_SUPPORTED - heisst abgelehnt. Ebenfalls live bestaetigt: eine
-    /// angenommene 2.0.2-Anfrage gegen denselben Server lieferte Status 0.
+    /// For SMB2/3 the same applies to the Status field of the 64-byte header (MS-SMB2 2.2.1):
+    /// 0 means accepted, any other value, usually STATUS_NOT_SUPPORTED, means refused. Against
+    /// the same server an accepted 2.0.2 request returned status 0.
     /// </para>
     /// </summary>
     private static bool NegotiationSucceeded(byte[] response, int length, SMBDialects dialect)
     {
         if (dialect == SMBDialects._1)
         {
-            // NetBIOS-Kopf (4) + SMB1-Kopf (32) + WordCount (1) = Offset 37,
-            // dort steht die 2-Byte-DialectIndex als little-endian Wort.
+            // NetBIOS session header (4) + SMB1 header (32) + WordCount (1) = offset 37, where the
+            // 2-byte DialectIndex is stored as a little-endian word.
             if (length < 39) return false;
             if (response[4] != 0xFF || response[5] != 0x53 || response[6] != 0x4D || response[7] != 0x42) return false;
 
@@ -280,8 +290,8 @@ public class ScanningMethod_SMBVersionCheck
             return dialectIndex != 0xFFFF;
         }
 
-        // SMB2/3: NetBIOS-Kopf (4) + Status-Feld ab Offset 8 im SMB2-Header,
-        // also absolut Offset 12, 4 Byte.
+        // SMB2/3: NetBIOS session header (4) + Status field at offset 8 of the SMB2 header, so
+        // absolute offset 12, 4 bytes.
         if (length < 16) return false;
         if (response[4] != 0xFE || response[5] != 0x53 || response[6] != 0x4D || response[7] != 0x42) return false;
 
@@ -292,12 +302,12 @@ public class ScanningMethod_SMBVersionCheck
     {
         List<byte> smb1NegotiatePackage = new List<byte>();
 
-        // NetBios Session Service
-        smb1NegotiatePackage.Add(0x00); // Message Typ
+        // NetBIOS session service header (RFC 1002, section 4.3.1)
+        smb1NegotiatePackage.Add(0x00); // Message type
         smb1NegotiatePackage.AddRange(new byte[] { 0x00, 0x00, 0x31 }); // Length
 
-        // SMB Header
-        smb1NegotiatePackage.AddRange(new byte[] { 0xff, 0x53, 0x4d, 0x42 }); // Server Component
+        // SMB header (MS-CIFS 2.2.3.1)
+        smb1NegotiatePackage.AddRange(new byte[] { 0xff, 0x53, 0x4d, 0x42 }); // Protocol: 0xFF 'SMB'
         smb1NegotiatePackage.Add(0x72); // SMB Command: Negotiate Protocol
         smb1NegotiatePackage.AddRange(new byte[] { 0x00, 0x00, 0x00, 0x00 }); // NT Status
         smb1NegotiatePackage.Add(0x18); // Flags
@@ -314,7 +324,7 @@ public class ScanningMethod_SMBVersionCheck
         smb1NegotiatePackage.AddRange(new byte[] { 0x00, 0x00 }); // UserID
         smb1NegotiatePackage.AddRange(new byte[] { 0x01, 0x00 }); // Multiplex
 
-        // Negotiate Protocol Request
+        // Negotiate Protocol request (MS-CIFS 2.2.4.52.1)
         smb1NegotiatePackage.Add(0x00); // WordCount WCT
         smb1NegotiatePackage.AddRange(new byte[] { 0x0e, 0x00 }); // ByteCount WCC
 
@@ -339,7 +349,7 @@ public class ScanningMethod_SMBVersionCheck
     {
         List<byte> smbPacket = new List<byte>();
 
-        // NetBios Session Service
+        // NetBIOS session service header (RFC 1002, section 4.3.1)
         smbPacket.Add(0x00);            // Message Type
 
         if (dialects != SMBDialects.all)
@@ -351,7 +361,7 @@ public class ScanningMethod_SMBVersionCheck
             smbPacket.AddRange(new byte[] { 0x00, 0x00, 0xb4 }); // Length
         }
 
-        // SMB Header
+        // SMB2 header (MS-SMB2 2.2.1)
         smbPacket.AddRange(new byte[] { 0xfe, 0x53, 0x4d, 0x42 }); // Protocol ID
         smbPacket.AddRange(new byte[] { 0x40, 0x00 }); // Header Length
         smbPacket.AddRange(new byte[] { 0x00, 0x00 }); // Credit Charge
@@ -380,7 +390,7 @@ public class ScanningMethod_SMBVersionCheck
             0x33, 0x34, 0x35, 0x36
         });
 
-        // Negotiate Protocol Request
+        // SMB2 NEGOTIATE request (MS-SMB2 2.2.3)
         smbPacket.AddRange(new byte[] { 0x24, 0x00 }); // StructureSize
 
         if (dialects != SMBDialects.all)
@@ -390,11 +400,11 @@ public class ScanningMethod_SMBVersionCheck
         else
         {
             int dialectCount = Enum.GetValues(typeof(SMBDialects)).Length;
-            smbPacket.AddRange(new byte[] { (byte)dialectCount, 0x00 }); // DialectCount (1)
+            smbPacket.AddRange(new byte[] { (byte)dialectCount, 0x00 }); // DialectCount
         }
 
         smbPacket.Add(0x01); // SecurityMode
-        smbPacket.Add(0x00); //unknown
+        smbPacket.Add(0x00); // Second byte of SecurityMode
         smbPacket.AddRange(new byte[] { 0x00, 0x00 }); // Reserved
         smbPacket.AddRange(new byte[] { 0x00, 0x00, 0x00, 0x00 }); // Capabilities
 
@@ -411,7 +421,7 @@ public class ScanningMethod_SMBVersionCheck
         smbPacket.AddRange(new byte[] { 0x00, 0x00 }); // NegotiateContextCount
         smbPacket.AddRange(new byte[] { 0x00, 0x00 }); // Reserved
 
-        // Dialects (nur einer, weil DialectCount = 1)
+        // Dialects: one for a single dialect (DialectCount = 1), all five for SMBDialects.all.
 
         switch (dialects)
         {
@@ -465,7 +475,7 @@ public class ScanningMethod_SMBVersionCheck
                     0x20, 0x00
                 });
 
-                // Weiterer Datenblock
+                // Further data block
                 smbPacket.AddRange(new byte[]
                 {
                     0x01, 0x00, 0x00, 0x00,
@@ -483,7 +493,7 @@ public class ScanningMethod_SMBVersionCheck
                 break;
         }
 
-        // Konvertieren zu byte[]
+        // Convert to byte[].
         return smbPacket.ToArray();
     }
 
@@ -503,9 +513,9 @@ public class ScanningMethod_SMBVersionCheck
 
     private bool IsSMBVersionSupported(byte[] response)
     {
-        if (response.Length < 74) return false; // Sicherstellen, dass die Antwort lang genug ist
+        if (response.Length < 74) return false; // The answer must be long enough.
 
-        ushort dialect = BitConverter.ToUInt16(response, 72); // SMB-Dialekt-Position
+        ushort dialect = BitConverter.ToUInt16(response, 72); // Position of the SMB dialect
         return Enum.GetValues(typeof(SMBDialects))
                    .Cast<SMBDialects>()
                    .Where(d => d != SMBDialects.all)
@@ -513,18 +523,6 @@ public class ScanningMethod_SMBVersionCheck
     }
 }
 
-//public class SMBResponse
-//{
-//    public string IPAddress { get; set; }
-//    public List<string> Versions { get; set; }
-
-//    public override string ToString()
-//    {
-//        return $"SMB Response:\n" +
-//               $"Scanned IP: {IPAddress}\n" +
-//               $"Supported SMB Versions: {string.Join(", ", Versions)}";
-//    }
-//}
 
 
 

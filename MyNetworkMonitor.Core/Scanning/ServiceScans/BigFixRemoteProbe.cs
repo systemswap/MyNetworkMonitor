@@ -1,8 +1,8 @@
 namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 {
     /// <summary>
-    /// BigFix Remote Control. Antwortet mit einem Paket fester Laenge, dessen
-    /// Kopf die Kennung traegt.
+    /// BigFix Remote Control. Answers with a fixed-length packet whose header
+    /// carries the identifier.
     /// </summary>
     public sealed class BigFixRemoteProbe : ServiceProbeBase
     {
@@ -10,10 +10,10 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         public override string Group => ServiceGroups.Remote;
         public override IReadOnlyList<int> DefaultPorts => [888];
 
-        /// <summary>Woertlich aus dem alten Schalter uebernommen - kein Byte veraendert.</summary>
+        /// <summary>The 12-byte request that BigFix Remote Control answers with its fixed header.</summary>
         public override byte[] Hello => new byte[] { 0x14, 0x2B, 0xB4, 0x91, 0x05, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
-        /// <summary>Woertlich aus der alten Antwortpruefung uebernommen - keine Bedingung veraendert.</summary>
+        /// <summary>Matches only the exact 12-byte answer.</summary>
         public override bool Identify(byte[] response)
         {
             ServiceType service = Service;
@@ -22,7 +22,8 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             // BigFix Remote Control
             if (service == ServiceType.BigFixRemote)
             {
-                // BigFix Antwort-Paket 1: 04-2B-B4-90-05-02 / Paket 2: 00-00-00-00-00-00   antwort in c# wegen tcpclient in einem array
+                // BigFix sends two packets, 04-2B-B4-90-05-02 and 00-00-00-00-00-00;
+                // TcpClient reads both into one buffer.
                 byte[] bigFixHeader = { 0x04, 0x2B, 0xB4, 0x90, 0x05, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
                 if (response.Length == 12)

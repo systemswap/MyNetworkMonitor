@@ -6,31 +6,31 @@ using MyNetworkMonitor.Core.Services;
 namespace MyNetworkMonitor.Avalonia.Platform
 {
     /// <summary>
-    /// Avalonia-Implementierung von <see cref="IWebViewHost"/> auf Basis von
-    /// Avalonias eigenem <see cref="NativeWebView"/> (Paket
-    /// Avalonia.Controls.WebView) - das Gegenstueck zur WebView2-Variante des
-    /// WPF-Projekts.
+    /// Avalonia implementation of <see cref="IWebViewHost"/> based on Avalonia's
+    /// own <see cref="NativeWebView"/> (package Avalonia.Controls.WebView).
     ///
-    /// Urspruenglich war CEF ueber WebViewControl-Avalonia vorgesehen; dessen
-    /// aktuelle Fassung ist gegen Avalonia 11 gebaut und stuerzt unter
-    /// Avalonia 12 beim Erzeugen des Controls ab. NativeWebView nutzt stattdessen
-    /// die Engine des Systems (Windows: WebView2, Linux: WebKitGTK) und spart die
-    /// grosse Chromium-Laufzeit.
+    /// NativeWebView uses the engine of the system (Windows: WebView2, Linux:
+    /// WPE WebKit, or WebKitGTK as a fallback) and avoids shipping a large
+    /// Chromium runtime. CEF through WebViewControl-Avalonia is not an option:
+    /// its current release is built against Avalonia 11 and crashes on
+    /// Avalonia 12 when the control is created.
     ///
-    /// Achtung fuer den Linux-Lauf: laut Avalonia ist das *eingebettete* Control
-    /// dort nicht auf jedem System verfuegbar. Faellt es aus, ist
-    /// <c>NativeWebDialog</c> (eigenes Fenster, gleiches Paket) der vorgesehene
-    /// Ersatz - dann genuegt eine zweite Implementierung dieses Interfaces.
+    /// On Linux, according to Avalonia, the *embedded* control is not available
+    /// on every system, and it is currently disabled there (see
+    /// <c>ShellView.EmbeddedWebViewEnabledOnLinux</c>). Where it is not used,
+    /// <see cref="SystemBrowserWebViewHost"/> takes its place.
     /// </summary>
     public sealed class NativeWebViewHost : IWebViewHost
     {
         private readonly NativeWebView _webView;
 
+        /// <summary>Creates the host for an embedded web view.</summary>
+        /// <param name="webView">The control that displays the pages.</param>
         public NativeWebViewHost(NativeWebView webView) => _webView = webView;
 
         /// <summary>
-        /// Das Control initialisiert sich selbst, sobald es im visuellen Baum
-        /// haengt. Die Methode existiert nur, weil WebView2 sie braucht.
+        /// The control initializes itself once it is attached to the visual tree.
+        /// The method exists only because hosts based on WebView2 need it.
         /// </summary>
         public Task EnsureInitializedAsync() => Task.CompletedTask;
 

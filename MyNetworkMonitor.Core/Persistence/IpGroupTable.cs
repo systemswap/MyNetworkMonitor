@@ -4,16 +4,17 @@ using MyNetworkMonitor.Core.Models;
 namespace MyNetworkMonitor.Core.Persistence
 {
     /// <summary>
-    /// Mappt zwischen dem bestehenden DataTable/XML-Format ("IPGroups") und dem
-    /// plattformneutralen <see cref="IpGroup"/>-Model. System.Data ist unter
-    /// Windows und Linux verfügbar, dadurch bleibt das gespeicherte XML-Format
-    /// unverändert kompatibel zur bisherigen Anwendung.
+    /// Maps between the DataTable/XML format ("IPGroups") and the
+    /// platform-neutral <see cref="IpGroup"/> model. System.Data is available
+    /// on Windows and Linux, so the stored XML format stays compatible with
+    /// existing files.
     /// </summary>
     public static class IpGroupTable
     {
+        /// <summary>Name of the table in the stored XML.</summary>
         public const string TableName = "IPGroups";
 
-        // Spaltennamen exakt wie im bisherigen Schema (IPGroupData / gespeichertes XML).
+        // Column names exactly as in the stored schema (IPGroupData / saved XML).
         private const string ColIsActive = "IsActive";
         private const string ColDescription = "IPGroupDescription";
         private const string ColDeviceDescription = "DeviceDescription";
@@ -25,17 +26,16 @@ namespace MyNetworkMonitor.Core.Persistence
         private const string ColAutomaticScan = "AutomaticScan";
         private const string ColScanInterval = "ScanIntervalMinutes";
 
-        // Neu. NMGatewayPort ist ersatzlos entfallen: der Port gehoerte zur
-        // entfernten Instanz, und die zieht mit dem Satellitenbetrieb in eine
-        // eigene Verwaltung um (SATELLIT.md). Alte Dateien bringen die Spalte
-        // noch mit - sie wird beim Lesen nicht mehr beachtet und beim naechsten
-        // Speichern nicht wieder geschrieben. ToStr/ToBool kommen ihrerseits mit
-        // fehlenden Spalten zurecht, aeltere Dateien ohne die beiden neuen
-        // Spalten gehen also weiter auf.
+        // Columns that older files may lack. The obsolete NMGatewayPort column
+        // belonged to the remote instance, which is managed separately by the
+        // satellite mode (SATELLIT.md); files that still contain it are read
+        // without it, and it is not written on the next save. ToStr/ToBool
+        // handle missing columns, so files without these two columns still load.
         private const string ColScannedBy = "ScannedBy";
         private const string ColLastScanned = "LastScanned";
 
-        /// <summary>Erzeugt eine leere DataTable mit dem erwarteten Schema.</summary>
+        /// <summary>Creates an empty DataTable with the expected schema.</summary>
+        /// <returns>The new, empty table.</returns>
         public static DataTable CreateTable()
         {
             var dt = new DataTable(TableName);
@@ -54,7 +54,9 @@ namespace MyNetworkMonitor.Core.Persistence
             return dt;
         }
 
-        /// <summary>Liest die Zeilen einer DataTable in Models ein.</summary>
+        /// <summary>Reads the rows of a DataTable into models.</summary>
+        /// <param name="dt">The table to read; deleted rows are skipped.</param>
+        /// <returns>One model per row.</returns>
         public static List<IpGroup> ReadRows(DataTable dt)
         {
             var list = new List<IpGroup>();
@@ -81,10 +83,11 @@ namespace MyNetworkMonitor.Core.Persistence
         }
 
         /// <summary>
-        /// Schreibt die Models in eine bestehende DataTable zurück (Inhalt wird
-        /// ersetzt). So bleibt eine an dieselbe DataTable gebundene Ansicht – etwa
-        /// das Grid im MainWindow – synchron.
+        /// Writes the models back into an existing DataTable, replacing its
+        /// content. A view bound to the same DataTable therefore stays in sync.
         /// </summary>
+        /// <param name="dt">The table to fill.</param>
+        /// <param name="groups">The models to write.</param>
         public static void WriteRows(DataTable dt, IEnumerable<IpGroup> groups)
         {
             dt.Rows.Clear();
@@ -107,7 +110,9 @@ namespace MyNetworkMonitor.Core.Persistence
             }
         }
 
-        /// <summary>Speichert die Models im bisherigen XML-Format (inkl. Schema).</summary>
+        /// <summary>Saves the models in the XML format, including the schema.</summary>
+        /// <param name="groups">The models to save.</param>
+        /// <param name="xmlPath">Target file; its directory is created if needed.</param>
         public static void SaveXml(IEnumerable<IpGroup> groups, string xmlPath)
         {
             string? dir = Path.GetDirectoryName(xmlPath);

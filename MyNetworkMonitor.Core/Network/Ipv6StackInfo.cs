@@ -5,62 +5,64 @@ using System.Net.Sockets;
 namespace MyNetworkMonitor.Core.Network
 {
     /// <summary>
-    /// Was das Betriebssystem aus den Router-Ankuendigungen bereits gelernt
-    /// hat - ausgelesen statt mitgehoert.
+    /// What the operating system has already learned from router advertisements -
+    /// read out instead of overheard.
     /// <para>
-    /// <b>Warum es diesen zweiten Weg gibt.</b> Am 2026-08-09 nachgemessen:
-    /// Windows liefert ICMPv6 <em>grundsaetzlich nicht</em> an Rohsockets aus,
-    /// auch nicht mit Administratorrechten und auch nicht nach Beitritt zu den
-    /// Multicast-Gruppen (vier Bindungs- und Beitrittsvarianten geprueft, alle
-    /// null Pakete). Der Netzwerkstapel verbraucht sie selbst; sie zu sehen
-    /// setzt einen Mitschnitttreiber wie Npcap voraus, und der soll
-    /// ausdruecklich nicht noetig sein.
+    /// <b>Why this second path exists.</b> Verified by measurement: Windows
+    /// <em>never</em> delivers ICMPv6 to raw sockets, not even with administrator
+    /// rights and not after joining the multicast groups (four binding and join
+    /// variants tested, all zero packets). The network stack consumes them
+    /// itself; seeing them requires a capture driver such as Npcap, which is
+    /// deliberately not a requirement.
     /// </para>
     /// <para>
-    /// Der Ausweg dreht die Sache um: Windows <em>hat</em> die Ankuendigungen
-    /// empfangen und ausgewertet - sonst haette der Rechner keine
-    /// IPv6-Adresse. Das Ergebnis steht in ganz gewoehnlichen APIs, die keine
-    /// Sonderrechte brauchen. Was dabei verloren geht, ist die Momentaufnahme
-    /// ("welcher Router hat gerade was angekuendigt"); was bleibt, ist der
-    /// Inhalt - Router, Praefixe, Namensserver und die Frage, ob DHCPv6 im
-    /// Spiel ist. Fuer die Bestandsaufnahme eines Netzes ist das dasselbe.
+    /// The workaround turns the problem around: Windows <em>has</em> received and
+    /// evaluated the advertisements - otherwise the machine would have no IPv6
+    /// address. The result is available through ordinary APIs that need no
+    /// special privileges. What is lost is the snapshot ("which router announced
+    /// what just now"); what remains is the content - routers, prefixes, name
+    /// servers and whether DHCPv6 is involved. For an inventory of a network
+    /// that is the same.
     /// </para>
     /// </summary>
     public sealed class Ipv6StackInfo
     {
-        /// <summary>Die Router, die dieser Adapter als Standardgateway kennt.</summary>
+        /// <summary>The routers this adapter knows as default gateway.</summary>
         public List<IPAddress> Routers { get; } = [];
 
-        /// <summary>Praefixe, auf denen der Adapter eine Adresse gebildet hat.</summary>
+        /// <summary>Prefixes on which the adapter has formed an address.</summary>
         public List<AdvertisedPrefix> Prefixes { get; } = [];
 
-        /// <summary>Die IPv6-Namensserver dieses Adapters.</summary>
+        /// <summary>The IPv6 name servers of this adapter.</summary>
         public List<IPAddress> DnsServers { get; } = [];
 
+        /// <summary>The DNS suffix of the adapter, or null if none is set.</summary>
         public string? SearchDomain { get; init; }
 
         /// <summary>
-        /// Mindestens eine Adresse stammt von einem DHCPv6-Server. Entspricht
-        /// dem M-Bit der Ankuendigung, nur von der anderen Seite betrachtet:
-        /// statt "der Router sagt, es gibt DHCPv6" heisst es hier "wir haben
-        /// tatsaechlich eine Adresse von dort".
+        /// At least one address comes from a DHCPv6 server. Corresponds to the M
+        /// flag of the advertisement, only viewed from the other side: instead of
+        /// "the router says there is DHCPv6" it means "an address was actually
+        /// obtained from there".
         /// </summary>
         public bool UsesDhcpv6 { get; private set; }
 
         /// <summary>
-        /// Mindestens eine Adresse hat sich der Rechner selbst gebildet, auf
-        /// Grundlage eines angekuendigten Praefixes (SLAAC).
+        /// At least one address was formed by the machine itself, based on an
+        /// announced prefix (SLAAC).
         /// </summary>
         public bool UsesSlaac { get; private set; }
 
-        /// <summary>Es gibt etwas zu berichten.</summary>
+        /// <summary>There is something to report.</summary>
         public bool HasAnything => Routers.Count > 0 || Prefixes.Count > 0 || DnsServers.Count > 0;
 
         /// <summary>
-        /// Liest zusammen, was der Stapel ueber diesen Adapter weiss. Wirft
-        /// nicht - ein Adapter, der waehrenddessen verschwindet, ergibt ein
-        /// leeres Ergebnis.
+        /// Collects what the stack knows about this adapter. Does not throw - an
+        /// adapter that disappears meanwhile yields an empty result.
         /// </summary>
+        /// <param name="nic">The adapter.</param>
+        /// <param name="interfaceIndex">The adapter index used as zone for link-local addresses.</param>
+        /// <returns>Routers, prefixes and name servers of the adapter.</returns>
         public static Ipv6StackInfo ForInterface(NetworkInterface nic, int interfaceIndex)
         {
             ArgumentNullException.ThrowIfNull(nic);
@@ -95,15 +97,15 @@ namespace MyNetworkMonitor.Core.Network
 
                     IPAddress scoped = WithZone(gateway.Address, interfaceIndex);
 
-                    // Windows fuehrt dasselbe Gateway mehrfach auf, wenn es
-                    // ueber mehrere Routen erreichbar ist. Zweimal derselbe
-                    // Router waere zweimal dasselbe Geraet.
+                    // Windows lists the same gateway several times if it is
+                    // reachable via several routes. The same router twice
+                    // would be the same device twice.
                     if (!seen.Add(scoped.ToString())) continue;
 
                     Routers.Add(scoped);
                 }
             }
-            catch (PlatformNotSupportedException) { /* Gateways nicht abfragbar */ }
+            catch (PlatformNotSupportedException) { /* gateways cannot be queried */ }
         }
 
         private void ReadDnsServers(IPInterfaceProperties properties, int interfaceIndex)
@@ -119,30 +121,28 @@ namespace MyNetworkMonitor.Core.Network
 
                     IPAddress scoped = WithZone(server, interfaceIndex);
 
-                    // Derselbe Server steht doppelt in der Liste, wenn er
-                    // sowohl ueber die Router-Ankuendigung (RDNSS) als auch
-                    // ueber DHCPv6 bekanntgegeben wird - an einem Heimrouter
-                    // mit beidem gesehen. Fuer den Befund
-                    // "zu viele DNS-Server je Adapter" waere das eine
-                    // Falschmeldung.
+                    // The same server appears twice in the list if it is
+                    // announced both via the router advertisement (RDNSS) and
+                    // via DHCPv6 - observed on a home router doing both. For
+                    // the finding "too many DNS servers per adapter" that
+                    // would be a false report.
                     if (!seen.Add(scoped.ToString())) continue;
 
                     DnsServers.Add(scoped);
                 }
             }
-            catch (PlatformNotSupportedException) { /* keine DNS-Angaben */ }
+            catch (PlatformNotSupportedException) { /* no DNS information */ }
         }
 
         /// <summary>
-        /// Leitet die Praefixe aus den eigenen Adressen ab - und liest dabei
-        /// die eigentlich interessante Angabe mit: <see cref="PrefixOrigin"/>
-        /// sagt, <em>woher</em> das Praefix stammt.
+        /// Derives the prefixes from the own addresses - and reads the actually
+        /// interesting information along the way: <see cref="PrefixOrigin"/>
+        /// tells <em>where</em> the prefix comes from.
         /// <para>
-        /// <see cref="PrefixOrigin.RouterAdvertisement"/> heisst: genau dieses
-        /// Praefix hat ein Router angekuendigt. <see cref="PrefixOrigin.Dhcp"/>
-        /// heisst: die Adresse kam von einem DHCPv6-Server. Damit steht die
-        /// Auskunft zur Adressvergabe fest, ohne ein Bit aus einem Paket lesen
-        /// zu muessen.
+        /// <see cref="PrefixOrigin.RouterAdvertisement"/> means: exactly this
+        /// prefix was announced by a router. <see cref="PrefixOrigin.Dhcp"/>
+        /// means: the address came from a DHCPv6 server. This settles how
+        /// addresses are assigned without reading a single bit from a packet.
         /// </para>
         /// </summary>
         private void ReadPrefixes(IPInterfaceProperties properties, int interfaceIndex)
@@ -164,8 +164,8 @@ namespace MyNetworkMonitor.Core.Network
                 }
                 catch (PlatformNotSupportedException)
                 {
-                    // Unter Linux gibt .NET diese Angaben nicht immer her.
-                    // Dort ist ohnehin der Rohsocket der bessere Weg.
+                    // On Linux, .NET does not always provide this information.
+                    // There the raw socket is the better path anyway.
                     continue;
                 }
 
@@ -182,8 +182,8 @@ namespace MyNetworkMonitor.Core.Network
                     Prefix = network,
                     Length = length,
 
-                    // Der Rechner hat sich hier selbst eine Adresse gebildet -
-                    // das ist genau die Bedeutung des A-Bits.
+                    // The machine has formed an address of its own here -
+                    // exactly the meaning of the A flag.
                     Autonomous = origin == PrefixOrigin.RouterAdvertisement,
                     OnLink = true,
                     ValidLifetimeSeconds = 0
@@ -192,17 +192,16 @@ namespace MyNetworkMonitor.Core.Network
         }
 
         /// <summary>
-        /// <c>fec0:0:0:ffff::1</c> bis <c>::3</c> sind keine Namensserver,
-        /// sondern die Platzhalter, die Windows an jedem Adapter auffuehrt,
-        /// solange keiner eingerichtet ist.
+        /// <c>fec0:0:0:ffff::1</c> to <c>::3</c> are not name servers but the
+        /// placeholders Windows lists on every adapter as long as none is
+        /// configured.
         /// <para>
-        /// Am 2026-08-09 an einem Rechner ohne IPv6 im Netz gesehen: vier von
-        /// sechs Adaptern meldeten diese drei Adressen. Sie ungeprueft zu
-        /// uebernehmen hiesse, an einem Netz ganz ohne IPv6 drei Namensserver
-        /// zu behaupten - und der Befund "zu viele DNS-Server je Adapter"
-        /// spraenge bei jedem zweiten Adapter an. Der Bereich
-        /// <c>fec0::/10</c> ist ohnehin seit RFC 3879 abgekuendigt und kommt
-        /// als echter Server nicht mehr vor.
+        /// Observed on a machine without IPv6 on the network: four of six
+        /// adapters reported these three addresses. Taking them unchecked would
+        /// claim three name servers on a network without any IPv6 - and the
+        /// finding "too many DNS servers per adapter" would trigger on every
+        /// second adapter. The range <c>fec0::/10</c> is deprecated by RFC 3879
+        /// anyway and no longer occurs as a real server.
         /// </para>
         /// </summary>
         private static bool IsWindowsPlaceholder(IPAddress address)
@@ -219,8 +218,8 @@ namespace MyNetworkMonitor.Core.Network
         }
 
         /// <summary>
-        /// Haengt die Adapterzone an, wo sie fehlt. Ein Gateway ist regelmaessig
-        /// link-local, und ohne Zone ist es nicht ansprechbar.
+        /// Appends the adapter zone where it is missing. A gateway is regularly
+        /// link-local, and without a zone it cannot be addressed.
         /// </summary>
         private static IPAddress WithZone(IPAddress address, int interfaceIndex) =>
             address.IsIPv6LinkLocal && address.ScopeId == 0 && interfaceIndex > 0

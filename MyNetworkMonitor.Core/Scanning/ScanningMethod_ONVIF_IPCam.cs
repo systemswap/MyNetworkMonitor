@@ -14,6 +14,10 @@ using System.Net.NetworkInformation;
 
 namespace MyNetworkMonitor
 {
+    /// <summary>
+    /// Finds ONVIF IP cameras by WS-Discovery probe (multicast 239.255.255.250, port 3702) and
+    /// reads their stream and network details.
+    /// </summary>
     public class ScanningMethod_ONVIF_IPCam
     {
         private readonly string ONVIF_MULTICAST_IP = "239.255.255.250";
@@ -21,8 +25,13 @@ namespace MyNetworkMonitor
         private readonly TimeSpan DISCOVERY_TIMEOUT = TimeSpan.FromSeconds(5);
 
 
+        /// <summary>Reports progress as (processed, responded, total, status).</summary>
         public event Action<int, int, int, ScanStatus> ProgressUpdated;
+
+        /// <summary>Raised for every camera found, on a background thread.</summary>
         public event EventHandler<ScanTask_Finished_EventArgs>? new_ONVIF_IP_Camera_Found_Task_Finished;
+
+        /// <summary>Raised when the discovery has finished.</summary>
         public event Action<ScanStatus>? ONVIF_IP_Camera_Scan_Finished;
         
 
@@ -30,28 +39,22 @@ namespace MyNetworkMonitor
         private int responded = 0;
         private int total = 0;
 
-        private CancellationTokenSource _cts = new CancellationTokenSource(); // 🔹 Ermöglicht das Abbrechen
+        private CancellationTokenSource _cts = new CancellationTokenSource(); // Allows the scan to be cancelled.
 
-        //int currentValue = Interlocked.Increment(ref current);
-        //Task.Run(() => ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running));
-
-        //int respondedValue = Interlocked.Increment(ref responded);
-        //Task.Run(() => ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running));
-
-        //Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished));
-
+        /// <summary>
+        /// Cancels the running discovery and reports <see cref="ScanStatus.stopped"/>.
+        /// </summary>
         public void StopScan()
         {
             if (_cts != null && !_cts.IsCancellationRequested)
             {
-                _cts.Cancel(); // 🔹 Scan abbrechen
-                // Hier NICHT aufraeumen und ersetzen: die Schleifen lesen _cts ueber
-                // das Feld. Ein frisches CTS an dieser Stelle meldet ihnen wieder
-                // "nicht abgebrochen", und der Lauf geht weiter, statt zu enden.
-                // Das Zuruecksetzen erledigt StartNewScan beim naechsten Lauf.
+                _cts.Cancel();
+                // Do NOT dispose and replace the source here: the loops read _cts through the
+                // field. A fresh source at this point would report "not cancelled" to them and
+                // the run would continue instead of ending. StartNewScan resets it for the next run.
             }
 
-            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped); // 🔹 UI auf 0 setzen
+            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped); // Resets the progress display.
         }
 
         private void StartNewScan()
@@ -66,108 +69,43 @@ namespace MyNetworkMonitor
             }
             _cts = new CancellationTokenSource();
 
-            // 🔹 Zähler zurücksetzen
+            // Reset the counters.
             current = 0;
             responded = 0;
             total = 0;
         }
 
 
-        //public async void Discover(List<IPToScan> IPs)
-        //{
-        //    List<IPCamInfos> discoveredCameras = new List<IPCamInfos>();
-
-        //    using (UdpClient udpClient = new UdpClient())
-        //    {
-        //        udpClient.EnableBroadcast = true;
-        //        udpClient.MulticastLoopback = false;
-        //        IPEndPoint multicastEP = new IPEndPoint(IPAddress.Parse(ONVIF_MULTICAST_IP), ONVIF_PORT);
-
-        //        string soapRequest = CreateSoapRequest();
-        //        byte[] requestBytes = Encoding.UTF8.GetBytes(soapRequest);
-        //        await udpClient.SendAsync(requestBytes, requestBytes.Length, multicastEP);
-
-        //        var endpoint = new IPEndPoint(IPAddress.Any, ONVIF_PORT);
-        //        udpClient.Client.ReceiveTimeout = (int)DISCOVERY_TIMEOUT.TotalMilliseconds;
-
-        //        try
-        //        {
-        //            DateTime startTime = DateTime.UtcNow;
-        //            while (DateTime.UtcNow - startTime < DISCOVERY_TIMEOUT)
-        //            {
-        //                var receiveTask = udpClient.ReceiveAsync();
-        //                var completedTask = await Task.WhenAny(receiveTask, Task.Delay(100));
-
-        //                if (completedTask == receiveTask) // Antwort erhalten
-        //                {
-        //                    UdpReceiveResult result = receiveTask.Result;
-        //                    string response = Encoding.UTF8.GetString(result.Buffer);
-        //                    var cameraInfo = await ParseONVIFResponseAsync(response, result.RemoteEndPoint.Address.ToString());
-
-        //                    if (cameraInfo != null && !discoveredCameras.Any(d => d.UUID == cameraInfo.UUID))
-        //                    {
-        //                        discoveredCameras.Add(cameraInfo);
-
-        //                        IPToScan ipToScan = new IPToScan
-        //                        {
-        //                            UsedScanMethod = ScanMethod.ONVIF_IPCam,
-        //                            IsIPCam = true,
-        //                            IPorHostname = cameraInfo.IPv4Address,
-        //                            IPCamName = cameraInfo.Name,  // **Kamera-Name hinzugefügt**
-        //                            IPCamXAddress = cameraInfo.XAddress.Replace("/onvif/device_service", string.Empty)
-        //                        };
-
-        //                        ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs
-        //                        {
-        //                            ipToScan = ipToScan
-        //                        };
-
-        //                        Application.Current.Dispatcher.Invoke(() =>
-        //                        {
-        //                            Task.Run(() => new_ONVIF_IP_Camera_Found_Task_Finished?.Invoke(this, scanTask_Finished));
-        //                        });
-
-        //                        int respondedValue = Interlocked.Increment(ref responded);
-        //                        ProgressUpdated?.Invoke(current, responded, total);
-        //                    }
-        //                }
-        //            }
-        //        }
-        //        catch (SocketException) { }
-        //        finally
-        //        {
-        //            Application.Current.Dispatcher.Invoke(() =>
-        //            {
-        //                ONVIF_IP_Camera_Scan_Finished?.Invoke(this, new Method_Finished_EventArgs());
-        //            });
-        //        }
-        //    }
-        //}
 
 
 
 
 
 
-        // Rueckgabe Task statt void - siehe Begruendung in
-        // ScanningMethod_SSDP_UPNP.Scan_for_SSDP_devices_async. Nur die
-        // Signatur geaendert, der Ablauf ist unveraendert.
+        /// <summary>
+        /// Sends the WS-Discovery probe three times on the selected interface and collects the
+        /// answers of ONVIF devices for <see cref="DISCOVERY_TIMEOUT"/>.
+        /// </summary>
+        /// <param name="IPs">Not evaluated; the probe is sent by multicast.</param>
+        /// <remarks>
+        /// Returns <see cref="Task"/>, not <c>async void</c>, for the reason given at
+        /// <see cref="ScanningMethod_SSDP_UPNP.Scan_for_SSDP_devices_async"/>.
+        /// </remarks>
         public async Task Discover(List<IPToScan> IPs)
         {
             StartNewScan();
 
             List<IPCamInfos> discoveredCameras = new List<IPCamInfos>();
             string soapRequest = CreateSoapRequest();
-            byte[] requestBytes = Encoding.UTF8.GetBytes(soapRequest); // 📌 **Hier außerhalb definiert!**
+            byte[] requestBytes = Encoding.UTF8.GetBytes(soapRequest); // Built once for all attempts.
 
             using (UdpClient udpClient = new UdpClient())
             {
                 udpClient.EnableBroadcast = true;
                 udpClient.MulticastLoopback = false;
 
-                // Ohne das hier ging die Anfrage ueber die Standardroute des
-                // Betriebssystems, nicht ueber das ausgewaehlte Interface -
-                // wie bei SSDP (siehe dort).
+                // Without this option the probe leaves through the default route of the operating
+                // system, not through the selected interface; the same applies to SSDP.
                 if (SupportMethods.SelectedNetworkInterfaceInfos.IPv4 is { } selectedInterface)
                 {
                     udpClient.Client.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastInterface,
@@ -176,31 +114,29 @@ namespace MyNetworkMonitor
 
                 IPEndPoint multicastEP = new IPEndPoint(IPAddress.Parse(ONVIF_MULTICAST_IP), ONVIF_PORT);
 
-                // Mehrfache Multicast-Anfragen senden (3 Versuche mit Pause)
+                // Send the multicast probe three times with a pause in between.
                 for (int i = 0; i < 3; i++)
                 {
                     if (_cts.Token.IsCancellationRequested) break;
                     await udpClient.SendAsync(requestBytes, requestBytes.Length, multicastEP);
-                    await Task.Delay(500, _cts.Token); // 500ms Pause zwischen den Anfragen
+                    await Task.Delay(500, _cts.Token); // 500 ms between the probes
                 }
 
-                udpClient.Client.ReceiveTimeout = 5000; // 📌 5 Sekunden Empfangszeit
+                udpClient.Client.ReceiveTimeout = 5000; // 5 seconds receive time
 
                 try
                 {
                     DateTime startTime = DateTime.UtcNow;
 
-                    // Frueher wurde _cts.Token hier nirgends geprueft - StopScan()
-                    // setzte zwar den Abbruch, aber diese Schleife las ihn nie,
-                    // lief also bis zum vollen DISCOVERY_TIMEOUT weiter. "Stop"
-                    // wirkte damit nur auf dem Papier.
+                    // The loop checks _cts.Token: StopScan() only sets the cancellation, and a loop
+                    // that does not read it keeps running until the full DISCOVERY_TIMEOUT.
                     while (DateTime.UtcNow - startTime < DISCOVERY_TIMEOUT
                            && !_cts.Token.IsCancellationRequested)
                     {
                         var receiveTask = udpClient.ReceiveAsync();
                         var completedTask = await Task.WhenAny(receiveTask, Task.Delay(100, _cts.Token));
 
-                        if (completedTask == receiveTask) // Antwort erhalten
+                        if (completedTask == receiveTask) // Answer received
                         {
                             UdpReceiveResult result = receiveTask.Result;
                             string response = Encoding.UTF8.GetString(result.Buffer);
@@ -224,8 +160,8 @@ namespace MyNetworkMonitor
                                     ipToScan = ipToScan
                                 };
 
-                                // Event vom Hintergrund-Thread feuern; der UI-Subscriber (MainWindow)
-                                // marshalt selbst via Dispatcher – daher hier keine WPF-Abhängigkeit nötig.
+                                // Raised on the background thread; UI subscribers marshal to the UI
+                                // thread themselves, so the core needs no UI dependency.
                                 new_ONVIF_IP_Camera_Found_Task_Finished?.Invoke(this, scanTask_Finished);
 
                                 int respondedValue = Interlocked.Increment(ref responded);
@@ -245,10 +181,8 @@ namespace MyNetworkMonitor
 
 
 
-            //**📌 Unicast - Fallback(falls Multicast nicht alle Geräte erreicht) * *
-            //kommt vieleicht später
+            // There is no unicast fallback: devices the multicast probe does not reach are not found.
 
-            //responded = 0;
 
 
             ONVIF_IP_Camera_Scan_Finished?.Invoke(ScanStatus.finished);
@@ -286,7 +220,7 @@ namespace MyNetworkMonitor
             {
                 XDocument xDoc = XDocument.Parse(soapMessage);
 
-                // Namespace-Manager für XPath-Abfragen
+                // Namespace manager for the XPath queries.
                 var nsManager = new XmlNamespaceManager(new NameTable());
                 nsManager.AddNamespace("SOAP-ENV", "http://www.w3.org/2003/05/soap-envelope");
                 nsManager.AddNamespace("wsa", "http://schemas.xmlsoap.org/ws/2004/08/addressing");
@@ -308,10 +242,10 @@ namespace MyNetworkMonitor
                     XAddress = XAddrs,
                     UUID = UUID.Split(':').Last(),
                     MetaVersion = MetadataVersion,
-                    Name = ExtractCameraName(Scopes)  // Kamera-Name extrahieren
+                    Name = ExtractCameraName(Scopes)  // Camera name from the "name" scope
                 };
 
-                // **Lade Streaming- & MAC-Adresse**
+                // Load stream details and MAC address.
                 await camera.LoadStreamingAndMACInfo();
 
                 return camera;
@@ -335,32 +269,53 @@ namespace MyNetworkMonitor
         }        
     }
 
+    /// <summary>
+    /// What an ONVIF camera reported in its discovery answer and its service descriptions.
+    /// </summary>
     public class IPCamInfos
     {
+        /// <summary>The IPv4 address the answer came from.</summary>
         public string IPv4Address { get; set; }
+
+        /// <summary>The port of the device service address.</summary>
         public string Port { get; set; }
+
+        /// <summary>The device service address (XAddrs) from the answer.</summary>
         public string XAddress { get; set; }
+
+        /// <summary>The device UUID from the endpoint reference.</summary>
         public string UUID { get; set; }
+
+        /// <summary>The metadata version from the answer.</summary>
         public string MetaVersion { get; set; }
 
-        // **Kamera-Infos**
+        /// <summary>The camera name from the "name" scope.</summary>
         public string Name { get; set; } = "Unknown";
 
-        // **Streaming-Infos**
+        /// <summary>The RTSP stream address.</summary>
         public string RTSPStreamURL { get; set; } = "Unknown";
+
+        /// <summary>The video encoding.</summary>
         public string VideoEncoder { get; set; } = "Unknown";
+
+        /// <summary>The resolution as width x height.</summary>
         public string Resolution { get; set; } = "Unknown";
+
+        /// <summary>The frame rate.</summary>
         public string FPS { get; set; } = "Unknown";
 
-        // **Netzwerk**
+        /// <summary>The hardware address from the network service.</summary>
         public string MACAddress { get; set; } = "Unknown";
 
+        /// <summary>
+        /// Reads stream details from the media service and the MAC address from the network
+        /// service of the camera; values that cannot be read stay "Unknown".
+        /// </summary>
         public async Task LoadStreamingAndMACInfo()
         {
-            // Wird aus der Empfangsschleife in Discover() heraus aufgerufen -
-            // ohne eigenes Zeitlimit haengt eine einzelne langsame Kamera hier
-            // bis zu HttpClients Standard von 100 Sekunden, waehrend die
-            // Schleife auf Antworten weiterer Kameras nicht mehr reagiert.
+            // Called from the receive loop in Discover(): without its own time limit a single slow
+            // camera would block here for up to the HttpClient default of 100 seconds, while the
+            // loop no longer reacts to answers of other cameras.
             using HttpClient client = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
             try
             {

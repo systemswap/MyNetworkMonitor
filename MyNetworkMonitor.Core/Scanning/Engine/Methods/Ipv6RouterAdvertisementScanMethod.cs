@@ -6,48 +6,47 @@ using MyNetworkMonitor.Core.Network;
 namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 {
     /// <summary>
-    /// Hoert die Ankuendigungen der Router mit - und fragt einmal nach, statt
-    /// zu warten.
+    /// Listens for router advertisements, and asks once instead of waiting.
     /// <para>
-    /// Eine Router-Ankuendigung ist die aufschlussreichste Nachricht im
-    /// IPv6-Segment. Sie nennt in einem Paket: wer routet, welche Praefixe
-    /// gelten, welche Namensserver zustaendig sind, wie gross die Pakete sein
-    /// duerfen - und ueber zwei Bits, ob zusaetzlich ein DHCPv6-Server
-    /// arbeitet. Unter IPv4 braeuchte man dafuer DHCP-Mitschnitt, SNMP und
-    /// Routenabfrage nebeneinander.
+    /// A router advertisement is the most informative message on an IPv6
+    /// segment. In one packet it states who routes, which prefixes are valid,
+    /// which name servers are responsible, how large packets may be, and,
+    /// through two flags, whether a DHCPv6 server is in use as well. Under
+    /// IPv4 this would take DHCP capture, SNMP and a route query combined.
     /// </para>
     /// <para>
-    /// <b>Warum hier gesendet wird, obwohl das Verfahren "mithoeren" heisst:</b>
-    /// Router kuendigen von sich aus nur alle paar Minuten an - laenger, als
-    /// ein Scan dauern darf. Deshalb geht zuerst eine Router-Anfrage
-    /// (<c>Router Solicitation</c>) an <c>ff02::2</c> hinaus. Darauf antwortet
-    /// jeder Router binnen Sekunden. Genau das tut jedes Geraet beim
-    /// Einschalten; es ist der vorgesehene Weg und faellt niemandem auf.
+    /// <b>Why this method sends although it is a listening method:</b>
+    /// routers advertise unsolicited only every few minutes, longer than a
+    /// scan may take. A router solicitation is therefore sent to
+    /// <c>ff02::2</c> first, and every router answers within seconds. Every
+    /// device does exactly this when it starts up; it is the intended
+    /// mechanism and stands out to nobody.
     /// </para>
     /// <para>
-    /// Die gefundenen Praefixe sind zugleich die Grundlage der beiden
-    /// Rateverfahren: erst wenn bekannt ist, welches /64 im Segment gilt,
-    /// koennen sie darauf Adressen bilden.
+    /// The prefixes found are also the basis of the two guessing methods:
+    /// only once the /64 of the segment is known can they build addresses in
+    /// it.
     /// </para>
     /// <para>
-    /// <b>Zwei Wege, je nach Plattform</b> - und das Verfahren laeuft auf
-    /// beiden, statt unter Windows auszufallen:
+    /// <b>Two ways, depending on the platform</b>, so that the method runs on
+    /// both instead of failing on Windows:
     /// </para>
     /// <list type="number">
     /// <item>
-    /// <b>Mithoeren</b> (Linux, mit <c>CAP_NET_RAW</c>): die Ankuendigung wird
-    /// im Original gelesen. Vollstaendig, einschliesslich MTU, Lebensdauern
-    /// und der Frage, welcher Router was sagt.
+    /// <b>Listening</b> (Linux, with <c>CAP_NET_RAW</c>): the advertisement
+    /// itself is read. Complete, including MTU, lifetimes and which router
+    /// announces what.
     /// </item>
     /// <item>
-    /// <b>Den Stapel fragen</b> (Windows): Windows liefert ICMPv6 nicht an
-    /// Rohsockets aus - nachgemessen, siehe
-    /// <see cref="Icmpv6Channel.RawReceiveSupported"/>. Es <em>hat</em> die
-    /// Ankuendigungen aber empfangen und ausgewertet, sonst haette der Rechner
-    /// keine IPv6-Adresse. Also wird das Ergebnis ausgelesen statt das Paket:
-    /// Router, Praefixe, Namensserver und die Herkunft jeder Adresse stehen in
-    /// gewoehnlichen APIs. Das kostet die Momentaufnahme, nicht den Inhalt -
-    /// und braucht dort <b>keine</b> Administratorrechte.
+    /// <b>Querying the stack</b> (Windows): Windows does not deliver ICMPv6 to
+    /// raw sockets (verified by measurement, see
+    /// <see cref="Icmpv6Channel.RawReceiveSupported"/>). It <em>has</em>
+    /// received and processed the advertisements, though, or the machine
+    /// would have no IPv6 address. So the result is read instead of the
+    /// packet: routers, prefixes, name servers and the origin of each address
+    /// are available through regular APIs. This gives a snapshot rather than
+    /// the live message, with the same content, and needs <b>no</b>
+    /// administrator rights there.
     /// </item>
     /// </list>
     /// </summary>
@@ -71,26 +70,25 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         public override bool IsPassive => true;
 
         /// <summary>
-        /// Nicht zwingend: wo kein Rohsocket zu haben ist, wird der
-        /// Netzwerkstapel ausgelesen. Ein ausgegrautes Kaestchen waere die
-        /// falsche Auskunft, weil das Verfahren dort trotzdem etwas liefert.
+        /// Not required: where no raw socket is available, the network stack
+        /// is read instead. A greyed-out checkbox would be misleading, because
+        /// the method still delivers results there.
         /// </summary>
         public override bool RequiresElevation => false;
 
         /// <summary>
-        /// Wie lange auf Ankuendigungen gewartet wird. Router antworten auf
-        /// eine Anfrage nach einer zufaelligen Verzoegerung von bis zu einer
-        /// halben Sekunde (RFC 4861); vier Sekunden lassen auch einem
-        /// langsamen Geraet Zeit und fangen nebenbei eine turnusmaessige
-        /// Ankuendigung mit.
+        /// How long to wait for advertisements. Routers answer a solicitation
+        /// after a random delay of up to half a second (MAX_RA_DELAY_TIME,
+        /// RFC 4861, sections 6.2.6 and 10); four seconds leave time for a slow
+        /// device and may also catch a periodic advertisement.
         /// </summary>
         private static readonly TimeSpan ListenWindow = TimeSpan.FromSeconds(4);
 
         /// <summary>
-        /// Immer verfuegbar, sobald IPv6 im Segment nutzbar ist - notfalls
-        /// ueber den Stapel. Fehlende Rechte sind hier kein Hindernis, sondern
-        /// nur der Unterschied zwischen "im Original gelesen" und "das
-        /// Ergebnis ausgelesen".
+        /// Always available once IPv6 is usable on the segment, if necessary
+        /// through the stack. Missing privileges are no obstacle here, only the
+        /// difference between "message read directly" and "result read from
+        /// the stack".
         /// </summary>
         public override ScanMethodAvailability CheckAvailability(ScanContext context) =>
             base.CheckAvailability(context);
@@ -123,8 +121,8 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         {
             using Icmpv6Channel? channel = Icmpv6Channel.TryOpen(segment.Interface, segment.InterfaceIndex, wantRaw: true);
 
-            // Kein Kanal zum Mithoeren: dann das nehmen, was der Stapel aus
-            // den Ankuendigungen gemacht hat.
+            // No channel to listen on: use what the stack has derived from the
+            // advertisements.
             if (channel is null) return FromStack(context, segment);
 
             await SolicitAsync(channel, cancellationToken);
@@ -135,7 +133,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             {
                 if (Icmpv6Channel.TypeOf(buffer, length) != Icmpv6Channel.RouterAdvertisement) return;
 
-                // Ein Router kuendigt im Zeitfenster oft mehrfach an.
+                // A router often advertises several times within the window.
                 if (!seen.Add(sender.ToString())) return;
 
                 RouterAdvertisement? advertisement =
@@ -144,22 +142,22 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                 if (advertisement is not null) ReportRouter(context, segment, advertisement);
             }, cancellationToken);
 
-            // Auch mit Rohsocket kann das Fenster leer bleiben - dann greift
-            // derselbe Ausweg, statt "nichts gefunden" zu melden, obwohl der
-            // Rechner nachweislich einen Router kennt.
+            // Even with a raw socket the window may stay empty; the same
+            // fallback then applies, instead of reporting "nothing found"
+            // although the machine demonstrably knows a router.
             return seen.Count > 0 ? seen.Count : FromStack(context, segment);
         }
 
-        // ------------------------------------------------- Weg 2: der Stapel
+        // ------------------------------------------------- Way 2: the stack
 
         /// <summary>
-        /// Meldet, was das Betriebssystem aus den Ankuendigungen gemacht hat.
+        /// Reports what the operating system has derived from the
+        /// advertisements.
         /// <para>
-        /// Die Angaben werden bewusst als solche gekennzeichnet: sie stammen
-        /// aus dem Netzwerkstapel und nicht aus einem gerade empfangenen
-        /// Paket. Wer die Zeile spaeter liest, muss den Unterschied erkennen
-        /// koennen - hier steht nicht, wann ein Router das gesagt hat, nur
-        /// dass er es gesagt hat.
+        /// The information is deliberately marked as such: it comes from the
+        /// network stack, not from a packet just received. A reader of the
+        /// entry must be able to tell the difference; it does not state when a
+        /// router said this, only that it did.
         /// </para>
         /// </summary>
         private int FromStack(ScanContext context, Ipv6Segment segment)
@@ -192,9 +190,9 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                     ? "Self-assigned from a router prefix (SLAAC)"
                     : "No address from a router on this adapter";
 
-            // Ohne bekanntes Gateway gibt es kein Geraet, an das sich die
-            // Angaben haengen liessen. Sie dann an eine erfundene Adresse zu
-            // melden waere schlimmer als sie wegzulassen.
+            // Without a known gateway there is no device to attach the
+            // information to. Reporting it for a made-up address would be
+            // worse than omitting it.
             if (info.Routers.Count == 0) return 0;
 
             foreach (IPAddress router in info.Routers)
@@ -211,11 +209,11 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         }
 
         /// <summary>
-        /// Sendet eine Router-Anfrage an <c>ff02::2</c> - "alle Router".
-        /// Aufbau nach RFC 4861: Typ, Code, Pruefsumme, vier reservierte Byte.
-        /// Die Angabe der eigenen MAC ist zulaessig, aber freiwillig; sie
-        /// bleibt weg, damit die Anfrage so wenig wie moeglich ueber uns
-        /// verraet.
+        /// Sends a router solicitation to <c>ff02::2</c> ("all routers").
+        /// Layout per RFC 4861, section 4.1: type, code, checksum, four
+        /// reserved bytes. The source link-layer address option is permitted
+        /// but optional; it is omitted so that the solicitation reveals as
+        /// little as possible about the sender.
         /// </summary>
         private static async Task SolicitAsync(Icmpv6Channel channel, CancellationToken cancellationToken)
         {
@@ -232,15 +230,15 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             }
             catch (SocketException)
             {
-                // Geht die Anfrage nicht hinaus, bleibt das Zuhoeren - eine
-                // turnusmaessige Ankuendigung kommt ohnehin irgendwann.
+                // If the solicitation cannot be sent, listening continues; a
+                // periodic advertisement arrives eventually anyway.
             }
         }
 
         /// <summary>
-        /// Macht aus einer Ankuendigung eine Sichtung. Der Router ist das
-        /// Geraet; alles Uebrige - Praefixe, Namensserver, DHCPv6-Hinweis -
-        /// haengt als Angabe daran, weil es dieser Router bekanntgibt.
+        /// Turns an advertisement into an observation. The router is the
+        /// device; everything else (prefixes, name servers, DHCPv6 hint) is
+        /// attached as details, because this router announces it.
         /// </summary>
         private void ReportRouter(ScanContext context, Ipv6Segment segment, RouterAdvertisement advertisement)
         {
@@ -268,9 +266,9 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 
             if (advertisement.Mtu is int mtu) details["MTU"] = mtu.ToString();
 
-            // Die beiden Bits sagen, woher die Geraete im Segment ihre
-            // Angaben bekommen. Das beantwortet die Frage, warum ein Geraet
-            // eine Adresse hat, die zu keinem angekuendigten Praefix passt.
+            // The M and O flags (RFC 4861, section 4.2) tell where devices on
+            // the segment get their configuration. That answers why a device
+            // has an address matching no announced prefix.
             details["Address configuration"] = advertisement.ManagedAddressConfiguration
                 ? "DHCPv6 (managed)"
                 : advertisement.OtherConfiguration

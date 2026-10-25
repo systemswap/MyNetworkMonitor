@@ -7,29 +7,27 @@ using MyNetworkMonitor.Core.Network;
 namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 {
     /// <summary>
-    /// Hoert die MLD-Berichte mit - die Meldungen, mit denen Geraete dem Netz
-    /// mitteilen, welchen Multicast-Gruppen sie beigetreten sind.
+    /// Listens for MLD reports, the messages with which devices tell the
+    /// network which multicast groups they have joined.
     /// <para>
-    /// Das ist das eigentuemlichste der sechs Verfahren und das mit dem
-    /// hoechsten Ertrag je Paket: eine Gruppenmitgliedschaft <b>ist</b> eine
-    /// Dienstauskunft. Wer in <c>ff02::fb</c> zuhoert, spricht mDNS - also ein
-    /// Apple-Geraet, ein Drucker oder ein Fernseher. Wer in <c>ff02::c</c>
-    /// zuhoert, spricht UPnP. Wer in <c>ff02::1:2</c> zuhoert, sucht einen
-    /// DHCPv6-Server. Man erfaehrt also, welche Dienste ein Geraet betreibt,
-    /// ohne einen einzigen Port angefasst zu haben - und ohne dass im Protokoll
-    /// des Geraets etwas auftaucht.
+    /// This is the most unusual of the six methods and the one with the
+    /// highest yield per packet: a group membership <b>is</b> service
+    /// information. A device listening on <c>ff02::fb</c> speaks mDNS, so it
+    /// is an Apple device, a printer or a TV. One listening on <c>ff02::c</c>
+    /// speaks UPnP. One listening on <c>ff02::1:2</c> is looking for a DHCPv6
+    /// server. This reveals which services a device runs without touching a
+    /// single port, and without anything appearing in the device's log.
     /// </para>
     /// <para>
-    /// <b>Zuhoeren, nicht fragen - und warum.</b> Es gaebe die Moeglichkeit,
-    /// eine allgemeine MLD-Abfrage zu senden, auf die alle Geraete antworten
-    /// muessten. Sie braucht aber die Router-Alert-Option im IPv6-Kopf, und
-    /// die laesst sich mit den Sockets, die .NET anbietet, nicht setzen -
-    /// Empfaenger nach RFC 3810 verwerfen eine Abfrage ohne sie. Ein Paket zu
-    /// senden, von dem feststeht, dass die Haelfte der Geraete es wegwirft,
-    /// waere nur Laerm. Stattdessen wird zugehoert: Geraete melden sich von
-    /// selbst, wenn sie einer Gruppe beitreten, und beantworten die regelmaessige
-    /// Abfrage des Routers. Deshalb ist das Zeitfenster hier deutlich groesser
-    /// als bei den uebrigen Verfahren.
+    /// <b>Listening rather than asking, and why.</b> A general MLD query,
+    /// which all devices would have to answer, could be sent. It requires the
+    /// Router Alert option in the IPv6 header, however, which cannot be set
+    /// with the sockets .NET provides, and receivers discard a query without
+    /// it (RFC 3810, section 6.2). Sending a packet that half the devices are
+    /// known to drop would only be noise. Instead the method listens: devices
+    /// report on their own when they join a group, and they answer the
+    /// router's periodic query. That is why the time window here is
+    /// considerably longer than for the other methods.
     /// </para>
     /// </summary>
     public sealed class Ipv6MulticastGroupScanMethod : Ipv6MethodBase
@@ -54,10 +52,10 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         public override bool RequiresElevation => true;
 
         /// <summary>
-        /// Deutlich laenger als bei den uebrigen Verfahren, weil hier nichts
-        /// angestossen wird: es kommt, was von selbst kommt. Fuenfzehn Sekunden
-        /// fangen in einem belebten Segment die Beitritte mit, bleiben aber
-        /// kurz genug, dass ein Scan nicht daran haengt.
+        /// Considerably longer than for the other methods, because nothing is
+        /// triggered here: only what arrives unsolicited is seen. Fifteen
+        /// seconds catch the joins on a busy segment but stay short enough
+        /// that a scan does not stall on it.
         /// </summary>
         private static readonly TimeSpan ListenWindow = TimeSpan.FromSeconds(15);
 
@@ -66,10 +64,9 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             ScanMethodAvailability basic = base.CheckAvailability(context);
             if (!basic.CanRun) return basic;
 
-            // Anders als bei der Router-Ankuendigung gibt es hier keinen
-            // Ersatzweg: welchen Gruppen ein *fremdes* Geraet beigetreten ist,
-            // weiss der eigene Netzwerkstapel nicht. Diese Auskunft steht
-            // ausschliesslich in den Paketen.
+            // Unlike router advertisements, there is no fallback here: the
+            // local network stack does not know which groups *another* device
+            // has joined. This information exists only in the packets.
             if (!Icmpv6Channel.RawReceiveSupported)
             {
                 return ScanMethodAvailability.Blocked(
@@ -113,9 +110,9 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             using Icmpv6Channel? channel = Icmpv6Channel.TryOpen(segment.Interface, segment.InterfaceIndex, wantRaw: true);
             if (channel is null) return 0;
 
-            // Je Geraet die Gruppen sammeln statt sofort melden: ein Geraet
-            // schickt seine Gruppen ueber mehrere Nachrichten verteilt, und
-            // erst die vollstaendige Menge ergibt die Dienstliste.
+            // Groups are collected per device rather than reported at once: a
+            // device spreads its groups over several messages, and only the
+            // complete set yields the service list.
             Dictionary<string, GroupSighting> byDevice = [];
 
             await ListenAsync(channel, ListenWindow, (buffer, length, sender) =>
@@ -130,8 +127,8 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 
                 if (report is null) return;
 
-                // Die unbestimmte Adresse steht in Berichten waehrend der
-                // Adressbildung. Sie gehoert zu keinem bestimmten Geraet.
+                // The unspecified address appears in reports sent during
+                // address configuration. It belongs to no particular device.
                 if (IPAddress.IPv6Any.Equals(sender)) return;
 
                 string key = sender.ToString();
@@ -169,9 +166,9 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         }
 
         /// <summary>
-        /// Welcher Dienst hinter einer bekannten Gruppenadresse steht. Die
-        /// Zuordnung stammt aus der IANA-Liste der IPv6-Multicast-Adressen;
-        /// unbekannte Gruppen bleiben ohne Deutung, statt geraten zu werden.
+        /// The service behind a known group address. The mapping follows the
+        /// IANA registry of IPv6 multicast addresses; unknown groups stay
+        /// uninterpreted rather than being guessed.
         /// </summary>
         private static string? ServiceBehind(string group) => group.ToLowerInvariant() switch
         {
@@ -188,7 +185,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             "ff02::5" or "ff02::6" => "OSPFv3 (routing protocol)",
             "ff02::d" => "PIM (multicast routing)",
             "ff02::12" => "VRRP (redundant gateway)",
-            "ff02::1:ff00:0" => null,   // Solicited-Node - hat jedes Geraet, sagt nichts
+            "ff02::1:ff00:0" => null,   // Solicited-node: every device has one, says nothing
             _ => null
         };
     }

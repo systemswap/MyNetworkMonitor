@@ -1,20 +1,23 @@
 namespace MyNetworkMonitor.Core.Model
 {
     /// <summary>
-    /// Der Name, unter dem ein Dienst in der Oberflaeche steht.
+    /// The name under which a service appears in the user interface.
     /// <para>
-    /// Bisher stand dort <c>ServiceType.ToString()</c>, also der Bezeichner aus
-    /// dem Quelltext. Der taugt als Schluessel, aber nicht immer als Auskunft:
-    /// "S7" sagt nur etwas, wer das Protokoll ohnehin kennt.
+    /// <c>ServiceType.ToString()</c> returns the source identifier. It works as
+    /// a key but not always as information: "S7" only means something to those
+    /// who already know the protocol.
     /// </para>
     /// <para>
-    /// Der Umweg ueber diese Tabelle statt einer Umbenennung im Enum ist
-    /// Absicht - der Enum-Name steht in gespeicherten Bestaenden und in den
-    /// Einstellungen der Verfahren; ihn zu aendern wuerde beide entwerten.
+    /// The mapping table is used instead of renaming enum members on purpose:
+    /// the enum name is stored in saved device data and in the scan method
+    /// settings; changing it would invalidate both.
     /// </para>
     /// </summary>
     public static class ServiceNames
     {
+        /// <summary>Returns the display name of a service.</summary>
+        /// <param name="service">The service.</param>
+        /// <returns>The display name; the enum name if no special name is defined.</returns>
         public static string Of(ServiceType service) => service switch
         {
             ServiceType.S7 => "S7 PLC (SPS)",
@@ -23,19 +26,21 @@ namespace MyNetworkMonitor.Core.Model
         };
 
         /// <summary>
-        /// Der Anzeigename zu einem gespeicherten Dienstnamen. Laesst sich der
-        /// Text als <see cref="ServiceType"/> lesen, gilt dessen Anzeigename;
-        /// sonst bleibt der Text stehen - etwa fuer Sammelzeilen wie "TCP Ports".
+        /// The display name for a stored service name. If the text parses as a
+        /// <see cref="ServiceType"/>, its display name applies; otherwise the text
+        /// is returned unchanged, for example for summary rows such as "TCP Ports".
         /// </summary>
+        /// <param name="rawName">The stored service name.</param>
+        /// <returns>The name to display.</returns>
         public static string DisplayFor(string rawName) =>
             Enum.TryParse(rawName, out ServiceType service) ? Of(service) : rawName;
 
         /// <summary>
-        /// Die Dienste, deren Sonde mehr zurueckbringt als "laeuft", und die
-        /// Ueberschrift, unter der es in den Details steht. Wer hier fehlt,
-        /// dessen Protokoll bleibt in der Dienstzeile und wandert nicht in die
-        /// Detailansicht - dort stuende sonst bei jedem zweiten Dienst die
-        /// Notiz "Antwort passt zum erwarteten Protokoll".
+        /// The services whose probe returns more than "running", and the heading
+        /// under which that information appears in the details. For services not
+        /// listed here the protocol stays in the service row and is not moved to
+        /// the detail view; otherwise every other service there would only show
+        /// the note "response matches the expected protocol".
         /// </summary>
         public static readonly (ServiceType Service, string Label)[] WithDeviceInfo =
         [
@@ -46,11 +51,11 @@ namespace MyNetworkMonitor.Core.Model
             (ServiceType.Wago,   "WAGO device"),
             (ServiceType.SecsGem, "SECS/GEM equipment"),
 
-            // Dienste, die sich beim Verbindungsaufbau selbst vorstellen. Sie
-            // sagen nicht so viel ueber sich wie eine Steuerung, aber Software,
-            // Fassung und Anmeldeverfahren stehen vor jeder Anmeldung fest -
-            // und gerade das Anmeldeverfahren ist bei VNC und RDP der Befund,
-            // wegen dessen man ueberhaupt sucht.
+            // Services that announce themselves during connection setup. They
+            // reveal less than a controller, but software, version and
+            // authentication method are known before any login - and for VNC
+            // and RDP the authentication method is the finding the search is
+            // for.
             (ServiceType.FTP,          "FTP server"),
             (ServiceType.SSH,          "SSH server"),
             (ServiceType.RDP,          "Remote Desktop"),
@@ -64,7 +69,9 @@ namespace MyNetworkMonitor.Core.Model
             (ServiceType.InfluxDB2,    "InfluxDB server")
         ];
 
-        /// <summary>Die Ueberschrift fuer diesen Dienst, oder <c>null</c>, wenn er keine Auskunft liefert.</summary>
+        /// <summary>Returns the detail heading for a service.</summary>
+        /// <param name="service">The service.</param>
+        /// <returns>The heading, or <c>null</c> if the service provides no device information.</returns>
         public static string? InfoLabelOf(ServiceType service)
         {
             foreach ((ServiceType candidate, string label) in WithDeviceInfo)

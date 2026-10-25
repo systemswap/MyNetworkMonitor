@@ -7,22 +7,22 @@ using MyNetworkMonitor.Core.Network;
 namespace MyNetworkMonitor.Core.Persistence
 {
     /// <summary>
-    /// Sichert den Geraetebestand zwischen zwei Programmlaeufen.
+    /// Persists the device inventory between two program runs.
     /// <para>
-    /// Die bisherige Anwendung hat dafuer die Ergebnistabelle als XML
-    /// geschrieben. Das neue Modell ist kein Tabellenabbild mehr - ein Geraet
-    /// traegt mehrere Adressen, Dienste je Adressfamilie und eine
-    /// Beobachtungshistorie -, darum ein eigenes Format.
+    /// The device model is not a table image - a device carries several
+    /// addresses, services per address family and an observation history -
+    /// hence a dedicated JSON format.
     /// </para>
     /// <para>
-    /// Gespeichert wird ueber schlanke Datensaetze und nicht ueber die
-    /// Modellklassen selbst: die haengen an <c>ObservableObject</c> und tragen
-    /// berechnete Eigenschaften, die in einer Datei nichts verloren haben. So
-    /// bleibt das Format auch dann lesbar, wenn sich am Modell etwas aendert.
+    /// Storage goes through lean records rather than the model classes
+    /// themselves: those derive from <c>ObservableObject</c> and carry computed
+    /// properties that do not belong in a file. This keeps the format readable
+    /// even when the model changes.
     /// </para>
     /// </summary>
     public static class DeviceStoreFile
     {
+        /// <summary>The default file name.</summary>
         public const string DefaultFileName = "lastScanResult.json";
 
         private static readonly JsonSerializerOptions Options = new()
@@ -32,9 +32,13 @@ namespace MyNetworkMonitor.Core.Persistence
         };
 
         /// <summary>
-        /// Schreibt den Bestand. Fehler werden geschluckt - ein misslungenes
-        /// Speichern darf das Beenden nicht aufhalten.
+        /// Writes the inventory. Errors are swallowed - a failed save must not
+        /// block shutdown.
         /// </summary>
+        /// <param name="store">The inventory to save.</param>
+        /// <param name="filePath">Target file; its directory is created if needed.</param>
+        /// <returns><c>true</c> if the file was written.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="store"/> is <c>null</c>.</exception>
         public static bool Save(DeviceStore store, string filePath)
         {
             ArgumentNullException.ThrowIfNull(store);
@@ -51,15 +55,14 @@ namespace MyNetworkMonitor.Core.Persistence
                 string? folder = Path.GetDirectoryName(filePath);
                 if (!string.IsNullOrEmpty(folder)) Directory.CreateDirectory(folder);
 
-                // Einen vorhandenen Bestand nicht durch nichts ersetzen, ohne
-                // ihn beiseitezulegen.
+                // An existing inventory is never replaced by an empty one
+                // without keeping a backup.
                 //
-                // Wer die Tabelle leert und dann schliesst, will die leere
-                // Tabelle behalten - das ist gewollt. Ein Fehlgriff ist es
-                // trotzdem schnell, und der Unterschied zwischen "geleert" und
-                // "beim Laden nicht gelesen" ist von aussen nicht zu sehen.
-                // Eine Sicherung kostet nichts und hat den Ernstfall schon
-                // einmal gegeben.
+                // Clearing the table and then closing is meant to keep the
+                // empty table - that is intended. It is still an easy mistake,
+                // and the difference between "cleared" and "not read on load"
+                // is not visible from outside. A backup costs nothing, and the
+                // case has occurred in practice.
                 if (records.Count == 0 && File.Exists(filePath) && new FileInfo(filePath).Length > MinimumMeaningfulSize)
                 {
                     try
@@ -68,8 +71,8 @@ namespace MyNetworkMonitor.Core.Persistence
                     }
                     catch (Exception)
                     {
-                        // Ohne Sicherung trotzdem weiterschreiben - sie ist
-                        // eine Zugabe, keine Bedingung.
+                        // Continue writing without a backup - it is a bonus,
+                        // not a precondition.
                     }
                 }
 
@@ -83,20 +86,23 @@ namespace MyNetworkMonitor.Core.Persistence
         }
 
         /// <summary>
-        /// Ab welcher Groesse eine Datei als "enthaelt etwas" gilt. Eine leere
-        /// Liste sind zwei Zeichen.
+        /// The size from which a file counts as "contains something". An empty
+        /// list is two characters.
         /// </summary>
         private const int MinimumMeaningfulSize = 8;
 
         /// <summary>
-        /// Denselben Bestand als Zeichenkette statt in eine Datei - fuer das
-        /// Ergebnis, das ein Satellit zurueckschickt.
+        /// Serializes the inventory to a string instead of a file - for the
+        /// result a satellite sends back.
         /// <para>
-        /// Bewusst dieselbe Abbildung wie beim Speichern: eine zweite waere bei
-        /// jeder neuen Geraeteeigenschaft nachzuziehen, und genau das vergisst
-        /// man.
+        /// Deliberately the same mapping as for saving: a second mapping would
+        /// have to be updated for every new device property, which is easily
+        /// forgotten.
         /// </para>
         /// </summary>
+        /// <param name="store">The inventory to serialize.</param>
+        /// <returns>The inventory as JSON.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="store"/> is <c>null</c>.</exception>
         public static string ToJson(DeviceStore store)
         {
             ArgumentNullException.ThrowIfNull(store);
@@ -111,9 +117,12 @@ namespace MyNetworkMonitor.Core.Persistence
         }
 
         /// <summary>
-        /// Liest Geraete aus einer Zeichenkette, ohne sie irgendwo einzutragen.
-        /// Der Aufrufer entscheidet, ob er sie ersetzt oder einmischt.
+        /// Reads devices from a string without adding them anywhere. The caller
+        /// decides whether to replace or merge them.
         /// </summary>
+        /// <param name="json">JSON as produced by <see cref="ToJson"/>.</param>
+        /// <returns>The devices; records that cannot be identified are skipped.</returns>
+        /// <exception cref="JsonException">The text is not valid JSON in the expected format.</exception>
         public static List<Device> FromJson(string json)
         {
             if (string.IsNullOrWhiteSpace(json)) return [];
@@ -125,21 +134,27 @@ namespace MyNetworkMonitor.Core.Persistence
         }
 
         /// <summary>
-        /// Laedt den Bestand in einen leeren Store. Gibt zurueck, wie viele
-        /// Geraete gelesen wurden.
+        /// Loads the inventory into an empty store.
         /// </summary>
+        /// <param name="store">The store to fill.</param>
+        /// <param name="filePath">The file to read.</param>
+        /// <returns>The number of devices read.</returns>
         public static int Load(DeviceStore store, string filePath) => Load(store, filePath, out _);
 
         /// <summary>
-        /// Wie <see cref="Load(DeviceStore, string)"/>, meldet aber, ob die
-        /// Datei unlesbar war.
+        /// Like <see cref="Load(DeviceStore, string)"/>, but reports whether the
+        /// file was unreadable.
         /// <para>
-        /// Der Unterschied zaehlt: eine fehlende Datei ist der erste Start, eine
-        /// unlesbare ist ein Fehler. Wer beides gleich behandelt, schreibt beim
-        /// Schliessen eine leere Liste ueber Daten, die er nur nicht lesen
-        /// konnte.
+        /// The difference matters: a missing file is the first start, an
+        /// unreadable one is an error. Treating both the same writes an empty
+        /// list on close over data that merely could not be read.
         /// </para>
         /// </summary>
+        /// <param name="store">The store to fill.</param>
+        /// <param name="filePath">The file to read.</param>
+        /// <param name="error">The error message if the file exists but could not be read; otherwise <c>null</c>.</param>
+        /// <returns>The number of devices read.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="store"/> is <c>null</c>.</exception>
         public static int Load(DeviceStore store, string filePath, out string? error)
         {
             ArgumentNullException.ThrowIfNull(store);
@@ -160,14 +175,14 @@ namespace MyNetworkMonitor.Core.Persistence
             }
             catch (Exception ex)
             {
-                // Eine beschaedigte Datei darf den Start nicht verhindern -
-                // schlimmstenfalls beginnt man mit einer leeren Liste.
+                // A damaged file must not prevent the start - at worst the
+                // program starts with an empty list.
                 error = ex.Message;
                 return 0;
             }
         }
 
-        // ------------------------------------------------------- Umwandlung
+        // ------------------------------------------------------- Conversion
 
         private static DeviceRecord ToRecord(Device device) => new()
         {
@@ -187,8 +202,8 @@ namespace MyNetworkMonitor.Core.Persistence
             Aliases = [.. device.Aliases],
             Details = device.Details.Count > 0 ? new Dictionary<string, string>(device.Details) : null,
 
-            // Die TTL wird gespeichert, die daraus abgeleitete Vermutung nicht:
-            // die Regel dahinter kann sich aendern, die Messung nicht.
+            // The TTL is stored, the guess derived from it is not: the rule
+            // behind the guess can change, the measurement cannot.
             Ttl = device.Ttl,
             SwitchName = Blank(device.SwitchName),
             SwitchPort = Blank(device.SwitchPort),
@@ -230,9 +245,10 @@ namespace MyNetworkMonitor.Core.Persistence
                 Vendor = record.Vendor ?? string.Empty,
                 HostName = record.HostName ?? string.Empty,
                 Domain = record.Domain ?? string.Empty,
-                // Frueher trug die NetBIOS-Abfrage den Platzhalter "UNKNOWN" ein,
-                // wenn sie keinen Namen fand. Der steht sonst bis in die Anzeige
-                // an der Stelle des Namens - beim Laden aussortieren.
+                // Inventories saved by older versions can contain the
+                // placeholder "UNKNOWN" from a NetBIOS query that found no name.
+                // It would otherwise be displayed as the name, so it is dropped
+                // on load.
                 NetBiosName = IsPlaceholderName(record.NetBiosName) ? string.Empty : record.NetBiosName ?? string.Empty,
                 InternalName = record.InternalName ?? string.Empty,
                 GroupDescription = record.GroupDescription ?? string.Empty,
@@ -262,9 +278,9 @@ namespace MyNetworkMonitor.Core.Persistence
 
             foreach (AddressRecord address in record.Addresses ?? [])
             {
-                // Die Adressmerkmale werden neu berechnet statt gespeichert -
-                // sie folgen aus der Adresse selbst, und eine gespeicherte
-                // Fassung waere nach einer Regelaenderung falsch.
+                // Address properties are recomputed rather than stored - they
+                // follow from the address itself, and a stored version would be
+                // wrong after a rule change.
                 if (!IpAddressAnalyzer.TryAnalyze(address.Address, out IpAddressInfo? info) || info is null) continue;
 
                 device.Addresses.Add(new DeviceAddress
@@ -278,10 +294,9 @@ namespace MyNetworkMonitor.Core.Persistence
                     LastSeen = address.LastSeen,
                     DiscoveredBy = address.DiscoveredBy ?? string.Empty,
 
-                    // Bewusst nicht uebernommen: dass ein Geraet gestern
-                    // geantwortet hat, sagt nichts darueber, ob es jetzt online
-                    // ist. Die bisherige Anwendung hat die Statuspunkte beim
-                    // Speichern aus demselben Grund auf grau gesetzt.
+                    // Deliberately not restored: that a device responded
+                    // yesterday says nothing about whether it is online now, so
+                    // loaded addresses start as not responding.
                     IsResponding = false
                 });
             }
@@ -299,8 +314,8 @@ namespace MyNetworkMonitor.Core.Persistence
                 });
             }
 
-            // Ein Datensatz ohne jede Adresse und ohne Kennung liesse sich
-            // spaeter nirgends wiedererkennen.
+            // A record without any address and without an identifier could
+            // never be matched again.
             return device.Addresses.Count == 0 && device.Mac is null && string.IsNullOrEmpty(device.HostName)
                 ? null
                 : device;
@@ -308,7 +323,7 @@ namespace MyNetworkMonitor.Core.Persistence
 
         private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
 
-        /// <summary>Platzhalter aus alten Staenden, die kein Name sind.</summary>
+        /// <summary>Placeholders from older inventories that are not names.</summary>
         private static bool IsPlaceholderName(string? value) =>
             string.Equals(value?.Trim(), "UNKNOWN", StringComparison.OrdinalIgnoreCase);
 
@@ -319,7 +334,7 @@ namespace MyNetworkMonitor.Core.Persistence
             return PhysicalAddress.TryParse(text, out PhysicalAddress? mac) ? mac : null;
         }
 
-        // ----------------------------------------------------- Datensaetze
+        // ---------------------------------------------------------- Records
 
         private sealed class DeviceRecord
         {

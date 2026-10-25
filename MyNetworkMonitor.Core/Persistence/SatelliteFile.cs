@@ -5,16 +5,16 @@ using MyNetworkMonitor.Core.Models;
 namespace MyNetworkMonitor.Core.Persistence
 {
     /// <summary>
-    /// Speichert die Satellitenliste als JSON neben den uebrigen
-    /// Einstellungen.
+    /// Stores the satellite list as JSON next to the other settings.
     /// <para>
-    /// JSON und nicht das alte DataTable-XML: fuer diese Liste gibt es keinen
-    /// Altbestand, auf den Ruecksicht zu nehmen waere - dasselbe Vorgehen wie
-    /// bei <see cref="DeviceStoreFile"/>.
+    /// JSON rather than DataTable XML: this list has no existing files in
+    /// another format to stay compatible with - the same approach as
+    /// <see cref="DeviceStoreFile"/>.
     /// </para>
     /// </summary>
     public static class SatelliteFile
     {
+        /// <summary>The default file name.</summary>
         public const string DefaultFileName = "satellites.json";
 
         private static readonly JsonSerializerOptions Options = new()
@@ -23,12 +23,12 @@ namespace MyNetworkMonitor.Core.Persistence
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
         };
 
-        /// <summary>Ein Satellit in der Datei - nur das, was dauerhaft gilt.</summary>
+        /// <summary>A satellite in the file - only the persistent part.</summary>
         private sealed class Record
         {
             /// <summary>
-            /// Die Kennung, auf die Bereiche zeigen. Fehlt sie in einer
-            /// aelteren Datei, wird beim Laden eine vergeben.
+            /// The identifier that IP ranges refer to. If an older file lacks
+            /// it, one is assigned on load.
             /// </summary>
             public string Id { get; set; } = string.Empty;
 
@@ -41,9 +41,9 @@ namespace MyNetworkMonitor.Core.Persistence
             public string Os { get; set; } = string.Empty;
             public string RemoteAddress { get; set; } = string.Empty;
 
-            // Wo er steht. Wird bei jeder Anmeldung ueberschrieben, aber
-            // trotzdem gespeichert: sonst stuende in der Auswahl nichts,
-            // solange er gerade offline ist.
+            // Where the satellite is located. Overwritten on every login but
+            // still persisted: otherwise the selection would show nothing
+            // while the satellite is offline.
             public string SiteHostName { get; set; } = string.Empty;
             public string SiteDomain { get; set; } = string.Empty;
             public string SiteIpv4 { get; set; } = string.Empty;
@@ -51,13 +51,17 @@ namespace MyNetworkMonitor.Core.Persistence
             public string SiteNetwork { get; set; } = string.Empty;
             public string SiteNetworks { get; set; } = string.Empty;
 
-            // Was er scannen soll - je Satellit, unabhaengig von den
-            // Haupteinstellungen.
+            // What the satellite should scan - per satellite, independent of
+            // the main settings.
             public bool OnlyKnownTargets { get; set; }
             public bool CrossCheckOnlyKnownTargets { get; set; } = true;
             public List<string> OnlyKnownTargetsFor { get; set; } = [];
         }
 
+        /// <summary>Saves the list; entries without a name are skipped.</summary>
+        /// <param name="satellites">The satellites to save.</param>
+        /// <param name="filePath">Target file; its directory is created if needed.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="satellites"/> is <c>null</c>.</exception>
         public static void Save(IEnumerable<Satellite> satellites, string filePath)
         {
             ArgumentNullException.ThrowIfNull(satellites);
@@ -65,9 +69,9 @@ namespace MyNetworkMonitor.Core.Persistence
             string? dir = Path.GetDirectoryName(filePath);
             if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
 
-            // IsConnected wird bewusst nicht geschrieben: nach einem Neustart
-            // ist niemand verbunden, bis er sich wieder meldet. Gespeichert
-            // waere es eine Behauptung, die niemand geprueft hat.
+            // IsConnected is deliberately not written: after a restart no
+            // satellite is connected until it reports again. Persisted, it
+            // would be an unverified claim.
             List<Record> records = [.. satellites
                 .Where(s => !string.IsNullOrWhiteSpace(s.Name))
                 .Select(s => new Record
@@ -96,10 +100,12 @@ namespace MyNetworkMonitor.Core.Persistence
         }
 
         /// <summary>
-        /// Liest die Liste. Eine fehlende oder beschaedigte Datei ergibt eine
-        /// leere Liste - ohne Satelliten laeuft alles oertlich weiter, das ist
-        /// kein Grund, den Start scheitern zu lassen.
+        /// Reads the list. A missing or damaged file yields an empty list -
+        /// without satellites everything continues locally, which is no reason
+        /// to fail the start.
         /// </summary>
+        /// <param name="filePath">The file to read.</param>
+        /// <returns>The satellites; empty if the file is missing or unreadable.</returns>
         public static List<Satellite> Load(string filePath)
         {
             try
@@ -117,10 +123,10 @@ namespace MyNetworkMonitor.Core.Persistence
                 {
                     Satellite s = new()
                     {
-                        // Eine Datei von vor der Umstellung kennt keine Kennung.
-                        // Dann wird hier eine vergeben; die Bereiche, die noch
-                        // auf den Namen zeigen, werden beim Laden der Bereiche
-                        // darauf umgeschrieben.
+                        // Files from before satellite identifiers were
+                        // introduced have no Id. One is assigned here; IP ranges
+                        // that still refer to the name are rewritten to it when
+                        // the ranges are loaded.
                         Id = string.IsNullOrWhiteSpace(r.Id) ? Guid.NewGuid().ToString("N") : r.Id,
                         Name = r.Name,
                         Note = r.Note ?? string.Empty,

@@ -5,13 +5,13 @@ using MyNetworkMonitor.Core.SatelliteLink;
 namespace MyNetworkMonitor.Core.ServiceLink
 {
     /// <summary>
-    /// Die Seite der Oberflaeche: fragt den Dienst im Sekundentakt, was er
-    /// gerade tut, und kann ihm zwei Dinge sagen.
+    /// The user interface side: polls the service every second for what it is
+    /// doing and can send it two commands.
     /// <para>
-    /// Fragen statt zuhoeren: der Dienst laeuft weiter, waehrend das Fenster
-    /// zu ist, und laeuft womoeglich schon Tage. Eine Verbindung, die nur
-    /// solange lebt, wie jemand hinsieht, ist die einfachere Sache - sie kann
-    /// nicht veralten, und ein Neustart des Fensters raeumt sie von selbst auf.
+    /// Polling instead of listening: the service keeps running while the
+    /// window is closed and may have been running for days. A connection that
+    /// lives only while the window is open is simpler - it cannot go stale,
+    /// and restarting the window cleans it up automatically.
     /// </para>
     /// </summary>
     public sealed class ServiceControlClient : IAsyncDisposable
@@ -19,21 +19,22 @@ namespace MyNetworkMonitor.Core.ServiceLink
         private CancellationTokenSource? _cts;
         private Task? _loop;
 
-        /// <summary>Wie oft nachgefragt wird.</summary>
+        /// <summary>The polling interval.</summary>
         public TimeSpan Interval { get; set; } = TimeSpan.FromSeconds(1);
 
-        /// <summary>Eine neue Momentaufnahme ist da.</summary>
+        /// <summary>Raised when a new snapshot has been received.</summary>
         public event EventHandler<ServiceSnapshot>? SnapshotReceived;
 
         /// <summary>
-        /// Die Verbindung steht oder steht nicht - damit die Anzeige den
-        /// Unterschied zwischen "Dienst laeuft nicht" und "Dienst antwortet
-        /// nicht" zeigen kann.
+        /// Raised when the connection is established or lost, so that the
+        /// display can distinguish "service not running" from "service not
+        /// responding".
         /// </summary>
         public event EventHandler<bool>? ReachableChanged;
 
         private bool _reachable;
 
+        /// <summary>Starts polling; a running poll loop is stopped first.</summary>
         public void Start()
         {
             Stop();
@@ -42,6 +43,7 @@ namespace MyNetworkMonitor.Core.ServiceLink
             _loop = Task.Run(() => PollLoopAsync(_cts.Token));
         }
 
+        /// <summary>Stops polling and reports the service as unreachable.</summary>
         public void Stop()
         {
             try { _cts?.Cancel(); } catch { }
@@ -70,8 +72,8 @@ namespace MyNetworkMonitor.Core.ServiceLink
 
                     MessageChannel channel = new(pipe);
 
-                    // Die Verbindung bleibt offen, solange sie traegt - das
-                    // erspart je Sekunde einen Verbindungsaufbau.
+                    // The connection stays open as long as it works, which
+                    // saves a connection setup every second.
                     while (!token.IsCancellationRequested && pipe.IsConnected)
                     {
                         await channel.SendAsync(new SatelliteMessage { Type = ServiceMessageType.Status }, token);
@@ -94,9 +96,9 @@ namespace MyNetworkMonitor.Core.ServiceLink
                 }
                 catch (Exception)
                 {
-                    // Kein Dienst da, oder er wurde gerade angehalten. Das ist
-                    // der Normalfall auf einer Anlage ohne Dienst und keine
-                    // Meldung wert - nur die Anzeige faellt zurueck.
+                    // No service present, or it has just been stopped. This is
+                    // the normal case on an installation without the service
+                    // and not worth a message - only the display falls back.
                     SetReachable(false);
                 }
 
@@ -106,10 +108,13 @@ namespace MyNetworkMonitor.Core.ServiceLink
         }
 
         /// <summary>
-        /// Schickt einen einzelnen Befehl und gibt die Antwort im Klartext
-        /// zurueck. Eigene, kurzlebige Verbindung - der Abfragelauf soll davon
-        /// nichts merken.
+        /// Sends a single command and returns the answer as plain text. Uses a
+        /// separate, short-lived connection so that the poll loop is not
+        /// affected.
         /// </summary>
+        /// <param name="type">One of the constants in <see cref="ServiceMessageType"/>.</param>
+        /// <param name="token">Cancels the request.</param>
+        /// <returns>The answer of the service, or an error text if it could not be reached.</returns>
         public static async Task<string> SendCommandAsync(string type, CancellationToken token)
         {
             try
@@ -131,6 +136,7 @@ namespace MyNetworkMonitor.Core.ServiceLink
             }
         }
 
+        /// <summary>Stops polling and waits for the poll loop to end.</summary>
         public async ValueTask DisposeAsync()
         {
             Stop();

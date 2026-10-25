@@ -7,22 +7,21 @@ using static MyNetworkMonitor.ServiceScanData;
 namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 {
     /// <summary>
-    /// Microsoft SQL Server. Der Normalfall ist eine TDS-Anfrage an 1433 und
-    /// das Pre-Login-Paket als Antwort.
+    /// Microsoft SQL Server. The common case is a TDS request to 1433 and the
+    /// PRELOGIN packet as the answer.
     /// <para>
-    /// Eigener Ablauf wegen der benannten Instanzen: die lauschen nicht auf
-    /// 1433, sondern auf einem Port, den sie sich beim Start vom System geben
-    /// lassen. Bleibt 1433 also stumm, wird der SQL-Browser gefragt, welche
-    /// Instanzen es gibt und auf welchen Ports sie sitzen - sonst gaelte jeder
-    /// Server ohne Standardinstanz als nicht vorhanden.
+    /// Own procedure because of named instances: they do not listen on 1433
+    /// but on a port assigned by the system at startup. If 1433 stays silent,
+    /// the SQL Server Browser is asked which instances exist and on which
+    /// ports they listen; otherwise every server without a default instance
+    /// would count as absent.
     /// </para>
     /// </summary>
     public sealed class MsSqlServerProbe : ServiceProbeBase
     {
         /// <summary>
-        /// Zeitlimit fuer die Rueckfrage beim SQL-Browser. Kurz gehalten: sie
-        /// laeuft nur, wenn der Hauptport ohnehin schon nichts geliefert hat,
-        /// und darf den Lauf nicht aufhalten.
+        /// Timeout for the SQL Server Browser query. Kept short: it runs only
+        /// when the main port has returned nothing and must not hold up the run.
         /// </summary>
         private static readonly TimeSpan BrowserTimeout = TimeSpan.FromSeconds(3);
 
@@ -33,7 +32,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
         /// <summary>
         /// TDS PRELOGIN (MS-TDS, section 2.2.6.5) for the default instance, with zero thread and trace IDs – no values of a
-        /// particular client or server.
+        /// particular client or server. See docs/FEHLERGEDAECHTNIS.md, No. 14.
         /// </summary>
         public override byte[] Hello => new byte[]
             {
@@ -64,39 +63,36 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                     portResult.Ports = browser.Ports;
                     portResult.Status = PortStatus.IsRunning;
 
-                    // Der Browser nennt die Instanzen beim Namen und mit ihrer
-                    // Fassung. Bisher wurde aus derselben Antwort nur die
-                    // Portnummer gelesen und der Rest verworfen - dabei ist
-                    // gerade er die Auskunft, die auf 1433 nicht zu holen war.
+                    // The browser names the instances and their versions. That
+                    // is exactly the information that 1433 did not provide.
                     if (browser.Description.Length > 0) portResult.PortLog = browser.Description;
                 }
             }
             catch (Exception) when (!token.IsCancellationRequested)
             {
-                // Kein Browserdienst, keine Antwort, Zeitlimit - alles kein
-                // Fehler, sondern schlicht kein Zusatzbefund. Es bleibt beim
-                // Ergebnis des Hauptports.
+                // No browser service, no answer, timeout: none of these is an
+                // error, just no additional finding. The result of the main
+                // port stands.
             }
 
             return portResult;
         }
 
         /// <summary>
-        /// Was der SQL-Browser zurueckgemeldet hat: die Ports, an denen die
-        /// Instanzen sitzen, und die Beschreibung fuer die Detailansicht.
+        /// What the SQL Server Browser reported: the ports of the instances and
+        /// the description for the details view.
         /// </summary>
         private readonly record struct BrowserAnswer(List<int> Ports, string Description);
 
         /// <summary>
-        /// Die Rueckfrage beim SQL-Browser auf UDP 1434, wortgleich aus
-        /// <c>ScanningMethod_Services</c> uebernommen: drei Versuche, je zwei
-        /// Sekunden, und aus der Antwort werden <em>alle</em> "tcp;"-Ports
-        /// gelesen - ein Server kann mehrere benannte Instanzen tragen.
+        /// The SQL Server Browser query on UDP 1434 (SQL Server Resolution
+        /// Protocol, MC-SQLR): three attempts of two seconds each, and
+        /// <em>all</em> "tcp;" ports are read from the answer, because a server
+        /// can host several named instances.
         /// <para>
-        /// Neu ist allein, dass die Antwort nicht mehr nur nach Portnummern
-        /// durchsucht, sondern vollstaendig gelesen wird. Dasselbe Paket, das
-        /// die Ports traegt, nennt zu jeder Instanz auch ihren Namen und ihre
-        /// Fassung - ohne Anmeldung, denn der Browser ist genau dafuer da.
+        /// The answer is read completely, not only for port numbers. The same
+        /// packet that carries the ports also names each instance and its
+        /// version, without login; that is the purpose of the browser.
         /// </para>
         /// </summary>
         private static async Task<BrowserAnswer> GetMSSQLDynamicPortsAsync(string serverIP)
@@ -110,7 +106,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             {
                 udpClient.Client.ReceiveTimeout = TimeoutMilliseconds;
                 IPEndPoint sqlServerEndpoint = new IPEndPoint(IPAddress.Parse(serverIP), 1434);
-                byte[] request = Encoding.ASCII.GetBytes("\x02"); // Anfrage fuer SQL-Browser-Information
+                byte[] request = Encoding.ASCII.GetBytes("\x02"); // CLNT_BCAST_EX: request for instance information
 
                 for (int attempt = 1; attempt <= MaxRetries; attempt++)
                 {
@@ -118,14 +114,14 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                     {
                         await udpClient.SendAsync(request, request.Length, sqlServerEndpoint);
 
-                        // Warte auf eine Antwort mit Timeout
+                        // Wait for an answer with timeout
                         var receiveTask = udpClient.ReceiveAsync();
                         if (await Task.WhenAny(receiveTask, Task.Delay(TimeoutMilliseconds)) == receiveTask)
                         {
                             UdpReceiveResult response = await receiveTask;
                             string responseText = Encoding.ASCII.GetString(response.Buffer);
 
-                            // Alle "tcp;" Ports suchen, nicht nur den ersten
+                            // Find all "tcp;" ports, not only the first
                             var matches = Regex.Matches(responseText, @"tcp;(\d+)");
                             foreach (Match match in matches)
                             {
@@ -144,7 +140,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                     }
                     catch (SocketException)
                     {
-                        // Kein Browserdienst erreichbar - naechster Versuch.
+                        // No browser service reachable; try again.
                     }
                 }
             }
@@ -153,10 +149,10 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Macht aus der Browser-Antwort die Zeilen fuer die Detailansicht.
+        /// Turns the browser answer into the lines for the details view.
         /// <para>
-        /// Der Aufbau ist eine Kette aus Name-Wert-Paaren, durch Semikolon
-        /// getrennt, und je Instanz beginnt sie neu mit <c>ServerName</c>:
+        /// The layout is a chain of name-value pairs separated by semicolons,
+        /// starting again with <c>ServerName</c> for each instance:
         /// <c>ServerName;HOST;InstanceName;SQLEXPRESS;IsClustered;No;Version;15.0.2000.5;tcp;1433;;</c>
         /// </para>
         /// </summary>
@@ -164,8 +160,8 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         {
             List<string> lines = [];
 
-            // Der Trenner steht am Anfang jedes Abschnitts; der erste Teil vor
-            // dem ersten "ServerName" ist leer und faellt weg.
+            // The separator is at the start of each block; the part before the
+            // first "ServerName" is empty and is dropped.
             string[] blocks = response.Split("ServerName;", StringSplitOptions.RemoveEmptyEntries);
 
             foreach (string block in blocks)
@@ -183,8 +179,8 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                 if (instance.Length > 0) fields.Add(instance);
                 if (version.Length > 0) fields.Add($"version {version}");
 
-                // Nur erwaehnen, wenn es zutrifft - "IsClustered: No" ist bei
-                // den allermeisten Servern der Normalfall und keine Auskunft.
+                // Mention only if true: "IsClustered: No" is the normal case for
+                // almost all servers and carries no information.
                 if (clustered.Equals("Yes", StringComparison.OrdinalIgnoreCase)) fields.Add("clustered");
 
                 lines.Add($"Instance: {string.Join(", ", fields)}");
@@ -194,9 +190,9 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Der Wert hinter einem Schluessel in der Semikolon-Kette. Der erste
-        /// Abschnitt eines Blocks ist der Servername selbst und traegt keinen
-        /// eigenen Schluessel mehr - er wurde beim Trennen verbraucht.
+        /// The value after a key in the semicolon chain. The first part of a
+        /// block is the server name itself and has no key of its own; the key
+        /// was consumed by the split.
         /// </summary>
         private static string ValueOf(string[] parts, string key)
         {
@@ -211,20 +207,20 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             return string.Empty;
         }
 
-        /// <summary>Woertlich aus der alten Antwortpruefung uebernommen - keine Bedingung veraendert.</summary>
+        /// <summary>Matches a TDS response packet (type 0x04, status 0x01) of plausible length.</summary>
         public override bool Identify(byte[] response)
         {
             ServiceType service = Service;
             bool serviceMatched = false;
 
-            // ?? Microsoft SQL Server
+            // Microsoft SQL Server
             if (service == ServiceType.MSSQLServer)
             {
-                // MSSQL-TDS-Erkennung (Pre-Login-Paket)
+                // TDS detection (PRELOGIN response)
                 if (response.Length > 8 && response[0] == 0x04 && response[1] == 0x01)
                 {
-                    // Mindestlänge und typische Struktur prüfen
-                    int packetLength = response[2] << 8 | response[3]; // Paketlänge aus Byte 2 und 3
+                    // Check minimum length and typical structure
+                    int packetLength = response[2] << 8 | response[3]; // packet length from bytes 2 and 3
                     if (packetLength > 8 && packetLength < 512)
                     {
                         serviceMatched = true;
@@ -236,20 +232,19 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Liest Fassung und Verschluesselungshaltung aus der PRELOGIN-Antwort.
+        /// Reads version and encryption setting from the PRELOGIN answer.
         /// <para>
-        /// Sie ist der erste Zug jeder TDS-Verbindung und laeuft vor jeder
-        /// Anmeldung ab - ein Client muss wissen, ob er auf TLS umschalten muss,
-        /// bevor er ein Passwort schickt. Der Server nennt darin ungefragt seine
-        /// Fassung. Genau dieses Paket beantwortet das Erkennungspaket bereits;
-        /// gelesen wurden bisher nur die ersten vier Byte.
+        /// PRELOGIN is the first exchange of every TDS connection and happens
+        /// before any login: a client must know whether to switch to TLS before
+        /// it sends a password. The server states its version in it unprompted.
+        /// This is the packet that answers the detection packet.
         /// </para>
         /// </summary>
         protected override string? Describe(byte[] response)
         {
-            // Hinter dem 8 Byte langen TDS-Kopf beginnt die Merkmalsliste. Ihre
-            // Eintraege sind je 5 Byte - Kennung, Abstand, Laenge -, und die
-            // Abstaende zaehlen ab dem Beginn dieser Liste.
+            // The option list starts after the 8-byte TDS header. Its entries are
+            // 5 bytes each (token, offset, length), and the offsets count from
+            // the start of this list.
             const int payload = 8;
             const int entrySize = 5;
 
@@ -261,7 +256,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             {
                 byte token = response[at];
 
-                // 0xFF schliesst die Liste ab.
+                // 0xFF terminates the list.
                 if (token == 0xFF) break;
 
                 int offset = payload + (response[at + 1] << 8 | response[at + 2]);
@@ -271,7 +266,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
                 switch (token)
                 {
-                    // VERSION: Hauptfassung, Nebenfassung, Baunummer.
+                    // VERSION: major, minor, build.
                     case 0x00 when length >= 4:
                     {
                         int major = response[offset];
@@ -287,7 +282,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                         break;
                     }
 
-                    // ENCRYPTION: was der Server von der Verschluesselung haelt.
+                    // ENCRYPTION: the encryption setting of the server.
                     case 0x01 when length >= 1:
                     {
                         string state = EncryptionState(response[offset]);
@@ -302,8 +297,8 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Der Handelsname zur Fassungsnummer. Die Nebenfassung zaehlt nur bei
-        /// der 10 - 10.0 ist 2008, 10.50 ist 2008 R2.
+        /// The product name for a version number. The minor version matters
+        /// only for 10: 10.0 is 2008, 10.50 is 2008 R2.
         /// </summary>
         private static string ProductName(int major, int minor) => major switch
         {
@@ -321,10 +316,9 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         };
 
         /// <summary>
-        /// Die vier Haltungen aus der TDS-Festlegung. Der Unterschied zwischen
-        /// "moeglich" und "gefordert" ist der, auf den es ankommt: nur bei
-        /// "gefordert" ist ausgeschlossen, dass ein Client sein Passwort
-        /// unverschluesselt schickt.
+        /// The four ENCRYPTION values from MS-TDS 2.2.6.5. The difference
+        /// between "available" and "required" is what matters: only with
+        /// "required" can no client send its password unencrypted.
         /// </summary>
         private static string EncryptionState(byte value) => value switch
         {

@@ -3,10 +3,10 @@ using System.Globalization;
 namespace MyNetworkMonitor.Core.ViewModels
 {
     /// <summary>
-    /// Eine Porteingabe des Nutzers, wie sie im Filterfeld steht: eine einzelne
-    /// Nummer, mehrere durch Komma getrennt oder ein Bereich - auch gemischt.
+    /// A port specification as entered in the filter field: a single number,
+    /// several separated by commas, or a range, also mixed.
     /// <para>
-    /// Beispiele: <c>445</c>, <c>80,443</c>, <c>5000-5100</c>,
+    /// Examples: <c>445</c>, <c>80,443</c>, <c>5000-5100</c>,
     /// <c>22, 80, 8000-8100</c>.
     /// </para>
     /// </summary>
@@ -15,22 +15,24 @@ namespace MyNetworkMonitor.Core.ViewModels
         private readonly List<int> _single = [];
         private readonly List<(int From, int To)> _ranges = [];
 
-        /// <summary>Es wurde nichts Brauchbares eingegeben - der Filter greift dann nicht.</summary>
+        /// <summary>Nothing usable was entered; the filter is then inactive.</summary>
         public bool IsEmpty => _single.Count == 0 && _ranges.Count == 0;
 
         /// <summary>
-        /// Der Text enthielt etwas, das sich nicht als Port lesen liess. Die
-        /// Oberflaeche faerbt das Feld daraufhin ein, statt stillschweigend
-        /// nichts zu filtern.
+        /// The text contained a part that could not be read as a port. The UI
+        /// highlights the field instead of silently filtering nothing.
         /// </summary>
         public bool HasInvalidPart { get; private init; }
 
+        /// <summary>An empty specification that matches no port.</summary>
         public static PortSpec Empty { get; } = new();
 
         /// <summary>
-        /// Liest die Eingabe. Wirft nicht - unbrauchbare Teile werden
-        /// uebersprungen und ueber <see cref="HasInvalidPart"/> gemeldet.
+        /// Parses the input. Does not throw; unusable parts are skipped and
+        /// reported through <see cref="HasInvalidPart"/>.
         /// </summary>
+        /// <param name="text">Ports and ranges separated by commas or semicolons, e.g. <c>22, 80, 8000-8100</c>.</param>
+        /// <returns>The parsed specification; <see cref="Empty"/> for blank input.</returns>
         public static PortSpec Parse(string? text)
         {
             if (string.IsNullOrWhiteSpace(text)) return Empty;
@@ -46,7 +48,7 @@ namespace MyNetworkMonitor.Core.ViewModels
                 {
                     if (TryPort(part[..dash], out int from) && TryPort(part[(dash + 1)..], out int to))
                     {
-                        // Verdrehte Eingabe wie 8100-8000 wohlwollend deuten.
+                        // Accept reversed ranges such as 8100-8000.
                         spec._ranges.Add(from <= to ? (from, to) : (to, from));
                     }
                     else
@@ -72,9 +74,11 @@ namespace MyNetworkMonitor.Core.ViewModels
             return flagged;
         }
 
+        /// <summary>Whether the port is one of the single ports or inside one of the ranges.</summary>
         public bool Contains(int port) =>
             _single.Contains(port) || _ranges.Any(r => port >= r.From && port <= r.To);
 
+        /// <summary>Whether at least one of the ports matches.</summary>
         public bool ContainsAny(IEnumerable<int> ports) => ports.Any(Contains);
 
         private static bool TryPort(string text, out int port) =>

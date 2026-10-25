@@ -4,50 +4,51 @@ using CommunityToolkit.Mvvm.ComponentModel;
 namespace MyNetworkMonitor.Core.ViewModels
 {
     /// <summary>
-    /// Eine Rubrik in der Auswahl. Die Namen kommen aus den
-    /// Dienstdefinitionen des Nutzers - dieselbe Gliederung, die die bisherige
-    /// Anwendung schon benutzt hat.
+    /// A category in the grouping selection. The names come from the
+    /// configured service definitions and follow their structure.
     /// </summary>
     public sealed class GroupableServiceGroup
     {
+        /// <summary>The category name.</summary>
         public required string Name { get; init; }
 
+        /// <summary>The services in this category.</summary>
         public ObservableCollection<GroupableService> Services { get; } = [];
     }
 
     /// <summary>
-    /// Ein Dienst in der Auswahl "welche Dienste werden zusammengefasst".
-    /// Angehakt heisst: zaehlt in der Tabelle zum "+n", statt einzeln zu
-    /// erscheinen.
+    /// A service in the "which services are grouped" selection. When checked,
+    /// the service counts towards the "+n" in the table instead of appearing
+    /// on its own.
     /// </summary>
     public partial class GroupableService : ObservableObject
     {
         /// <summary>
-        /// Der Schluessel des Dienstes - so, wie er in den Definitionen und in
-        /// <see cref="ServiceDisplay.Grouped"/> steht. Nicht fuer die Anzeige;
-        /// dafuer ist <see cref="DisplayName"/> da.
+        /// The service key as it appears in the definitions and in
+        /// <see cref="ServiceDisplay.Grouped"/>. Not meant for display;
+        /// use <see cref="DisplayName"/> for that.
         /// </summary>
         public required string Name { get; init; }
 
         /// <summary>
-        /// Was in der Oberflaeche steht. Standardmaessig der Name, aber ein
-        /// Dienst kann einen sprechenderen tragen - "S7 PLC (SPS)" statt "S7".
-        /// Der Schluessel <see cref="Name"/> bleibt davon unberuehrt, damit die
-        /// Gruppierungslogik weiter greift.
+        /// Optional label shown in the UI instead of the key, e.g. "S7 PLC (SPS)"
+        /// instead of "S7". The key <see cref="Name"/> is unaffected, so the
+        /// grouping logic keeps matching.
         /// </summary>
         public string? DisplayNameOverride { get; init; }
 
+        /// <summary>The label shown in the UI: <see cref="DisplayNameOverride"/> if set, otherwise <see cref="Name"/>.</summary>
         public string DisplayName => DisplayNameOverride ?? Name;
 
         [ObservableProperty] private bool _isGrouped;
 
         /// <summary>
-        /// Wohin eine Aenderung geschrieben wird, wenn es nicht der
-        /// Normalfall ist - der Name in <see cref="ServiceDisplay.Grouped"/>.
-        /// Die Rubrik "offene Ports" trifft keinen einzelnen Dienstnamen,
-        /// sondern eigene Schalter; ohne diesen Umweg muesste die Auswertung
-        /// den Namen kennen und danach unterscheiden, statt dass jeder
-        /// Eintrag selbst mitbringt, was ein Haken an ihm bedeutet.
+        /// Where a change is written when it does not go to the usual target,
+        /// the name in <see cref="ServiceDisplay.Grouped"/>.
+        /// The "open ports" category does not map to a single service name but
+        /// to separate switches; with this callback each entry carries what a
+        /// check mark on it means, so the evaluation does not have to know and
+        /// distinguish the names.
         /// </summary>
         public Action<bool>? OnChanged { get; init; }
 

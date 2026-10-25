@@ -3,25 +3,27 @@ using MyNetworkMonitor.Core.Scanning.Engine.Methods;
 namespace MyNetworkMonitor.Core.Scanning.Engine
 {
     /// <summary>
-    /// Baut eine Engine mit allen vorhandenen Verfahren.
+    /// Builds an engine with all available methods.
     /// <para>
-    /// Steht in Core und nicht mehr im Fenster, weil es inzwischen zwei
-    /// Aufrufer gibt: die Oberflaeche und den Satellitendienst, der ohne
-    /// Fenster laeuft. Zwei Registrierungslisten waeren zwei Wirklichkeiten -
-    /// ein Verfahren, das nur die Oberflaeche kennt, fehlte dem Satelliten
-    /// still, und der Auftraggeber saehe nur, dass ein Befund ausbleibt.
+    /// Lives in Core rather than in the window because there are two callers:
+    /// the UI and the satellite service, which runs without a window. Two
+    /// registration lists would diverge: a method known only to the UI would
+    /// be silently missing on the satellite, and the requesting scanner would
+    /// only notice that a finding never arrives.
     /// </para>
     /// </summary>
     public static class ScanEngineFactory
     {
         /// <summary>
-        /// Alle heute vorhandenen Verfahren. Ein neues hinzuzufuegen heisst:
-        /// eine Zeile hier - die Schublade der Oberflaeche und die
-        /// Verfuegbarkeitspruefung ergeben sich daraus von selbst.
+        /// Registers all available methods. Adding a method means adding one
+        /// line here; the method drawer in the UI and the availability check
+        /// follow from it automatically.
         /// </summary>
+        /// <param name="engine">The engine to register the methods with.</param>
         /// <param name="serviceXmlPath">
-        /// Die Dienstdefinitionen fuer die Diensterkennung.
+        /// Path of the service definitions used by service detection.
         /// </param>
+        /// <exception cref="ArgumentNullException"><paramref name="engine"/> is null.</exception>
         public static void RegisterAllMethods(ScanEngine engine, string serviceXmlPath)
         {
             ArgumentNullException.ThrowIfNull(engine);
@@ -33,30 +35,30 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
             engine.Register(new MdnsScanMethod());
             engine.Register(new WsDiscoveryScanMethod());
 
-            // Die IPv6-Suchverfahren. Reihenfolge nach Aufwand fuer das Netz: erst
-            // das Verfahren, das nur nachliest, dann das eine Paket an alle. Beide
-            // laufen ohne erhoehte Rechte.
+            // The IPv6 discovery methods, ordered by network load: first the
+            // method that only reads the cache, then the single packet to all
+            // nodes. Both run without elevated privileges.
             engine.Register(new Ipv6NeighborCacheScanMethod());
             engine.Register(new Ipv6MulticastPingScanMethod());
 
-            // Die Router-Ankuendigung liefert die gueltigen Praefixe - und auf die
-            // setzen die beiden Rateverfahren darunter ihre Adressen. Steht darum
-            // vor ihnen.
+            // Router advertisements provide the valid prefixes, on which the
+            // two guessing methods below base their addresses. Registered
+            // before them for that reason.
             engine.Register(new Ipv6RouterAdvertisementScanMethod());
             engine.Register(new Ipv6MulticastGroupScanMethod());
 
             engine.Register(new Ipv6LowByteSweepScanMethod());
 
-            // Muss nach allem stehen, was MAC-Adressen findet - ARP, Ping,
-            // Neighbor Cache. Es rechnet aus deren Funden Adressen aus und hat
-            // vorher nichts, womit es rechnen koennte.
+            // Must come after everything that finds MAC addresses (ARP, ping,
+            // neighbor cache). It derives addresses from their findings and has
+            // nothing to work with before them.
             engine.Register(new Ipv6Eui64ScanMethod());
 
-            // Reihenfolge innerhalb der Phase = Reihenfolge hier. Die
-            // Rueckwaertsaufloesung muss vor der Vorwaertsaufloesung stehen: erst
-            // liefert sie zur Adresse den Namen, dann fragt die Vorwaerts-
-            // aufloesung, welche Adressen dieser Name im DNS hat. Andersherum
-            // fragt die zweite ins Leere, weil der Name noch fehlt.
+            // Order within a phase equals the order here. Reverse lookup must
+            // come before forward lookup: it first supplies the name for the
+            // address, then forward lookup asks which addresses this name has
+            // in DNS. The other way round, the forward lookup has no name to
+            // query yet.
             engine.Register(new ReverseLookupScanMethod());
             engine.Register(new HostnameLookupScanMethod());
             engine.Register(new NetBiosScanMethod());
@@ -65,21 +67,23 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
             engine.Register(new SwitchPortScanMethod());
             engine.Register(new TcpPortScanMethod());
 
-            // Direkt unter dem gewoehnlichen Portscan: die Variante ueber alle
-            // Ports steht in der Oberflaeche eingerueckt darunter. Nie
-            // vorausgewaehlt - in keinem Profil.
+            // Directly below the regular port scan: the all-ports variant is
+            // shown indented beneath it in the UI. Never preselected, in any
+            // profile.
             engine.Register(new AllTcpPortScanMethod());
 
             engine.Register(new UdpPortScanMethod());
             engine.Register(new SmbVersionScanMethod());
             engine.Register(new ServiceDetectionScanMethod(serviceXmlPath));
 
-            // Nach dem Portscan und der Diensterkennung: dieses Verfahren fragt an
-            // den Ports nach, die die beiden vorher als offen gemeldet haben.
+            // After the port scan and service detection: this method queries
+            // the ports those two have reported as open.
             engine.Register(new WebIdentityScanMethod());
         }
 
-        /// <summary>Eine fertige Engine mit allen Verfahren.</summary>
+        /// <summary>Creates an engine with all methods registered.</summary>
+        /// <param name="serviceXmlPath">Path of the service definitions used by service detection.</param>
+        /// <returns>The ready-to-use engine.</returns>
         public static ScanEngine Create(string serviceXmlPath)
         {
             ScanEngine engine = new();

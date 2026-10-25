@@ -3,17 +3,17 @@ using MyNetworkMonitor.Core.Services;
 namespace MyNetworkMonitor.Platform.Windows
 {
     /// <summary>
-    /// Windows-Implementierung von <see cref="IEnterpriseEnvironment"/>. Nutzt
-    /// denselben plattformneutralen Test wie Linux - siehe
+    /// Windows implementation of <see cref="IEnterpriseEnvironment"/>. Uses the
+    /// same platform-neutral test as Linux, see
     /// <see cref="ActiveDirectoryDetector"/>.
     /// <para>
-    /// Frühere Kriterien wie <c>Domain.GetComputerDomain()</c>, die Azure-AD-SID
-    /// und der Azure-AD-Registrierungsschlüssel sind entfallen: sie beantworten
-    /// nur "ist dieses Gerät jemals einer Domäne beigetreten", nicht "bin ich
-    /// gerade in diesem Netz" - ein domänengebundener Laptop im Homeoffice löste
-    /// damit dieselbe Fehlmeldung aus wie die alte IP-Bereichs-Heuristik, nur aus
-    /// einem anderen Grund. Die DNS-SRV-Abfrage braucht dagegen eine aktuell
-    /// erreichbare Gegenstelle und beantwortet damit die richtige Frage.
+    /// Criteria such as <c>Domain.GetComputerDomain()</c>, the Azure AD SID or
+    /// the Azure AD registration key are not used: they only answer "has this
+    /// device ever joined a domain", not "is this device in that network right
+    /// now". A domain-joined laptop on a home network would be reported as being
+    /// in a company network, just like with address-range heuristics. The DNS SRV
+    /// query needs a peer that is reachable right now and therefore answers the
+    /// right question. See docs/FEHLERGEDAECHTNIS.md, No. 1.
     /// </para>
     /// </summary>
     public sealed class WindowsEnterpriseEnvironment : IEnterpriseEnvironment

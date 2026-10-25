@@ -16,44 +16,56 @@ using MyNetworkMonitor.Core.Services;
 
 namespace MyNetworkMonitor.Core.ViewModels
 {
-    /// <summary>Die Abschnitte der Navigationsleiste.</summary>
+    /// <summary>The sections of the navigation bar.</summary>
     public enum ShellSection
     {
+        /// <summary>The device table.</summary>
         Devices,
+        /// <summary>The local adapters.</summary>
         Network,
+        /// <summary>The findings list.</summary>
         Findings,
+        /// <summary>The network topology view.</summary>
         Topology,
+        /// <summary>The scan scope management.</summary>
         Scopes,
+        /// <summary>The port collection.</summary>
         Ports,
+        /// <summary>The service definitions.</summary>
         Services,
+        /// <summary>The satellite management.</summary>
         Satellites,
+        /// <summary>Mapping of custom device names (placeholder section).</summary>
         Names,
+        /// <summary>The settings.</summary>
         Settings
     }
 
     /// <summary>
-    /// Ein Umfang im Kommandobalken: eine benannte Zusammenstellung von
-    /// Verfahren. Deckt den haeufigsten Fall mit einem Klick ab, statt jedes
-    /// Mal Kaestchen zu setzen.
+    /// A scan profile in the command bar: a named set of methods. Covers the
+    /// most common cases with one click instead of setting check boxes every
+    /// time.
     /// </summary>
     public sealed class ScanProfile
     {
+        /// <summary>The profile name.</summary>
         public required string Name { get; init; }
+        /// <summary>What the profile does.</summary>
         public required string Description { get; init; }
 
-        /// <summary>Leer bei "Angepasst" - dann bleibt die Auswahl, wie sie ist.</summary>
+        /// <summary>Empty for "Custom"; the selection then stays as it is.</summary>
         public IReadOnlyList<string> MethodIds { get; init; } = [];
 
+        /// <summary>The profile leaves the method selection unchanged.</summary>
         public bool IsCustom => MethodIds.Count == 0;
     }
 
     /// <summary>
-    /// Der Kommandobalken samt allem, was daran haengt: Bereichsauswahl,
-    /// Umfang, Verfahren-Schublade, Start und Abbruch, Fortschritt und
-    /// Statuszeile.
+    /// The command bar and everything attached to it: scope selection,
+    /// profile, method drawer, start and cancel, progress and status line.
     /// <para>
-    /// Loest die Scan-Steuerung aus dem Hauptfenster ab, wo sie bisher als
-    /// Code-Behind lag. Plattformneutral - WPF wie Avalonia binden dagegen.
+    /// Platform-neutral and independent of the UI framework; the view binds
+    /// to it.
     /// </para>
     /// </summary>
     public partial class ShellViewModel : ObservableObject
@@ -62,31 +74,31 @@ namespace MyNetworkMonitor.Core.ViewModels
         private readonly DeviceStore _store;
 
         /// <summary>
-        /// Die laufende Portsuche, solange eine laeuft.
+        /// The running port search, while one is running.
         /// <para>
-        /// Sie laeuft <b>nicht</b> ueber die Engine, sondern als eigene
-        /// Modulinstanz - <c>_engine.Stop()</c> erreicht sie darum nicht. Ohne
-        /// diesen Verweis liesse sich eine Suche ueber 65 536 Ports gar nicht
-        /// abbrechen: der Knopf meldete "Cancelling...", und der Lauf ginge
-        /// weiter, bis er von allein fertig war.
+        /// It does <b>not</b> run through the engine but as a separate module
+        /// instance, so <c>_engine.Stop()</c> does not reach it. Without this
+        /// reference a search over 65,536 ports could not be cancelled: the
+        /// button would report "Cancelling..." and the run would continue until
+        /// it finished by itself.
         /// </para>
         /// </summary>
         private ScanningMethod_Services? _portSearch;
 
         /// <summary>
-        /// Der Oberflaechen-Thread, festgehalten beim Erzeugen.
+        /// The UI thread context, captured on construction.
         /// <para>
-        /// Seit der Lauf auf einem Hintergrund-Thread stattfindet, treffen die
-        /// Fortschrittsmeldungen von dort ein. Sie schreiben gebundene
-        /// Eigenschaften - das darf nur von hier aus geschehen, sonst wirft
-        /// Avalonia beim ersten Zeichnen.
+        /// The run takes place on a background thread, so progress reports
+        /// arrive from there. They write bound properties, which is only
+        /// allowed from the UI thread; otherwise Avalonia throws on the first
+        /// render.
         /// </para>
         /// </summary>
         private readonly SynchronizationContext? _uiContext = SynchronizationContext.Current;
 
         /// <summary>
-        /// Fuehrt die Aktion auf dem Oberflaechen-Thread aus. Ohne erfassten
-        /// Kontext - etwa in Tests - unmittelbar.
+        /// Runs the action on the UI thread. Without a captured context (for
+        /// example in tests) it runs immediately.
         /// </summary>
         private void OnUi(Action action)
         {
@@ -95,16 +107,20 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Die laufende Portsuche wurde abgebrochen.
+        /// The running port search was cancelled.
         /// <para>
-        /// Noetig, weil das Modul nach dem Abbruch ganz normal zurueckkehrt -
-        /// mit einem leeren Ergebnis. Ohne diese Unterscheidung meldete der
-        /// Abbruch "wurde auf keinem Port gefunden", und das ist eine Aussage
-        /// ueber das Geraet, die gar nicht geprueft wurde.
+        /// Needed because the module returns normally after cancellation, with
+        /// an empty result. Without this distinction the cancellation would
+        /// report "not found on any port", a statement about the device that
+        /// was never checked.
         /// </para>
         /// </summary>
         private bool _portSearchStopped;
 
+        /// <summary>Creates the shell and all section view models; must be called on the UI thread.</summary>
+        /// <param name="engine">The scan engine that runs the methods.</param>
+        /// <param name="store">The device store shared by all views.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="engine"/> or <paramref name="store"/> is <see langword="null"/>.</exception>
         public ShellViewModel(ScanEngine engine, DeviceStore store)
         {
             _engine = engine ?? throw new ArgumentNullException(nameof(engine));
@@ -116,36 +132,35 @@ namespace MyNetworkMonitor.Core.ViewModels
             ServiceEditor = new ServiceEditorViewModel();
             SatelliteEditor = new SatelliteEditorViewModel
             {
-                // Als Satellit: einen hereinkommenden Auftrag ausfuehren.
+                // As a satellite: run an incoming job.
                 JobRunner = RunJobAsync
             };
 
-            // Womit ein neu angemeldeter Satellit startet. Nur beim Anlegen -
-            // danach fuehrt er seinen Umfang selbst, und Aenderungen hier
-            // wirken sich ausdruecklich nicht mehr auf ihn aus.
+            // The initial scan extent of a newly announced satellite. Applied
+            // only on creation; afterwards the satellite keeps its own extent,
+            // and changes here explicitly do not affect it.
             SatelliteEditor.ScanScopeDefaults = () =>
                 (Settings.OnlyKnownTargets,
                  [.. Settings.OnlyKnownTargetsFor],
                  Settings.CrossCheckOnlyKnownTargets);
 
-            // Als Hauptscanner: ein Ergebnis eines Satelliten einmischen.
+            // As the main scanner: merge a satellite result.
             SatelliteEditor.ResultArrived += (_, e) =>
                 MergeSatelliteResult(e.SatelliteName, e.DevicesJson, e.Partial);
 
-            // Die Satellitenansicht zeigt zu jedem Satelliten, welche Bereiche
-            // auf ihn zeigen. Die Bereiche gehoeren hierher, nicht dorthin -
-            // darum wird die Liste von hier aus nachgefuehrt.
+            // The satellite view shows which scopes point at each satellite.
+            // The scopes belong here, not there, so the list is maintained
+            // from here.
             SatelliteEditor.PropertyChanged += (_, e) =>
             {
                 if (e.PropertyName == nameof(SatelliteEditorViewModel.Selected)) RefreshRangesOfSatellite();
             };
 
-            // ... und ebenso, wenn sich an den Bereichen selbst etwas aendert.
+            // ... and likewise when the scopes themselves change.
             //
-            // Vorher wurde die Liste nur beim Wechsel der Auswahl gefuellt:
-            // wer einem Bereich drueben "Scanned by" zuwies und zurueckkam,
-            // sah die alte Liste und musste die Anwendung neu starten, damit
-            // sie stimmt. Beobachtet und genau so gemeldet.
+            // Filling the list only on a selection change is not enough: after
+            // assigning "Scanned by" to a scope and returning, the old list
+            // would remain until the application is restarted.
             Scopes.CollectionChanged += (_, e) =>
             {
                 foreach (ScanScope s in e.OldItems?.OfType<ScanScope>() ?? [])
@@ -153,10 +168,10 @@ namespace MyNetworkMonitor.Core.ViewModels
                     s.PropertyChanged -= OnScopeChangedForSatellite;
                 }
 
-                // Beim Leeren nennt die Sammlung keine alten Eintraege. Darum
-                // wird nach jeder Aenderung ueber den ganzen Bestand gegangen
-                // und erst ab-, dann angemeldet: doppelt angemeldet hiesse,
-                // die Liste bei jeder Eingabe zweimal zu bauen.
+                // On Clear the collection reports no old items. Hence every
+                // change walks the whole collection and unsubscribes before
+                // subscribing: a double subscription would build the list
+                // twice on every keystroke.
                 foreach (ScanScope s in Scopes)
                 {
                     s.PropertyChanged -= OnScopeChangedForSatellite;
@@ -168,8 +183,9 @@ namespace MyNetworkMonitor.Core.ViewModels
             NetworkView = new NetworkViewModel();
             FindingsView = new FindingsViewModel(store);
 
-            // Ein Haken im Kommandobalken und eine Aenderung in der Verwaltung
-            // treffen dieselbe Liste - die Zaehler muessen in beiden Faellen neu.
+            // A check mark in the command bar and a change in the management
+            // affect the same list; the counters must be recalculated in both
+            // cases.
             ScopeEditor.SelectionChanged += RefreshAvailability;
             PortEditor.PortsChanged += RefreshAvailability;
 
@@ -178,13 +194,13 @@ namespace MyNetworkMonitor.Core.ViewModels
                 Methods.Add(new ScanMethodChoice { Method = method });
             }
 
-            // Erst hier, nicht oben bei den uebrigen Zuweisungen an die
-            // Satellitenverwaltung: die Verfahrensliste entsteht in der
-            // Schleife darueber. Vorher gesetzt bliebe die Umfangsauswahl je
-            // Satellit leer - nur der Gesamthaken waere zu sehen.
+            // Set here, not above with the other satellite editor assignments:
+            // the method list is built in the loop above. Set earlier, the
+            // per-satellite extent selection would stay empty and only the
+            // overall check box would be visible.
             //
-            // Verfahren, die lauschen statt zu fragen - SSDP, mDNS,
-            // ARP-Tabelle -, haben keine Zielliste und stehen darum nicht drin.
+            // Methods that listen instead of asking (SSDP, mDNS, ARP table)
+            // have no target list and are therefore not included.
             SatelliteEditor.RestrictableMethods =
                 [.. Methods.Where(m => m.CanRestrictToKnown)
                            .Select(m => (m.Id, m.Method.DisplayName))];
@@ -195,75 +211,78 @@ namespace MyNetworkMonitor.Core.ViewModels
             ApplyProfile(Profiles[1]); // Standard
         }
 
+        /// <summary>The device table.</summary>
         public DeviceListViewModel Devices { get; }
 
-        /// <summary>Die Verwaltung der Bereiche - arbeitet auf <see cref="Scopes"/>.</summary>
+        /// <summary>The scope management; works on <see cref="Scopes"/>.</summary>
         public ScopeEditorViewModel ScopeEditor { get; }
 
-        /// <summary>Die Portsammlung. Traegt ihre Auswahl in <see cref="Settings"/> ein.</summary>
+        /// <summary>The port collection. Writes its selection into <see cref="Settings"/>.</summary>
         public PortEditorViewModel PortEditor { get; }
 
-        /// <summary>Welcher Dienst auf welchen Ports gesucht wird.</summary>
+        /// <summary>Which service is searched for on which ports.</summary>
         public ServiceEditorViewModel ServiceEditor { get; }
 
         /// <summary>
-        /// Die Satelliten - Instanzen, die in anderen Segmenten scannen. Ihre
-        /// Namen speisen die Auswahl "Scanned by" in der Bereichsmaske.
-        /// Siehe SATELLIT.md.
+        /// The satellites: instances that scan in other segments. They feed the
+        /// "Scanned by" selection in the scope form. See SATELLIT.md.
         /// </summary>
         public SatelliteEditorViewModel SatelliteEditor { get; }
 
-        /// <summary>Die Adapter dieses Rechners samt ihrer Namensserver.</summary>
+        /// <summary>The adapters of this computer and their DNS servers.</summary>
         public NetworkViewModel NetworkView { get; }
 
-        /// <summary>Alle Befunde an einer Stelle.</summary>
+        /// <summary>All findings in one place.</summary>
         public FindingsViewModel FindingsView { get; }
 
+        /// <summary>The scan scopes, shared by the command bar and the scope management.</summary>
         public ObservableCollection<ScanScope> Scopes { get; } = [];
 
+        /// <summary>All scan methods with their selection and availability.</summary>
         public ObservableCollection<ScanMethodChoice> Methods { get; } = [];
 
         /// <summary>
-        /// Die Verfahren, die sich auf die bekannten Geraete beschraenken
-        /// lassen. Wer keine Zielliste hat, steht hier nicht - ein Kaestchen
-        /// ohne Wirkung waere schlimmer als keines.
+        /// The methods that can be restricted to known devices. Methods without
+        /// a target list are not included; a check box without effect would be
+        /// worse than none.
         /// </summary>
         public IEnumerable<ScanMethodChoice> RestrictableMethods =>
             Methods.Where(m => m.CanRestrictToKnown);
 
-        /// <summary>Was die Engine zuletzt uebersprungen hat - fuer die Statuszeile.</summary>
+        /// <summary>What the engine skipped in the last run, for the status line.</summary>
         public ObservableCollection<ScanMethodOutcome> LastSkipped { get; } = [];
 
+        /// <summary>The scan settings passed to the engine.</summary>
         public ScanSettings Settings { get; } = new();
 
-        // ------------------------------------------------------ Einstellungen
+        // ----------------------------------------------------------- Settings
 
         private UserSettings? _userSettings;
 
-        /// <summary>Wo die Einstellungsdateien liegen - fuer die Anzeige und den Ordnerknopf.</summary>
+        /// <summary>Where the settings files are stored, for display and the folder button.</summary>
         [ObservableProperty] private string _settingsFolder = string.Empty;
 
-        /// <summary>Wo die Anwendung selbst liegt.</summary>
+        /// <summary>Where the application itself is located.</summary>
         public string ApplicationFolder => AppContext.BaseDirectory;
 
-        // ------------------------------------------------- Voreinstellungen
+        // ----------------------------------------------------------- Defaults
 
         /// <summary>
-        /// Welche Verfahren beim ersten Start nur die bereits gefundenen
-        /// Geraete abfragen.
+        /// The methods that query only already discovered devices on first
+        /// start.
         /// <para>
-        /// Alles, was eine Zielliste abarbeitet und nichts Neues entdeckt: die
-        /// beiden Namensdienste, NetBIOS, ONVIF, die Portscans, die
-        /// SMB-Version und die Diensterkennung. Ueber einen ganzen Bereich
-        /// gefragt, laufen deren Anfragen fast alle in Adressen, an denen
-        /// niemand ist - das kostet die meiste Zeit eines Laufs, ohne je ein
-        /// Geraet zu finden, das nicht schon Ping oder ARP gemeldet haetten.
+        /// Everything that walks a target list and discovers nothing new: the
+        /// two name lookups, NetBIOS, ONVIF, the port scans, the SMB version
+        /// and service detection. Asked across a whole scope, almost all of
+        /// their requests go to addresses where nobody is; that costs most of
+        /// a run's time without ever finding a device that ping or ARP had not
+        /// already reported.
         /// </para>
         /// <para>
-        /// Nicht in der Liste stehen die Verfahren, die ueberhaupt erst
-        /// Geraete auftun - Ping und ARP-Anfrage -, denn beschraenkt fänden
-        /// sie nur, was schon dasteht. SSDP, mDNS und die ARP-Tabelle haben
-        /// gar keine Zielliste und tauchen darum nirgends auf.
+        /// Not included are the methods that discover devices in the first
+        /// place (ping and ARP request), because restricted they would only
+        /// find what is already listed. SSDP, mDNS and the ARP table have no
+        /// target list at all and therefore do not appear.
         /// </para>
         /// </summary>
         private static readonly string[] DefaultOnlyKnownTargetsFor =
@@ -273,14 +292,13 @@ namespace MyNetworkMonitor.Core.ViewModels
         ];
 
         /// <summary>
-        /// Die Dienste, die in der Tabelle von Haus aus zu einem "+n"
-        /// zusammengefasst werden.
+        /// The services grouped into a "+n" in the table by default.
         /// <para>
-        /// Es sind die, die auf jedem zweiten Geraet stehen und darum nichts
-        /// unterscheiden - Namens- und Adressdienste, dazu die
-        /// Fernwartungswerkzeuge, die im Unternehmensnetz ohnehin ueberall
-        /// ausgerollt sind. Sie einzeln zu zeigen fuellt die Spalte, ohne dass
-        /// man daran ein Geraet vom naechsten unterscheiden koennte.
+        /// These are found on nearly every device and therefore distinguish
+        /// nothing: name and address services, plus the remote maintenance
+        /// tools that are deployed everywhere in corporate networks anyway.
+        /// Showing them individually fills the column without helping to tell
+        /// one device from the next.
         /// </para>
         /// </summary>
         private static readonly string[] DefaultGroupedServices =
@@ -290,21 +308,19 @@ namespace MyNetworkMonitor.Core.ViewModels
         ];
 
         /// <summary>
-        /// Packt Eintraege aus, die aus einer aelteren Fassung stammen.
+        /// Expands entries written in an older settings format.
         /// <para>
-        /// Bevor es <see cref="UserSettings.SetStrings"/> gab, hat die
-        /// Verfahrensliste ihre Schluessel selbst zusammengefuegt - mit Komma,
-        /// wo die Ablage einen senkrechten Strich erwartet. So ein Eintrag
-        /// steht bis heute in gewachsenen Dateien und enthaelt die ganze Liste
-        /// in einem Feld. Er richtet keinen Schaden an, weil kein Verfahren so
-        /// heisst; er wird nur nie wieder los, solange ihn niemand aufloest.
+        /// Settings files written without <see cref="UserSettings.SetStrings"/>
+        /// contain the method list joined by commas, where the store expects a
+        /// vertical bar. Such an entry holds the whole list in one field. It
+        /// does no harm because no method has that name, but it never goes
+        /// away unless it is split.
         /// </para>
         /// <para>
-        /// Zerlegt statt weggeworfen: die Schluessel darin sind gueltig, und
-        /// bei jemandem, dessen Auswahl <em>nur</em> aus so einem Eintrag
-        /// besteht, waere Wegwerfen der Verlust seiner Einstellung.
-        /// Unbekanntes bleibt unangetastet - es koennte zu einem Verfahren
-        /// gehoeren, das erst spaeter dazukommt.
+        /// Split rather than discarded: the keys in it are valid, and if a
+        /// selection consists <em>only</em> of such an entry, discarding it
+        /// would lose the setting. Unknown keys are left untouched; they could
+        /// belong to a method added in a later version.
         /// </para>
         /// </summary>
         private static IEnumerable<string> ExpandLegacyIds(IEnumerable<string> ids) =>
@@ -313,15 +329,15 @@ namespace MyNetworkMonitor.Core.ViewModels
                .Where(id => id.Length > 0);
 
         /// <summary>
-        /// Bindet die Einstellungen an die Ablage: liest den gespeicherten
-        /// Stand und schreibt jede Aenderung sofort zurueck.
+        /// Binds the settings to the store: reads the saved state and writes
+        /// every change back immediately.
         /// <para>
-        /// Sofort statt beim Schliessen, weil die Anwendung auch abstuerzen
-        /// oder abgeschossen werden kann - ein Schieberegler, den man dreimal
-        /// nachstellt, weil er sich nichts merkt, ist aergerlicher als ein
-        /// Dateizugriff je Klick auf eine Datei mit sechs Zeilen.
+        /// Immediately rather than on close, because the application can also
+        /// crash or be killed; a slider that forgets its value is worse than
+        /// one file access per click on a file of a few lines.
         /// </para>
         /// </summary>
+        /// <param name="settingsFolder">The folder that holds the user settings.</param>
         public void AttachSettings(string settingsFolder)
         {
             SettingsFolder = settingsFolder;
@@ -330,8 +346,8 @@ namespace MyNetworkMonitor.Core.ViewModels
             Settings.PortTimeoutMs = _userSettings.GetInt("PortTimeoutMs", Settings.PortTimeoutMs);
             Settings.ScanAllPorts = _userSettings.GetBool("ScanAllPorts", Settings.ScanAllPorts);
 
-            // Die Gemeinschaftskennung leer zu speichern waere ein Fussangel:
-            // SNMP fragt dann ohne Kennung und bekommt nirgends eine Antwort.
+            // An empty community string would be a trap: SNMP would then ask
+            // without a community and get no answer anywhere.
             string community = _userSettings.GetString("SnmpCommunity");
             if (!string.IsNullOrWhiteSpace(community)) Settings.SnmpCommunity = community;
             Settings.OnlyKnownTargets = _userSettings.GetBool("OnlyKnownTargets", Settings.OnlyKnownTargets);
@@ -362,15 +378,13 @@ namespace MyNetworkMonitor.Core.ViewModels
 
             SaveLastScanResult = _userSettings.GetBool("SaveLastScanResult", true);
 
-            // Welche Dienste in der Tabelle zu einem "+n" zusammengefasst
-            // werden. Voreingestellt an, mit der Auswahl aus
-            // <see cref="DefaultGroupedServices"/>.
+            // Which services are grouped into a "+n" in the table. On by
+            // default, with the selection from DefaultGroupedServices.
             ServiceDisplay.GroupSelected = _userSettings.GetBool("GroupServices", true);
 
-            // Nach dem Schluessel gefragt, nicht nach dem Wert: wer die
-            // Gruppierung leerraeumt, hat das entschieden, und die
-            // Voreinstellung darf sie ihm nicht bei jedem Start
-            // zurueckschreiben.
+            // Checks for the key, not the value: an emptied grouping is a
+            // deliberate choice, and the default must not restore it on every
+            // start.
             IReadOnlyList<string> grouped = _userSettings.Contains("GroupedServices")
                 ? _userSettings.GetStrings("GroupedServices")
                 : DefaultGroupedServices;
@@ -380,27 +394,24 @@ namespace MyNetworkMonitor.Core.ViewModels
                 ServiceDisplay.Grouped.Add(name);
             }
 
-            // Offene Ports ohne erkannten Dienst ("TCP 8080", "UDP 53", ...)
-            // sind der Fall, der die Spalte am haeufigsten sprengt - darum
-            // eigene Schalter, voreingestellt an, statt sie ueber die
-            // namentliche Liste einzeln abwaehlen zu muessen.
+            // Open ports without a recognised service ("TCP 8080", "UDP 53",
+            // ...) are what overflows the column most often, hence separate
+            // switches, on by default, instead of deselecting them one by one
+            // in the named list.
             ServiceDisplay.GroupTcpPorts = _userSettings.GetBool("GroupTcpPorts", true);
             ServiceDisplay.GroupUdpPorts = _userSettings.GetBool("GroupUdpPorts", true);
 
             OnPropertyChanged(nameof(GroupServices));
             BuildGroupableServices();
 
-            // Welche Verfahren nur die bekannten Geraete abfragen sollen.
+            // Which methods query only the known devices.
             //
-            // Beim ersten Start die beiden Namensdienste vorbelegen. Die
-            // bisherige Anwendung hat ihre Liste aus der Ergebnistabelle
-            // gebaut, also aus den gefundenen Geraeten; ueber einen ganzen
-            // Bereich gefragt, laufen die meisten Anfragen in Adressen ohne
-            // Eintrag - das kostet nur Zeit und belastet den Namensserver.
+            // On first start, preset DefaultOnlyKnownTargetsFor. Asked across
+            // a whole scope, most requests go to addresses without an entry;
+            // that only costs time and loads the DNS server.
             //
-            // Gefragt wird nach dem Schluessel, nicht nach dem Wert: eine
-            // leere Auswahl ist eine Entscheidung und darf nicht bei jedem
-            // Start ueberschrieben werden.
+            // Checks for the key, not the value: an empty selection is a
+            // decision and must not be overwritten on every start.
             if (!_userSettings.Contains("OnlyKnownTargetsFor"))
             {
                 _userSettings.SetStrings("OnlyKnownTargetsFor", DefaultOnlyKnownTargetsFor);
@@ -413,11 +424,10 @@ namespace MyNetworkMonitor.Core.ViewModels
                 Settings.OnlyKnownTargetsFor.Add(id);
             }
 
-            // Der Vollport-Scan ist nach den anderen dazugekommen; wer bereits
-            // eine gespeicherte Auswahl hatte, hat ihn darum nicht drin. Einmal
-            // nachtragen - ein voller Durchlauf ueber alle 65535 Ports auf einen
-            // ganzen Bereich waere sonst der Normalfall statt die Ausnahme. Der
-            // Merker sorgt dafuer, dass ein spaeteres Abwaehlen bestehen bleibt.
+            // Selections saved before the full port scan existed do not
+            // contain it. Add it once; otherwise a full run over all 65535
+            // ports across a whole scope would be the rule rather than the
+            // exception. The flag ensures that deselecting it later sticks.
             if (!_userSettings.GetBool("OnlyKnownTargetsFor.seededAllPorts", false))
             {
                 if (!Settings.OnlyKnownTargetsFor.Contains("ports.tcp.all"))
@@ -428,9 +438,9 @@ namespace MyNetworkMonitor.Core.ViewModels
                 _userSettings.SetBool("OnlyKnownTargetsFor.seededAllPorts", true);
             }
 
-            // Hat das Auspacken etwas veraendert, den bereinigten Stand
-            // zurueckschreiben - sonst schleppt die Datei den Altbestand
-            // weiter mit, auch wenn ihn niemand mehr liest.
+            // If expanding changed anything, write back the cleaned state;
+            // otherwise the file keeps carrying the old entry even though
+            // nothing reads it any more.
             if (Settings.OnlyKnownTargetsFor.Count != stored.Count
                 || !stored.All(Settings.OnlyKnownTargetsFor.Contains))
             {
@@ -454,7 +464,7 @@ namespace MyNetworkMonitor.Core.ViewModels
                         break;
                     case nameof(ScanSettings.ScanAllPorts):
                         _userSettings.SetBool("ScanAllPorts", Settings.ScanAllPorts);
-                        RefreshAvailability(); // schaltet "TCP-Ports" frei bzw. sperrt es
+                        RefreshAvailability(); // enables or blocks "TCP ports"
                         break;
                     case nameof(ScanSettings.SnmpCommunity):
                         _userSettings.SetString("SnmpCommunity", Settings.SnmpCommunity);
@@ -496,8 +506,8 @@ namespace MyNetworkMonitor.Core.ViewModels
                     case nameof(ScanSettings.AllowCancelFromAnyReceiver):
                         _userSettings.SetBool("AllowCancelFromAnyReceiver", Settings.AllowCancelFromAnyReceiver);
 
-                        // Sofort wirksam, nicht erst beim naechsten Start: die
-                        // Einstellung soll greifen, waehrend gerade etwas haengt.
+                        // Effective immediately, not only on the next start: the
+                        // setting must apply while something is hanging.
                         SatelliteEditor.AllowCancelFromAnyReceiver = Settings.AllowCancelFromAnyReceiver;
                         break;
                     case nameof(ScanSettings.UseOnlineTopologyLibrary):
@@ -508,42 +518,40 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Den Bestand beim Beenden sichern und beim Start wieder laden.
+        /// Saves the inventory on exit and reloads it on start.
         /// </summary>
         [ObservableProperty] private bool _saveLastScanResult = true;
 
         partial void OnSaveLastScanResultChanged(bool value) =>
             _userSettings?.SetBool("SaveLastScanResult", value);
 
-        /// <summary>Wo der letzte Bestand liegt.</summary>
+        /// <summary>Where the last inventory is stored.</summary>
         public string LastScanResultPath =>
             Path.Combine(SettingsFolder ?? string.Empty, DeviceStoreFile.DefaultFileName);
 
         /// <summary>
-        /// Traegt die Beschraenkung eines Verfahrens in die Einstellungen ein.
-        /// Die Menge ist die Wahrheit; die Kaestchen sind nur ihre Anzeige.
+        /// Writes a method's restriction into the settings. The set is the
+        /// source of truth; the check boxes only display it.
         /// </summary>
         private void OnMethodRestrictionChanged(object? sender, PropertyChangedEventArgs e)
         {
             if (sender is not ScanMethodChoice choice) return;
 
-            // Der Quervergleich haengt am DNS-Scan: ohne ihn gibt es keine
-            // Namen, ueber die sich die Server uneinig sein koennten. Sein
-            // Kaestchen muss darum mitbekommen, wenn eines der beiden
-            // DNS-Verfahren an- oder abgewaehlt wird.
+            // The cross-check depends on the DNS scan: without it there are no
+            // names the servers could disagree on. Its check box must
+            // therefore follow when either DNS method is checked or
+            // unchecked.
             if (e.PropertyName == nameof(ScanMethodChoice.IsSelected))
             {
                 if (IsDnsMethod(choice.Id)) OnPropertyChanged(nameof(CanCrossCheckDns));
 
-                // Alles, was an der Verfahrensauswahl haengt, muss bei *jedem*
-                // Kaestchen nachziehen.
+                // Everything that depends on the method selection must update
+                // on *every* check box.
                 //
-                // Vorher meldete sich nur der Quervergleich, und auch der nur
-                // bei den beiden DNS-Verfahren. Die Zahl am Knopf "Methods"
-                // wurde ausschliesslich beim Wechsel des Umfangs und bei einer
-                // Aenderung an den Bereichen neu berechnet - dazwischen stand
-                // sie auf dem Stand des zuletzt gewaehlten Umfangs, waehrend
-                // die Haken laengst andere waren.
+                // Otherwise the count on the "Methods" button would only be
+                // recalculated when the profile or the scopes change, and in
+                // between it would show the count of the last chosen profile
+                // while the check marks differ.
                 OnPropertyChanged(nameof(SelectedMethodCount));
                 OnPropertyChanged(nameof(EstimatedDuration));
                 OnPropertyChanged(nameof(CanStart));
@@ -562,17 +570,17 @@ namespace MyNetworkMonitor.Core.ViewModels
             id is "dns.lookup" or "dns.reverse";
 
         /// <summary>
-        /// Der DNS-Quervergleich ist waehlbar. Es ist keine eigene Methode,
-        /// sondern eine Unterfunktion des Namensscans - ohne ihn liefe sie
-        /// ins Leere, und ein Kaestchen, das nichts bewirkt, ist schlimmer als
-        /// eines, das erkennbar gesperrt ist.
+        /// The DNS cross-check can be selected. It is not a method of its own
+        /// but a sub-function of the name scan; without that scan it would have
+        /// nothing to do, and a check box without effect is worse than one that
+        /// is visibly disabled.
         /// </summary>
         public bool CanCrossCheckDns =>
             Methods.Any(m => m.IsEffective && IsDnsMethod(m.Id));
 
         /// <summary>
-        /// Liest den zuletzt gesicherten Bestand. Ohne Datei bleibt es bei der
-        /// leeren Liste - das ist kein Fehler, sondern der erste Start.
+        /// Reads the last saved inventory. Without a file the list stays empty;
+        /// that is not an error but the first start.
         /// </summary>
         public void LoadLastScanResult()
         {
@@ -582,8 +590,8 @@ namespace MyNetworkMonitor.Core.ViewModels
 
             if (error is not null)
             {
-                // Nicht ueberschreiben, was sich nicht lesen liess - sonst ist
-                // beim naechsten Schliessen auch die Datei weg.
+                // Do not overwrite what could not be read; otherwise the file
+                // would be lost on the next close as well.
                 _loadFailed = true;
                 StatusText = $"The last scan result could not be read, it stays untouched: {error}";
                 return;
@@ -591,12 +599,12 @@ namespace MyNetworkMonitor.Core.ViewModels
 
             if (count == 0) return;
 
-            // Die Doppelbelegungen stehen nicht in der Datei, und das mit
-            // Absicht: gespeicherte Befunde waeren eine zweite Wahrheit neben
-            // den Daten und muessten eigens wieder aufgeraeumt werden, wenn der
-            // Fehler behoben ist. Aus dem geladenen Bestand neu abgeleitet
-            // stimmen sie von selbst - sie sind nach dem Start wieder da und
-            // fallen weg, sobald ein Scan sie nicht mehr hergibt.
+            // Address conflicts are deliberately not stored in the file: stored
+            // findings would be a second source of truth next to the data and
+            // would need cleaning up once the problem is fixed. Derived anew
+            // from the loaded inventory they are always correct: they are back
+            // after the start and disappear as soon as a scan no longer
+            // produces them.
             int conflicts;
 
             lock (_store.SyncRoot)
@@ -613,14 +621,14 @@ namespace MyNetworkMonitor.Core.ViewModels
                   "Nothing has been rechecked yet.";
         }
 
-        /// <summary>Der letzte Bestand liess sich nicht lesen.</summary>
+        /// <summary>The last inventory could not be read.</summary>
         private bool _loadFailed;
 
-        // ------------------------------------------------- Dienste in der Spalte
+        // ------------------------------------------------- Services column
 
         /// <summary>
-        /// Die ausgewaehlten Dienste in der Tabelle zu einem "+n"
-        /// zusammenfassen, statt alle einzeln zu zeigen.
+        /// Groups the selected services into a "+n" in the table instead of
+        /// showing each one.
         /// </summary>
         public bool GroupServices
         {
@@ -650,15 +658,15 @@ namespace MyNetworkMonitor.Core.ViewModels
         /// <param name="hidden">True to stop showing it at start.</param>
         public void SetSystemCheckHidden(string id, bool hidden) => _userSettings?.SetBool("SystemCheckHidden." + id, hidden);
 
-        // ------------------------------------------------- MAC-Herstellerliste
+        // ------------------------------------------------- MAC vendor list
 
-        /// <summary>Waehrend des Herunterladens gesperrt, damit kein zweiter Versuch nebenher laeuft.</summary>
+        /// <summary>Set while downloading, so no second attempt runs in parallel.</summary>
         [ObservableProperty] private bool _isUpdatingMacVendors;
 
         /// <summary>
-        /// Baut die MAC-Herstellerliste aus Wiresharks manuf-Datei neu auf - siehe
-        /// <see cref="MacVendorUpdater"/> dazu, warum das mehr Treffer liefert als
-        /// die mitgelieferte Liste (die kennt nur die klassischen 24-Bit-Bloecke).
+        /// Rebuilds the MAC vendor list from Wireshark's manuf file. See
+        /// <see cref="MacVendorUpdater"/> for why this yields more matches than
+        /// the bundled list (which only knows the classic 24-bit blocks).
         /// </summary>
         [RelayCommand]
         private async Task UpdateMacVendorsAsync()
@@ -670,9 +678,9 @@ namespace MyNetworkMonitor.Core.ViewModels
 
             try
             {
-                // In das Benutzerverzeichnis, nicht neben das Programm: unter
-                // Linux gehoert das Programmverzeichnis dem Systemverwalter,
-                // und der Schreibversuch endete dort mit "Permission denied".
+                // Into the user data folder, not next to the program: on Linux
+                // the program folder is owned by root, and writing there fails
+                // with "Permission denied".
                 MacVendorUpdateResult result = await MacVendorUpdater.UpdateAsync(AppDataPaths.MacVendorCsv);
 
                 StatusText = result.Success
@@ -687,40 +695,37 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Alle Dienste, die sich zusammenfassen lassen - mit ihrem Haken.
-        /// Gespeist aus den Dienstdefinitionen und den Verfahren mit eigenem
-        /// Modul, damit die Liste auch ohne vorherigen Scan vollstaendig ist.
+        /// All services that can be grouped, with their check marks. Fed from
+        /// the service definitions and the methods with their own module, so
+        /// the list is complete even without a previous scan.
         /// </summary>
         public ObservableCollection<GroupableService> GroupableServices { get; } = [];
 
         /// <summary>
-        /// Dieselben Dienste, nach ihrer Rubrik gebuendelt - so wie sie in den
-        /// Definitionen stehen. Eine Liste aus dreissig Namen am Stueck laesst
-        /// sich nicht ueberfliegen; nach Rubriken sortiert findet man den
-        /// gesuchten Dienst dort, wo man ihn vermutet.
+        /// The same services, bundled by category as in the definitions. A list
+        /// of thirty names in a row cannot be scanned at a glance; sorted by
+        /// category, a service is where one expects it.
         /// </summary>
         public ObservableCollection<GroupableServiceGroup> GroupableServiceGroups { get; } = [];
 
         /// <summary>
-        /// Dieselben Rubriken, auf zwei Spalten verteilt.
+        /// The same categories, distributed over two columns (left column).
         /// <para>
-        /// Die Aufteilung passiert hier und nicht im Layout, weil ein
-        /// Gitter mit gleich hohen Zellen sich an der groessten Rubrik
-        /// ausrichtet - zwischen einer Rubrik mit zwei Eintraegen und der
-        /// naechsten klafft dann eine Luecke von der Hoehe der laengsten.
-        /// Zwei Spalten, die jede fuer sich untereinander wachsen, haben das
-        /// Problem nicht und stellen sich von selbst neu ein, wenn Dienste
-        /// dazukommen.
+        /// The split happens here and not in the layout, because a grid with
+        /// equally tall cells aligns to the largest category, leaving a gap the
+        /// height of the longest one after a category with two entries. Two
+        /// columns that each grow independently do not have this problem and
+        /// rebalance by themselves when services are added.
         /// </para>
         /// </summary>
         public ObservableCollection<GroupableServiceGroup> GroupableServicesLeft { get; } = [];
 
+        /// <summary>The right column; see <see cref="GroupableServicesLeft"/>.</summary>
         public ObservableCollection<GroupableServiceGroup> GroupableServicesRight { get; } = [];
 
         /// <summary>
-        /// Verteilt die Rubriken so auf zwei Spalten, dass beide etwa gleich
-        /// hoch werden. Gezaehlt wird in Zeilen: je Dienst eine, dazu eine fuer
-        /// die Ueberschrift.
+        /// Distributes the categories over two columns of roughly equal height.
+        /// Height is counted in rows: one per service plus one for the heading.
         /// </summary>
         private void SpreadOverTwoColumns()
         {
@@ -734,9 +739,8 @@ namespace MyNetworkMonitor.Core.ViewModels
             {
                 int height = group.Services.Count + 1;
 
-                // Immer in die derzeit kuerzere Spalte - so bleibt der
-                // Unterschied hoechstens eine Rubrik gross, egal wie viele
-                // spaeter dazukommen.
+                // Always into the currently shorter column; the difference
+                // then stays at most one category, however many are added.
                 if (left <= right)
                 {
                     GroupableServicesLeft.Add(group);
@@ -751,10 +755,10 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Wohin die vier Verfahren mit eigenem Modul gehoeren. Sie stehen
-        /// nicht in den Dienstdefinitionen, sind aber Dienste wie die anderen -
-        /// ohne Zuordnung landeten sie in einer Sammelrubrik, in der niemand
-        /// sucht.
+        /// The categories of the four methods with their own module. They are
+        /// not in the service definitions but are services like the others;
+        /// without this mapping they would end up in a catch-all category
+        /// where nobody looks.
         /// </summary>
         private static readonly Dictionary<string, string> ModuleServiceGroups = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -767,17 +771,17 @@ namespace MyNetworkMonitor.Core.ViewModels
         private const string UngroupedServices = "· Ohne Rubrik";
 
         /// <summary>
-        /// Baut die Auswahlliste neu. Muss nach dem Laden der
-        /// Dienstdefinitionen laufen - vorher kennt der Editor nur die vier
-        /// Verfahren mit eigenem Modul.
+        /// Rebuilds the selection list. Must run after the service definitions
+        /// are loaded; before that the editor only knows the four methods with
+        /// their own module.
         /// </summary>
         public void BuildGroupableServices()
         {
             GroupableServices.Clear();
             GroupableServiceGroups.Clear();
 
-            // Name und Rubrik zusammenfuehren: aus den Definitionen, was dort
-            // steht, fuer die vier Modulverfahren die feste Zuordnung.
+            // Combine name and category: from the definitions where present,
+            // the fixed mapping for the four module methods.
             Dictionary<string, string> groupOf = new(StringComparer.OrdinalIgnoreCase);
 
             foreach (ServiceEntry service in ServiceEditor.All.Where(s => !string.IsNullOrWhiteSpace(s.Name)))
@@ -816,11 +820,10 @@ namespace MyNetworkMonitor.Core.ViewModels
                 GroupableServiceGroups.Add(bucket);
             }
 
-            // Offene Ports ohne erkannten Dienst treffen keinen einzelnen
-            // Namen - "TCP 8080", "TCP 8081", "TCP 8443" ... sind alle
-            // verschieden. Eigene Rubrik, eigene Schalter (siehe
-            // GroupableService.OnChanged), aber optisch dieselbe Zeile wie
-            // jeder andere Dienst.
+            // Open ports without a recognised service match no single name;
+            // "TCP 8080", "TCP 8081", "TCP 8443" ... all differ. Own category,
+            // own switches (see GroupableService.OnChanged), but visually the
+            // same row as any other service.
             GroupableServiceGroup openPorts = new() { Name = "🔌 Open Ports" };
 
             openPorts.Services.Add(OpenPortsEntry("TCP Ports",
@@ -868,45 +871,47 @@ namespace MyNetworkMonitor.Core.ViewModels
             if (entry.IsGrouped) ServiceDisplay.Grouped.Add(entry.Name);
             else ServiceDisplay.Grouped.Remove(entry.Name);
 
-            // Gespeichert wird immer die ganze Menge, nicht die einzelne
-            // Aenderung. Damit traegt es von selbst, wenn Dienste dazukommen
-            // oder wegfallen - es gibt nichts, was man dabei vergessen
-            // koennte.
+            // Always save the whole set, not the individual change. This
+            // automatically handles services being added or removed; there is
+            // nothing to forget.
             _userSettings?.SetStrings("GroupedServices", ServiceDisplay.Grouped);
 
             ServiceDisplay.NotifyChanged();
         }
 
         /// <summary>
-        /// Sichert den Bestand. Wird beim Schliessen des Fensters gerufen -
-        /// ein Fehler darf das Beenden nicht aufhalten, darum meldet die
-        /// Methode nur, ob es geklappt hat.
+        /// Saves the inventory. Called when the window closes; an error must
+        /// not block exiting, so the method only reports whether it worked.
         /// </summary>
+        /// <returns><see langword="true"/> if the inventory was saved.</returns>
         public bool SaveLastScanResultNow()
         {
             if (!SaveLastScanResult || string.IsNullOrEmpty(SettingsFolder)) return false;
 
-            // Was sich beim Start nicht lesen liess, wird auch nicht
-            // ueberschrieben. Sonst kostet ein einzelner Lesefehler den
-            // gesamten gespeicherten Bestand.
+            // What could not be read at startup is not overwritten either;
+            // otherwise a single read error would cost the entire saved
+            // inventory.
             if (_loadFailed) return false;
 
             return DeviceStoreFile.Save(_store, LastScanResultPath);
         }
 
+        /// <summary>The section shown in the main area.</summary>
         [ObservableProperty] private ShellSection _section = ShellSection.Devices;
 
+        /// <summary>The method drawer is open.</summary>
         [ObservableProperty] private bool _isDrawerOpen;
 
-        // ---------------------------------------------------------- Umfaenge
+        // ----------------------------------------------------------- Profiles
 
-        // Die ARP-Tabelle ist in keinem Umfang dabei, obwohl sie nichts kostet:
-        // sie liefert den Zwischenspeicher des eigenen Rechners und damit
-        // Geraete, die im Lauf gar nicht befragt wurden - teils laengst
-        // abgeschaltete. Beilaeufig mitgenommen sieht das Ergebnis nach mehr
-        // aus, als tatsaechlich geprueft wurde. Wer sie will, hakt sie an.
+        // The ARP table is in no profile although it costs nothing: it returns
+        // the local computer's cache and thus devices that were not queried in
+        // the run, some long switched off. Included in passing, the result
+        // would look like more was checked than actually was. It can be
+        // checked explicitly.
         //
-        // Dasselbe gilt fuer den DNS-Quervergleich, siehe ApplyProfile.
+        // The same applies to the DNS cross-check, see ApplyProfile.
+        /// <summary>The available scan profiles: Quick, Standard, Thorough and Custom.</summary>
         public IReadOnlyList<ScanProfile> Profiles { get; } =
         [
             new ScanProfile
@@ -944,12 +949,15 @@ namespace MyNetworkMonitor.Core.ViewModels
             }
         ];
 
+        /// <summary>The selected profile.</summary>
         [ObservableProperty] private ScanProfile? _selectedProfile;
 
         /// <summary>
-        /// Setzt die Verfahrensauswahl auf den Umfang. "Angepasst" laesst sie
-        /// unberuehrt - sonst wuerde das Umschalten die eigene Auswahl loeschen.
+        /// Sets the method selection to the profile. "Custom" leaves it
+        /// untouched; otherwise switching would erase the custom selection.
         /// </summary>
+        /// <param name="profile">The profile to apply.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="profile"/> is <see langword="null"/>.</exception>
         public void ApplyProfile(ScanProfile profile)
         {
             ArgumentNullException.ThrowIfNull(profile);
@@ -959,17 +967,16 @@ namespace MyNetworkMonitor.Core.ViewModels
 
             foreach (ScanMethodChoice choice in Methods)
             {
-                // Ohne Ruecksicht auf die Verfuegbarkeit: das Profil sagt, was
-                // gewuenscht ist. Was davon gerade laufen kann, entscheidet
-                // IsEffective - und sobald es wieder kann, ist es von selbst
-                // wieder dabei.
+                // Regardless of availability: the profile states what is
+                // wanted. What can run right now is decided by IsEffective, and
+                // as soon as a method can run again it is included again.
                 choice.IsSelected = profile.MethodIds.Contains(choice.Id);
             }
 
-            // Kein Umfang schaltet den DNS-Quervergleich ein. Er fragt jede
-            // Adresse bei jedem Server einzeln und in beide Richtungen - das
-            // ist nichts, was man beilaeufig mit einem Umfang mitnimmt, und
-            // wer es will, hakt es selbst an.
+            // No profile enables the DNS cross-check. It queries every address
+            // at every server individually and in both directions; that is not
+            // something to include in passing with a profile, so it has to be
+            // checked explicitly.
             Settings.CrossCheckDnsServers = false;
 
             OnPropertyChanged(nameof(SelectedMethodCount));
@@ -977,45 +984,48 @@ namespace MyNetworkMonitor.Core.ViewModels
             OnPropertyChanged(nameof(CanStart));
         }
 
-        // ------------------------------------------------------- Bereiche
+        // ------------------------------------------------------------- Scopes
 
         /// <summary>
-        /// Von Hand eingetragene Ziele. Damit laesst sich etwas nachsehen, ohne
-        /// erst einen Bereich anzulegen - der haeufigste Grund, die Verwaltung
-        /// ueberhaupt zu oeffnen. Wirkt zusaetzlich zu den angehakten
-        /// Bereichen; ist keiner angehakt, ist das hier die ganze Auswahl.
+        /// Targets entered by hand. Allows a quick check without creating a
+        /// scope first, the most common reason to open the scope management at
+        /// all. Applies in addition to the checked scopes; if none is checked,
+        /// this is the whole selection.
         /// </summary>
         [ObservableProperty] private string _customTargets = string.Empty;
 
-        /// <summary>Der aus <see cref="CustomTargets"/> gelesene Bereich, falls gueltig.</summary>
+        /// <summary>The scope parsed from <see cref="CustomTargets"/>, if valid.</summary>
         public ScanScope? CustomScope { get; private set; }
 
-        /// <summary>Was an der Eingabe nicht stimmt - leer, wenn sie taugt.</summary>
+        /// <summary>What is wrong with the input; empty if it is valid.</summary>
         [ObservableProperty] private string _customTargetsProblem = string.Empty;
 
         /// <summary>
-        /// Ein Adapter zur Auswahl fuer die eigene Eingabe. Der erste Eintrag
-        /// traegt eine leere Kennung und bedeutet "den nehmen, ueber den das
-        /// Betriebssystem ohnehin routen wuerde".
+        /// An adapter to choose for the custom targets. The first entry has an
+        /// empty identifier and means "use the one the operating system would
+        /// route through anyway".
         /// </summary>
         public sealed class AdapterChoice
         {
+            /// <summary>The network interface identifier; empty for automatic.</summary>
             public required string Id { get; init; }
+            /// <summary>Adapter name and IPv4 addresses, for display.</summary>
             public required string Display { get; init; }
             public override string ToString() => Display;
         }
 
         /// <summary>
-        /// Die Adapter, ueber die eine eigene Eingabe gescannt werden kann.
+        /// The adapters through which custom targets can be scanned.
         /// <para>
-        /// Noetig, weil ein einzelnes Ziel keinen Bereich hat, aus dem sich der
-        /// Adapter ableiten liesse. Ohne angehakten Bereich fiel bisher alles
-        /// auf den Standardadapter zurueck - was falsch ist, sobald der Rechner
-        /// in mehreren Netzen haengt und das Ziel im anderen steht.
+        /// Needed because a single target has no scope from which the adapter
+        /// could be derived. Without this choice everything would fall back to
+        /// the default adapter, which is wrong as soon as the computer is in
+        /// several networks and the target is in the other one.
         /// </para>
         /// </summary>
         public ObservableCollection<AdapterChoice> CustomTargetAdapters { get; } = [];
 
+        /// <summary>The adapter chosen for the custom targets.</summary>
         [ObservableProperty] private AdapterChoice? _selectedCustomAdapter;
 
         partial void OnSelectedCustomAdapterChanged(AdapterChoice? value)
@@ -1025,7 +1035,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             RefreshAvailability();
         }
 
-        /// <summary>Liest die Adapterliste fuer die eigene Eingabe neu.</summary>
+        /// <summary>Re-reads the adapter list for the custom targets, keeping the current choice if possible.</summary>
         public void RefreshCustomTargetAdapters()
         {
             string? keep = SelectedCustomAdapter?.Id;
@@ -1085,8 +1095,8 @@ namespace MyNetworkMonitor.Core.ViewModels
             {
                 CustomScope = parsed;
 
-                // Die Adapterwahl gilt auch fuer eine neu getippte Eingabe -
-                // sonst muesste man sie nach jeder Aenderung erneut treffen.
+                // The adapter choice also applies to newly typed input;
+                // otherwise it would have to be made again after every edit.
                 if (CustomScope is not null)
                 {
                     CustomScope.InterfaceId = SelectedCustomAdapter?.Id ?? string.Empty;
@@ -1103,6 +1113,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             RefreshAvailability();
         }
 
+        /// <summary>The checked scopes plus the custom scope, if any.</summary>
         public IEnumerable<ScanScope> SelectedScopes
         {
             get
@@ -1112,18 +1123,19 @@ namespace MyNetworkMonitor.Core.ViewModels
             }
         }
 
+        /// <summary>Number of selected scopes including the custom scope.</summary>
         public int SelectedScopeCount => SelectedScopes.Count();
 
         /// <summary>
-        /// Wie viele Verfahren ein Lauf jetzt tatsaechlich ausfuehren wuerde -
-        /// angehakt <em>und</em> lauffaehig.
+        /// Number of methods a run would actually execute now: checked
+        /// <em>and</em> runnable.
         /// </summary>
         public int SelectedMethodCount => Methods.Count(m => m.IsEffective);
 
         /// <summary>
-        /// Zaehler und Schaetzung werden gemeinsam berechnet, weil beide
-        /// dieselbe Aufloesung der Bereiche brauchen. Wird bei jeder Aenderung
-        /// der Auswahl neu bestimmt, darum ohne Aufzaehlung der Adressen.
+        /// Count and estimate flag are computed together because both need the
+        /// same scope resolution. Recomputed on every selection change, hence
+        /// without enumerating the addresses.
         /// </summary>
         private (long Count, bool IsEstimate) CountTargets()
         {
@@ -1141,16 +1153,16 @@ namespace MyNetworkMonitor.Core.ViewModels
 
         private List<ScopeRuntime> _lastRuntimes = [];
 
-        /// <summary>Summe der Ziele ueber alle gewaehlten Bereiche.</summary>
+        /// <summary>Total number of targets across all selected scopes.</summary>
         public long TargetCount => CountTargets().Count;
 
-        /// <summary>Mindestens ein Bereich liefert nur eine Schaetzung.</summary>
+        /// <summary>At least one scope yields only an estimate.</summary>
         public bool TargetCountIsEstimate => CountTargets().IsEstimate;
 
         /// <summary>
-        /// Grobe Dauerschaetzung fuer den Kommandobalken. Bewusst einfach
-        /// gehalten - sie soll die Groessenordnung zeigen, damit niemand
-        /// versehentlich einen Lauf ueber Stunden anstoesst.
+        /// Rough duration estimate for the command bar. Deliberately simple; it
+        /// shows the order of magnitude so that nobody starts a run of several
+        /// hours by accident.
         /// </summary>
         public TimeSpan EstimatedDuration
         {
@@ -1161,18 +1173,19 @@ namespace MyNetworkMonitor.Core.ViewModels
 
                 int methods = Math.Max(1, Methods.Count(m => m.IsEffective && !m.IsPassive));
 
-                // Erfahrungswert: rund 40 Ziele je Sekunde und Verfahren,
-                // weil parallel gearbeitet wird.
+                // Empirical value: about 40 targets per second and method,
+                // because work runs in parallel.
                 double seconds = targets * methods / 40.0;
                 return TimeSpan.FromSeconds(Math.Max(1, seconds));
             }
         }
 
+        /// <summary>No run is active and at least one scope and one runnable method are selected.</summary>
         public bool CanStart => !IsRunning && SelectedScopeCount > 0 && SelectedMethodCount > 0;
 
         /// <summary>
-        /// Nach jeder Aenderung an der Bereichsauswahl aufrufen: bestimmt die
-        /// Verfuegbarkeit aller Verfahren neu und aktualisiert die Zaehler.
+        /// Call after every change of the scope selection: re-evaluates the
+        /// availability of all methods and updates the counters.
         /// </summary>
         public void RefreshAvailability()
         {
@@ -1198,19 +1211,18 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Sorgt dafuer, dass eine lokale Netzwerkkarte eingetragen ist.
+        /// Ensures that a local network interface is set.
         /// <para>
-        /// Verfahren, die einen Lauscher aufsetzen statt Ziele abzufragen -
-        /// SSDP, ONVIF, der DHCP-Mitschnitt - binden ihn an
-        /// <c>SupportMethods.SelectedNetworkInterfaceInfos.IPv4</c>. In der
-        /// bisherigen Oberflaeche kam der Wert aus einer Auswahlliste; die gibt
-        /// es hier nicht, und so blieb er leer. SSDP war damit dauerhaft
-        /// gesperrt, ohne dass man haette sehen koennen, warum.
+        /// Methods that open a listener instead of querying targets (SSDP,
+        /// ONVIF, the DHCP capture) bind it to
+        /// <c>SupportMethods.SelectedNetworkInterfaceInfos.IPv4</c>. There is
+        /// no selection list for this value; if it stays empty, SSDP is
+        /// permanently blocked without any visible reason.
         /// </para>
         /// <para>
-        /// Genommen wird die Karte des ersten gewaehlten Bereichs - dort soll
-        /// gescannt werden, also gehoert der Lauscher dorthin. Ohne Bereich die
-        /// erste betriebsbereite Karte mit Gateway.
+        /// The interface of the first selected scope is used: that is where
+        /// the scan happens, so the listener belongs there. Without a scope,
+        /// the first operational interface with a gateway is used.
         /// </para>
         /// </summary>
         private void EnsureLocalInterfaceSelected()
@@ -1236,7 +1248,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             SupportMethods.SelectedNetworkInterfaceInfos.IPv4 = address;
         }
 
-        /// <summary>Kurztext der Bereichsauswahl fuer den Kommandobalken.</summary>
+        /// <summary>Short text of the scope selection for the command bar.</summary>
         public string ScopeSummary
         {
             get
@@ -1252,34 +1264,40 @@ namespace MyNetworkMonitor.Core.ViewModels
             }
         }
 
-        // --------------------------------------------------------- Fortschritt
+        // ----------------------------------------------------------- Progress
 
+        /// <summary>A run is active.</summary>
         [ObservableProperty] private bool _isRunning;
+        /// <summary>Label of the running method, including its sub-step where there is one.</summary>
         [ObservableProperty] private string _currentMethodName = string.Empty;
+        /// <summary>Requests sent by the current method.</summary>
         [ObservableProperty] private int _progressCurrent;
+        /// <summary>Total targets of the current method.</summary>
         [ObservableProperty] private int _progressTotal;
+        /// <summary>Targets that have answered the current method.</summary>
         [ObservableProperty] private int _progressResponded;
+        /// <summary>The status line text.</summary>
         [ObservableProperty] private string _statusText = "Ready.";
 
+        /// <summary>Progress of the current method between 0 and 1.</summary>
         public double ProgressFraction =>
             ProgressTotal <= 0 ? 0 : Math.Clamp((double)ProgressCurrent / ProgressTotal, 0, 1);
 
-        // ------------------------------------------------- Ablauf des Laufs
+        // ------------------------------------------------------- Run sequence
 
         /// <summary>
-        /// Die Verfahren dieses Laufs in Ausfuehrungsfolge und was aus jedem
-        /// geworden ist. Daraus entsteht die Anzeige "fertig: Ping, ARP -
-        /// offen: SMB, Dienste, SNMP": ein Lauf besteht aus mehreren
-        /// Verfahren, und ohne diese Liste sieht man nur das gerade laufende
-        /// und weiss nicht, wie viel noch kommt.
+        /// The methods of this run in execution order and what became of each.
+        /// This produces the display "done: Ping, ARP - pending: SMB, Services,
+        /// SNMP": a run consists of several methods, and without this list only
+        /// the current one is visible, not how much is still to come.
         /// </summary>
         private readonly List<string> _planned = [];
         private readonly List<string> _done = [];
 
-        /// <summary>Die abgeschlossenen Verfahren, in der Reihenfolge ihres Endes.</summary>
+        /// <summary>The completed methods, in the order they finished.</summary>
         public string CompletedScansText => _done.Count == 0 ? "-" : string.Join(", ", _done);
 
-        /// <summary>Was noch aussteht - das laufende Verfahren zuerst.</summary>
+        /// <summary>What is still pending, the running method first.</summary>
         public string PendingScansText
         {
             get
@@ -1289,7 +1307,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             }
         }
 
-        /// <summary>Die Zeile hat nur waehrend und nach einem Lauf etwas zu sagen.</summary>
+        /// <summary>The line is only meaningful during and after a run.</summary>
         public bool HasScanPlan => _planned.Count > 0;
 
         private void NotifyPlanChanged()
@@ -1300,26 +1318,25 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Fortschritt eines Verfahrens. Kommt aus dem Scan-Thread und wird
-        /// darum hinuebergereicht, bevor irgendetwas Gebundenes geschrieben wird.
+        /// Progress of a method. Arrives from the scan thread and is therefore
+        /// marshalled to the UI thread before anything bound is written.
         /// </summary>
         private void OnProgress(ScanProgress progress) => OnUi(() => ApplyProgress(progress));
 
         private void ApplyProgress(ScanProgress progress)
         {
-            // Mit Teilschritt, wo es einen gibt: die Diensterkennung geht
-            // Dienst fuer Dienst, und hier stuende sonst minutenlang nur
-            // "Services".
+            // Including the sub-step where there is one: service detection
+            // goes service by service, and otherwise this would show only
+            // "Services" for minutes.
             CurrentMethodName = progress.Label;
             ProgressCurrent = progress.Current;
             ProgressTotal = progress.Total;
             ProgressResponded = progress.Responded;
             OnPropertyChanged(nameof(ProgressFraction));
 
-            // Zusaetzlich am Verfahren selbst festhalten. Der Kommandobalken
-            // zeigt nur das laufende; die Zahlen der schon gelaufenen sind
-            // aber genau das, was man am Ende vergleichen will - welches
-            // Verfahren hat wie viel gebracht.
+            // Also record it on the method itself. The command bar shows only
+            // the running one, but the numbers of the finished methods are
+            // what is compared at the end: which method yielded how much.
             ScanMethodChoice? choice = Methods.FirstOrDefault(m =>
                 string.Equals(m.Id, progress.MethodId, StringComparison.OrdinalIgnoreCase));
 
@@ -1332,8 +1349,8 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Ein Verfahren ist fertig. Schreibt in <see cref="LastSkipped"/>, eine
-        /// gebundene Sammlung - also ebenfalls nur vom Oberflaechen-Thread aus.
+        /// A method has finished. Writes to <see cref="LastSkipped"/>, a bound
+        /// collection, so this also happens on the UI thread only.
         /// </summary>
         private void OnMethodFinished(ScanMethodOutcome outcome) => OnUi(() =>
         {
@@ -1348,6 +1365,7 @@ namespace MyNetworkMonitor.Core.ViewModels
 
         // -------------------------------------------------------------- Start
 
+        /// <summary>Starts a run over the selected scopes with the effective methods.</summary>
         [RelayCommand]
         private async Task StartAsync()
         {
@@ -1357,15 +1375,15 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Scannt nur die markierten Geraete noch einmal - mit denselben
-        /// Verfahren, die im Kommandobalken gewaehlt sind.
+        /// Rescans only the selected devices, with the methods chosen in the
+        /// command bar.
         /// <para>
-        /// Der Weg dahin ist eine Zielliste als eigener Bereich: ein Geraet
-        /// steht mit allen seinen Adressen darin, v4 wie v6, damit der Lauf
-        /// beide Seiten auffrischt. Bereichsangaben wie Domain, Namensserver
-        /// und Gateway kommen aus dem Bereich, aus dem das Geraet stammt -
-        /// sonst liefe der zweite Blick unter anderen Bedingungen als der
-        /// erste und die Ergebnisse waeren nicht vergleichbar.
+        /// This uses a target list as a separate scope: each device is listed
+        /// with its IPv4 addresses and its best IPv6 address, so the run
+        /// refreshes both families. Scope settings such as domain, DNS servers
+        /// and gateway come from the scope the device originates from;
+        /// otherwise the second look would run under different conditions than
+        /// the first and the results would not be comparable.
         /// </para>
         /// </summary>
         [RelayCommand]
@@ -1373,11 +1391,11 @@ namespace MyNetworkMonitor.Core.ViewModels
         {
             if (IsRunning) return;
 
-            // Bewusst nicht SelectedMethodCount: der zaehlt nur, was gegen die
-            // gewaehlten Bereiche wirksam ist, und beim erneuten Scannen ist oft
-            // kein Bereich gewaehlt. Gefragt ist, ob ueberhaupt ein Verfahren
-            // angehakt ist - die Ziele kommen aus den markierten Zeilen, nicht
-            // aus einem Bereich.
+            // Deliberately not SelectedMethodCount: it only counts what is
+            // effective against the selected scopes, and when rescanning often
+            // no scope is selected. The question is whether any method is
+            // checked at all; the targets come from the selected rows, not from
+            // a scope.
             if (!Methods.Any(m => m.IsSelected))
             {
                 StatusText = "No scan method selected.";
@@ -1396,10 +1414,10 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Baut je Herkunftsbereich eine Zielliste. Die Aufteilung ist noetig,
-        /// weil Domain und Namensserver am Bereich haengen: zwei Geraete aus
-        /// verschiedenen Bereichen in einer Liste bekaemen die Angaben des
-        /// einen und der andere ginge leer aus.
+        /// Builds one target list per originating scope. The split is needed
+        /// because domain and DNS servers belong to the scope: two devices from
+        /// different scopes in one list would both get the settings of one of
+        /// them.
         /// </summary>
         private List<ScanScope> BuildRescanScopes(IReadOnlyList<Device> devices)
         {
@@ -1409,9 +1427,9 @@ namespace MyNetworkMonitor.Core.ViewModels
             {
                 List<string> addresses = [.. device.Ipv4Addresses.Select(a => a.Info.Canonical)];
 
-                // Von den IPv6-Adressen genuegt die beste. Ein Geraet traegt
-                // regulaer mehrere, die meisten davon kurzlebig - sie alle
-                // abzufragen kostet Zeit und bringt denselben Befund.
+                // Of the IPv6 addresses, the best one is enough. A device
+                // usually has several, most of them short-lived; querying all
+                // of them costs time and yields the same result.
                 if (device.BestIpv6Address is { } v6) addresses.Add(v6.Info.Canonical);
 
                 if (addresses.Count == 0) continue;
@@ -1443,9 +1461,9 @@ namespace MyNetworkMonitor.Core.ViewModels
                     Domain = origin?.Domain ?? string.Empty,
                     DnsServers = origin?.DnsServers ?? string.Empty,
                     GatewayIP = origin?.GatewayIP ?? string.Empty,
-                    // Der Nachschlag erbt den Satelliten des Bereichs: sonst
-                    // liefe er von hier aus und damit ohne ARP, waehrend der
-                    // Bereich selbst aus dem Segment heraus gescannt wird.
+                    // The rescan inherits the scope's satellite: otherwise it
+                    // would run from here and thus without ARP, while the
+                    // scope itself is scanned from within the segment.
                     ScannedBy = origin?.ScannedBy ?? string.Empty,
                     Targets = [.. addresses]
                 });
@@ -1454,18 +1472,12 @@ namespace MyNetworkMonitor.Core.ViewModels
             return scopes;
         }
 
-        /// <summary>
-        /// Der eigentliche Lauf. Gemeinsam fuer den vollen Scan und das
-        /// erneute Pruefen einzelner Geraete - beide unterscheiden sich nur in
-        /// den Bereichen, alles Uebrige davor und danach ist dasselbe.
-        /// </summary>
-        // ------------------------------------------------- Satellitenbetrieb
+        // -------------------------------------------------- Satellite operation
 
         /// <summary>
-        /// Verteilt die Bereiche, die einem Satelliten gehoeren, an ihre
-        /// Satelliten - <b>ein</b> Auftrag je Satellit mit allen seinen
-        /// Bereichen, damit nichts doppelt gescannt wird (SATELLIT.md,
-        /// Abschnitt 3).
+        /// Distributes the scopes that belong to a satellite to their
+        /// satellites: <b>one</b> job per satellite with all of its scopes, so
+        /// nothing is scanned twice (SATELLIT.md, section 3).
         /// </summary>
         private async Task DispatchToSatellitesAsync(List<ScanScope> remote)
         {
@@ -1475,17 +1487,15 @@ namespace MyNetworkMonitor.Core.ViewModels
             foreach (IGrouping<string, ScanScope> group in
                      remote.GroupBy(s => s.ScannedBy, StringComparer.OrdinalIgnoreCase))
             {
-                // Zugeordnet wird ueber die Kennung, nicht ueber den Namen: der
-                // Name ist aenderbar, und eine Umbenennung darf keine
-                // Zuordnung zerreissen.
+                // Matched by identifier, not by name: the name can change, and
+                // a rename must not break an assignment.
                 Satellite? satellite = SatelliteEditor.ById(group.Key);
 
                 if (satellite is null || !satellite.IsConnected || !satellite.Approved)
                 {
-                    // Nicht erreichbar heisst "nicht gescannt" und nicht
-                    // stillschweigend oertlich gescannt - sonst stuenden im
-                    // Ergebnis Zahlen, die anders zustande kamen als
-                    // angenommen.
+                    // Unreachable means "not scanned", not silently scanned
+                    // locally; otherwise the result would contain numbers
+                    // obtained differently than assumed.
                     missing.Add(satellite?.Name ?? SatelliteEditor.DisplayNameOf(group.Key));
                     continue;
                 }
@@ -1497,12 +1507,12 @@ namespace MyNetworkMonitor.Core.ViewModels
                     Settings.UdpPorts,
                     Settings.PortTimeoutMs,
 
-                    // "Nur abfragen, was schon dasteht" kommt jetzt vom
-                    // Satelliten und nicht mehr aus den Haupteinstellungen:
-                    // was sich einzuschraenken lohnt, haengt an seinem Segment.
-                    // Ein Bereich voller offline-Adressen kostet bei der
-                    // Diensterkennung jedes Mal das volle Zeitlimit je Port -
-                    // an einem anderen Standort kann genau das falsch sein.
+                    // "Query only what is already listed" comes from the
+                    // satellite, not from the main settings: what is worth
+                    // restricting depends on its segment. A scope full of
+                    // offline addresses costs the full timeout per port in
+                    // service detection; at another site exactly that setting
+                    // can be wrong.
                     satellite.EffectiveOnlyKnownFor(
                         Methods.Where(m => m.CanRestrictToKnown).Select(m => m.Id)),
 
@@ -1514,7 +1524,7 @@ namespace MyNetworkMonitor.Core.ViewModels
                 }
                 else
                 {
-                    // In die Meldung gehoert der Name, nicht die Kennung.
+                    // The message shows the name, not the identifier.
                     missing.Add(satellite.Name);
                 }
             }
@@ -1523,65 +1533,66 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Ein Satz fuer die Statuszeile darueber, was gerade bei den
-        /// Satelliten laeuft. Leer, wenn keiner beteiligt ist.
+        /// A sentence for the status line about what is running on the
+        /// satellites. Empty if none is involved.
         /// <para>
-        /// Steht als eigene Eigenschaft und nicht nur als einmalig gesetzter
-        /// Text, weil der oertliche Lauf die Statuszeile waehrenddessen
-        /// weiterschreibt: ohne diesen Merker waere der Hinweis nach dem ersten
-        /// Verfahren wieder weg, obwohl der Satellit noch arbeitet.
+        /// A property of its own rather than text set once, because the local
+        /// run keeps writing the status line meanwhile: without it the notice
+        /// would disappear after the first method although the satellite is
+        /// still working.
         /// </para>
         /// </summary>
         public string SatelliteScanNote { get; private set; } = string.Empty;
 
-        /// <summary>Was uebersprungen oder ersatzweise oertlich gescannt wurde.</summary>
+        /// <summary>What was skipped or scanned locally instead.</summary>
         private string _skippedNote = string.Empty;
 
         /// <summary>
-        /// Setzt die Statuszeile aus dem eigentlichen Befund und dem, was es
-        /// ueber die Satelliten zu sagen gibt - an einer Stelle, damit die
-        /// Hinweise nicht an drei Orten getrennt zusammengebaut werden.
+        /// Composes the status line from the main result and the satellite
+        /// notes, in one place so the notes are not assembled separately in
+        /// three places.
         /// </summary>
         private string WithSatelliteNotes(string main) =>
             string.Join("  ·  ", new[] { main, SatelliteScanNote, _skippedNote }
                 .Where(t => !string.IsNullOrWhiteSpace(t)));
 
         /// <summary>
-        /// Rueckfragen an den Nutzer. Setzt die Ansicht.
+        /// Confirmation dialogs. Set by the view.
         /// <para>
-        /// Ohne gesetzten Dienst - im Dienstbetrieb und in Tests - wird nicht
-        /// gefragt, und die Antwort gilt als "nein". Das ist die sichere Seite:
-        /// lieber ein Bereich nicht gescannt als einer mit falschen Zahlen, und
-        /// vor einem Dienst sitzt niemand, der antworten koennte.
+        /// Without a dialog service (in service mode and in tests) nothing is
+        /// asked, and the answer counts as "no". That is the safe side: better
+        /// a scope not scanned than one with wrong numbers, and there is nobody
+        /// in front of a service who could answer.
         /// </para>
         /// </summary>
         public IDialogService? Dialogs { get; set; }
 
         /// <summary>
-        /// Ist dieser Satellit gerade ansprechbar - verbunden und freigegeben?
+        /// Whether the scope belongs to a satellite that actually exists.
         /// <para>
-        /// Gesucht wird ueber die Kennung, denn genau die steht in
-        /// <c>ScanScope.ScannedBy</c>. Vorher wurde hier gegen den
-        /// <em>Namen</em> verglichen: das traf nie zu, jeder Bereich galt als
-        /// "Satellit nicht verbunden", und der Lauf fragte, ob er stattdessen
-        /// von hier scannen soll - obwohl der Satellit verbunden dastand.
-        /// </para>
-        /// </summary>
-        /// <summary>
-        /// Gehoert der Bereich einem Satelliten, den es wirklich gibt?
-        /// <para>
-        /// Leer heisst "von diesem Rechner aus" - und ein Wert, zu dem kein
-        /// Satellit mehr existiert, ebenso. Das ist der Fall aus alten
-        /// Staenden: in der Auswahl steht dann nichts, weil der Wert zu keinem
-        /// Eintrag passt. Zaehlte er trotzdem als Satellitenbereich, meldete
-        /// der Lauf einen "(unknown satellite)", der nicht verbunden sei -
-        /// eine Rueckfrage zu einem Satelliten, den niemand je eingerichtet
-        /// hat. Was die Auswahl leer zeigt, wird auch so behandelt.
+        /// Empty means "from this machine", and so does a value for which no
+        /// satellite exists any more. That happens with older saved scopes: the
+        /// selection shows nothing because the value matches no entry. If it
+        /// still counted as a satellite scope, the run would report an
+        /// "(unknown satellite)" as not connected and ask about a satellite
+        /// nobody ever set up. What the selection shows as empty is treated as
+        /// empty.
         /// </para>
         /// </summary>
         private bool IsAssignedToSatellite(ScanScope scope) =>
             scope.IsScannedRemotely && SatelliteEditor.ById(scope.ScannedBy) is not null;
 
+        /// <summary>
+        /// Whether this satellite is reachable right now: connected and
+        /// approved.
+        /// <para>
+        /// Looked up by identifier, because that is what
+        /// <c>ScanScope.ScannedBy</c> holds. Comparing against the
+        /// <em>name</em> never matches: every scope would count as "satellite
+        /// not connected", and the run would ask whether to scan from here
+        /// instead although the satellite is connected.
+        /// </para>
+        /// </summary>
         private bool IsSatelliteReady(string id)
         {
             Satellite? satellite = SatelliteEditor.ById(id);
@@ -1589,22 +1600,21 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Fragt nach, was mit Bereichen geschehen soll, deren Satellit nicht
-        /// erreichbar ist.
+        /// Asks what should happen to scopes whose satellite is unreachable.
         /// <para>
-        /// Gefragt wird, statt still zu entscheiden: von hier aus gescannt
-        /// kommt ein anderes Ergebnis heraus - kein ARP, alles ueber den
-        /// Router, laengere Laufzeiten. Das kann im Einzelfall trotzdem
-        /// gewuenscht sein, aber es ist eine Entscheidung und keine
-        /// Nebenwirkung. Darum steht der Unterschied auch im Text.
+        /// Asked rather than decided silently: scanning from here gives a
+        /// different result (no ARP, everything through the router, longer
+        /// response times). That may still be wanted in a given case, but it is
+        /// a decision, not a side effect, so the message states the
+        /// difference.
         /// </para>
         /// </summary>
         private async Task<bool> AskToScanLocallyAsync(List<ScanScope> orphaned)
         {
             if (Dialogs is null) return false;
 
-            // Im Bereich steht die Kennung; in einer Meldung will die niemand
-            // lesen - dort gehoert der Name hin.
+            // The scope holds the identifier; a message shows the name
+            // instead.
             List<string> names = [.. orphaned
                 .Select(s => SatelliteEditor.DisplayNameOf(s.ScannedBy))
                 .Where(n => !string.IsNullOrWhiteSpace(n))
@@ -1630,28 +1640,27 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Warnt vor einem Lauf, der nichts finden kann, und fragt, ob er
-        /// trotzdem starten soll.
+        /// Warns about a run that cannot find anything and asks whether to
+        /// start it anyway.
         /// <para>
-        /// Der Fall: jedes gewaehlte Verfahren ist auf "nur Geraete, die schon
-        /// in der Tabelle stehen" beschraenkt, und es steht keines darin. Die
-        /// Kuerzung auf bekannte Ziele laesst dann nichts uebrig, jedes
-        /// Verfahren laeuft ueber eine leere Liste, und am Ende steht ein
-        /// Ergebnis von null Geraeten - ohne Fehler, denn aus Sicht der
-        /// Verfahren ist genau das richtig.
+        /// The case: every selected method is restricted to "only devices
+        /// already in the table", and the table is empty. Restricting to known
+        /// targets then leaves nothing, every method runs over an empty list,
+        /// and the result is zero devices, without an error, because from the
+        /// methods' point of view that is correct.
         /// </para>
         /// <para>
-        /// Ein Satellit ist davon staerker betroffen als diese Anlage: sein
-        /// Auftrag laeuft gegen einen frisch angelegten, <em>leeren</em>
-        /// Bestand, nicht gegen die Tabelle des Hauptscanners. Was hier steht,
-        /// kennt er nicht. Bei ihm genuegt also die Beschraenkung allein, damit
-        /// nichts herauskommt.
+        /// A satellite is affected more than this installation: its job runs
+        /// against a freshly created, <em>empty</em> inventory, not against the
+        /// main scanner's table, of which it knows nothing. For a satellite the
+        /// restriction alone is therefore enough to produce nothing.
         /// </para>
         /// <para>
-        /// Kein Grund zur Warnung ist ein Verfahren, das selbst sucht: eines
-        /// ohne Zielliste (Rundruf wie SSDP oder mDNS) oder eines, das nicht
-        /// beschraenkt ist. Das fuellt die Tabelle, und die beschraenkten
-        /// danach haben etwas zu fragen - genau dafuer ist die Abstufung da.
+        /// A method that discovers devices by itself is no reason to warn: one
+        /// without a target list (a broadcast such as SSDP or mDNS) or one that
+        /// is not restricted. It fills the table, and the restricted methods
+        /// afterwards have something to query; that staging is the purpose of
+        /// the restriction.
         /// </para>
         /// </summary>
         private async Task<bool> ConfirmRunWithoutTargetsAsync(
@@ -1664,7 +1673,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             IReadOnlyList<string> restrictable =
                 [.. chosen.Where(m => m.CanRestrictToKnown).Select(m => m.Id)];
 
-            // Findet unter den gewaehlten Verfahren eines von selbst Geraete?
+            // Does any of the selected methods discover devices by itself?
             bool NothingDiscovers(Func<string, bool> isRestricted) =>
                 chosen.All(m => m.CanRestrictToKnown && isRestricted(m.Id));
 
@@ -1695,11 +1704,10 @@ namespace MyNetworkMonitor.Core.ViewModels
 
             if (affected.Count == 0) return true;
 
-            // Ohne Dialogdienst - im Dienstbetrieb und in Tests - wird nicht
-            // gefragt und auch nicht abgebrochen: der Lauf verhaelt sich dann
-            // wie bisher. Anders als bei einem nicht erreichbaren Satelliten
-            // steht hier kein falsches Ergebnis zu befuerchten, sondern nur ein
-            // leeres.
+            // Without a dialog service (in service mode and in tests) nothing
+            // is asked and nothing is cancelled; the run proceeds. Unlike with
+            // an unreachable satellite, the risk here is not a wrong result,
+            // only an empty one.
             if (Dialogs is null) return true;
 
             string who = string.Join(Environment.NewLine, affected.Select(a => $"   {a}"));
@@ -1736,11 +1744,15 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Fuehrt einen Auftragstext aus - die Seite des Satelliten. Laeuft
-        /// gegen einen <em>eigenen</em> Bestand: zurueckgeschickt wird, was
-        /// dieser Auftrag gefunden hat, nicht der ganze Bestand des
-        /// Satellitenrechners.
+        /// Runs a job text on the satellite side. Runs against a
+        /// <em>separate</em> inventory: what is sent back is what this job
+        /// found, not the satellite computer's whole inventory.
         /// </summary>
+        /// <param name="jobText">The serialised job from the main scanner.</param>
+        /// <param name="progress">Receives progress reports for the main scanner.</param>
+        /// <param name="token">Cancels the job; the devices found so far are still returned.</param>
+        /// <returns>The devices found, as JSON.</returns>
+        /// <exception cref="InvalidOperationException">The job text could not be read.</exception>
         public async Task<string> RunJobAsync(
             string jobText, IProgress<ProgressPayload> progress, CancellationToken token)
         {
@@ -1757,13 +1769,13 @@ namespace MyNetworkMonitor.Core.ViewModels
             settings.TcpPorts.AddRange(job.TcpPorts.Count > 0 ? job.TcpPorts : Settings.TcpPorts);
             settings.UdpPorts.AddRange(job.UdpPorts.Count > 0 ? job.UdpPorts : Settings.UdpPorts);
 
-            // Die Beschraenkung kommt aus dem Auftrag, nicht aus den eigenen
-            // Einstellungen: es zaehlt, was der Hauptscanner angehakt hat, und
-            // nicht, was jemand am Satelliten einmal eingestellt hat.
+            // The restriction comes from the job, not from the local settings:
+            // what counts is what the main scanner checked, not what was once
+            // set on the satellite.
             foreach (string id in job.OnlyKnownFor) settings.OnlyKnownTargetsFor.Add(id);
 
-            // Ebenso der Quervergleich: nennt der Auftrag ihn nicht, bleibt es
-            // bei der Vorgabe dieser Anlage.
+            // Likewise the cross-check: if the job does not specify it, the
+            // local default applies.
             settings.CrossCheckOnlyKnownTargets =
                 job.CrossCheckOnlyKnown ?? Settings.CrossCheckOnlyKnownTargets;
 
@@ -1773,18 +1785,18 @@ namespace MyNetworkMonitor.Core.ViewModels
 
             DeviceStore jobStore = new();
 
-            // Fortschritt: derselbe Stand, den die oertliche Anzeige zeigt -
-            // laufendes Verfahren, sein Anteil und seine drei Zahlen.
+            // Progress: the same state the local display shows, i.e. the
+            // running method, its share and its three numbers.
             //
-            // Frueher wurde nur bei *fertigem* Verfahren gemeldet, und die
-            // Prozentzahl war der Anteil fertiger Verfahren. Bei drei
-            // Verfahren hiess das: 0, dann lange nichts, dann 33. Waehrend
-            // eines langen Verfahrens war von aussen nicht zu unterscheiden,
-            // ob der Satellit arbeitet oder haengt.
+            // Reporting only when a method *finishes*, with the percentage as
+            // the share of finished methods, would mean 0, then a long silence,
+            // then 33 for three methods. During a long method it would be
+            // impossible to tell from outside whether the satellite is working
+            // or hanging.
             int done = 0;
             List<string> completed = [];
 
-            // Der letzte bekannte Stand, aus dem jede Meldung gebaut wird.
+            // The last known state from which every report is built.
             ScanProgress? latest = null;
             DateTimeOffset lastSent = DateTimeOffset.MinValue;
             string lastMethod = string.Empty;
@@ -1796,20 +1808,20 @@ namespace MyNetworkMonitor.Core.ViewModels
 
                 return new ProgressPayload
                 {
-                    // Der Stand des laufenden Verfahrens - "Ping 40 %".
+                    // Progress of the running method, e.g. "Ping 40 %".
                     Percent = p is null || p.Total <= 0
                         ? 0
                         : (int)Math.Clamp((double)p.Current / p.Total * 100, 0, 100),
-                    // Wie oertlich mit Teilschritt - der Auftraggeber soll am
-                    // Satelliten dasselbe lesen wie vor der eigenen Anzeige.
+                    // With sub-step, as locally: the main scanner should read
+                    // the same as the satellite's own display.
                     Current = p?.Label ?? string.Empty,
                     Step = done + 1,
                     Steps = methods.Count,
                     Sent = p?.Current ?? 0,
                     Answered = p?.Responded ?? 0,
                     Total = p?.Total ?? 0,
-                    // Wie oertlich: ein Strich statt einer leeren Zeile - sonst
-                    // sieht "noch nichts fertig" aus wie "Anzeige kaputt".
+                    // As locally: a dash instead of an empty line; otherwise
+                    // "nothing finished yet" looks like "display broken".
                     Done = completed.Count == 0 ? "-" : string.Join(", ", completed),
                     Pending = Listed(methods.Select(m => m.DisplayName).Where(n => !completed.Contains(n)))
                 };
@@ -1821,15 +1833,15 @@ namespace MyNetworkMonitor.Core.ViewModels
                 }
             }
 
-            // Gemeldet wird bei Aenderung, aber hoechstens alle zwei Sekunden -
-            // und spaetestens alle zehn, auch wenn sich nichts geruehrt hat.
+            // Report on change, but at most every two seconds, and at least
+            // every ten even if nothing has changed.
             //
-            // Ungebremst waere es eine Meldung je geprueftem Ziel: bei 254
-            // Zielen und einem Dutzend Verfahren Tausende von Nachrichten,
-            // nur damit ein Balken zappelt. Ganz ohne Untergrenze stuende die
-            // Anzeige dagegen still, sobald ein Verfahren lange in
-            // Zeitueberschreitungen laeuft - und genau dann will man sehen,
-            // dass die Verbindung noch steht.
+            // Unthrottled it would be one message per checked target: with 254
+            // targets and a dozen methods thousands of messages, just to make
+            // a bar flicker. Without a minimum rate, on the other hand, the
+            // display would freeze as soon as a method runs into timeouts for
+            // a long time, which is exactly when it matters that the
+            // connection is still alive.
             TimeSpan minGap = TimeSpan.FromSeconds(2);
             TimeSpan heartbeat = TimeSpan.FromSeconds(10);
 
@@ -1839,9 +1851,9 @@ namespace MyNetworkMonitor.Core.ViewModels
 
                 lock (progressSync)
                 {
-                    // Vor der ersten Meldung der Engine gibt es nichts zu
-                    // berichten. Der Taktgeber wuerde sonst das "starting"
-                    // durch eine leere Zeile ersetzen.
+                    // Before the engine's first report there is nothing to
+                    // send. Otherwise the heartbeat would replace "starting"
+                    // with an empty line.
                     if (latest is null) return;
 
                     DateTimeOffset now = DateTimeOffset.UtcNow;
@@ -1866,9 +1878,9 @@ namespace MyNetworkMonitor.Core.ViewModels
                     if (methodChanged) lastMethod = p.MethodName;
                 }
 
-                // Ein Verfahrenswechsel geht sofort raus: darauf wartet man,
-                // und zwei Sekunden spaeter waere die Zahl daneben schon eine
-                // andere.
+                // A method change is sent immediately: it is what the other
+                // side waits for, and two seconds later the number next to it
+                // would already be different.
                 SendProgress(methodChanged);
             }
 
@@ -1886,7 +1898,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             _engine.MethodFinished += OnFinished;
             _engine.ProgressChanged += OnEngineProgress;
 
-            // Der Taktgeber fuer den Fall, dass sich nichts aendert.
+            // The heartbeat for the case that nothing changes.
             using CancellationTokenSource beatStop = CancellationTokenSource.CreateLinkedTokenSource(token);
 
             Task beat = Task.Run(async () =>
@@ -1902,10 +1914,10 @@ namespace MyNetworkMonitor.Core.ViewModels
                 catch (OperationCanceledException) { }
             }, CancellationToken.None);
 
-            // Der Abbruch muss die Engine anhalten, nicht nur das Warten
-            // beenden. Ohne das liefe der Scan nach einem Stopp weiter, waehrend
-            // oben schon "abgebrochen" gemeldet wird - genau so, wie es der
-            // oertliche Stopp-Knopf mit _engine.Stop() macht.
+            // Cancellation must stop the engine, not only end the wait.
+            // Otherwise the scan would continue after a stop while
+            // "cancelled" is already reported, so this does what the local
+            // stop button does with _engine.Stop().
             using CancellationTokenRegistration stopOnCancel = token.Register(() => _engine.Stop());
 
             try
@@ -1925,15 +1937,12 @@ namespace MyNetworkMonitor.Core.ViewModels
             }
             catch (OperationCanceledException)
             {
-                // Abbruch wirft den Fund nicht weg: was bis dahin gefunden
-                // wurde, geht zurueck an den Auftraggeber.
+                // Cancellation does not discard the findings: what was found
+                // up to that point goes back to the main scanner.
                 //
-                // Frueher wurde hier nichts geliefert, damit ein halbes
-                // Ergebnis nicht wie ein vollstaendiges aussieht. Der Einwand
-                // bleibt richtig - nur ist die Antwort darauf, das Ergebnis zu
-                // kennzeichnen, und nicht, die Arbeit wegzuwerfen. Der
-                // Auftraggeber markiert es als abgebrochen (siehe
-                // MessageType.Result, Feld Partial).
+                // A partial result must not look complete; the answer is to
+                // mark it, not to discard the work. The main scanner marks it
+                // as cancelled (see MessageType.Result, field Partial).
             }
             finally
             {
@@ -1956,14 +1965,10 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Traegt nach, welche Bereiche auf den gerade gewaehlten Satelliten
-        /// zeigen - fuer die Anzeige in der Satellitenverwaltung.
-        /// </summary>
-        /// <summary>
-        /// Ein Bereich hat sich geaendert. Nur die Felder, die in der Liste
-        /// stehen, loesen ein Neubauen aus - <c>IsSelected</c> etwa aendert
-        /// sich bei jedem Haken im Kommandobalken und haette die Liste sonst
-        /// dauernd neu gebaut.
+        /// A scope has changed. Only the fields shown in the list trigger a
+        /// rebuild; <c>IsSelected</c>, for example, changes with every check
+        /// mark in the command bar and would otherwise rebuild the list
+        /// constantly.
         /// </summary>
         private void OnScopeChangedForSatellite(object? sender, PropertyChangedEventArgs e)
         {
@@ -1981,15 +1986,14 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Schreibt Bereiche, die noch auf den <em>Namen</em> eines Satelliten
-        /// zeigen, einmalig auf dessen Kennung um.
+        /// Rewrites scopes that still point at a satellite's <em>name</em> to
+        /// its identifier, once.
         /// <para>
-        /// Wird beim Laden aufgerufen. Findet sich kein Satellit des Namens,
-        /// wird der Wert geleert: der Bereich laeuft dann von diesem Rechner
-        /// aus. Ein Wert, der zu keinem Eintrag passt, laesst die Auswahl in
-        /// der Maske leer stehen - und was dort leer steht, muss auch leer
-        /// bedeuten, sonst fragt der Lauf nach einem Satelliten, der in der
-        /// Maske gar nicht auftaucht.
+        /// Called on loading. If no satellite of that name exists, the value is
+        /// cleared and the scope runs from this machine. A value that matches
+        /// no entry leaves the selection in the form empty, and what is shown
+        /// empty must mean empty; otherwise the run would ask for a satellite
+        /// that does not appear in the form.
         /// </para>
         /// </summary>
         public void MigrateScannedByToIds()
@@ -2012,6 +2016,10 @@ namespace MyNetworkMonitor.Core.ViewModels
             if (changed > 0) ScopeEditor.Save();
         }
 
+        /// <summary>
+        /// Updates which scopes point at the currently selected satellite, for
+        /// the display in the satellite management.
+        /// </summary>
         public void RefreshRangesOfSatellite()
         {
             SatelliteEditor.RangesOfSelected.Clear();
@@ -2033,7 +2041,10 @@ namespace MyNetworkMonitor.Core.ViewModels
             }
         }
 
-        /// <summary>Mischt ein Ergebnis ein, das ein Satellit geschickt hat.</summary>
+        /// <summary>Merges a result sent by a satellite.</summary>
+        /// <param name="satelliteName">The satellite name, for the status line.</param>
+        /// <param name="devicesJson">The devices found, as JSON.</param>
+        /// <param name="partial">The job was cancelled and the scope not fully scanned.</param>
         public void MergeSatelliteResult(string satelliteName, string devicesJson, bool partial = false)
         {
             try
@@ -2041,9 +2052,9 @@ namespace MyNetworkMonitor.Core.ViewModels
                 List<Device> devices = DeviceStoreFile.FromJson(devicesJson);
                 int taken = _store.MergeFrom(devices);
 
-                // Beim Abbruch steht dabei, dass der Lauf nicht durch war.
-                // Die Geraete sind echt - aber die Abwesenheit eines Geraets
-                // sagt hier nichts, und genau das muss an der Meldung haengen.
+                // On cancellation the message states that the run did not
+                // complete. The devices are real, but the absence of a device
+                // means nothing here, and the message must say so.
                 StatusText = partial
                     ? $"\"{satelliteName}\" was stopped - {taken} device(s) found so far (range not fully scanned)."
                     : $"\"{satelliteName}\" reported {taken} device(s).";
@@ -2061,14 +2072,19 @@ namespace MyNetworkMonitor.Core.ViewModels
             }
         }
 
+        /// <summary>
+        /// The actual run. Shared by the full scan and the rescan of
+        /// individual devices; the two differ only in the scopes, everything
+        /// before and after is the same.
+        /// </summary>
         private async Task RunAsync(List<ScanScope> scopes)
         {
-            // Ganz am Anfang, noch vor "Scan running..." und dem Ablaufplan:
-            // kann dieser Lauf ueberhaupt etwas finden? Sind alle gewaehlten
-            // Verfahren auf bekannte Geraete beschraenkt und es gibt keine,
-            // laeuft er ins Leere - siehe die Erklaerung an der Pruefung.
-            // Weiter unten gefragt, staende waehrend der Rueckfrage schon
-            // "Scan running..." in der Zeile, obwohl noch nichts laeuft.
+            // At the very beginning, before "Scan running..." and the plan:
+            // can this run find anything at all? If all selected methods are
+            // restricted to known devices and there are none, it runs empty;
+            // see the explanation at ConfirmRunWithoutTargetsAsync. Asked
+            // later, the line would already show "Scan running..." during the
+            // question although nothing is running yet.
             if (!await ConfirmRunWithoutTargetsAsync(
                     [.. scopes.Where(s => !s.IsScannedRemotely)],
                     [.. scopes.Where(s => s.IsScannedRemotely)]))
@@ -2082,25 +2098,24 @@ namespace MyNetworkMonitor.Core.ViewModels
             LastSkipped.Clear();
             StatusText = "Scan running...";
 
-            // Sonst stehen an den nicht gewaehlten Verfahren noch die Zahlen
-            // des vorherigen Laufs, als haetten sie gerade gearbeitet.
+            // Otherwise the unselected methods would still show the numbers of
+            // the previous run, as if they had just worked.
             foreach (ScanMethodChoice method in Methods) method.ResetProgress();
 
-            // Wirksam gegen die Bereiche dieses Laufs, nicht gegen die global
-            // angehakten. Beim erneuten Scannen einzelner Geraete kommen die
-            // Ziele aus der Tabelle, und dann ist oft gar kein Bereich gewaehlt -
-            // gegen die leere Auswahl gemessen waere jedes Verfahren
-            // "nicht anwendbar" und der Lauf bliebe leer. Fuer den normalen Scan
-            // sind die uebergebenen Bereiche die gewaehlten, das Ergebnis ist
-            // dasselbe wie zuvor.
+            // Effective against the scopes of this run, not the globally
+            // checked ones. When rescanning individual devices the targets come
+            // from the table, and often no scope is selected; measured against
+            // the empty selection every method would be "not applicable" and
+            // the run would stay empty. For the normal scan the passed scopes
+            // are the selected ones, so the result is the same.
             ScanContext runProbe = BuildProbeContext(ScopeRuntimeFactory.Build(scopes));
 
             List<ScanMethodChoice> chosen =
                 [.. Methods.Where(m => m.IsSelected && m.Method.CheckAvailability(runProbe).CanRun)];
             List<string> methods = [.. chosen.Select(m => m.Id)];
 
-            // Der Ablaufplan steht vor dem Start fest - die Statuszeile kann
-            // damit von Anfang an sagen, was noch kommt.
+            // The plan is fixed before the start, so the status line can tell
+            // from the beginning what is still to come.
             _planned.Clear();
             _done.Clear();
             _planned.AddRange(chosen.Select(m => m.DisplayName));
@@ -2108,32 +2123,16 @@ namespace MyNetworkMonitor.Core.ViewModels
 
             try
             {
-                // Waehrend des Laufs sammelt die Liste die Meldungen und zieht
-                // in kurzen Abstaenden nach - die Tabelle fuellt sich also,
-                // waehrend gescannt wird, statt erst am Ende auf einen Schlag.
+                // During the run the list collects the reports and catches up
+                // at short intervals, so the table fills while scanning instead
+                // of all at once at the end.
                 using (Devices.BeginLiveUpdates())
                 {
-                    // Task.Run ist hier kein Beiwerk, sondern der Grund, warum
-                    // sich die Tabelle waehrend des Laufs ueberhaupt fuellt.
-                    //
-                    // Kein Modul der Kette benutzt ConfigureAwait(false). Wird
-                    // die Engine vom Oberflaechen-Thread aus abgewartet, kehrt
-                    // damit *jede* Fortsetzung dorthin zurueck: bei 254 Zielen
-                    // sind das die Wartezeiten aller Proben, die Auswertung
-                    // jeder Antwort und die gesamte Zuordnung im Speicher - alles
-                    // auf dem einen Thread, der nebenher zeichnen soll. Die
-                    // Tabelle zieht dann zwar alle 400 ms nach, kommt aber gegen
-                    // die Flut nicht an und wirkt, als fuelle sie sich erst am
-                    // Schluss.
-                    //
-                    // Task.Run startet ohne Synchronisierungskontext; die
-                    // Fortsetzungen laufen damit im Thread-Pool, und der
-                    // Oberflaechen-Thread hat nur noch das Zeichnen zu tun.
-                    // Bereiche, die ein Satellit uebernimmt, werden hier
-                    // abgespalten und dorthin geschickt. Sie oertlich
-                    // mitzuscannen waere schlechter als gar nicht: ohne ARP,
-                    // ueber den Router, mit anderen Laufzeiten - und der
-                    // Bereich waere doppelt gescannt.
+                    // Scopes taken over by a satellite are split off here and
+                    // sent there. Scanning them locally as well would be worse
+                    // than not at all: without ARP, through the router, with
+                    // different response times, and the scope would be scanned
+                    // twice.
                     List<ScanScope> remote = [.. scopes.Where(IsAssignedToSatellite)];
                     List<ScanScope> local = [.. scopes.Where(s => !IsAssignedToSatellite(s))];
 
@@ -2142,10 +2141,9 @@ namespace MyNetworkMonitor.Core.ViewModels
 
                     if (remote.Count > 0)
                     {
-                        // Zuerst die, deren Satellit gar nicht da ist. Sie
-                        // stillschweigend zu ueberspringen war die bisherige
-                        // Regel; jetzt entscheidet der Nutzer, ob sie
-                        // ersatzweise von hier laufen sollen.
+                        // First the scopes whose satellite is not there at all.
+                        // They are not skipped silently; a confirmation decides
+                        // whether they run from here instead.
                         List<ScanScope> orphaned = [.. remote.Where(s => !IsSatelliteReady(s.ScannedBy))];
 
                         if (orphaned.Count > 0)
@@ -2172,79 +2170,90 @@ namespace MyNetworkMonitor.Core.ViewModels
                     {
                         await DispatchToSatellitesAsync(remote);
 
-                        // Sofort sichtbar machen: der Satellit arbeitet ab
-                        // jetzt, und bei einem reinen Satellitenlauf ist das
-                        // die einzige Meldung, die es zu sehen gibt.
+                        // Show it immediately: the satellite is working from
+                        // now on, and in a satellite-only run this is the only
+                        // message there is.
                         if (SatelliteScanNote.Length > 0) StatusText = WithSatelliteNotes(string.Empty);
                     }
 
                     if (local.Count == 0)
                     {
-                        // Die Engine gar nicht erst anwerfen, wenn hier nichts
-                        // zu tun ist.
+                        // Do not start the engine at all if there is nothing to
+                        // do here.
                         //
-                        // Ohne diese Sperre liefe sie mit einer leeren
-                        // Bereichsliste - und die Rundruf-Verfahren (SSDP,
-                        // mDNS, WS-Discovery) fragen nicht nach Zielen,
-                        // sondern schicken ihr Paket an alle auf den oertlichen
-                        // Adaptern. Sie faenden also Geraete *hier*, obwohl
-                        // jeder gewaehlte Bereich einem Satelliten gehoert.
-                        // Genau das darf nicht passieren: ein Bereich laeuft
-                        // entweder oertlich oder ueber einen Satelliten
-                        // (SATELLIT.md, Abschnitt 3).
+                        // Without this guard it would run with an empty scope
+                        // list, and the broadcast methods (SSDP, mDNS,
+                        // WS-Discovery) do not ask targets but send their packet
+                        // to everyone on the local adapters. They would find
+                        // devices *here* although every selected scope belongs
+                        // to a satellite. That must not happen: a scope runs
+                        // either locally or through a satellite (SATELLIT.md,
+                        // section 3).
                         StatusText = WithSatelliteNotes("Nothing runs from this machine");
 
-                        // Der Ablaufplan gehoert zum *oertlichen* Lauf - und
-                        // der findet hier nicht statt. Bliebe er stehen,
-                        // zeigte die Zeile "done: -" und saemtliche Verfahren
-                        // als ausstehend, und zwar bis zum Sankt-Nimmerleins-
-                        // Tag: es laeuft ja nichts, was sie abarbeiten
-                        // koennte. Genau daneben stuende "Nothing runs from
-                        // this machine". Wo der Satellit arbeitet, steht in
-                        // seiner eigenen Anzeige.
+                        // The plan belongs to the *local* run, which does not
+                        // take place here. If it stayed, the line would show
+                        // "done: -" and all methods as pending indefinitely,
+                        // since nothing runs that could work through them, right
+                        // next to "Nothing runs from this machine". The
+                        // satellite's progress is shown in its own display.
                         _planned.Clear();
                         _done.Clear();
                         NotifyPlanChanged();
                     }
                     else
                     {
+                        // Task.Run is not incidental here; it is the reason the
+                        // table fills during the run at all.
+                        //
+                        // No module in the chain uses ConfigureAwait(false). If
+                        // the engine is awaited from the UI thread, *every*
+                        // continuation returns there: with 254 targets that is
+                        // the waiting of all probes, the evaluation of every
+                        // answer and the whole in-memory merge, all on the one
+                        // thread that is also supposed to render. The table
+                        // then catches up every 400 ms but cannot keep up with
+                        // the flood and looks as if it fills only at the end.
+                        //
+                        // Task.Run starts without a synchronisation context;
+                        // the continuations run in the thread pool, and the UI
+                        // thread only has to render.
                         ScanRunResult result = await Task.Run(() =>
                             _engine.RunAsync(local, methods, Settings, _store));
 
-                        // Ab hier wieder auf dem Oberflaechen-Thread. Erst jetzt die
-                        // Doppelbelegungen bestimmen: die Auswertung schreibt
-                        // gebundene Eigenschaften am Geraet, und sie will den
-                        // vollstaendigen Bestand sehen - waehrend des Laufs waere
-                        // jeder Befund vorlaeufig.
+                        // Back on the UI thread from here. Determine the
+                        // address conflicts only now: the evaluation writes
+                        // bound properties on the device and needs the complete
+                        // inventory; during the run every finding would be
+                        // preliminary.
                         lock (_store.SyncRoot)
                         {
                             result.ConflictCount = DuplicateDetector.Analyze(_store.Devices);
                         }
 
-                        // Der oertliche Lauf ist durch - der Satellit meist
-                        // noch nicht. Sein Hinweis bleibt darum hinten dran
-                        // stehen, sonst sieht der Lauf beendet aus, waehrend
-                        // ein Teil der Bereiche noch gescannt wird.
+                        // The local run is finished, the satellite usually not
+                        // yet. Its notice therefore stays appended; otherwise
+                        // the run would look finished while some scopes are
+                        // still being scanned.
                         StatusText = WithSatelliteNotes(Describe(result));
 
-                        // Der Quervergleich haengt am Ergebnis des Laufs und
-                        // laeuft darum danach, nicht als eigenes Verfahren mittendrin.
+                        // The cross-check depends on the run's result and
+                        // therefore runs afterwards, not as a method in between.
                         //
-                        // Ueber "local" und nicht ueber alle Bereiche: die
-                        // Namensserver eines Satellitenbereichs stehen in
-                        // dessen Segment. Von hier aus befragt, laufen sie ins
-                        // Leere oder - schlimmer - antwortet ein gleichnamiger
-                        // Server hier, und der Vergleich meldete eine
-                        // Abweichung, die es gar nicht gibt.
+                        // Over "local" and not all scopes: the DNS servers of a
+                        // satellite scope are in its segment. Queried from
+                        // here they do not answer, or worse, a server of the
+                        // same name answers here and the comparison reports a
+                        // mismatch that does not exist.
                         if (Settings.CrossCheckDnsServers && !result.WasCancelled)
                         {
                             await CrossCheckDnsAsync(local);
                         }
                     }
 
-                    // Die Regeln laufen von selbst, sobald der Lauf durch ist -
-                    // ein Befund, den man erst durch einen Klick sichtbar
-                    // machen muss, wird nicht gefunden.
+                    // The rules run automatically once the run is finished; a
+                    // finding that needs a click to become visible goes
+                    // unnoticed.
                     FindingsView.Refresh();
                 }
             }
@@ -2262,13 +2271,12 @@ namespace MyNetworkMonitor.Core.ViewModels
             }
         }
 
-        // ------------------------------------------------- DNS-Quervergleich
+        // ------------------------------------------------- DNS cross-check
 
         /// <summary>
-        /// Prueft nach einem Lauf jede aufgeloeste Adresse gegen jeden bekannten
-        /// Namensserver einzeln. Die Server kommen aus den Bereichen, die
-        /// gerade gescannt wurden - sonst pruefte man gegen andere Server als
-        /// die, mit denen der Lauf gearbeitet hat.
+        /// After a run, checks every resolved address against each known DNS
+        /// server individually. The servers come from the scopes just scanned;
+        /// otherwise the check would use different servers than the run.
         /// </summary>
         private async Task CrossCheckDnsAsync(List<ScanScope> scopes)
         {
@@ -2281,8 +2289,8 @@ namespace MyNetworkMonitor.Core.ViewModels
 
             lock (_store.SyncRoot)
             {
-                // Nur Geraete mit Namen: wo nie ein Name im Spiel war, gibt es
-                // auch nichts, worueber die Server sich uneinig sein koennten.
+                // Only devices with names: where no name was ever involved,
+                // there is nothing the servers could disagree on.
                 devices = [.. _store.Devices.Where(d => d.PrimaryAddress is not null
                                                      && (d.WasLookedUp || d.HostName.Length > 0)
                                                      && (!Settings.CrossCheckOnlyKnownTargets || d.IsOnline))];
@@ -2308,8 +2316,8 @@ namespace MyNetworkMonitor.Core.ViewModels
                 }
                 catch (Exception)
                 {
-                    // Ein Geraet, das sich nicht pruefen laesst, darf den
-                    // Vergleich der uebrigen nicht beenden.
+                    // A device that cannot be checked must not end the
+                    // comparison of the others.
                 }
             }
 
@@ -2319,9 +2327,9 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Derselbe Vergleich fuer die markierten Zeilen, aus dem Kontextmenue.
-        /// Das Werkzeug fuer den Einzelfall: man hat ein Geraet im Verdacht und
-        /// will wissen, ob alle Server dasselbe dazu sagen.
+        /// The same comparison for the selected rows, from the context menu.
+        /// The tool for a single suspicious device: do all servers say the
+        /// same about it?
         /// </summary>
         [RelayCommand]
         private async Task ResolveAcrossDnsServersAsync()
@@ -2355,9 +2363,9 @@ namespace MyNetworkMonitor.Core.ViewModels
                     device.DnsCrossCheck = check;
                     if (check.HasMismatch) mismatches++;
 
-                    // Auch ins Detailpanel, nicht nur in die Befunde: wer
-                    // gezielt ein Geraet prueft, will die Antworten aller
-                    // Server nebeneinander sehen - auch die uebereinstimmenden.
+                    // Also into the detail panel, not only the findings: a
+                    // targeted check of one device shows the answers of all
+                    // servers side by side, including the matching ones.
                     device.Details["DNS servers"] = check.Report;
                     device.NotifyDisplayChanged();
                 }
@@ -2376,12 +2384,12 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Sucht einen einzelnen Dienst ueber den gesamten Portbereich.
+        /// Searches the whole port range for a single service.
         /// <para>
-        /// Der Fall, fuer den es das gibt: ein Dienst laeuft, aber nicht auf
-        /// seinem ueblichen Port, und der regulaere Scan sieht ihn darum nie.
-        /// Alle 65 536 Ports dauern - darum je Aufruf ein Geraet und ein
-        /// Dienst, statt es beilaeufig im grossen Lauf mitzuschleppen.
+        /// For the case where a service runs, but not on its usual port, so the
+        /// regular scan never sees it. All 65,536 ports take time, hence one
+        /// device and one service per call instead of including it in the
+        /// full run.
         /// </para>
         /// </summary>
         [RelayCommand]
@@ -2405,18 +2413,18 @@ namespace MyNetworkMonitor.Core.ViewModels
             IsRunning = true;
             OnPropertyChanged(nameof(CanStart));
 
-            // Dieselbe Dienstdatei wie der regulaere Dienstscan - sonst suchte
-            // die Portsuche nach einem anderen Dienst als der, den man in der
-            // Dienstverwaltung eingestellt hat.
+            // The same service file as the regular service scan; otherwise the
+            // port search would look for a different service definition than
+            // the one configured in the service management.
             ScanningMethod_Services scanner = new(
                 Path.Combine(SettingsFolder ?? string.Empty, "services.xml"));
 
-            // Ab hier ist die Suche fuer den Stop-Knopf erreichbar.
+            // From here on the search is reachable by the stop button.
             _portSearch = scanner;
             _portSearchStopped = false;
 
-            // Auch hier ueber den Oberflaechen-Thread: die Suche laeuft im
-            // Thread-Pool, und der Fortschrittsbalken ist gebunden.
+            // Through the UI thread here as well: the search runs in the
+            // thread pool, and the progress bar is bound.
             void OnProgress(int current, int responded, int total) => OnUi(() =>
             {
                 ProgressCurrent = current;
@@ -2431,15 +2439,15 @@ namespace MyNetworkMonitor.Core.ViewModels
 
                 scanner.FindServicePortProgressUpdated += OnProgress;
 
-                // Wie beim grossen Lauf in den Thread-Pool: 65 536 Proben mit
-                // ihren Fortsetzungen auf dem Oberflaechen-Thread legen das
-                // Fenster lahm - bis hin zum Stop-Knopf, der dann nicht mehr
-                // rechtzeitig drankommt.
+                // Into the thread pool, as with the full run: 65,536 probes
+                // with their continuations on the UI thread would freeze the
+                // window, including the stop button, which would then not
+                // respond in time.
                 IPToScan found = await Task.Run(() => scanner.FindServicePortAsync(
                     new IPToScan { IPorHostname = address }, service));
 
-                // Offen oder antwortend zaehlt. "Filtered" heisst, dass eine
-                // Firewall dazwischensteht - das ist kein Fund des Dienstes.
+                // Open or responding counts. "Filtered" means a firewall is in
+                // between; that is not a finding of the service.
                 List<int> ports = [.. found.Services.Services
                     .Where(s => s.Service == service)
                     .SelectMany(s => s.Ports)
@@ -2450,32 +2458,32 @@ namespace MyNetworkMonitor.Core.ViewModels
 
                 if (ports.Count == 0)
                 {
-                    // Ein Abbruch ist kein Befund: bis wohin gesucht wurde,
-                    // weiss der Nutzer, alles dahinter ist ungeprueft.
+                    // A cancellation is not a finding: everything beyond the
+                    // point reached is unchecked.
                     StatusText = _portSearchStopped
                         ? $"Port search for {service} on {device.DisplayName} was cancelled."
                         : $"{service} was not found on any port of {device.DisplayName}.";
                     return;
                 }
 
-                // Der eigentliche Fund gehoert in die Dienstliste des Geraets -
-                // dorthin, wo auch der regulaere Dienstscan seine Treffer
-                // ablegt. Vorher stand er nur in der Statuszeile und in einer
-                // Detailzeile: die Spalte "Running services", der Dienstfilter
-                // und die Portzaehlung wussten nichts davon, und beim naechsten
-                // Speichern war die Suche ueber 65 536 Ports verloren.
+                // The actual finding belongs in the device's service list,
+                // where the regular service scan stores its hits too. Kept only
+                // in the status line and a detail row, the "Running services"
+                // column, the service filter and the port count would know
+                // nothing of it, and the search over 65,536 ports would be lost
+                // on the next save.
                 MergeFoundPorts(device, service, found);
 
-                // Der Vermerk bleibt zusaetzlich stehen: er haelt fest, dass
-                // dieser Port aus der Suche ueber den ganzen Bereich stammt und
-                // nicht aus der regulaeren Portauswahl.
+                // The detail note is kept in addition: it records that this port
+                // comes from the full-range search, not from the regular port
+                // selection.
                 device.Details[$"{service} port search"] =
                     $"found on port {string.Join(", ", ports)}";
                 device.NotifyDisplayChanged();
 
-                // Die Dienstauswahl und die Facettenzaehlung werden aus dem
-                // Bestand aufgebaut - ohne diesen Anstoss taucht ein Dienst,
-                // den es bisher nirgends gab, im Filter nicht auf.
+                // The service selection and the facet counts are built from the
+                // inventory; without this trigger a service not seen before
+                // would not appear in the filter.
                 Devices.Refresh();
 
                 StatusText = $"{service} answers on port {string.Join(", ", ports)} " +
@@ -2499,18 +2507,18 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Traegt die Funde der Portsuche in die Dienstliste des Geraets ein.
+        /// Adds the findings of the port search to the device's service list.
         /// <para>
-        /// Bewusst ueber <c>Observe</c> und nicht durch direktes Anhaengen an
-        /// <c>device.Services</c>: die Zusammenfuehrung im Speicher entscheidet
-        /// nach Dienst <b>und</b> Ports, ob ein Befund neu ist oder einen
-        /// bestehenden ergaenzt. Wer daran vorbei einfuegt, bekommt denselben
-        /// Dienst zweimal in der Liste, sobald die Suche wiederholt wird.
+        /// Deliberately through <c>Observe</c> rather than appending to
+        /// <c>device.Services</c> directly: the in-memory merge decides by
+        /// service <b>and</b> ports whether a finding is new or extends an
+        /// existing one. Bypassing it puts the same service in the list twice
+        /// as soon as the search is repeated.
         /// </para>
         /// <para>
-        /// Uebernommen wird nur, was geantwortet hat. "Filtered" oder "keine
-        /// Antwort" ueber 65 536 Ports waere kein Befund, sondern das Protokoll
-        /// eines Versuchs - und wuerde die Dienstliste zumuellen.
+        /// Only what answered is taken over. "Filtered" or "no answer" over
+        /// 65,536 ports would not be a finding but the log of an attempt, and
+        /// would clutter the service list.
         /// </para>
         /// </summary>
         private void MergeFoundPorts(Device device, ServiceType service, IPToScan found)
@@ -2528,11 +2536,12 @@ namespace MyNetworkMonitor.Core.ViewModels
                     if (port.Status is not (PortStatus.Open or PortStatus.IsRunning)) continue;
                     if (port.Ports is not { Count: > 0 }) continue;
 
-                    // Wie im Scan: den Namen des gesuchten Dienstes traegt nur
-                    // der Port, dessen Antwort zum Protokoll gepasst hat. Ueber
-                    // 65 536 Ports ist das der Unterschied zwischen einem Fund
-                    // und einer Liste, in der jeder offene Port des Geraets den
-                    // Namen des gesuchten Dienstes truege.
+                    // As in the scan: only the port whose answer matched the
+                    // protocol carries the name of the searched service. Over
+                    // 65,536 ports that is the difference between a finding
+                    // and a list in which every open port of the device would
+                    // carry the name of the searched service. See
+                    // docs/FEHLERGEDAECHTNIS.md, No. 2.
                     bool unidentifiedOpen = port.Status == PortStatus.Open && port.Ports.Count == 1;
 
                     DeviceServiceResult result = new()
@@ -2552,18 +2561,18 @@ namespace MyNetworkMonitor.Core.ViewModels
 
             if (results.Count == 0) return;
 
-            // Wie im vollen Lauf: was die Industrieprotokolle ueber sich
-            // erzaehlen, gehoert in die Details und nicht nur in die Zeile
-            // "laeuft".
+            // As in the full run: what the industrial protocols report about
+            // themselves belongs in the details, not only in the "running"
+            // row.
             Dictionary<string, string>? details = null;
 
             string? label = ServiceNames.InfoLabelOf(service);
 
             if (!string.IsNullOrEmpty(label))
             {
-                // Wie im vollen Lauf: der blosse Bestaetigungssatz einer
-                // geglueckten Erkennung ist keine Auskunft und gehoert nicht
-                // unter eine Ueberschrift in den Details.
+                // As in the full run: the mere confirmation sentence of a
+                // successful detection is no information and does not belong
+                // under a heading in the details.
                 string? log = results
                     .FirstOrDefault(r => r.IsRunning && LegacyScanMethod.IsDeviceInfo(r.PortLog))?.PortLog;
 
@@ -2584,16 +2593,16 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Die Dienste, die die Portsuche anbietet - dieselbe Aufzaehlung, die
-        /// auch der Dienstscan kennt.
+        /// The services offered by the port search; the same enumeration the
+        /// service scan uses.
         /// </summary>
         public static IReadOnlyList<ServiceType> AllServiceTypes { get; } =
             [.. Enum.GetValues<ServiceType>()];
 
         /// <summary>
-        /// Bricht ab, was gerade laeuft - den Scan der Engine <b>und</b> eine
-        /// Portsuche daneben. Die beiden sind getrennte Laeufe; der Knopf ist
-        /// fuer den Nutzer trotzdem derselbe.
+        /// Cancels whatever is running: the engine's scan <b>and</b> a port
+        /// search alongside it. The two are separate runs, but they share one
+        /// button.
         /// </summary>
         [RelayCommand]
         private void Stop()
@@ -2606,13 +2615,14 @@ namespace MyNetworkMonitor.Core.ViewModels
                 _portSearch.StopScan();
             }
 
-            // Satelliten bleiben hier aussen vor: ihr Auftrag wird einzeln in
-            // der Satellitenverwaltung gestoppt. Ein Knopf, der alle Segmente
-            // auf einmal abraeumt, waere zu grob - meist will man genau den
-            // einen freibekommen, der haengt.
+            // Satellites are excluded here: their job is stopped individually
+            // in the satellite management. A button that clears all segments at
+            // once would be too coarse; usually exactly the one that hangs
+            // needs to be freed.
             StatusText = "Cancelling...";
         }
 
+        /// <summary>Clears the device table and the run plan.</summary>
         [RelayCommand]
         private void ClearResults()
         {
@@ -2627,9 +2637,8 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Fasst den Lauf in einem Satz zusammen. Uebersprungene Verfahren
-        /// werden genannt, nicht verschwiegen - sonst wundert man sich, warum
-        /// Ergebnisse fehlen.
+        /// Summarises the run in one sentence. Skipped methods are mentioned,
+        /// not concealed; otherwise missing results would be unexplained.
         /// </summary>
         private string Describe(ScanRunResult result)
         {
@@ -2649,8 +2658,8 @@ namespace MyNetworkMonitor.Core.ViewModels
             int failed = result.Failed.Count();
             if (failed > 0) summary += $" {failed} failed.";
 
-            // Der Befund gehoert an den Anfang des Satzes, nicht ans Ende: er
-            // ist der Grund, aus dem man ueberhaupt gescannt hat.
+            // The finding goes at the start of the sentence, not the end: it is
+            // the reason for scanning in the first place.
             if (result.ConflictCount > 0)
             {
                 summary = $"{result.ConflictCount} device(s) with duplicate addresses or names. " + summary;
@@ -2660,15 +2669,15 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Ein Kontext ohne Ziele, nur zur Verfuegbarkeitspruefung. Die
-        /// Bereiche stehen darin vollstaendig - daran haengt die
-        /// IPv6-Beurteilung -, die Zielaufzaehlung waere hier aber
-        /// verschwendet, weil sie bei jedem Haken neu liefe.
+        /// A context with sample targets only, for the availability
+        /// check. It contains the scopes completely (the IPv6 assessment
+        /// depends on them), but enumerating the targets would be wasted here
+        /// because it would run again on every check mark.
         /// </summary>
         private ScanContext BuildProbeContext(IReadOnlyList<ScopeRuntime>? forRuntimes = null)
         {
-            // Ein einzelnes Ziel je Bereich genuegt, damit die Verfahren die
-            // vorhandenen Adressfamilien erkennen.
+            // One or two sample targets per scope are enough for the methods
+            // to recognise the address families present.
             List<ScanTargetEntry> sample = [];
             IReadOnlyList<ScopeRuntime> runtimes = forRuntimes ?? _lastRuntimes;
 

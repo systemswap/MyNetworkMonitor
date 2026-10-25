@@ -6,30 +6,29 @@ using MyNetworkMonitor.Core.Network;
 namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 {
     /// <summary>
-    /// Bildet aus jeder bereits bekannten MAC-Adresse die zugehoerige
-    /// EUI-64-Adresse und prueft sie.
+    /// Builds the corresponding EUI-64 address from every MAC address already
+    /// known and probes it.
     /// <para>
-    /// Der Kunstgriff: eine MAC-Adresse laesst sich nach RFC 4291 eindeutig in
-    /// einen 64 Bit langen Interface-Identifier umrechnen - <c>ff:fe</c> in die
-    /// Mitte, ein Bit umkippen. Ein Geraet, das seine IPv6-Adresse auf diese
-    /// klassische Weise bildet, hat damit eine <b>vorhersagbare</b> Adresse.
-    /// Aus 254 IPv4-Funden des Ping-Durchlaufs werden so 254 gezielte
-    /// IPv6-Proben statt 18 Trillionen Moeglichkeiten.
+    /// The technique: a MAC address converts unambiguously into a 64-bit
+    /// interface identifier (modified EUI-64, RFC 4291, appendix A): insert
+    /// <c>ff:fe</c> in the middle and flip one bit. A device that forms its
+    /// IPv6 address in this classic way therefore has a <b>predictable</b>
+    /// address. 254 IPv4 findings of the ping pass thus become 254 targeted
+    /// IPv6 probes instead of 18 quintillion possibilities.
     /// </para>
     /// <para>
-    /// <b>Steht am Ende der Suchstufe, und das ist keine Geschmacksfrage.</b>
-    /// Das Verfahren lebt von dem, was ARP, Ping und der Neighbor Cache vorher
-    /// eingesammelt haben - laeuft es zuerst, kennt es keine einzige MAC und
-    /// findet nichts. Die Engine fuehrt die Verfahren einer Stufe in der
-    /// Reihenfolge ihrer Registrierung aus; deshalb wird es dort als letztes
-    /// eingetragen.
+    /// <b>Runs at the end of the discovery phase, which is not a matter of
+    /// taste.</b> The method depends on what ARP, ping and the neighbor cache
+    /// have collected; run first, it knows no MAC and finds nothing. The
+    /// engine runs the methods of a phase in registration order, so this
+    /// method is registered last.
     /// </para>
     /// <para>
-    /// Nicht voreingestellt: es findet nur Geraete, die ihre Adresse noch aus
-    /// der MAC bilden. Windows und die Mobilbetriebssysteme tun das seit Jahren
-    /// nicht mehr, sie wuerfeln (Privacy Extensions). Drucker, Kameras,
-    /// Steuerungen und aeltere eingebettete Geraete dagegen schon - und die
-    /// sind haeufig genau die, die man sucht.
+    /// Not preselected: it only finds devices that still derive their address
+    /// from the MAC. Windows and the mobile operating systems use random
+    /// interface identifiers (privacy extensions) instead. Printers, cameras,
+    /// controllers and older embedded devices still use EUI-64, and they are
+    /// often exactly the devices being looked for.
     /// </para>
     /// </summary>
     public sealed class Ipv6Eui64ScanMethod : Ipv6MethodBase
@@ -54,8 +53,8 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             ScanMethodAvailability basic = base.CheckAvailability(context);
             if (!basic.CanRun) return basic;
 
-            // Ohne bekannte MAC-Adressen gibt es nichts zu rechnen. Das ist
-            // kein Fehler, sondern heisst: erst suchen lassen, dann hierher.
+            // Without known MAC addresses there is nothing to calculate. Not an
+            // error; it means the discovery methods have to run first.
             if (KnownMacs(context).Count == 0)
             {
                 return ScanMethodAvailability.NotApplicable(
@@ -107,13 +106,12 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         }
 
         /// <summary>
-        /// Alle MAC-Adressen aus dem bisherigen Bestand.
+        /// All MAC addresses in the store so far.
         /// <para>
-        /// Adressen, die bereits als EUI-64 vorliegen, werden dabei nicht
-        /// ausgelassen: dass ein Geraet unter <em>einem</em> Praefix so
-        /// adressiert ist, heisst nicht, dass es unter den uebrigen fehlt.
-        /// Doppelte Ziele faengt die Menge in
-        /// <see cref="ExecuteAsync"/> ab.
+        /// Addresses already present as EUI-64 are not skipped: that a device
+        /// is addressed this way under <em>one</em> prefix does not mean it is
+        /// absent under the others. Duplicate targets are filtered by the set
+        /// in <see cref="ExecuteAsync"/>.
         /// </para>
         /// </summary>
         private static List<PhysicalAddress> KnownMacs(ScanContext context)

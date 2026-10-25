@@ -13,14 +13,12 @@ using MyNetworkMonitor.Core.Services;
 namespace MyNetworkMonitor.Core.ViewModels
 {
     /// <summary>
-    /// Die Verwaltung der Satelliten: Liste links, Maske rechts - dasselbe
-    /// Muster wie bei den Bereichen.
+    /// Management of the satellites: list on the left, form on the right, the
+    /// same pattern as for the scopes.
     /// <para>
-    /// Der Entwurf steht in SATELLIT.md. Solange der Satellitenbetrieb nicht
-    /// gebaut ist, legt man Eintraege von Hand an: Name vergeben, Bereiche
-    /// darauf zeigen lassen, fertig. Sobald sich ein Satellit meldet, traegt
-    /// er Fingerabdruck, Version und Herkunft selbst nach und wartet auf die
-    /// Freigabe.
+    /// The design is described in SATELLIT.md. Entries are created when a
+    /// satellite connects: it reports its name, fingerprint, version and
+    /// origin itself and waits for approval.
     /// </para>
     /// </summary>
     public partial class SatelliteEditorViewModel : ObservableObject
@@ -30,14 +28,14 @@ namespace MyNetworkMonitor.Core.ViewModels
         private bool _loading;
 
         /// <summary>
-        /// Ob in dieser Instanz ueberhaupt etwas an den Listen geaendert wurde.
+        /// Whether this instance has changed anything in the lists at all.
         /// <para>
-        /// Beide Dateien liegen maschinenweit, und auf einem Rechner koennen
-        /// zwei Instanzen laufen - der Hauptscanner hat keine Empfaenger, der
-        /// Satellit keine Satelliten. Ohne diese Merker schriebe jede von
-        /// beiden der anderen ihre Liste leer, sobald sie sich schliesst.
-        /// Beobachtet als <c>mainScanners.json</c> mit dem Inhalt <c>[]</c>,
-        /// woraufhin der Dienst keinen Hauptscanner mehr fand.
+        /// Both files are machine-wide, and two instances can run on one
+        /// computer: the main scanner has no receivers, the satellite has no
+        /// satellites. Without these flags each of them would overwrite the
+        /// other's list with an empty one when it closes; the symptom is a
+        /// <c>mainScanners.json</c> containing <c>[]</c>, after which the
+        /// service finds no main scanner.
         /// </para>
         /// </summary>
         private bool _satellitesChanged;
@@ -45,56 +43,59 @@ namespace MyNetworkMonitor.Core.ViewModels
         private bool _hostsChanged;
 
         /// <summary>
-        /// Wo Schluessel, Satellitenliste und Hostliste liegen - maschinenweit,
-        /// damit der Dienst dieselben Dateien liest wie die Oberflaeche.
+        /// Where key, satellite list and host list are stored: machine-wide, so
+        /// the service reads the same files as the UI.
         /// </summary>
         private static string StateFolder => AppPaths.MachineFolder;
 
-        /// <summary>Alle Satelliten - die Liste, an der auch die Bereichsmaske haengt.</summary>
+        /// <summary>All satellites; the scope form binds to the same list.</summary>
         public ObservableCollection<Satellite> All { get; } = [];
 
+        /// <summary>The satellite shown in the form.</summary>
         [ObservableProperty] private Satellite? _selected;
 
+        /// <summary>The status line text of the satellite list.</summary>
         [ObservableProperty] private string _status = string.Empty;
 
         /// <summary>
-        /// Ein Eintrag der Auswahl "Scanned by satellite" in der Bereichsmaske.
+        /// An entry of the "Scanned by satellite" selection in the scope form.
         /// <para>
-        /// Angezeigt wird Name und Netz, gespeichert wird allein die Kennung.
-        /// Beides zu trennen ist noetig, seit ein Satellit seinen Namen selbst
-        /// aendern kann: stuende der Name im Bereich, liefe die Zuordnung nach
-        /// einer Umbenennung ins Leere - und zwar stumm, der Bereich wuerde
-        /// einfach nicht mehr gescannt.
+        /// Name and network are displayed; only the identifier is stored. The
+        /// separation is necessary because a satellite can change its own name:
+        /// if the scope stored the name, the assignment would break after a
+        /// rename, silently, and the scope would no longer be scanned.
         /// </para>
         /// </summary>
         public sealed class SatelliteChoice
         {
-            /// <summary>Die Kennung, die im Bereich landet. Leer heisst "von hier aus".</summary>
+            /// <summary>The identifier stored in the scope. Empty means "from this machine".</summary>
             public required string Id { get; init; }
 
-            /// <summary>Was in der Auswahl steht - Name und Netz.</summary>
+            /// <summary>The text shown in the selection: name and network.</summary>
             public required string Display { get; init; }
 
-            /// <summary>Alle Netze des Satelliten, fuer den Tooltip.</summary>
+            /// <summary>All networks of the satellite, for the tooltip.</summary>
             public string Networks { get; init; } = string.Empty;
 
             public override string ToString() => Display;
         }
 
         /// <summary>
-        /// Die Auswahl fuer die Bereichsmaske, mit einem leeren Eintrag voran -
-        /// der bedeutet "von diesem Rechner aus".
+        /// The selection for the scope form, led by an empty entry that means
+        /// "from this machine".
         /// </summary>
         public ObservableCollection<SatelliteChoice> SatellitesForPicker { get; } =
             [new SatelliteChoice { Id = string.Empty, Display = "(this machine)" }];
 
-        /// <summary>Meldet sich, wenn ein Eintrag hinzukam, wegfiel oder sich aenderte.</summary>
+        /// <summary>Raised when an entry was added, removed or changed.</summary>
         public event Action? NamesChanged;
 
         /// <summary>
-        /// Der Anzeigename zu einer Kennung - fuer Meldungen und Listen.
-        /// Unbekannte Kennung heisst: der Satellit wurde geloescht.
+        /// The display name for an identifier, for messages and lists. An
+        /// unknown identifier means the satellite was deleted.
         /// </summary>
+        /// <param name="id">The satellite identifier.</param>
+        /// <returns>The name; empty for a blank identifier, "(unknown satellite)" if none matches.</returns>
         public string DisplayNameOf(string? id)
         {
             if (string.IsNullOrWhiteSpace(id)) return string.Empty;
@@ -103,29 +104,31 @@ namespace MyNetworkMonitor.Core.ViewModels
             return s?.Name ?? "(unknown satellite)";
         }
 
-        /// <summary>Der Satellit zu einer Kennung, oder <c>null</c>.</summary>
+        /// <summary>The satellite with the given identifier, or <c>null</c>.</summary>
+        /// <param name="id">The satellite identifier (case-insensitive).</param>
         public Satellite? ById(string? id) =>
             string.IsNullOrWhiteSpace(id)
                 ? null
                 : All.FirstOrDefault(s => string.Equals(s.Id, id, StringComparison.OrdinalIgnoreCase));
 
         /// <summary>
-        /// Uebersetzt einen Wert, der noch einen Namen traegt, in die Kennung
-        /// des gleichnamigen Satelliten.
+        /// Translates a value that still holds a name into the identifier of
+        /// the satellite with that name.
         /// <para>
-        /// Fuer den Bestand: bis zur Umstellung stand in <c>ScannedBy</c> der
-        /// Name. Passt weder Kennung noch Name auf einen vorhandenen
-        /// Satelliten, kommt leer zurueck - der Bereich laeuft dann von diesem
-        /// Rechner aus. Den Wert stehen zu lassen hiesse, in der Auswahl nichts
-        /// anzuzeigen und beim Lauf trotzdem nach einem Satelliten zu fragen,
-        /// den es nicht gibt.
+        /// For saved scopes in the older format, where <c>ScannedBy</c> holds
+        /// the satellite name. If neither identifier nor name matches an
+        /// existing satellite, the result is empty and the scope runs from this
+        /// machine. Keeping the value would show nothing in the selection while
+        /// the run still asks for a satellite that does not exist.
         /// </para>
         /// </summary>
+        /// <param name="scannedBy">The stored <c>ScannedBy</c> value: identifier or name.</param>
+        /// <returns>The satellite identifier, or an empty string.</returns>
         public string ResolveToId(string? scannedBy)
         {
             if (string.IsNullOrWhiteSpace(scannedBy)) return string.Empty;
 
-            // Schon eine Kennung? Dann nichts zu tun.
+            // Already an identifier: nothing to do.
             if (All.Any(s => string.Equals(s.Id, scannedBy, StringComparison.OrdinalIgnoreCase)))
             {
                 return scannedBy;
@@ -138,25 +141,27 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Die Hauptscanner, zu denen sich <em>diese</em> Anlage hinausverbindet
-        /// - Laptop, Server, was es sonst noch gibt. Zu allen gleichzeitig,
-        /// jede Verbindung fuer sich (SATELLIT.md, Abschnitt 1).
+        /// The main scanners <em>this</em> installation connects out to
+        /// (laptop, server, or others). All at the same time, each connection
+        /// independent (SATELLIT.md, section 1).
         /// </summary>
         public ObservableCollection<MainScanner> Hosts { get; } = [];
 
+        /// <summary>The main scanner shown in the form.</summary>
         [ObservableProperty] private MainScanner? _selectedHost;
 
         /// <summary>
-        /// Laesst die Altersangabe der laufenden Auftraege mitlaufen.
+        /// Keeps the age display of running jobs up to date.
         /// <para>
-        /// Ohne diesen Takt stuende "12s ago" fest, sobald keine Meldung mehr
-        /// kommt - und genau dieser Fall, ein Satellit, der verbunden ist,
-        /// aber nichts mehr sagt, soll ja an der wachsenden Zahl zu erkennen
-        /// sein. Fuenf Sekunden genuegen: die Angabe ist ohnehin grob.
+        /// Without this tick "12s ago" would freeze as soon as no more reports
+        /// arrive, yet that very case (a satellite that is connected but silent)
+        /// is meant to be recognisable by the growing number. Five seconds are
+        /// enough; the value is coarse anyway.
         /// </para>
         /// </summary>
         private readonly System.Timers.Timer _ageTicker = new(5000) { AutoReset = true };
 
+        /// <summary>Creates the view model and starts the age ticker.</summary>
         public SatelliteEditorViewModel()
         {
             _ageTicker.Elapsed += (_, _) => Post(() =>
@@ -194,10 +199,9 @@ namespace MyNetworkMonitor.Core.ViewModels
 
                 if (!_loading) _satellitesChanged = true;
 
-                // Der erste Eintrag wird gleich angewaehlt. Ohne das steht die
-                // rechte Seite leer da, obwohl ein Satellit in der Liste liegt
-                // - und dass man dafuer erst eine Zeile anklicken muss, sieht
-                // man der Seite nicht an.
+                // Select the first entry right away. Otherwise the right-hand
+                // side stays empty although a satellite is in the list, and
+                // nothing indicates that a row has to be clicked first.
                 Selected ??= All.FirstOrDefault();
 
                 RefreshNames();
@@ -207,8 +211,7 @@ namespace MyNetworkMonitor.Core.ViewModels
 
         private void OnSatelliteEdited(object? sender, PropertyChangedEventArgs e)
         {
-            // IsConnected wird nicht gespeichert und soll darum auch nicht
-            // jedes Mal eine Schreibrunde ausloesen.
+            // IsConnected is not saved and therefore must not trigger a write.
             if (e.PropertyName == nameof(Satellite.IsConnected)) return;
 
             if (e.PropertyName is nameof(Satellite.Name)
@@ -223,8 +226,8 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Ein Empfaenger wurde bearbeitet. Der laufende Zustand loest kein
-        /// Schreiben aus - sonst schriebe jede Statuszeile die Datei neu.
+        /// A receiver was edited. Runtime state does not trigger a write;
+        /// otherwise every status line would rewrite the file.
         /// </summary>
         private void OnHostEdited(object? sender, PropertyChangedEventArgs e)
         {
@@ -242,7 +245,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             SaveHosts();
         }
 
-        /// <summary>Schreibt die Hostliste.</summary>
+        /// <summary>Writes the host list if this instance changed it.</summary>
         public void SaveHosts()
         {
             if (_loading || string.IsNullOrEmpty(_hostsPath) || !_hostsChanged) return;
@@ -270,10 +273,10 @@ namespace MyNetworkMonitor.Core.ViewModels
                     Id = s.Id,
                     Display = s.PickerText,
 
-                    // Nur das Hauptnetz steht in der Zeile. Ein Satellit hat
-                    // oft mehrere Adapter - Hyper-V, WSL, VPN -, und alle in
-                    // die Zeile zu schreiben macht sie unlesbar. Der Rest
-                    // steht im Tooltip.
+                    // Only the main network is shown in the row. A satellite
+                    // often has several adapters (Hyper-V, WSL, VPN), and
+                    // listing all of them makes the row unreadable. The rest
+                    // is in the tooltip.
                     Networks = string.IsNullOrWhiteSpace(s.SiteNetworks)
                         ? string.Empty
                         : $"{s.Name}\nNetworks: {s.SiteNetworks}"
@@ -283,21 +286,21 @@ namespace MyNetworkMonitor.Core.ViewModels
             NamesChanged?.Invoke();
         }
 
-        // ------------------------------------------------------------- Laden
+        // ------------------------------------------------------------ Loading
 
         /// <summary>
-        /// Laedt Satellitenliste und Hostliste.
+        /// Loads the satellite list and the host list.
         /// </summary>
         /// <param name="userSettingsFolder">
-        /// Der bisherige Ort der Einstellungen. Wird nur noch gebraucht, um
-        /// einen vorhandenen Schluessel samt Freigaben in den maschinenweiten
-        /// Ordner zu uebernehmen - danach liest und schreibt alles dort.
+        /// The per-user settings folder. Only used to migrate an existing key
+        /// and its approvals to the machine-wide folder; all reads and writes
+        /// go there afterwards.
         /// </param>
         public void Load(string userSettingsFolder)
         {
-            // Erst auflegen, dann neu lesen. Die Liste wird gleich ersetzt;
-            // was noch an einem alten Eintrag haengt, haette danach keinen
-            // Eintrag mehr, liefe aber weiter.
+            // Disconnect first, then reload. The list is about to be replaced;
+            // a connection attached to an old entry would lose its entry but
+            // keep running.
             DisconnectAllHosts();
 
             AppPaths.MigrateSatelliteState(userSettingsFolder);
@@ -330,8 +333,9 @@ namespace MyNetworkMonitor.Core.ViewModels
             }
         }
 
-        // --------------------------------------------------------- Speichern
+        // ------------------------------------------------------------- Saving
 
+        /// <summary>Writes the satellite list if this instance changed it.</summary>
         public void Save()
         {
             if (_loading || string.IsNullOrEmpty(_filePath) || !_satellitesChanged) return;
@@ -346,9 +350,9 @@ namespace MyNetworkMonitor.Core.ViewModels
             }
         }
 
-        // ------------------------------------------------ Betrieb: Lauscher
+        // ------------------------------------------------ Operation: listener
 
-        /// <summary>Name der Firewall-Regel, die diese Anwendung sich selbst anlegt.</summary>
+        /// <summary>Name of the firewall rule this application creates for itself.</summary>
         public const string FirewallRuleName = "MyNetworkMonitor - satellites (inbound)";
 
         private SatelliteListener? _listener;
@@ -356,21 +360,23 @@ namespace MyNetworkMonitor.Core.ViewModels
         private string _appVersion = string.Empty;
 
         /// <summary>
-        /// Wie eine Aktion auf den Oberflaechen-Thread kommt. Die Ereignisse
-        /// von Lauscher und Verbinder treffen auf Hintergrund-Threads ein, und
-        /// die Liste haengt an der Anzeige. Die Ansicht setzt das auf ihren
-        /// Dispatcher; ohne Zuweisung laeuft es geradeaus, was fuer Tests
-        /// genau richtig ist.
+        /// How an action reaches the UI thread. Listener and connector events
+        /// arrive on background threads, and the list is bound to the display.
+        /// The view sets this to its dispatcher; if unset, the action runs
+        /// directly, which suits tests.
         /// </summary>
         public Action<Action> Post { get; set; } = action => action();
 
+        /// <summary>The listener for satellites is running.</summary>
         [ObservableProperty] private bool _isListening;
+        /// <summary>Status text of the listener.</summary>
         [ObservableProperty] private string _linkStatus = "Not listening.";
+        /// <summary>The own certificate fingerprint, formatted for display.</summary>
         [ObservableProperty] private string _ownFingerprint = string.Empty;
 
         /// <summary>
-        /// Der eigene Schluessel - entsteht beim ersten Zugriff, maschinenweit
-        /// abgelegt, damit Dienst und Oberflaeche dieselbe Kennung tragen.
+        /// The own key: created on first access and stored machine-wide so the
+        /// service and the UI carry the same identity.
         /// </summary>
         private X509Certificate2 Certificate()
         {
@@ -382,9 +388,11 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Faengt an, auf Satelliten zu horchen. Freigegeben ist, wessen
-        /// Fingerabdruck in der Liste steht und angehakt ist.
+        /// Starts listening for satellites. A satellite is admitted if its
+        /// fingerprint is in the list and approved.
         /// </summary>
+        /// <param name="port">The TCP port to listen on.</param>
+        /// <param name="appVersion">The application version reported to connecting satellites.</param>
         public void StartListening(int port, string appVersion)
         {
             StopListening();
@@ -417,12 +425,11 @@ namespace MyNetworkMonitor.Core.ViewModels
 
                 gone.IsConnected = false;
 
-                // Mit der Verbindung ist auch der Auftrag verloren: das
-                // Ergebnis kaeme ueber genau diese Sitzung zurueck. Bliebe der
-                // Auftrag stehen, zeigte die Anzeige weiter den Stand von
-                // Sekunde eins des Abbruchs - ein Balken, der nie mehr
-                // weiterlaeuft, und eine Zeile, die "laeuft" behauptet,
-                // waehrend niemand mehr da ist.
+                // Losing the connection also loses the job: the result would
+                // come back over exactly this session. If the job stayed, the
+                // display would keep showing the state at the moment of the
+                // drop: a progress bar that never moves again and a row
+                // claiming "running" while nobody is there.
                 if (gone.IsBusy)
                 {
                     gone.JobId = string.Empty;
@@ -449,9 +456,9 @@ namespace MyNetworkMonitor.Core.ViewModels
                 s.ProgressAnswered = e.Progress.Answered;
                 s.ProgressTotal = e.Progress.Total;
 
-                // Der Zeitstempel wird hier gesetzt, nicht drueben: die Uhr
-                // des Satelliten kann anders gehen, und gefragt ist ohnehin
-                // "wann habe *ich* zuletzt etwas gehoert".
+                // The timestamp is set here, not on the satellite: its clock
+                // may differ, and the question is "when did *this* side last
+                // hear something" anyway.
                 s.ProgressAt = DateTimeOffset.UtcNow;
             });
 
@@ -491,15 +498,16 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Ein Satellit hat ein Ergebnis geliefert: sein Name und der Bestand
-        /// als JSON. Wer es einmischt, entscheidet die Anwendung.
+        /// Raised when a satellite has delivered a result: its name, the
+        /// inventory as JSON, and whether the result is partial. The
+        /// application decides how to merge it.
         /// </summary>
         public event EventHandler<(string SatelliteName, string DevicesJson, bool Partial)>? ResultArrived;
 
         /// <summary>
-        /// Raeumt die Zahlen des letzten Verfahrens weg. Stehen zu lassen
-        /// hiesse, nach dem Lauf die Zahlen des zufaellig letzten Verfahrens
-        /// zu zeigen, als liefe es noch.
+        /// Clears the counters of the last method. Leaving them would show the
+        /// numbers of whichever method ran last after the run, as if it were
+        /// still running.
         /// </summary>
         private static void ClearCounts(Satellite s)
         {
@@ -514,9 +522,13 @@ namespace MyNetworkMonitor.Core.ViewModels
             All.FirstOrDefault(s => string.Equals(s.Fingerprint, fingerprint, StringComparison.OrdinalIgnoreCase));
 
         /// <summary>
-        /// Schickt einen Auftrag an einen Satelliten, sofern er verbunden und
-        /// freigegeben ist. Gibt zurueck, ob er angenommen wurde.
+        /// Sends a job to a satellite if it is connected and approved.
         /// </summary>
+        /// <param name="satellite">The target satellite.</param>
+        /// <param name="jobText">The serialised job.</param>
+        /// <param name="token">Cancels sending.</param>
+        /// <returns><see langword="true"/> if the satellite accepted the job.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="satellite"/> is <see langword="null"/>.</exception>
         public async Task<bool> SendJobAsync(Satellite satellite, string jobText, CancellationToken token)
         {
             ArgumentNullException.ThrowIfNull(satellite);
@@ -545,9 +557,9 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Ob ein Satellit, den diese Instanz betreibt, sich auch von einem
-        /// anderen Hauptscanner abbrechen laesst. Wird an die
-        /// Auftragsverwaltung durchgereicht.
+        /// Whether a satellite run by this instance may also be cancelled by a
+        /// main scanner other than the one that gave the job. Passed through to
+        /// the job host.
         /// </summary>
         public bool AllowCancelFromAnyReceiver
         {
@@ -556,16 +568,16 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Die Auftragsverwaltung dieser Instanz als Satellit - gemeinsam
-        /// ueber alle Empfaenger, siehe <see cref="SatelliteJobHost"/>.
+        /// The job host of this instance acting as a satellite, shared across
+        /// all receivers; see <see cref="SatelliteJobHost"/>.
         /// </summary>
         private readonly SatelliteJobHost _jobs = new();
 
         /// <summary>
-        /// Bricht den laufenden Auftrag <b>eines</b> Satelliten ab.
+        /// Cancels the running job of <b>one</b> satellite.
         /// <para>
-        /// Einzeln und nicht fuer alle: haengt einer, will man genau den
-        /// freibekommen und nicht die uebrigen Segmente mit abraeumen.
+        /// Per satellite rather than for all: if one hangs, exactly that one
+        /// should be freed without clearing the other segments as well.
         /// </para>
         /// </summary>
         [RelayCommand]
@@ -583,8 +595,8 @@ namespace MyNetworkMonitor.Core.ViewModels
 
             try
             {
-                // Ohne Auftragskennung: falls etwas haengt und die Kennung hier
-                // nicht mehr stimmt, soll der Stopp trotzdem greifen.
+                // Without a job identifier: if something hangs and the
+                // identifier here is out of date, the stop still applies.
                 await _listener.CancelAsync(satellite.Fingerprint, null, CancellationToken.None);
                 Status = $"Stop sent to \"{satellite.Name}\".";
             }
@@ -594,6 +606,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             }
         }
 
+        /// <summary>Stops listening and marks all satellites as disconnected.</summary>
         public void StopListening()
         {
             _listener?.Stop();
@@ -605,35 +618,35 @@ namespace MyNetworkMonitor.Core.ViewModels
             LinkStatus = "Not listening.";
         }
 
-        // ----------------------------------------------- Betrieb: Satellit
+        // ----------------------------------------------- Operation: satellite
 
+        /// <summary>Status text of the connections to the main scanners.</summary>
         [ObservableProperty] private string _clientStatus = "Not connected.";
+        /// <summary>At least one main scanner has approved this installation.</summary>
         [ObservableProperty] private bool _isConnectedAsSatellite;
 
         /// <summary>
-        /// Fuehrt einen Auftragstext aus und liefert den Bestand als JSON.
-        /// Wird von aussen gesetzt - der Transport soll die Scan-Engine nicht
-        /// kennen.
+        /// Runs a job text and returns the inventory as JSON. Set from outside
+        /// so the transport does not depend on the scan engine.
         /// </summary>
         public Func<string, IProgress<ProgressPayload>, CancellationToken, Task<string>>? JobRunner { get; set; }
 
         /// <summary>
-        /// Die laufenden Verbindungen, eine je Empfaenger.
+        /// The active connections, one per receiver.
         /// <para>
-        /// Eine je Eintrag und nicht eine gemeinsame: faellt der Laptop aus,
-        /// soll der Server davon nichts merken, und jede Verbindung hat ihren
-        /// eigenen gemerkten Fingerabdruck, ihren eigenen Zustand und ihr
-        /// eigenes Wiederverbinden.
+        /// One per entry rather than a shared one: if the laptop drops out, the
+        /// server must not notice, and every connection has its own pinned
+        /// fingerprint, its own state and its own reconnect.
         /// </para>
         /// </summary>
         private readonly Dictionary<MainScanner, SatelliteClient> _clients = [];
 
-        /// <summary>Wie viele Empfaenger gerade verbunden sind.</summary>
+        /// <summary>Number of receivers currently connected.</summary>
         public int ConnectedHostCount => Hosts.Count(h => h.IsConnected);
 
         /// <summary>
-        /// Nimmt einen Empfaenger auf. Mehr als der Name ist nicht noetig - der
-        /// Port bleibt auf der Vorgabe, bis jemand ihn aendert.
+        /// Adds a receiver. Only the name is required; the port keeps its
+        /// default until changed.
         /// </summary>
         [RelayCommand]
         private void AddHost()
@@ -646,7 +659,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             ClientStatus = "Enter the name or address of the main scanner, then press Connect.";
         }
 
-        /// <summary>Entfernt einen Empfaenger und legt seine Verbindung ab.</summary>
+        /// <summary>Removes a receiver and closes its connection.</summary>
         [RelayCommand]
         private void RemoveHost()
         {
@@ -661,14 +674,14 @@ namespace MyNetworkMonitor.Core.ViewModels
             ClientStatus = $"\"{gone.Host}\" removed.";
         }
 
-        /// <summary>Verbindet den ausgewaehlten Empfaenger.</summary>
+        /// <summary>Connects the selected receiver.</summary>
         [RelayCommand]
         private void ConnectHost()
         {
             if (SelectedHost is not null) ConnectTo(SelectedHost);
         }
 
-        /// <summary>Trennt den ausgewaehlten Empfaenger.</summary>
+        /// <summary>Disconnects the selected receiver.</summary>
         [RelayCommand]
         private void DisconnectHost()
         {
@@ -676,8 +689,8 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Verbindet alle angehakten Empfaenger. Der Weg beim Start und der
-        /// Knopf fuer "alles wieder ansprechen".
+        /// Connects all enabled receivers. Used at startup and by the
+        /// "reconnect all" button.
         /// </summary>
         [RelayCommand]
         public void ConnectAllHosts()
@@ -689,10 +702,12 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Verbindet diese Anlage als Satellit zu einem Hauptscanner. Der
-        /// Verbindungsversuch laeuft weiter, bis er abgebrochen wird - siehe
-        /// SATELLIT.md, Abschnitt 1.
+        /// Connects this installation as a satellite to a main scanner. The
+        /// connection attempt continues until cancelled; see SATELLIT.md,
+        /// section 1.
         /// </summary>
+        /// <param name="host">The main scanner to connect to.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="host"/> is <see langword="null"/>.</exception>
         public void ConnectTo(MainScanner host)
         {
             ArgumentNullException.ThrowIfNull(host);
@@ -712,16 +727,16 @@ namespace MyNetworkMonitor.Core.ViewModels
             {
                 client = new SatelliteClient(Certificate(), OwnName, _appVersion)
                 {
-                    // Ueber den Umweg, damit die Anzeige weiss, fuer welchen
-                    // Empfaenger gerade gearbeitet wird.
+                    // Wrapped so the display knows which receiver the job is
+                    // for.
                     JobRunner = (text, progress, token) =>
                         RunJobForHostAsync(host, text, progress, token),
 
                     Jobs = _jobs,
 
-                    // Der gemerkte Fingerabdruck kommt aus der Datei. Ohne ihn
-                    // vertraute der Satellit nach jedem Neustart wieder blind
-                    // dem ersten, der antwortet.
+                    // The pinned fingerprint comes from the file. Without it
+                    // the satellite would blindly trust the first responder
+                    // again after every restart.
                     PinnedFingerprint = host.PinnedFingerprint
                 };
             }
@@ -741,9 +756,9 @@ namespace MyNetworkMonitor.Core.ViewModels
 
                 OnPropertyChanged(nameof(ConnectedHostCount));
 
-                // Die Sammelzeile zeigt den Empfaenger, von dem zuletzt etwas
-                // kam - bei einem einzigen ist das genau seiner, bei mehreren
-                // die letzte Regung.
+                // The summary line shows the receiver that reported last: with
+                // a single receiver that is its state, with several the most
+                // recent change.
                 ClientStatus = $"{host.Host}: {s.Text}";
                 IsConnectedAsSatellite = Hosts.Any(h => h.IsApproved);
             });
@@ -757,12 +772,14 @@ namespace MyNetworkMonitor.Core.ViewModels
             _clients[host] = client;
             host.IsActive = true;
 
-            // Nicht host.Host: ist eine Domaene eingetragen und der Name kurz,
-            // wird erst beides zusammen aufloesbar.
+            // Not host.Host: if a domain is entered and the name is short,
+            // only the combination is resolvable.
             client.Start(host.TargetHost, host.Port);
         }
 
-        /// <summary>Legt die Verbindung zu einem Empfaenger ab.</summary>
+        /// <summary>Closes the connection to a receiver.</summary>
+        /// <param name="host">The receiver.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="host"/> is <see langword="null"/>.</exception>
         public void DisconnectHost(MainScanner host)
         {
             ArgumentNullException.ThrowIfNull(host);
@@ -778,15 +795,14 @@ namespace MyNetworkMonitor.Core.ViewModels
             IsConnectedAsSatellite = Hosts.Any(h => h.IsApproved);
         }
 
-        /// <summary>Legt alle Verbindungen ab.</summary>
+        /// <summary>Closes all connections.</summary>
         public void DisconnectAllHosts()
         {
-            // Ueber die Verbindungen selbst und nicht ueber die sichtbare
-            // Liste: nach einem Neuladen kann es Verbindungen geben, deren
-            // Eintrag es nicht mehr gibt. Genau die blieben sonst haengen und
-            // klopften weiter an - beobachtet, nachdem der Dienst seine
-            // Hostliste neu einlas: der geloeschte Empfaenger meldete sich
-            // danach immer noch.
+            // Iterate over the connections themselves, not the visible list:
+            // after a reload there can be connections whose entry no longer
+            // exists. Those would otherwise stay open and keep reconnecting;
+            // the symptom is a deleted receiver that is still contacted after
+            // the service has re-read its host list.
             foreach (MainScanner host in _clients.Keys.ToList()) DisconnectHost(host);
 
             foreach (MainScanner host in Hosts.ToList()) DisconnectHost(host);
@@ -796,25 +812,26 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Der Name, unter dem sich diese Anlage bei den Hauptscannern meldet.
-        /// Vorgabe ist der Rechnername - er ist da, er ist eindeutig, und
-        /// niemand muss ihn tippen.
+        /// The name under which this installation announces itself to the main
+        /// scanners. Defaults to the computer name: it exists, is usually
+        /// unique, and nobody has to type it.
         /// <para>
-        /// Aenderbar, weil der Rechnername nicht immer taugt: zwei Anlagen
-        /// koennen gleich heissen, und im Bereich steht unter "Scanned by"
-        /// dieser Name, nicht der Fingerabdruck. Wer ihn aendert, muss die
-        /// Bereiche druebem nachziehen - darum steht der Hinweis daneben.
+        /// Editable because the computer name is not always suitable: two
+        /// installations can have the same name. The main scanner recognises a
+        /// satellite by its fingerprint and scopes refer to it by identifier,
+        /// so a rename keeps the entry, its approval and its scopes.
         /// </para>
         /// </summary>
         [ObservableProperty] private string _ownName = Environment.MachineName;
 
         /// <summary>
-        /// Wo der geaenderte Eigenname liegt - maschinenweit, neben Schluessel
-        /// und Hostliste.
+        /// File name of the custom own name, stored machine-wide next to the
+        /// key and the host list.
         /// <para>
-        /// Muss der Dienst mitlesen koennen: er meldet sich sonst weiter unter
-        /// dem Rechnernamen, waehrend das Fenster den geaenderten anzeigt, und
-        /// am Hauptscanner staende der Satellit zweimal.
+        /// The service must be able to read it; otherwise it would keep
+        /// announcing itself under the computer name while the window shows the
+        /// changed one, and the satellite would appear twice at the main
+        /// scanner.
         /// </para>
         /// </summary>
         public const string OwnNameFileName = "satelliteName.txt";
@@ -838,13 +855,13 @@ namespace MyNetworkMonitor.Core.ViewModels
 
                 string stored = File.ReadAllText(_ownNamePath).Trim();
 
-                // Ein leerer Inhalt heisst "nie etwas eingetragen", nicht
-                // "namenlos": ohne Namen faende kein Bereich diesen Satelliten.
+                // Empty content means "never set", not "nameless"; the
+                // computer name stays in effect.
                 if (stored.Length > 0) OwnName = stored;
             }
             catch (Exception)
             {
-                // Der Rechnername bleibt stehen - dafuer ist er die Vorgabe.
+                // Keep the computer name; that is what the default is for.
             }
         }
 
@@ -864,45 +881,44 @@ namespace MyNetworkMonitor.Core.ViewModels
             }
         }
 
-        /// <summary>Setzt den Namen auf den Rechnernamen zurueck.</summary>
+        /// <summary>Resets the name to the computer name.</summary>
         [RelayCommand]
         private void ResetOwnName() => OwnName = Environment.MachineName;
 
-        // ------------------------------------------- Was diese Anlage ist
+        // ------------------------------------- Identity of this installation
 
-        /// <summary>Der Rechnername, wie das Betriebssystem ihn fuehrt.</summary>
+        /// <summary>The computer name as reported by the operating system.</summary>
         [ObservableProperty] private string _hostName = Environment.MachineName;
 
-        /// <summary>Die Domaene dieses Rechners, oder ein Strich.</summary>
+        /// <summary>The domain of this computer, or a dash.</summary>
         [ObservableProperty] private string _hostDomain = "-";
 
-        /// <summary>Die IPv4-Adressen der aktiven Adapter, durch Komma getrennt.</summary>
+        /// <summary>The IPv4 addresses of the active adapters, comma-separated.</summary>
         [ObservableProperty] private string _hostIpv4 = "-";
 
-        /// <summary>Die IPv6-Adressen der aktiven Adapter, durch Komma getrennt.</summary>
+        /// <summary>The IPv6 addresses of the active adapters, comma-separated.</summary>
         [ObservableProperty] private string _hostIpv6 = "-";
 
         /// <summary>
-        /// Die Netze dieser Anlage in CIDR-Schreibweise, durch Komma getrennt.
-        /// Genau das steht drueben hinter dem Namen in der Auswahl.
+        /// The networks of this installation in CIDR notation, comma-separated.
+        /// The main scanner shows exactly this after the name in its selection.
         /// </summary>
         [ObservableProperty] private string _hostNetworks = "-";
 
         /// <summary>
-        /// Liest, unter welchem Namen und welchen Adressen diese Anlage
-        /// erreichbar ist.
+        /// Reads the name and addresses under which this installation is
+        /// reachable.
         /// <para>
-        /// Steht auf der Hauptscanner-Seite, weil genau das die Angaben sind,
-        /// die man drueben am Satelliten in seine Empfaengerliste eintragen
-        /// muss. Sie hier abzulesen erspart den Weg ueber ipconfig auf einem
-        /// Rechner, an dem man vielleicht gar nicht sitzt.
+        /// Shown on the main scanner side because these are exactly the values
+        /// to enter in the satellite's receiver list. Reading them here avoids
+        /// running ipconfig on a computer that may not be at hand.
         /// </para>
         /// </summary>
         public void RefreshHostInfo()
         {
-            // Dieselbe Quelle, die der Satellit auch verschickt: was hier
-            // steht, kommt drueben genau so an. Zwei getrennte Erhebungen
-            // waeren zwei Gelegenheiten, sich zu unterscheiden.
+            // The same source the satellite sends: what is shown here arrives
+            // at the other end unchanged. Two separate collections would be
+            // two chances to differ.
             SiteInfo site = SiteInfo.Read();
 
             HostName = site.HostName.Length == 0 ? Environment.MachineName : site.HostName;
@@ -912,45 +928,51 @@ namespace MyNetworkMonitor.Core.ViewModels
             HostNetworks = site.NetworksText;
         }
 
-        /// <summary>Setzt die eigene Version fuer die Begruessung.</summary>
+        /// <summary>Sets the own version reported in the handshake.</summary>
+        /// <param name="appVersion">The application version.</param>
         public void SetAppVersion(string appVersion) => _appVersion = appVersion ?? string.Empty;
 
-        // ------------------------------- Der Auftrag, der hier gerade laeuft
+        // ---------------------------------------- The job running locally
 
         /// <summary>
-        /// Von welchem Hauptscanner der Auftrag kommt, der auf dieser Anlage
-        /// gerade laeuft. Leer, wenn keiner laeuft.
+        /// The main scanner that gave the job currently running on this
+        /// installation. Empty if none is running.
         /// <para>
-        /// Wichtig, sobald mehrere Empfaenger eingetragen sind: der Satellit
-        /// nimmt nur einen Auftrag zur Zeit an, und wer davorsitzt, soll sehen,
-        /// fuer wen gerade gearbeitet wird - sonst wirkt ein <c>Busy</c> am
-        /// anderen Ende unerklaerlich.
+        /// Relevant once several receivers are configured: the satellite
+        /// accepts one job at a time, and the local display shows whom it is
+        /// working for; otherwise a <c>Busy</c> at the other end would be
+        /// unexplained.
         /// </para>
         /// </summary>
         [ObservableProperty] private string _localJobHost = string.Empty;
 
+        /// <summary>Identifier of the local job; empty if none is running.</summary>
         [ObservableProperty] private string _localJobId = string.Empty;
 
+        /// <summary>Progress of the local job in percent.</summary>
         [ObservableProperty] private int _localJobPercent;
 
+        /// <summary>What the local job is currently doing.</summary>
         [ObservableProperty] private string _localJobCurrent = string.Empty;
 
+        /// <summary>The steps of the local job that are done.</summary>
         [ObservableProperty] private string _localJobDone = string.Empty;
 
+        /// <summary>The steps of the local job that are still pending.</summary>
         [ObservableProperty] private string _localJobPending = string.Empty;
 
-        /// <summary>Auf dieser Anlage laeuft gerade ein Auftrag von aussen.</summary>
+        /// <summary>A job from a main scanner is currently running on this installation.</summary>
         public bool IsRunningLocalJob => !string.IsNullOrEmpty(LocalJobId);
 
         partial void OnLocalJobIdChanged(string value) => OnPropertyChanged(nameof(IsRunningLocalJob));
 
         /// <summary>
-        /// Fuehrt einen Auftrag aus und haelt dabei fest, fuer wen.
+        /// Runs a job and records whom it is for.
         /// <para>
-        /// Der Umweg um <see cref="JobRunner"/> herum dient allein der Anzeige:
-        /// der Transport reicht den Auftragstext durch und weiss nichts von
-        /// einer Oberflaeche, und die Scan-Engine weiss nicht, wer gefragt hat.
-        /// Beides trifft sich nur hier.
+        /// The wrapper around <see cref="JobRunner"/> exists only for the
+        /// display: the transport passes the job text through and knows nothing
+        /// of a UI, and the scan engine does not know who asked. Both meet only
+        /// here.
         /// </para>
         /// </summary>
         private async Task<string> RunJobForHostAsync(
@@ -968,8 +990,8 @@ namespace MyNetworkMonitor.Core.ViewModels
                 LocalJobPending = string.Empty;
             });
 
-            // Der Fortschritt geht weiter an den Auftraggeber und zusaetzlich
-            // in die eigene Anzeige.
+            // Progress goes to the requesting main scanner and also to the
+            // local display.
             Progress<ProgressPayload> mirrored = new(p =>
             {
                 progress.Report(p);
@@ -1000,14 +1022,14 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Haelt den Auftrag an, der auf dieser Anlage laeuft - unabhaengig
-        /// davon, wer ihn gegeben hat. Wer davorsitzt, darf ihn immer stoppen.
+        /// Stops the job running on this installation, regardless of who gave
+        /// it. Local operators can always stop it.
         /// </summary>
         [RelayCommand]
         private async Task StopLocalJob()
         {
-            // Laeuft der Auftrag im Dienst, hilft die eigene Auftragsverwaltung
-            // nicht weiter - der Stopp muss dorthin, wo der Auftrag laeuft.
+            // If the job runs in the service, the local job host cannot help;
+            // the stop has to go where the job runs.
             if (IsShowingService)
             {
                 ClientStatus = await ServiceControlClient.SendCommandAsync(
@@ -1020,15 +1042,15 @@ namespace MyNetworkMonitor.Core.ViewModels
                 : "No job is running on this machine.";
         }
 
-        // ------------------------- Die Bereiche, die auf einen Satelliten zeigen
+        // ------------------------------ The scopes assigned to a satellite
 
         /// <summary>
-        /// Die Bereiche, die dem ausgewaehlten Satelliten zugewiesen sind - als
-        /// fertige Zeilen fuer die Anzeige.
+        /// The scopes assigned to the selected satellite, as ready-made display
+        /// rows.
         /// <para>
-        /// Damit man am Satelliten sieht, wofuer er zustaendig ist, ohne in die
-        /// Bereichsverwaltung wechseln zu muessen. Gefuellt wird von aussen:
-        /// die Bereiche gehoeren dem Fenster, nicht dieser Verwaltung.
+        /// Shows what a satellite is responsible for without switching to the
+        /// scope management. Filled from outside: the scopes belong to the
+        /// window, not to this view model.
         /// </para>
         /// </summary>
         public ObservableCollection<string> RangesOfSelected { get; } = [];
@@ -1036,22 +1058,23 @@ namespace MyNetworkMonitor.Core.ViewModels
         // ------------------------------------------------------- Firewall
 
         /// <summary>
-        /// Eingehend erlaubte Ports, wie die oertliche Firewall sie meldet -
-        /// als Hilfe bei der Portwahl, nicht als Einschraenkung.
+        /// Inbound ports allowed by the local firewall, as an aid for choosing
+        /// a port, not as a restriction.
         /// </summary>
         public ObservableCollection<string> AllowedInboundPorts { get; } = [];
 
+        /// <summary>The process may create its own firewall rule.</summary>
         [ObservableProperty] private bool _canCreateFirewallRule;
+        /// <summary>Status text of the firewall check.</summary>
         [ObservableProperty] private string _firewallStatus = string.Empty;
 
         /// <summary>
-        /// Liest die Firewall neu.
+        /// Re-reads the firewall.
         /// <para>
-        /// Ohne erhoehte Rechte werden nur Ports gezeigt, die an <em>kein</em>
-        /// Programm gebunden sind - nur die lassen sich ohne neue Regel
-        /// benutzen. Eine Regel, die einer anderen Anwendung gehoert, nuetzt
-        /// dieser hier nichts, und sie aufzufuehren waere eine falsche
-        /// Verheissung.
+        /// Without elevated rights only ports bound to <em>no</em> program are
+        /// shown; only those can be used without a new rule. A rule owned by
+        /// another application is of no use to this one, and listing it would
+        /// be misleading.
         /// </para>
         /// </summary>
         public void RefreshFirewall()
@@ -1088,7 +1111,8 @@ namespace MyNetworkMonitor.Core.ViewModels
                     : $"{AllowedInboundPorts.Count} inbound port(s) are open for any application - one of these works without a new rule.";
         }
 
-        /// <summary>Legt die eigene Regel fuer den angegebenen Port an.</summary>
+        /// <summary>Creates the application's own rule for the given port.</summary>
+        /// <param name="port">The inbound TCP port to allow.</param>
         public void CreateFirewallRule(int port)
         {
             FirewallChangeResult result = PlatformServices.Firewall.AllowInboundTcp(port, FirewallRuleName);
@@ -1097,7 +1121,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             if (result.Success) RefreshFirewall();
         }
 
-        /// <summary>Entfernt die eigene Regel wieder.</summary>
+        /// <summary>Removes the application's own rule.</summary>
         public void RemoveFirewallRule()
         {
             FirewallChangeResult result = PlatformServices.Firewall.RemoveRule(FirewallRuleName);
@@ -1106,24 +1130,30 @@ namespace MyNetworkMonitor.Core.ViewModels
             if (result.Success) RefreshFirewall();
         }
 
-        // ----------------------------------------------------------- Befehle
+        // ----------------------------------------------------------- Commands
 
         /// <summary>
-        /// Nimmt einen Satelliten auf, der sich gerade gemeldet hat, oder
-        /// bringt einen bekannten auf den neuesten Stand.
+        /// Adds a satellite that has just announced itself, or updates a known
+        /// one.
         /// <para>
-        /// Es gibt bewusst kein Anlegen von Hand: der Satellit nennt seinen
-        /// Namen selbst, sobald er sich verbindet. Ein hier eingetippter Name
-        /// waere eine Behauptung, die beim ersten Verbinden ohnehin
-        /// ueberschrieben wuerde.
+        /// There is deliberately no manual creation: the satellite reports its
+        /// name itself when it connects. A name typed in here would be a claim
+        /// overwritten on the first connection anyway.
         /// </para>
         /// <para>
-        /// Wiedererkannt wird am Fingerabdruck, nicht am Namen - benennt sich
-        /// ein Satellit um, bleibt es derselbe Eintrag samt Freigabe. Nur wenn
-        /// der Fingerabdruck neu ist, entsteht ein neuer Eintrag, und der
-        /// wartet auf Freigabe.
+        /// Satellites are recognised by fingerprint, not by name: if a
+        /// satellite renames itself, it stays the same entry including its
+        /// approval. Only a new fingerprint creates a new entry, which waits
+        /// for approval.
         /// </para>
         /// </summary>
+        /// <param name="name">The name the satellite reports.</param>
+        /// <param name="fingerprint">The fingerprint of the satellite's certificate.</param>
+        /// <param name="version">The satellite's application version.</param>
+        /// <param name="os">The satellite's operating system.</param>
+        /// <param name="remoteAddress">The address the connection came from.</param>
+        /// <param name="site">Host name, domain and networks of the satellite, if reported.</param>
+        /// <returns>The new or updated entry.</returns>
         public Satellite Announce(
             string name, string fingerprint, string version, string os, string remoteAddress,
             SitePayload? site = null)
@@ -1136,12 +1166,11 @@ namespace MyNetworkMonitor.Core.ViewModels
             {
                 known = new Satellite { Fingerprint = fingerprint, Approved = false };
 
-                // Der Scan-Umfang wird genau hier einmal aus den
-                // Haupteinstellungen uebernommen und danach nie wieder: was ein
-                // Satellit scannen soll, haengt an seinem Segment und nicht
-                // daran, was hier zuletzt eingestellt war. Wer die
-                // Haupteinstellungen spaeter aendert, will damit nicht
-                // stillschweigend jeden Satelliten mitaendern.
+                // The scan extent is taken from the main settings exactly once,
+                // here, and never again: what a satellite should scan depends
+                // on its segment, not on what was last set here. Changing the
+                // main settings later must not silently change every
+                // satellite.
                 if (ScanScopeDefaults is not null)
                 {
                     (bool onlyKnown, IReadOnlyList<string> onlyKnownFor, bool crossCheck) = ScanScopeDefaults();
@@ -1162,11 +1191,10 @@ namespace MyNetworkMonitor.Core.ViewModels
             known.LastSeen = DateTimeOffset.Now;
             known.IsConnected = true;
 
-            // Der Standort kommt bei jeder Anmeldung frisch und wird darum auch
-            // jedes Mal uebernommen - nach einem Neustart oder einer neuen
-            // DHCP-Lease stimmt der gespeicherte Stand sonst nicht mehr, und
-            // die Auswahl zeigte ein Netz, in dem der Satellit gar nicht mehr
-            // steht.
+            // The site information arrives fresh with every announcement and is
+            // therefore applied every time; after a restart or a new DHCP
+            // lease the stored values would otherwise be stale, and the
+            // selection would show a network the satellite is no longer in.
             if (site is not null)
             {
                 known.SiteHostName = site.HostName ?? string.Empty;
@@ -1184,22 +1212,22 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Woher die Vorbelegung des Scan-Umfangs kommt, wenn ein Satellit zum
-        /// ersten Mal anklopft. Setzt das Fenster; ohne Zuweisung bleibt ein
-        /// neuer Satellit auf "alles scannen".
+        /// Supplies the initial scan extent when a satellite connects for the
+        /// first time. Set by the window; if unset, a new satellite scans
+        /// everything.
         /// </summary>
         public Func<(bool OnlyKnownTargets, IReadOnlyList<string> OnlyKnownTargetsFor,
                      bool CrossCheckOnlyKnownTargets)>? ScanScopeDefaults { get; set; }
 
-        // ------------------------------- Scan-Umfang des gewaehlten Satelliten
+        // ------------------------------ Scan extent of the selected satellite
 
         /// <summary>
-        /// Ein Verfahren in der Umfangsauswahl des gewaehlten Satelliten.
+        /// A method in the scan extent selection of the selected satellite.
         /// <para>
-        /// Braucht es, weil <see cref="Satellite.OnlyKnownTargetsFor"/> eine
-        /// schlichte Menge ist: eine Menge meldet keine Aenderung, also wuerde
-        /// ein Haken weder die Anzeige noch das Speichern ausloesen. Diese
-        /// Huelle traegt den Haken und schreibt ihn durch.
+        /// Needed because <see cref="Satellite.OnlyKnownTargetsFor"/> is a plain
+        /// set: a set raises no change notification, so a check mark would
+        /// trigger neither the display nor saving. This wrapper holds the check
+        /// mark and writes it through.
         /// </para>
         /// </summary>
         public sealed partial class MethodScopeChoice : ObservableObject
@@ -1208,9 +1236,16 @@ namespace MyNetworkMonitor.Core.ViewModels
             private readonly Action _changed;
             private readonly bool _ready;
 
+            /// <summary>The method identifier.</summary>
             public string Id { get; }
+            /// <summary>The method display name.</summary>
             public string DisplayName { get; }
 
+            /// <summary>Creates the choice with the satellite's current setting for the method.</summary>
+            /// <param name="satellite">The satellite whose set is edited.</param>
+            /// <param name="id">The method identifier.</param>
+            /// <param name="displayName">The method display name.</param>
+            /// <param name="changed">Called after every change of the check mark.</param>
             public MethodScopeChoice(Satellite satellite, string id, string displayName, Action changed)
             {
                 _satellite = satellite;
@@ -1220,11 +1255,12 @@ namespace MyNetworkMonitor.Core.ViewModels
 
                 IsChecked = satellite.OnlyKnownTargetsFor.Contains(id);
 
-                // Erst ab hier schlaegt ein Haken auf die Datei durch - das
-                // Setzen oben ist Anzeige und keine Aenderung.
+                // Only from here on does a check mark reach the file; the
+                // assignment above is display, not a change.
                 _ready = true;
             }
 
+            /// <summary>The method is restricted to known targets on this satellite.</summary>
             [ObservableProperty] private bool _isChecked;
 
             partial void OnIsCheckedChanged(bool value)
@@ -1239,12 +1275,12 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Die einschraenkbaren Verfahren, vom Fenster gesetzt - Kennung und
-        /// Anzeigename. Die Verwaltung kennt die Scan-Engine nicht.
+        /// The restrictable methods (identifier and display name), set by the
+        /// window. This view model does not depend on the scan engine.
         /// </summary>
         public IReadOnlyList<(string Id, string DisplayName)> RestrictableMethods { get; set; } = [];
 
-        /// <summary>Die Umfangsauswahl fuer den gerade gewaehlten Satelliten.</summary>
+        /// <summary>The scan extent selection for the selected satellite.</summary>
         public ObservableCollection<MethodScopeChoice> ScopeMethods { get; } = [];
 
         partial void OnSelectedChanged(Satellite? value) => RebuildScopeMethods();
@@ -1276,16 +1312,16 @@ namespace MyNetworkMonitor.Core.ViewModels
             All.Remove(Selected);
             Selected = All.FirstOrDefault();
 
-            // Die Bereiche zeigen jetzt womoeglich auf eine Kennung, die es
-            // nicht mehr gibt. In der Auswahl steht dann nichts mehr - und was
-            // dort leer steht, laeuft von diesem Rechner aus. Nach einem
-            // Satelliten zu fragen, den niemand mehr sieht, hilft niemandem.
+            // Scopes may now point at an identifier that no longer exists. The
+            // selection then shows nothing, and an empty selection runs from
+            // this machine; asking for a satellite nobody can see would not
+            // help.
             Status = $"\"{gone}\" removed. Ranges still pointing at it will be scanned from this machine.";
         }
 
         /// <summary>
-        /// Nimmt die Freigabe zurueck. Der Satellit darf sich weiter melden,
-        /// bekommt aber keine Auftraege mehr, bis er erneut freigegeben wird.
+        /// Withdraws the approval. The satellite may still announce itself but
+        /// receives no jobs until it is approved again.
         /// </summary>
         [RelayCommand]
         private void Revoke()
@@ -1296,7 +1332,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             Status = $"Approval for \"{Selected.Name}\" withdrawn.";
         }
 
-        /// <summary>Gibt den ausgewaehlten Satelliten frei - der eine Klick aus SATELLIT.md.</summary>
+        /// <summary>Approves the selected satellite: the single click described in SATELLIT.md.</summary>
         [RelayCommand]
         private async Task Approve()
         {
@@ -1304,9 +1340,9 @@ namespace MyNetworkMonitor.Core.ViewModels
 
             Selected.Approved = true;
             Status = $"\"{Selected.Name}\" approved.";
-            // Er haengt in aller Regel schon in der Leitung und wartet. Ihm das
-            // zu sagen kostet eine Nachricht und erspart ihm, bis zum naechsten
-            // Verbindungsaufbau falsch dazustehen.
+            // The satellite is usually already connected and waiting. Telling
+            // it costs one message and spares it a wrong state until the next
+            // connection.
             if (_listener is not null && Selected.IsConnected)
             {
                 try
@@ -1315,44 +1351,47 @@ namespace MyNetworkMonitor.Core.ViewModels
                 }
                 catch (Exception)
                 {
-                    // Die Freigabe gilt trotzdem - sie steht in der Liste. Er
-                    // erfaehrt es dann beim naechsten Verbinden.
+                    // The approval applies anyway; it is in the list. The
+                    // satellite learns of it on the next connection.
                 }
             }
         }
 
-        // ------------------------------------------------------------- Dienst
+        // ------------------------------------------------------------ Service
 
         /// <summary>
-        /// Ob auf dieser Anlage ein Satellitendienst eingerichtet ist und
-        /// laeuft.
+        /// Whether a satellite service is installed and running on this
+        /// installation.
         /// <para>
-        /// Wichtig fuer die Oberflaeche: laeuft der Dienst, verbindet sie sich
-        /// <b>nicht</b> selbst. Sonst haengten zwei Verbindungen mit demselben
-        /// Schluessel am selben Hauptscanner, und der verwirft die aeltere -
-        /// die beiden wuerden sich abwechselnd gegenseitig hinauswerfen.
+        /// Relevant for the UI: while the service runs, the UI does <b>not</b>
+        /// connect by itself. Otherwise two connections with the same key would
+        /// reach the same main scanner, which drops the older one, and the two
+        /// would keep pushing each other out.
         /// </para>
         /// </summary>
         [ObservableProperty] private bool _isServiceRunning;
 
+        /// <summary>The satellite service is installed.</summary>
         [ObservableProperty] private bool _isServiceInstalled;
 
-        // Nicht "ServiceStatus": so heisst der Typ, den ServiceControl.Read()
-        // liefert, und beides im selben Geltungsbereich verdeckt sich.
+        // Not "ServiceStatus": that is the name of the type returned by
+        // ServiceControl.Read(), and both in the same scope would shadow each
+        // other.
+        /// <summary>Status text of the satellite service.</summary>
         [ObservableProperty] private string _serviceStatusText = string.Empty;
 
-        /// <summary>Ob sich auf dieser Plattform ueberhaupt ein Dienst einrichten laesst.</summary>
+        /// <summary>Whether a service can be installed on this platform.</summary>
         public bool IsServiceSupported => PlatformServices.ServiceControl.IsSupported;
 
         /// <summary>
-        /// Die Oberflaeche darf selbst verbinden - naemlich dann, wenn kein
-        /// Dienst die Arbeit schon macht.
+        /// The UI may connect by itself, i.e. when no service is already doing
+        /// the work.
         /// </summary>
         public bool CanConnectFromWindow => !IsServiceRunning;
 
         partial void OnIsServiceRunningChanged(bool value) => OnPropertyChanged(nameof(CanConnectFromWindow));
 
-        /// <summary>Liest den Zustand des Dienstes neu.</summary>
+        /// <summary>Re-reads the state of the service.</summary>
         [RelayCommand]
         public void RefreshService()
         {
@@ -1362,32 +1401,32 @@ namespace MyNetworkMonitor.Core.ViewModels
             IsServiceInstalled = status.IsInstalled;
             ServiceStatusText = status.Message;
 
-            // Laeuft der Dienst, gehoert ihm die Verbindung. Was das Fenster
-            // etwa noch offen haelt, wird abgelegt.
+            // While the service runs, it owns the connection. Anything the
+            // window still holds open is closed.
             if (IsServiceRunning && _clients.Count > 0) DisconnectAllHosts();
 
             if (IsServiceRunning) WatchService();
             else StopWatchingService();
         }
 
-        // -------------------------------------------- Zusehen beim Dienst
+        // ------------------------------------------------ Watching the service
 
         private ServiceControlClient? _watcher;
 
         /// <summary>
-        /// Die Anzeige stammt gerade vom Dienst und nicht von diesem Fenster.
+        /// The display currently comes from the service, not from this window.
         /// <para>
-        /// Wichtig fuer den Nutzer: er sieht dieselben Felder, aber sie
-        /// beschreiben einen anderen Prozess. Ohne diesen Hinweis wirkte ein
-        /// laufender Auftrag so, als haette das Fenster ihn angenommen.
+        /// The fields are the same but describe a different process. Without
+        /// this indication a running job would look as if the window had
+        /// accepted it.
         /// </para>
         /// </summary>
         [ObservableProperty] private bool _isShowingService;
 
-        /// <summary>Der Dienst laeuft, antwortet aber nicht auf der Steuerpipe.</summary>
+        /// <summary>The service is running but does not answer on the control pipe.</summary>
         [ObservableProperty] private bool _serviceUnreachable;
 
-        /// <summary>Faengt an, dem Dienst zuzusehen.</summary>
+        /// <summary>Starts watching the service.</summary>
         private void WatchService()
         {
             if (_watcher is not null) return;
@@ -1401,7 +1440,7 @@ namespace MyNetworkMonitor.Core.ViewModels
 
                 if (!reachable) return;
 
-                // Solange der Dienst antwortet, gehoeren die Anzeigefelder ihm.
+                // While the service answers, the display fields belong to it.
                 ClientStatus = "Showing the service.";
             });
 
@@ -1419,13 +1458,13 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Uebernimmt eine Momentaufnahme des Dienstes in dieselben
-        /// Eigenschaften, die sonst dieses Fenster fuellt.
+        /// Applies a snapshot of the service to the same properties this window
+        /// otherwise fills.
         /// <para>
-        /// Absichtlich dieselben: die Ansicht soll nicht zweimal gebaut werden,
-        /// einmal fuer "ich selbst" und einmal fuer "der Dienst". Was sie
-        /// zeigt, ist in beiden Faellen dasselbe - nur die Quelle
-        /// unterscheidet sich, und die steht im Hinweis darueber.
+        /// Deliberately the same: the view should not be built twice, once for
+        /// "this window" and once for "the service". It shows the same in both
+        /// cases; only the source differs, and the notice above it states the
+        /// source.
         /// </para>
         /// </summary>
         private void Apply(ServiceSnapshot snapshot)
@@ -1439,9 +1478,8 @@ namespace MyNetworkMonitor.Core.ViewModels
             LocalJobDone = snapshot.JobDone;
             LocalJobPending = snapshot.JobPending;
 
-            // Die Empfaenger stehen in derselben Datei, die der Dienst liest -
-            // die Liste stimmt also schon. Nachgetragen wird nur, wie es ihnen
-            // dort geht.
+            // The receivers are in the same file the service reads, so the list
+            // is already correct. Only their state in the service is applied.
             foreach (ServiceHostState state in snapshot.Hosts)
             {
                 MainScanner? host = Hosts.FirstOrDefault(h =>
@@ -1458,9 +1496,8 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Traegt dem Dienst auf, die Hostliste neu zu lesen und neu zu
-        /// verbinden - der Weg, eine Aenderung wirksam zu machen, ohne ihn
-        /// anzuhalten.
+        /// Tells the service to re-read the host list and reconnect; this makes
+        /// a change effective without stopping the service.
         /// </summary>
         [RelayCommand]
         private async Task ApplyToService()
@@ -1472,16 +1509,16 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Richtet den Dienst ein. Fehlen die Rechte, startet sich die
-        /// Anwendung dafuer erhoeht neu - der Nutzer sieht eine Rueckfrage des
-        /// Betriebssystems.
+        /// Installs the service. Without sufficient rights the application
+        /// restarts elevated for this, and the operating system asks for
+        /// confirmation.
         /// </summary>
         [RelayCommand]
         private void InstallService()
         {
-            // Die Hostliste muss stehen, bevor der Dienst startet: er liest sie
-            // beim Hochlaufen und verbindet sich danach nicht mehr neu, nur
-            // weil hier jemand tippt.
+            // The host list must be saved before the service starts: it reads
+            // the list on startup and does not reconnect later just because it
+            // is edited here.
             SaveHosts();
 
             string path = Environment.ProcessPath ?? string.Empty;
@@ -1491,7 +1528,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             RefreshService();
         }
 
-        /// <summary>Entfernt den Dienst wieder.</summary>
+        /// <summary>Uninstalls the service.</summary>
         [RelayCommand]
         private void UninstallService()
         {
@@ -1501,7 +1538,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             RefreshService();
         }
 
-        /// <summary>Haelt den Dienst an, ohne ihn zu entfernen.</summary>
+        /// <summary>Stops the service without uninstalling it.</summary>
         [RelayCommand]
         private void StopService()
         {
@@ -1511,7 +1548,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             RefreshService();
         }
 
-        /// <summary>Startet den eingerichteten Dienst wieder.</summary>
+        /// <summary>Starts the installed service.</summary>
         [RelayCommand]
         private void StartService()
         {

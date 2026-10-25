@@ -7,176 +7,185 @@ using MyNetworkMonitor.Core.Network;
 namespace MyNetworkMonitor.Core.Model
 {
     /// <summary>
-    /// Art eines Scan-Bereichs. Der bisherige Von/Bis-Bereich ist einer von
-    /// vieren - dadurch passt IPv6 in dieselbe Liste, ohne dass IPv4 etwas
-    /// verliert.
+    /// Kind of scan scope. The from/to range is one of four kinds, so IPv6 fits
+    /// into the same list without IPv4 losing anything.
     /// </summary>
     public enum ScanScopeKind
     {
-        /// <summary>Von/Bis oder CIDR. Entspricht dem bisherigen Verhalten.</summary>
+        /// <summary>From/to range or CIDR.</summary>
         IPv4Range,
 
         /// <summary>
-        /// Feste Adressen und Hostnamen, v4 und v6 gemischt. Fuer IPv6 der
-        /// praktisch wichtigste Typ, weil sich ein /64 nicht durchlaufen laesst.
+        /// Fixed addresses and host names, IPv4 and IPv6 mixed. In practice the
+        /// most important kind for IPv6, because a /64 cannot be enumerated.
         /// </summary>
         TargetList,
 
         /// <summary>
-        /// Ein IPv6-Praefix samt der Verfahren, mit denen es untersucht wird.
-        /// Wird nicht durchlaufen - siehe <see cref="Ipv6Discovery"/>.
+        /// An IPv6 prefix together with the methods used to examine it. Not
+        /// enumerated - see <see cref="Ipv6Discovery"/>.
         /// </summary>
         IPv6Prefix,
 
         /// <summary>
-        /// An einen Netzwerkadapter gebunden. Holt IPv4-Subnetz und
-        /// IPv6-Praefixe selbst und ersetzt damit den bisherigen Tab "From NIC".
+        /// Bound to a network adapter. Determines the IPv4 subnet and IPv6
+        /// prefixes from the adapter itself.
         /// </summary>
         NetworkInterface
     }
 
     /// <summary>
-    /// Verfahren, mit denen ein IPv6-Praefix untersucht wird. Ein /64 umfasst
-    /// 18 Trillionen Adressen - Durchlaufen scheidet aus, es bleibt nur gezielt
-    /// fragen oder zuhoeren.
+    /// Methods used to examine an IPv6 prefix. A /64 contains about 18
+    /// quintillion addresses - enumeration is out of the question; the only
+    /// options are targeted queries or listening.
     /// </summary>
     [Flags]
     public enum Ipv6Discovery
     {
+        /// <summary>No discovery method.</summary>
         None = 0,
 
-        /// <summary>Nachbarschaftstabelle des Betriebssystems auslesen (ersetzt arp -a).</summary>
+        /// <summary>Read the neighbor table of the operating system (the IPv6 counterpart of arp -a).</summary>
         NeighborCache = 1 << 0,
 
-        /// <summary>Echo an ff02::1 - antwortet praktisch jedes Geraet im Segment.</summary>
+        /// <summary>Echo to ff02::1 - practically every device in the segment answers.</summary>
         MulticastPing = 1 << 1,
 
-        /// <summary>Router Advertisements mithoeren.</summary>
+        /// <summary>Listen for router advertisements.</summary>
         ListenRouterAdvertisements = 1 << 2,
 
-        /// <summary>MLD-Berichte auswerten - liefert Dienste ohne ein einziges gesendetes Paket.</summary>
+        /// <summary>Evaluate MLD reports - reveals services without sending a single packet.</summary>
         ListenMulticastGroups = 1 << 3,
 
-        /// <summary>::1 bis ::ff durchprobieren - dort liegen von Hand vergebene Adressen.</summary>
+        /// <summary>Probe ::1 to ::ff - where manually assigned addresses are located.</summary>
         LowByteSweep = 1 << 4,
 
-        /// <summary>Aus bekannten MAC-Adressen EUI-64-Adressen bilden und pruefen.</summary>
+        /// <summary>Build EUI-64 addresses from known MAC addresses and probe them.</summary>
         Eui64FromKnownMacs = 1 << 5,
 
-        /// <summary>Der uebliche Satz: alles Passive plus Multicast-Ping.</summary>
+        /// <summary>The usual set: everything passive plus multicast ping.</summary>
         Default = NeighborCache | MulticastPing | ListenRouterAdvertisements | ListenMulticastGroups
     }
 
     /// <summary>
-    /// Ein Scan-Bereich. Loest die bisherige <see cref="Models.IpGroup"/> ab,
-    /// behaelt aber jedes ihrer Felder - Gruppe, Geraetebeschreibung, Domain,
-    /// eigene DNS-Server, Reihenfolge, Auto-Scan und das Gateway fuer entfernte
-    /// Segmente. Neu ist allein <see cref="Kind"/>.
+    /// A scan scope. Carries every field of the stored
+    /// <see cref="Models.IpGroup"/> - group, device description, domain, own DNS
+    /// servers, order, automatic scan and the gateway for remote segments -
+    /// plus <see cref="Kind"/>.
     /// <para>
-    /// <see cref="IsSelected"/> loest die fruehere Spalte "Active" ab. Sie wird
-    /// nicht mehr in der Verwaltung bearbeitet, sondern ueber die Auswahl im
-    /// Kommandobalken gesetzt - gespeichert wird sie weiterhin, damit die
-    /// Auswahl einen Neustart uebersteht.
+    /// <see cref="IsSelected"/> corresponds to the stored "IsActive" column. It
+    /// is set through the selection in the command bar, not in the scope
+    /// editor, and is persisted so that the selection survives a restart.
     /// </para>
     /// </summary>
     public partial class ScanScope : ObservableObject
     {
-        /// <summary>Bleibt ueber Umsortieren und Umbenennen hinweg stabil.</summary>
+        /// <summary>Stays stable across reordering and renaming.</summary>
         public Guid Id { get; init; } = Guid.NewGuid();
 
-        /// <summary>Laufende Nummer, bestimmt die Reihenfolge beim Scan.</summary>
+        /// <summary>Sequence number; determines the order during the scan.</summary>
         [ObservableProperty] private int _index;
 
-        /// <summary>Geht in den naechsten Scan ein. Frueher "Active".</summary>
+        /// <summary>Included in the next scan. Stored as "IsActive".</summary>
         [ObservableProperty] private bool _isSelected;
 
+        /// <summary>The kind of scope; determines which of the fields below apply.</summary>
         [ObservableProperty] private ScanScopeKind _kind = ScanScopeKind.IPv4Range;
 
+        /// <summary>Name of the group the scope belongs to.</summary>
         [ObservableProperty] private string _groupDescription = string.Empty;
+        /// <summary>Description of the devices in this scope.</summary>
         [ObservableProperty] private string _deviceDescription = string.Empty;
 
         // --- IPv4Range -----------------------------------------------------
+        /// <summary>First address of the range.</summary>
         [ObservableProperty] private string _firstIP = string.Empty;
+        /// <summary>Last address of the range.</summary>
         [ObservableProperty] private string _lastIP = string.Empty;
 
         // --- TargetList ----------------------------------------------------
-        /// <summary>Adressen und Hostnamen, v4 und v6 gemischt.</summary>
+        /// <summary>Addresses and host names, IPv4 and IPv6 mixed.</summary>
         public List<string> Targets { get; init; } = [];
 
         // --- IPv6Prefix ----------------------------------------------------
+        /// <summary>The IPv6 prefix.</summary>
         [ObservableProperty] private string _prefix = string.Empty;
+        /// <summary>The prefix length in bits.</summary>
         [ObservableProperty] private int _prefixLength = 64;
+        /// <summary>The methods used to examine the prefix.</summary>
         [ObservableProperty] private Ipv6Discovery _ipv6Discovery = Ipv6Discovery.Default;
 
         // --- NetworkInterface ----------------------------------------------
-        /// <summary>Id des Adapters laut <see cref="System.Net.NetworkInformation.NetworkInterface"/>.</summary>
+        /// <summary>Id of the adapter as reported by <see cref="System.Net.NetworkInformation.NetworkInterface"/>.</summary>
         [ObservableProperty] private string _interfaceId = string.Empty;
 
-        // --- Namensaufloesung, gilt fuer alle Arten -------------------------
+        // --- Name resolution, applies to all kinds --------------------------
+        /// <summary>DNS domain of the scope.</summary>
         [ObservableProperty] private string _domain = string.Empty;
+        /// <summary>Own DNS servers, separated by comma or semicolon.</summary>
         [ObservableProperty] private string _dnsServers = string.Empty;
 
         /// <summary>
-        /// Der Router dieses Netzes.
+        /// The router of this network.
         /// <para>
-        /// Eine Uebersteuerung, kein Ersatz: bleibt das Feld leer, nimmt der
-        /// Lauf weiterhin das Gateway des Adapters, ueber den gescannt wird
-        /// (<c>LegacyScanMethod.GatewayDnsFallback</c>). Gedacht fuer den Fall,
-        /// dass ein Bereich hinter einem anderen Router haengt als dieser
-        /// Adapter.
+        /// An override, not a replacement: if the field is empty, the run uses
+        /// the gateway of the adapter the scan runs through
+        /// (<c>LegacyScanMethod.GatewayDnsFallback</c>). Intended for a scope
+        /// behind a different router than this adapter.
         /// </para>
         /// <para>
-        /// Frueher stand hier die Adresse einer entfernten Instanz. Die zieht
-        /// mit dem Satellitenbetrieb in eine eigene Verwaltung um, siehe
-        /// SATELLIT.md - das Feld heisst weiter <c>GatewayIP</c>, meint aber
-        /// jetzt das, was der Name sagt.
+        /// The field holds the router, not the address of a remote instance -
+        /// remote instances are managed separately by the satellite mode, see
+        /// SATELLIT.md. In the stored XML it is the <c>NMGatewayIP</c> column.
         /// </para>
         /// </summary>
         [ObservableProperty] private string _gatewayIP = string.Empty;
 
         /// <summary>
-        /// Name des Satelliten, der diesen Bereich scannt - leer heisst: von
-        /// diesem Rechner aus. Siehe SATELLIT.md.
+        /// Name of the satellite that scans this scope; empty means this
+        /// machine scans it. See SATELLIT.md.
         /// </summary>
         [ObservableProperty] private string _scannedBy = string.Empty;
 
-        // --- Automatischer Scan ----------------------------------------------
+        // --- Automatic scan --------------------------------------------------
+        /// <summary>The scope is scanned automatically.</summary>
         [ObservableProperty] private bool _automaticScan;
+        /// <summary>Interval of the automatic scan in minutes.</summary>
         [ObservableProperty] private int _scanIntervalMinutes;
 
         /// <summary>
-        /// Zeitpunkt des letzten Durchlaufs.
+        /// Time of the last run.
         /// <para>
-        /// Wird gespeichert, seit der automatische Scan verpasste Termine
-        /// nachholt: beim Start vergleicht der Hauptscanner diesen Wert mit dem
-        /// Intervall und stoesst an, was ueberfaellig ist. Ohne gespeicherten
-        /// Wert galte nach jedem Programmstart alles als frisch gescannt.
+        /// Persisted because the automatic scan catches up on missed runs: on
+        /// start the main scanner compares this value with the interval and
+        /// triggers what is overdue. Without a stored value everything would
+        /// count as freshly scanned after each program start.
         /// </para>
         /// </summary>
         [ObservableProperty] private DateTimeOffset? _lastScanned;
 
-        /// <summary>Die DNS-Server dieses Bereichs, getrennt nach Komma oder Semikolon.</summary>
+        /// <summary>The DNS servers of this scope, split at comma or semicolon.</summary>
         public IReadOnlyList<string> DnsServerList =>
             string.IsNullOrWhiteSpace(DnsServers)
                 ? []
                 : DnsServers.Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
         /// <summary>
-        /// Eintraege im DNS-Feld, die keine IP-Adresse sind - leer, wenn alles
-        /// in Ordnung ist.
+        /// Entries in the DNS field that are not IP addresses; empty if
+        /// everything is in order.
         /// <para>
-        /// Die Namensaufloesung baut ihren Client nur dann auf die hinterlegten
-        /// Server, wenn sich <b>jede</b> Angabe als IP lesen laesst. Ein
-        /// einzelner Name wie "dns.firma.local" laesst also die ganze Liste
-        /// stillschweigend unter den Tisch fallen - der Lauf fragt dann
-        /// woanders und niemand sieht, warum die Namen fehlen. Genau davor
-        /// warnt die Oberflaeche.
+        /// Name resolution uses the configured servers only if <b>every</b>
+        /// entry parses as an IP address. A single name such as
+        /// "dns.corp.example" therefore silently discards the whole list - the
+        /// run then queries the gateway instead (see docs/FEHLERGEDAECHTNIS.md,
+        /// No. 8), and nothing shows why names are missing. The user interface
+        /// warns about exactly this.
         /// </para>
         /// </summary>
         public IReadOnlyList<string> InvalidDnsServers =>
             [.. DnsServerList.Where(s => !IPAddress.TryParse(s, out _))];
 
-        /// <summary>Der Warnsatz zum DNS-Feld, oder leer, wenn es nichts zu melden gibt.</summary>
+        /// <summary>The warning for the DNS field, or empty if there is nothing to report.</summary>
         public string DnsServerWarning
         {
             get
@@ -195,8 +204,8 @@ namespace MyNetworkMonitor.Core.Model
             }
         }
 
-        // Das Warnfeld haengt am Textfeld und muss sich mit ihm neu melden,
-        // sonst bleibt die Warnung stehen, nachdem der Eintrag berichtigt wurde.
+        // The warning depends on the text field and must be re-raised with it;
+        // otherwise the warning stays after the entry has been corrected.
         partial void OnDnsServersChanged(string value)
         {
             OnPropertyChanged(nameof(DnsServerList));
@@ -205,19 +214,19 @@ namespace MyNetworkMonitor.Core.Model
             OnPropertyChanged(nameof(HasDnsServerWarning));
         }
 
-        /// <summary>Es gibt etwas zum DNS-Feld zu melden.</summary>
+        /// <summary>There is a warning for the DNS field.</summary>
         public bool HasDnsServerWarning => InvalidDnsServers.Count > 0;
 
-        /// <summary>Fuer diesen Bereich ist ein eigener Router hinterlegt.</summary>
+        /// <summary>A router of its own is configured for this scope.</summary>
         public bool HasOwnGateway => !string.IsNullOrWhiteSpace(GatewayIP);
 
-        /// <summary>Der Bereich wird von einem Satelliten gescannt statt von hier.</summary>
+        /// <summary>The scope is scanned by a satellite instead of this machine.</summary>
         public bool IsScannedRemotely => !string.IsNullOrWhiteSpace(ScannedBy);
 
         /// <summary>
-        /// Der Warnsatz zum Gateway-Feld, oder leer, wenn nichts zu melden ist.
-        /// Ein Name ist hier nutzlos: der Wert dient als Bezugspunkt fuer TTL,
-        /// Topologie und die Namensaufloesung und wird nirgends aufgeloest.
+        /// The warning for the gateway field, or empty if there is nothing to
+        /// report. A name is useless here: the value serves as reference point
+        /// for TTL, topology and name resolution and is never resolved.
         /// </summary>
         public string GatewayWarning =>
             !HasOwnGateway || IPAddress.TryParse(GatewayIP.Trim(), out _)
@@ -226,11 +235,11 @@ namespace MyNetworkMonitor.Core.Model
                   "never resolved, so a name cannot be used here. Leave the field empty to use the " +
                   "gateway of the adapter this range is scanned through.";
 
-        /// <summary>Es gibt etwas zum Gateway-Feld zu melden.</summary>
+        /// <summary>There is a warning for the gateway field.</summary>
         public bool HasGatewayWarning => GatewayWarning.Length > 0;
 
-        // Wie beim DNS-Feld: die Warnung haengt an der Eingabe und muss sich
-        // mit ihr neu melden.
+        // As with the DNS field: the warning depends on the input and must be
+        // re-raised with it.
         partial void OnGatewayIPChanged(string value)
         {
             OnPropertyChanged(nameof(HasOwnGateway));
@@ -240,12 +249,13 @@ namespace MyNetworkMonitor.Core.Model
 
         partial void OnScannedByChanged(string value) => OnPropertyChanged(nameof(IsScannedRemotely));
 
-        // ------------------------------------------------------------ Pruefung
+        // --------------------------------------------------------- Validation
 
         /// <summary>
-        /// Prueft, ob der Bereich vollstaendig genug ist, um gescannt zu werden.
-        /// Liefert bei einem Mangel einen Satz, der dem Nutzer sagt, was fehlt.
+        /// Checks whether the scope is complete enough to be scanned.
         /// </summary>
+        /// <param name="problem">A sentence describing what is missing; <c>null</c> if valid.</param>
+        /// <returns><c>true</c> if the scope can be scanned.</returns>
         public bool TryValidate(out string? problem)
         {
             problem = null;
@@ -313,14 +323,16 @@ namespace MyNetworkMonitor.Core.Model
             }
         }
 
-        // ------------------------------------------------------------ Umfang
+        // --------------------------------------------------------------- Size
 
         /// <summary>
-        /// Wie viele Ziele der Bereich umfasst. Bei
-        /// <see cref="ScanScopeKind.IPv6Prefix"/> nur eine Schaetzung, weil die
-        /// Zahl davon abhaengt, was Neighbor Cache und Multicast hergeben -
-        /// dann ist <paramref name="isEstimate"/> gesetzt.
+        /// How many targets the scope contains. For
+        /// <see cref="ScanScopeKind.IPv6Prefix"/> only an estimate, because the
+        /// number depends on what the neighbor cache and multicast reveal - in
+        /// that case <paramref name="isEstimate"/> is set.
         /// </summary>
+        /// <param name="isEstimate">Set if the count is only an estimate.</param>
+        /// <returns>The number of targets; 0 if unknown before the scan.</returns>
         public long CountTargets(out bool isEstimate)
         {
             isEstimate = false;
@@ -338,30 +350,31 @@ namespace MyNetworkMonitor.Core.Model
 
                 case ScanScopeKind.IPv6Prefix:
                     isEstimate = true;
-                    // Nur der Low-Byte-Durchlauf hat eine feste Groesse. Alles
-                    // Uebrige findet, was da ist - vorher nicht bezifferbar.
+                    // Only the low-byte sweep has a fixed size. Everything else
+                    // finds what is there - not quantifiable in advance.
                     return Ipv6Discovery.HasFlag(Ipv6Discovery.LowByteSweep) ? 255 : 0;
 
                 case ScanScopeKind.NetworkInterface:
                     isEstimate = true;
-                    return 0; // wird beim Scan aus dem Adapter bestimmt
+                    return 0; // determined from the adapter during the scan
 
                 default:
                     return 0;
             }
         }
 
-        // ------------------------------------------------------------ Ziele
+        // ------------------------------------------------------------ Targets
 
         /// <summary>
-        /// Zaehlt die Adressen eines IPv4-Bereichs auf - linear, nicht
-        /// oktettweise. Damit umfasst 10.0.4.200 bis 10.0.5.50 auch
-        /// tatsaechlich die 107 Adressen dazwischen.
+        /// Enumerates the addresses of an IPv4 range - linearly, not octet by
+        /// octet. 10.0.4.200 to 10.0.5.50 thus really covers the 107 addresses
+        /// in between.
         /// <para>
-        /// Bewusst nicht je Oktett getrennt hochgezaehlt: das liefert bei
-        /// einem Bereich ueber eine Oktettgrenze hinweg ein falsches Ergebnis.
+        /// Deliberately not counted per octet: that gives a wrong result for a
+        /// range crossing an octet boundary.
         /// </para>
         /// </summary>
+        /// <returns>The addresses; empty if the scope is not a valid IPv4 range.</returns>
         public IEnumerable<IPAddress> EnumerateIPv4Range()
         {
             if (Kind != ScanScopeKind.IPv4Range) yield break;
@@ -377,15 +390,16 @@ namespace MyNetworkMonitor.Core.Model
             for (uint value = from; ; value++)
             {
                 yield return FromUInt32(value);
-                if (value == to) break; // so herum, damit 255.255.255.255 nicht ueberlaeuft
+                if (value == to) break; // checked after yielding so that 255.255.255.255 does not overflow
             }
         }
 
         /// <summary>
-        /// Die Eintraege der Zielliste, soweit sie sich als Adresse lesen
-        /// lassen. Hostnamen bleiben als Text stehen und werden erst beim Scan
-        /// aufgeloest - darum zwei Rueckgabelisten.
+        /// Splits the target list into addresses and host names. Host names stay
+        /// as text and are resolved only during the scan - hence two result
+        /// lists.
         /// </summary>
+        /// <returns>The entries that parse as addresses, and the remaining entries as host names.</returns>
         public (List<IpAddressInfo> Addresses, List<string> Hostnames) SplitTargetList()
         {
             List<IpAddressInfo> addresses = [];
@@ -408,25 +422,26 @@ namespace MyNetworkMonitor.Core.Model
             return (addresses, hostnames);
         }
 
-        // ------------------------------------------------------- Beschreibung
+        // -------------------------------------------------------- Description
 
-        /// <summary>Einzeiler fuer Liste und Auswahl, etwa "192.0.2.1 - 192.0.2.254".</summary>
+        /// <summary>One-line address description for list and selection, for example "192.0.2.1 - 192.0.2.254".</summary>
+        /// <returns>The address part of the scope.</returns>
         public string DescribeAddressPart() => Kind switch
         {
             ScanScopeKind.IPv4Range => string.IsNullOrWhiteSpace(FirstIP) ? "-" : $"{FirstIP} - {LastIP}",
             ScanScopeKind.TargetList => $"{Targets.Count} entries",
             ScanScopeKind.IPv6Prefix => string.IsNullOrWhiteSpace(Prefix) ? "-" : $"{Prefix}/{PrefixLength}",
-            // Ohne feste Zuordnung nimmt der Scan den Adapter, ueber den der
-            // Rechner im Netz haengt - das gehoert hier hin, nicht ein "-".
+            // Without a fixed assignment the scan uses the adapter through
+            // which the machine is connected - that belongs here, not a "-".
             ScanScopeKind.NetworkInterface =>
                 string.IsNullOrWhiteSpace(InterfaceId) ? "subnet of the active adapter" : "from adapter",
             _ => "-"
         };
 
         /// <summary>
-        /// Dasselbe als bindbare Eigenschaft - in der Bereichsauswahl steht
-        /// die Adressangabe neben dem Namen, weil "Buero 2. OG" allein nicht
-        /// sagt, was gescannt wird.
+        /// The same as a bindable property - the scope selection shows the
+        /// address part next to the name, because "Office 2nd floor" alone does
+        /// not tell what is scanned.
         /// </summary>
         public string RangeText => DescribeAddressPart();
 
@@ -438,21 +453,25 @@ namespace MyNetworkMonitor.Core.Model
         public override string ToString() =>
             $"{Index}. {GroupDescription} [{Kind}] {DescribeAddressPart()}";
 
-        // --------------------------------------------------- Freie Eingabe
+        // ---------------------------------------------------------- Free input
 
         /// <summary>
-        /// Liest einen von Hand eingegebenen Bereich. Erlaubt ist, was man
-        /// erwartet, wenn man schnell etwas nachsehen will:
+        /// Parses a manually entered scope. Accepted is what one expects for a
+        /// quick check:
         /// <list type="bullet">
-        ///   <item><c>192.168.1.20</c> - eine Adresse</item>
-        ///   <item><c>192.168.1.1-192.168.1.254</c> - von/bis</item>
-        ///   <item><c>192.168.1.1-254</c> - Kurzform mit letztem Oktett</item>
-        ///   <item><c>192.168.1.0/24</c> - CIDR</item>
-        ///   <item><c>192.0.2.5, server1, 2001:db8::1</c> - Liste, gemischt</item>
+        ///   <item><c>192.0.2.20</c> - a single address</item>
+        ///   <item><c>192.0.2.1-192.0.2.254</c> - from/to</item>
+        ///   <item><c>192.0.2.1-254</c> - short form with the last octet</item>
+        ///   <item><c>192.0.2.0/24</c> - CIDR</item>
+        ///   <item><c>192.0.2.5, server1, 2001:db8::1</c> - list, mixed</item>
         /// </list>
-        /// Alles, was keine Adresse ist, bleibt als Hostname stehen und wird
-        /// beim Scan aufgeloest.
+        /// Everything that is not an address is kept as a host name and resolved
+        /// during the scan.
         /// </summary>
+        /// <param name="text">The entered text.</param>
+        /// <param name="scope">The parsed scope, selected for the next scan; <c>null</c> if nothing was recognized.</param>
+        /// <param name="problem">A sentence describing the problem, if any.</param>
+        /// <returns><c>true</c> if a valid scope was recognized.</returns>
         public static bool TryParseCustom(string? text, out ScanScope? scope, out string? problem)
         {
             scope = null;
@@ -501,9 +520,9 @@ namespace MyNetworkMonitor.Core.Model
         }
 
         /// <summary>
-        /// Erkennt die drei Schreibweisen eines IPv4-Bereichs. Liefert nur dann
-        /// wahr, wenn beide Enden gueltige IPv4-Adressen ergeben - sonst ist es
-        /// keine Bereichsangabe, sondern ein Hostname mit Bindestrich.
+        /// Recognizes the three notations of an IPv4 range. Returns true only if
+        /// both ends yield valid IPv4 addresses - otherwise it is not a range
+        /// but a host name with a hyphen.
         /// </summary>
         private static bool TryParseRange(string input, out string? first, out string? last)
         {
@@ -521,8 +540,9 @@ namespace MyNetworkMonitor.Core.Model
                 uint start = ToUInt32(network) & mask;
                 uint end = start | ~mask;
 
-                // Netz- und Broadcast-Adresse auslassen, solange das Netz gross
-                // genug ist, dass sie ueberhaupt eine eigene Bedeutung haben.
+                // Skip network and broadcast address as long as the network is
+                // large enough for them to have a meaning of their own
+                // (/31 and /32 have none, RFC 3021).
                 if (bits <= 30)
                 {
                     start++;
@@ -543,7 +563,7 @@ namespace MyNetworkMonitor.Core.Model
             if (!IPAddress.TryParse(left, out IPAddress? from) ||
                 from.AddressFamily != AddressFamily.InterNetwork) return false;
 
-            // Kurzform: rechts steht nur das letzte Oktett.
+            // Short form: the right side holds only the last octet.
             if (!right.Contains('.') && byte.TryParse(right, out byte lastOctet))
             {
                 byte[] bytes = from.GetAddressBytes();
@@ -559,18 +579,20 @@ namespace MyNetworkMonitor.Core.Model
             return true;
         }
 
-        // ------------------------------------------------- Bestandsuebernahme
+        // -------------------------------------------------- Stored format
 
         /// <summary>
-        /// Uebernimmt eine bestehende <see cref="Models.IpGroup"/>. Sie wird
-        /// immer zu einem <see cref="ScanScopeKind.IPv4Range"/> - genau das
-        /// war sie bisher auch. Damit lesen sich gespeicherte XML-Dateien ohne
-        /// Zutun weiter, und niemand verliert seine Bereiche.
+        /// Creates a scope from a stored <see cref="Models.IpGroup"/>. It always
+        /// becomes a <see cref="ScanScopeKind.IPv4Range"/>, which is all the XML
+        /// format can describe. Stored XML files are thus read without any
+        /// conversion step, and no scopes are lost.
         /// <para>
-        /// <c>IsActive</c> wird zu <see cref="IsSelected"/>: was bisher aktiv
-        /// war, ist nach dem Umstieg ausgewaehlt.
+        /// <c>IsActive</c> becomes <see cref="IsSelected"/>.
         /// </para>
         /// </summary>
+        /// <param name="group">The stored IP group.</param>
+        /// <returns>The equivalent scope.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="group"/> is <c>null</c>.</exception>
         public static ScanScope FromIpGroup(Models.IpGroup group)
         {
             ArgumentNullException.ThrowIfNull(group);
@@ -598,11 +620,11 @@ namespace MyNetworkMonitor.Core.Model
         }
 
         /// <summary>
-        /// Zurueck in das bisherige Format - fuer das Speichern, solange die
-        /// alte XML-Datei noch geschrieben wird. Bereiche, die kein
-        /// <see cref="ScanScopeKind.IPv4Range"/> sind, lassen sich so nicht
-        /// abbilden und ergeben <c>null</c>.
+        /// Converts back into the stored XML format, for saving. Scopes that are
+        /// not a <see cref="ScanScopeKind.IPv4Range"/> cannot be represented
+        /// there and yield <c>null</c>.
         /// </summary>
+        /// <returns>The equivalent IP group, or <c>null</c>.</returns>
         public Models.IpGroup? ToIpGroup()
         {
             if (Kind != ScanScopeKind.IPv4Range) return null;
@@ -621,14 +643,14 @@ namespace MyNetworkMonitor.Core.Model
                 ScannedBy = ScannedBy,
                 AutomaticScan = AutomaticScan,
                 ScanIntervalMinutes = ScanIntervalMinutes > 0 ? ScanIntervalMinutes.ToString() : string.Empty,
-                // Rundlauffaehig ("O"), damit der Wert beim Lesen wieder genau
-                // derselbe Zeitpunkt ist - davon haengt ab, ob ein Bereich als
-                // ueberfaellig gilt.
+                // Round-trip format ("O") so that the value read back is exactly
+                // the same point in time - whether a scope counts as overdue
+                // depends on it.
                 LastScanned = LastScanned?.ToString("O", CultureInfo.InvariantCulture) ?? string.Empty
             };
         }
 
-        // ------------------------------------------------------------ Helfer
+        // ------------------------------------------------------------ Helpers
 
         private static uint ToUInt32(IPAddress address)
         {

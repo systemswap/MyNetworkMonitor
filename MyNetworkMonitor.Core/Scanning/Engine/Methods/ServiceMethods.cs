@@ -5,15 +5,14 @@ using MyNetworkMonitor.Core.Scanning.ServiceScans;
 namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 {
     /// <summary>
-    /// TCP-Portscan ueber die eingestellte Portauswahl.
+    /// TCP port scan over the configured port selection.
     /// <para>
-    /// <b>Nur IPv4, und zwar wegen des Sockets:</b>
-    /// <c>ScanningMethod_PortsTCP</c> oeffnet in
-    /// <c>ScanTCP_Port_via_Socket_Async</c> einen Socket mit
-    /// <c>AddressFamily.InterNetwork</c>. Ein IPv6-Ziel wuerde dort eine
-    /// Ausnahme ausloesen, nicht nur kein Ergebnis liefern. Der Dual-Stack-Umbau
-    /// dieses Moduls ist Schritt 5 der Reihenfolge - erst danach entsteht die
-    /// Gegenueberstellung v4/v6 je Port.
+    /// <b>IPv4 only, because of the socket:</b>
+    /// <c>ScanningMethod_PortsTCP</c> opens a socket with
+    /// <c>AddressFamily.InterNetwork</c> in
+    /// <c>ScanTCP_Port_via_Socket_Async</c>. An IPv6 target would raise an
+    /// exception there, not merely return no result. A per-port IPv4/IPv6
+    /// comparison requires a dual-stack socket in that module.
     /// </para>
     /// </summary>
     public sealed class TcpPortScanMethod : LegacyScanMethod
@@ -81,14 +80,13 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
     }
 
     /// <summary>
-    /// Wie <see cref="TcpPortScanMethod"/>, aber ueber alle 65535 Ports statt
-    /// der eingestellten Auswahl - und zeigt, welche offen sind.
+    /// Like <see cref="TcpPortScanMethod"/>, but over all 65535 ports instead
+    /// of the configured selection, reporting the ones that are open.
     /// <para>
-    /// Steht in der Oberflaeche eingerueckt unter dem gewoehnlichen Portscan
-    /// und ist nie vorausgewaehlt: der volle Durchlauf dauert deutlich laenger
-    /// und ist eine bewusste Entscheidung, kein Standard. Wer nur wissen will,
-    /// welche Tueren ueberhaupt offen stehen - unabhaengig davon, welche Ports
-    /// hinterlegt sind -, waehlt dieses Verfahren.
+    /// Shown indented below the regular port scan in the UI and never
+    /// preselected: the full pass takes considerably longer and is a
+    /// deliberate choice, not a default. It is the method for finding out
+    /// which ports are open at all, regardless of which ports are configured.
     /// </para>
     /// </summary>
     public sealed class AllTcpPortScanMethod : LegacyScanMethod
@@ -118,8 +116,8 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             LegacyTargets targets = BuildTargets(context);
             if (targets.Count == 0) return;
 
-            // Bewusst der ganze Bereich, unabhaengig von der Portauswahl und dem
-            // Schalter "alle Ports": dieses Verfahren ist die Auswahl.
+            // Deliberately the full range, regardless of the port selection and
+            // the "all ports" switch: choosing this method is the selection.
             List<int> ports = [.. Enumerable.Range(1, 65535)];
 
             ScanningMethod_PortsTCP tcp = new();
@@ -147,10 +145,10 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
     }
 
     /// <summary>
-    /// Prueft die eingestellte Portauswahl per UDP. Sendet ein leeres Paket je
-    /// Port und wertet aus, was zurueckkommt - siehe
-    /// <see cref="ScanningMethod_PortsUDP"/> dazu, was das findet und was
-    /// prinzipbedingt nicht.
+    /// Checks the configured port selection over UDP. Sends an empty datagram
+    /// per port and evaluates what comes back; see
+    /// <see cref="ScanningMethod_PortsUDP"/> for what this finds and what it
+    /// inherently cannot. See docs/FEHLERGEDAECHTNIS.md, No. 4.
     /// </summary>
     public sealed class UdpPortScanMethod : LegacyScanMethod
     {
@@ -215,7 +213,9 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
     }
 
     /// <summary>
-    /// SMB-Version des Ziels bestimmen. Meldet auch, wenn noch SMBv1 aktiv ist.
+    /// Determines the SMB version of the target, including whether SMB1 is
+    /// still enabled (as stated by the server's answer; see
+    /// docs/FEHLERGEDAECHTNIS.md, No. 3).
     /// </summary>
     public sealed class SmbVersionScanMethod : LegacyScanMethod
     {
@@ -263,12 +263,12 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
     }
 
     /// <summary>
-    /// Fragt eine offene Weboberflaeche, wer sie ist: Seitentitel,
-    /// Serverkennung und TLS-Zertifikat.
+    /// Asks an open web interface who it is: page title, server header and
+    /// TLS certificate.
     /// <para>
-    /// Laeuft bewusst in der Dienstphase und damit <b>nach</b> dem Portscan:
-    /// sind die offenen Ports des Ziels schon bekannt, wird genau dort
-    /// nachgefragt statt vier Ports auf Verdacht zu probieren.
+    /// Deliberately runs in the services phase and therefore <b>after</b> the
+    /// port scan: when the target's open ports are already known, exactly
+    /// those are queried instead of trying four ports speculatively.
     /// </para>
     /// </summary>
     public sealed class WebIdentityScanMethod : LegacyScanMethod
@@ -323,11 +323,11 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         }
 
         /// <summary>
-        /// Die bereits als offen bekannten Webports je Ziel.
+        /// The web ports already known to be open, per target.
         /// <para>
-        /// Ohne diesen Schritt klopfte das Verfahren an vier feste Ports, und
-        /// eine Oberflaeche auf 8081 bliebe unentdeckt, obwohl der Portscan sie
-        /// eine Phase vorher gefunden hat.
+        /// Without this step the method would only try four fixed ports, and
+        /// an interface on 8081 would stay undetected although the port scan
+        /// found it one phase earlier.
         /// </para>
         /// </summary>
         private static Dictionary<string, List<int>> KnownWebPorts(
@@ -358,9 +358,9 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         }
 
         /// <summary>
-        /// Was als Webport in Frage kommt. Die krummen Zahlen sind Absicht:
-        /// Geraeteoberflaechen sitzen fast nie auf 80, sondern auf 8080, 8443,
-        /// 8000 und Aehnlichem.
+        /// Ports that qualify as web ports. The unusual numbers are
+        /// intentional: device interfaces rarely sit on port 80 but on 8080,
+        /// 8443, 8000 and similar.
         /// </summary>
         private static bool LooksLikeWebPort(int port) =>
             port is 80 or 443 or 280 or 591 or 593 or 981 or 1311 or 2480 or 4443 or 4444
@@ -384,31 +384,33 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                 CertificateSubject = found.CertificateSubject,
                 CertificateIssuer = found.CertificateIssuer,
 
-                // Als DateTimeOffset in der oertlichen Zeitzone: das Zertifikat
-                // traegt eine lokale Zeit, und eine falsche Umrechnung machte
-                // aus "laeuft heute ab" ein "abgelaufen".
+                // As a DateTimeOffset in the local time zone: the certificate
+                // value is a local time, and a wrong conversion turns
+                // "expires today" into "expired".
                 CertificateExpires = found.CertificateExpires is { } expires
                     ? new DateTimeOffset(expires)
                     : null,
 
                 CertificateIsSelfSigned = found.CertificateExpires is null ? null : found.IsSelfSigned,
 
-                // Die Namen aus dem Zertifikat sind Namensvergaben wie jede
-                // andere - sie gehoeren in dieselbe Pruefung auf Dopplungen.
+                // The names in the certificate are name assignments like any
+                // other; they belong in the same duplicate check.
                 Aliases = found.AlternativeNames.Count > 0 ? found.AlternativeNames : null
             });
         }
     }
 
     /// <summary>
-    /// Diensterkennung: spricht die Ports gezielt an und ordnet die Antwort
-    /// einem Dienst zu. Liefert die Dienstliste, nach der die Ergebnistabelle
-    /// gefiltert wird.
+    /// Service detection: addresses the ports directly and assigns the answer
+    /// to a service. Provides the service list by which the result table is
+    /// filtered. A service counts as detected only if its answer matches the
+    /// protocol; see docs/FEHLERGEDAECHTNIS.md, No. 2.
     /// <para>
-    /// Braucht den Pfad zur Dienst-XML, weil das Modul seine Definitionen
-    /// von dort laedt. Die Erkennungspakete selbst werden nicht angetastet.
+    /// Needs the path to the service XML, because the module loads its
+    /// definitions from there.
     /// </para>
     /// </summary>
+    /// <param name="serviceXmlPath">Path of the service definitions.</param>
     public sealed class ServiceDetectionScanMethod(string serviceXmlPath) : LegacyScanMethod
     {
         public override string Id => "services";
@@ -426,10 +428,10 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         public override FamilySupport Families => FamilySupport.IPv4;
 
         /// <summary>
-        /// Eine fehlende Dienst-XML ist <b>kein</b> Hindernis:
-        /// <c>SetServicePorts</c> legt jeden Diensttyp mit seinen Standardports
-        /// an und liest die Datei nur als Ueberlagerung fuer eigene
-        /// Anpassungen darueber. Sie muss also gar nicht vorhanden sein.
+        /// A missing service XML is <b>not</b> an obstacle:
+        /// <c>SetServicePorts</c> creates every service type with its default
+        /// ports and reads the file only as an overlay for custom changes. The
+        /// file does not have to exist.
         /// </summary>
         public override ScanMethodAvailability CheckAvailability(ScanContext context) =>
             context.HasTargetsOf(IpFamily.IPv4)
@@ -437,10 +439,10 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                 : ScanMethodAvailability.NotApplicable(NoIpv4Targets);
 
         /// <summary>
-        /// Laeuft ueber <see cref="ServiceScanRunner"/>, also Dienst fuer
-        /// Dienst statt Ziel fuer Ziel. Die Dienstdefinitionen kommen
-        /// weiterhin aus der XML - was gesucht wird und auf welchen Ports,
-        /// entscheidet die Dienstverwaltung und nicht der Ablauf.
+        /// Runs through <see cref="ServiceScanRunner"/>, service by service
+        /// rather than target by target. The service definitions come from the
+        /// XML: what is searched for and on which ports is decided by the
+        /// service management, not by the run.
         /// </summary>
         public override async Task ExecuteAsync(ScanContext context, CancellationToken cancellationToken)
         {
@@ -484,25 +486,25 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            // Erst nachdem alle Dienste durch sind: der Bestand traegt jetzt,
-            // was S7, BACnet und Modbus an Firmware gemeldet haben, und genau
-            // daran entscheidet sich, ob die OPC-UA-Sitzung noetig ist.
+            // Only after all services are done: at this point the store holds
+            // the firmware reported by S7, BACnet and Modbus, and exactly that
+            // decides whether the OPC UA session is needed.
             await AddOpcUaFirmwareAsync(context, addresses, cancellationToken);
         }
 
-        /// <summary>Der uebliche OPC-UA-Port - hier nur, um laufende Dienste zu erkennen.</summary>
+        /// <summary>The usual OPC UA port, used here only to identify running services.</summary>
         private const int OpcUaPort = 4840;
 
         /// <summary>
-        /// Nachlauf fuer die Firmware ueber OPC UA - der einzige Schritt, der
-        /// eine Sitzung <em>aufbaut</em> statt nur zu fragen.
+        /// Follow-up pass for firmware over OPC UA, the only step that
+        /// <em>establishes</em> a session instead of merely querying.
         /// <para>
-        /// Angemeldet wird nur, wo es noetig ist: das Geraet muss OPC UA
-        /// sprechen, und es darf noch keine Firmware aus einem anderen Dienst
-        /// bekannt sein. S7, BACnet und die WAGO-Register liefern sie ohne
-        /// Sitzung; bei diesen Geraeten unterbleibt der Login. Uebrig bleiben
-        /// die, bei denen OPC UA der einzige Weg ist - etwa eine reine
-        /// OPC-UA-Steuerung. Die Sitzung laeuft ausschliesslich anonym.
+        /// A session is opened only where needed: the device must speak OPC UA,
+        /// and no firmware may be known yet from another service. S7, BACnet
+        /// and the WAGO registers deliver it without a session; for these
+        /// devices the login is skipped. What remains are devices for which
+        /// OPC UA is the only way, such as a pure OPC UA controller. The
+        /// session is always anonymous.
         /// </para>
         /// </summary>
         private async Task AddOpcUaFirmwareAsync(
@@ -558,8 +560,8 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                 }
                 catch (Exception)
                 {
-                    // Ein Server, der anonyme Sitzungen ablehnt oder unterwegs
-                    // abbricht, bleibt ohne Firmware - der uebrige Befund steht.
+                    // A server that rejects anonymous sessions or aborts midway
+                    // stays without firmware; the remaining findings stand.
                 }
                 finally
                 {
@@ -571,9 +573,9 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         }
 
         /// <summary>
-        /// Ob zu diesem Geraet schon Firmware feststeht - aus den Details oder
-        /// dem Protokoll eines laufenden Dienstes. Alle Sonden, die Firmware
-        /// melden, schreiben das Wort "Firmware" in ihre Ausgabe.
+        /// Whether firmware is already known for this device, from the details
+        /// or the log of a running service. All probes that report firmware
+        /// write the word "Firmware" into their output.
         /// </summary>
         private static bool FirmwareAlreadyKnown(Device device)
         {
@@ -594,14 +596,14 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         }
 
         /// <summary>
-        /// Verpackt einen Befund in die Form, die der Ergebnisweg erwartet.
+        /// Wraps a finding in the form the result path expects.
         /// <para>
-        /// Bewusst ein frisches, schlankes Exemplar je Befund statt des
-        /// Ziels aus der Liste: gemeldet wird jetzt nach <em>jedem</em> Dienst
-        /// und nicht mehr einmal am Ende, und traege das Ziel dabei seine
-        /// bisherigen Funde mit, gingen dieselben Dienstzeilen bis zu 24 Mal
-        /// durch die Zusammenfuehrung. Adresse und Bereich genuegen - alles
-        /// Weitere traegt der Bestand ohnehin schon.
+        /// Deliberately a fresh, minimal instance per finding instead of the
+        /// target from the list: results are reported after <em>each</em>
+        /// service rather than once at the end, and if the target carried its
+        /// previous findings along, the same service rows would pass through
+        /// the merge up to 24 times. Address and scope suffice; the store
+        /// already holds everything else.
         /// </para>
         /// </summary>
         private static IPToScan ToLegacyResult(ServiceFinding finding)
@@ -618,13 +620,13 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         }
 
         /// <summary>
-        /// Bestimmt, welche Dienste gesucht werden - und mit welchen Ports.
+        /// Determines which services are searched for, and on which ports.
         /// <para>
-        /// Drei Stufen: was die Einstellungen ausdruecklich nennen, sonst was
-        /// in der Dienstetabelle als <c>toScan</c> markiert ist, sonst alle.
-        /// Die letzte Stufe ist wichtig, weil die Dienstauswahl in der neuen
-        /// Oberflaeche noch fehlt - ohne sie waere "Diensterkennung" angehakt
-        /// und wuerde trotzdem nichts tun, was niemand versteht.
+        /// Three stages: what the settings name explicitly, otherwise what the
+        /// service table marks as <c>toScan</c>, otherwise all. The last stage
+        /// matters when no selection exists: without it, service detection
+        /// would be checked and still do nothing, which nobody would
+        /// understand.
         /// </para>
         /// </summary>
         private static (List<ServiceType>, Dictionary<ServiceType, List<int>>, HashSet<ServiceType>) SelectServices(
@@ -645,8 +647,8 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 
                 if (row["toScan"] != DBNull.Value && row["toScan"] is true) marked.Add(type);
 
-                // Die Spalte gibt es erst seit der aktiven Nachfrage; aeltere
-                // Tabellen kennen sie nicht, und dann bleibt es bei "aus".
+                // Service tables saved before the ActiveInquiry column existed
+                // lack it; then the value stays "off".
                 if (module.Services.Columns.Contains("ActiveInquiry") &&
                     row["ActiveInquiry"] != DBNull.Value && row["ActiveInquiry"] is true)
                 {

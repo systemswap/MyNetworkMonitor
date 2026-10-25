@@ -3,9 +3,8 @@ using System.Text;
 namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 {
     /// <summary>
-    /// InfluxDB 2. Sitzt auf 8086 und damit auf einem Port, der auch in der
-    /// Webliste steht - beide Sonden pruefen ihn, und welcher Befund stehen
-    /// bleibt, entscheidet die Antwort.
+    /// InfluxDB 2. Listens on 8086, a port that is also in the web list; both
+    /// probes check it, and the answer decides which finding stands.
     /// </summary>
     public sealed class InfluxDb2Probe : ServiceProbeBase
     {
@@ -13,18 +12,17 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         public override string Group => ServiceGroups.NoSqlDatabases;
         public override IReadOnlyList<int> DefaultPorts => [8086];
 
-        /// <summary>Woertlich aus dem alten Schalter uebernommen - kein Byte veraendert.</summary>
+        /// <summary>An HTTP request for <c>/health</c>, which InfluxDB answers without login.</summary>
         public override byte[] Hello => Encoding.ASCII.GetBytes(
                 "GET /health HTTP/1.1\r\nHost: influxdb\r\nConnection: close\r\n\r\n");
 
-        /// <summary>Woertlich aus der alten Antwortpruefung uebernommen - keine Bedingung veraendert.</summary>
+        /// <summary>Matches when the answer contains "influxdb", case-insensitive.</summary>
         public override bool Identify(byte[] response)
         {
             ServiceType service = Service;
             bool serviceMatched = false;
             string str_serviceResponse = Encoding.ASCII.GetString(response);
 
-            // ?? InfluxDB 2
             if (service == ServiceType.InfluxDB2)
             {
                 if (str_serviceResponse.ToLower().Contains("influxdb"))
@@ -37,10 +35,10 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Liest Fassung und Zustand aus der Antwort auf <c>/health</c> - der
-        /// Auskunftsseite, die InfluxDB ohne Anmeldung fuer genau diesen Zweck
-        /// bereithaelt. Gefragt wird sie ohnehin schon; die Antwort traegt die
-        /// Fassung sowohl im Kopf <c>X-Influxdb-Version</c> als auch im Text.
+        /// Reads version and status from the answer to <c>/health</c>, the
+        /// status page InfluxDB provides without login for exactly this purpose.
+        /// It is requested anyway; the answer carries the version both in the
+        /// <c>X-Influxdb-Version</c> header and in the body.
         /// </summary>
         protected override string? Describe(byte[] response)
         {
@@ -54,16 +52,15 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             string build = HeaderValue(text, "X-Influxdb-Build");
             if (build.Length > 0) lines.Add($"Build: {build}");
 
-            // Der Zustandsbericht steht als JSON im Rumpf. Ohne Parser gelesen:
-            // gebraucht wird ein einziges Feld, und dafuer lohnt keine
-            // Abhaengigkeit.
+            // The status report is JSON in the body. Read without a parser: a
+            // single field is needed, which does not justify a dependency.
             string status = JsonValue(text, "status");
             if (status.Length > 0) lines.Add($"Status: {status}");
 
             return lines.Count > 0 ? string.Join(Environment.NewLine, lines) : null;
         }
 
-        /// <summary>Der Wert eines HTTP-Kopffeldes, oder leer.</summary>
+        /// <summary>The value of an HTTP header field, or empty.</summary>
         private static string HeaderValue(string response, string name)
         {
             foreach (string raw in response.Split('\n'))
@@ -79,10 +76,9 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Der Wert eines JSON-Feldes aus dem Rumpf. Bewusst schlicht: gesucht
-        /// wird der Name in Anfuehrungszeichen, genommen wird die Zeichenkette
-        /// dahinter. Fuer verschachtelte Felder taugt das nicht - hier steht
-        /// aber nur eine flache Auskunft.
+        /// The value of a JSON field from the body. Deliberately simple: it
+        /// searches for the quoted name and takes the string after it. That
+        /// does not work for nested fields, but the answer here is flat.
         /// </summary>
         private static string JsonValue(string response, string field)
         {

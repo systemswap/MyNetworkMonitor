@@ -6,10 +6,9 @@ using static MyNetworkMonitor.ServiceScanData;
 namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 {
     /// <summary>
-    /// BACnet, die Gebaeudeleittechnik. Eigener Ablauf, weil es ueber UDP
-    /// laeuft und nicht bei einer Ja/Nein-Antwort bleibt: gefragt werden die
-    /// Eigenschaften des Geraets - Objektnummer, Hersteller, Name -, und die
-    /// stehen anschliessend im Protokoll des Ports.
+    /// BACnet, building automation. Own procedure, because it runs over UDP
+    /// and goes beyond a yes/no answer: the properties of the device (object
+    /// number, vendor, name) are queried and then written to the port log.
     /// </summary>
     public sealed class BacNetProbe : ServiceProbeBase
     {
@@ -19,44 +18,40 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
 
         /// <summary>
-        /// ReadProperty auf den Objektnamen des Geraets - dasselbe Paket, das
-        /// <see cref="QueryBacnetProperty"/> fuer jede weitere Eigenschaft
-        /// verwendet, nur mit der Property 0x4D.
+        /// ReadProperty for the object name of the device: the same packet that
+        /// <see cref="QueryBacnetProperty"/> uses for every further property,
+        /// with property 0x4D.
         /// <para>
-        /// Das frueher hier stehende Paket war falsch kodiert und blieb bei
-        /// zwei von zwei geprueften Stacks ohne oder ohne verwertbare Antwort:
-        /// im NPDU fehlte das Bit "expecting reply" (0x00 statt 0x04), der
-        /// APDU-Kopf fehlte ganz - PDU-Typ, maximale APDU-Groesse und
-        /// Invoke-ID -, die Objektkennung nannte Typ 0 (Analog-Input) statt 8
-        /// (Device), und die Property war 0x00 (acked_transitions) statt 0x4D
-        /// (Object_Name), obwohl der Kommentar Object_Name behauptete.
+        /// Every part must be encoded correctly: the NPDU needs the "expecting
+        /// reply" bit (0x04), the APDU needs its complete header (PDU type,
+        /// maximum APDU size and invoke ID, ASHRAE 135, clause 20.1.2), the
+        /// object identifier must name type 8 (Device) and the property must
+        /// be 0x4D (Object_Name).
         /// </para>
         /// <para>
-        /// Der YABE-Simulator verwarf das Paket wortlos - damit endete
-        /// <c>GetBacNetInfos</c> vor der Eigenschaftsschleife und meldete
-        /// "keine Antwort", obwohl das Geraet auf die nachfolgenden Pakete
-        /// vollstaendig antwortete. Der CAS-Stack von Chipkin schickte ein
-        /// Reject mit Grund 9 ("unrecognized service"); das beginnt ebenfalls
-        /// mit 0x81 und besteht <see cref="IsBacNet"/>, weshalb die Erkennung
-        /// dort zufaellig trotzdem gelang. Die Erkennung hing also daran, ob
-        /// ein Geraet auf ein ungueltiges Paket ueberhaupt etwas zurueckgibt.
+        /// A malformed packet is not reliably answered: one reference
+        /// implementation discards it silently, so <c>GetBacNetInfos</c> ends
+        /// before the property loop and reports "no response" although the
+        /// device answers the following packets completely. Another answers
+        /// with a Reject, reason 9 ("unrecognized service"), which also starts
+        /// with 0x81 and passes <see cref="IsBacNet"/>. Detection would then
+        /// depend on whether a device answers an invalid packet at all.
         /// </para>
         /// <para>
-        /// Gegengeprueft gegen beide Stacks: der Objektname kommt jetzt in
-        /// einem Complex-ACK zurueck, die anschliessend gesammelten
-        /// Eigenschaften sind byte-gleich zu vorher.
+        /// Verified against two reference implementations: the object name
+        /// comes back in a Complex-ACK.
         /// </para>
         /// </summary>
         public override byte[] Hello => new byte[]
             {
                 0x81, 0x0A,             // BVLC: BACnet/IP, Original-Unicast-NPDU
-                0x00, 0x11,             // Gesamtlaenge einschliesslich BVLC-Kopf (17 Bytes)
-                0x01, 0x04,             // NPDU: Version 1, "expecting reply"
-                0x00, 0x05, 0x01, 0x0C, // APDU: Confirmed-Request, max. APDU, Invoke-ID 1, ReadProperty
-                0x0C, 0x02, 0x3F, 0xFF, 0xFF, // Objekt: Typ 8 (Device), Instanz 4194303 = "dieses Geraet"
-                0x19, 0x4D              // Property 0x4D (Object_Name)
+                0x00, 0x11,             // total length including the BVLC header (17 bytes)
+                0x01, 0x04,             // NPDU: version 1, "expecting reply"
+                0x00, 0x05, 0x01, 0x0C, // APDU: Confirmed-Request, max. APDU, invoke ID 1, ReadProperty
+                0x0C, 0x02, 0x3F, 0xFF, 0xFF, // object: type 8 (Device), instance 4194303 = "this device"
+                0x19, 0x4D              // property 0x4D (Object_Name)
             };
-        /// <summary>Die Eigenschaften, die nach der ersten Antwort einzeln nachgefragt werden.</summary>
+        /// <summary>The properties queried one by one after the first answer.</summary>
         private static readonly List<byte> PropertyIds = new List<byte>
         {
             0x4B, // Device ID
@@ -79,9 +74,8 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Erst der ReadProperty-Rundruf; kommt darauf eine Antwort, wird das
-        /// Geraet Eigenschaft fuer Eigenschaft ausgefragt. Wortgleich aus
-        /// <c>ScanningMethod_Services</c> uebernommen.
+        /// First the ReadProperty request; if an answer arrives, the device is
+        /// queried property by property.
         /// </summary>
         private static async Task<PortResult> GetBacNetInfos(string targetIP, int targetPort, byte[] bacnetRequestPacket)
         {
@@ -94,36 +88,35 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                 {
                     IPEndPoint targetEndPoint = new IPEndPoint(IPAddress.Parse(targetIP), targetPort);
 
-                    // Zuerst das Paket senden
+                    // Send the packet first
                     await udpClient.SendAsync(bacnetRequestPacket, bacnetRequestPacket.Length, targetEndPoint);
 
-                    // Auf Antwort warten
+                    // Wait for the answer
                     using var cts = new CancellationTokenSource(3000);
                     var receiveTask = udpClient.ReceiveAsync();
 
                     if (await Task.WhenAny(receiveTask, Task.Delay(2000, cts.Token)) == receiveTask)
                     {
-                        // Diese Zeile muss stehen bleiben, auch wenn der Wert
-                        // unten nicht gebraucht wird.
+                        // This line must stay even where the value is not
+                        // needed below.
                         //
-                        // WhenAny endet auch dann bei receiveTask, wenn der
-                        // Empfang *fehlgeschlagen* ist - und der haeufigste
-                        // Fehlschlag ist die Antwort "Port nicht erreichbar"
-                        // (ICMP) eines Rechners, auf dem gar kein BACnet
-                        // lauscht. Erst der Zugriff auf das Ergebnis wirft die
-                        // Ausnahme, und erst dadurch bleibt es bei "keine
-                        // Antwort". Ohne ihn gilt genau die Absage als Fund:
-                        // in einem Lauf ueber den Satelliten meldeten so 16
-                        // gewoehnliche Arbeitsplatzrechner BACnet.
+                        // WhenAny also completes with receiveTask when the
+                        // receive has *failed*, and the most common failure is
+                        // the ICMP "port unreachable" answer of a host on which
+                        // no BACnet listens. Only accessing the result throws
+                        // the exception, and only that keeps the status at "no
+                        // response". Without it, the rejection itself counts as
+                        // a finding, and ordinary workstations are reported as
+                        // BACnet devices.
                         byte[] response = receiveTask.Result.Buffer;
 
-                        // Und die Antwort muss auch nach BACnet aussehen.
+                        // The answer must also look like BACnet.
                         //
-                        // Jedes BACnet/IP-Paket beginnt mit der BVLC-Kennung
-                        // 0x81, gefolgt von der Funktion und der Gesamtlaenge
-                        // in zwei Bytes. Ohne diese Pruefung zaehlte jedes
-                        // beliebige Datagramm, das zufaellig an diesem Socket
-                        // ankommt - und "laeuft" hiesse nur "irgendetwas kam".
+                        // Every BACnet/IP packet starts with the BVLC type 0x81,
+                        // followed by the function and the total length in two
+                        // bytes (ASHRAE 135, Annex J). Without this check any
+                        // datagram arriving at this socket would count, and
+                        // "running" would only mean "something arrived".
                         if (!IsBacNet(response))
                         {
                             portResult.Status = PortStatus.NoResponse;
@@ -131,7 +124,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                             return portResult;
                         }
 
-                        // Erste Antwort erhalten - jetzt die weiteren Infos sammeln
+                        // First answer received; now collect the further information
                         foreach (byte propertyId in PropertyIds)
                         {
                             byte[]? value = await QueryBacnetProperty(udpClient, targetEndPoint, propertyId);
@@ -151,11 +144,8 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
                         portResult.Status = PortStatus.IsRunning;
 
-                        // Die gesammelten Angaben ins Protokoll des Ports - dort
-                        // holt die Detailansicht sie ab. Vorher wurden sie
-                        // Eigenschaft fuer Eigenschaft abgefragt und danach
-                        // verworfen: die Klasse versprach sie im Protokoll,
-                        // geschrieben hat sie nie jemand.
+                        // The collected information goes into the port log,
+                        // where the details view reads it.
                         portResult.PortLog = FormatDeviceInfo(collectedData);
                     }
                     else
@@ -166,19 +156,19 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             }
             catch (Exception)
             {
-                // Kein BACnet-Geraet oder keine Antwort - kein Fehlerfall.
+                // No BACnet device or no answer; not an error.
             }
 
             return portResult;
         }
 
         /// <summary>
-        /// Die abgefragten Eigenschaften als Text, eine je Zeile.
+        /// The queried properties as text, one per line.
         /// <para>
-        /// Leere Werte bleiben draussen: nicht jedes Geraet pflegt Standort
-        /// oder Beschreibung, und eine Zeile "Location:" ohne Inhalt sagt
-        /// weniger als gar keine. Eine Objektnummer 0 heisst, dass die Antwort
-        /// nicht auszuwerten war, und zaehlt hier ebenfalls als leer.
+        /// Empty values are left out: not every device maintains location or
+        /// description, and an empty "Location:" line says less than none. An
+        /// object number 0 means the answer could not be evaluated and also
+        /// counts as empty.
         /// </para>
         /// </summary>
         private static string FormatDeviceInfo(Dictionary<string, string> collectedData)
@@ -215,7 +205,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             };
         }
 
-        /// <summary>Objekt- und Herstellernummer stehen als Zahl im Paket, nicht als Text.</summary>
+        /// <summary>Object and vendor numbers are numeric in the packet, not text.</summary>
         private static string ExtractBacnetObjectInstanceAsString(string BacNetPropertie, byte[]? data)
         {
             int ID = 0;
@@ -223,17 +213,17 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
             if (BacNetPropertie == "ObjectID")
             {
-                // Bytes 20, 21, 22 (Index 19, 20, 21)
+                // Bytes 20, 21, 22 (index 19, 20, 21)
                 int byte20 = data[19];
                 int byte21 = data[20];
                 int byte22 = data[21];
 
-                // 22-Bit-Wert aus den 3 Bytes zusammenfuegen
+                // Combine the 22-bit instance number from the 3 bytes
                 ID = ((byte20 & 0x3F) << 16) | (byte21 << 8) | byte22;
             }
             if (BacNetPropertie == "VendorID")
             {
-                // Vendor-ID steht im vorletzten Byte des Pakets
+                // The vendor ID is in the second-to-last byte of the packet
                 int byte2 = data[data.Length - 2];
                 ID = byte2;
             }
@@ -242,15 +232,14 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Textwerte stehen hinter dem Tag 0x75, mit Laengenbyte davor.
+        /// Text values follow the tag 0x75, preceded by a length byte.
         /// <para>
-        /// Auf das Laengenbyte folgt noch die Nummer des Zeichensatzes, und
-        /// erst dann der Text; die Laenge zaehlt dieses Byte mit. Vorher wurde
-        /// es als erstes Zeichen mitgelesen, weshalb jeder Wert mit einem
-        /// Nullzeichen begann - in der Anzeige ein Kaestchen oder eine Luecke
-        /// vor dem eigentlichen Text. Das <c>Replace("\\0", "")</c>, das das
-        /// abfangen sollte, suchte den Backslash gefolgt von einer Null als
-        /// zwei Zeichen und nicht das Nullzeichen selbst.
+        /// The length byte is followed by the character set number and only
+        /// then by the text; the length includes that byte. Read as the first
+        /// character, it would start every value with a null character, shown
+        /// as a box or a gap before the actual text. Note that
+        /// <c>Replace("\\0", "")</c> does not help: it searches for a backslash
+        /// followed by a zero as two characters, not for the null character.
         /// </para>
         /// </summary>
         private static string ExtractBacnetAsciiString(byte[]? data)
@@ -258,16 +247,16 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             if (data == null || data.Length < 20)
                 return string.Empty;
 
-            int index = data.ToList().IndexOf(117); // 0x75, das ASCII-String-Tag
+            int index = data.ToList().IndexOf(117); // 0x75, the character string tag
             if (index == -1 || index + 2 >= data.Length)
-                return string.Empty; // Falls kein String gefunden wurde
+                return string.Empty; // no string found
 
-            int length = data[index + 1]; // Das naechste Byte gibt die Laenge des Strings an
+            int length = data[index + 1]; // the next byte is the length of the string
             if (index + 2 + length > data.Length)
-                return string.Empty; // Falls Laenge fehlerhaft ist
+                return string.Empty; // invalid length
 
-            // Das Byte des Zeichensatzes ueberspringen; es zaehlt zur Laenge,
-            // gehoert aber nicht zum Text.
+            // Skip the character set byte; it counts towards the length but is
+            // not part of the text.
             if (length < 1) return string.Empty;
 
             return Encoding.ASCII.GetString(data, index + 3, length - 1).Trim('\0', ' ');
@@ -278,17 +267,17 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             byte[] requestPacket = new byte[]
             {
                 0x81, 0x0A,  // BVLC: BACnet/IP, Original-Unicast-NPDU
-                0x00, 0x11,  // Gesamtlaenge einschliesslich BVLC-Kopf (17 Bytes)
-                0x01, 0x04,  // NPDU: Version 1, "expecting reply"
-                0x00, 0x05,  // APDU: Confirmed-Request, maximale APDU-Groesse
-                0x01, 0x0C,  // Invoke-ID 1, Service-Choice 0x0C (ReadProperty)
-                0x0C, 0x02, 0x3F, 0xFF, 0xFF, // Objekt: Typ 8 (Device), Instanz 4194303 = "dieses Geraet"
-                0x19, propertyId              // die gefragte Property
+                0x00, 0x11,  // total length including the BVLC header (17 bytes)
+                0x01, 0x04,  // NPDU: version 1, "expecting reply"
+                0x00, 0x05,  // APDU: Confirmed-Request, maximum APDU size
+                0x01, 0x0C,  // invoke ID 1, service choice 0x0C (ReadProperty)
+                0x0C, 0x02, 0x3F, 0xFF, 0xFF, // object: type 8 (Device), instance 4194303 = "this device"
+                0x19, propertyId              // the requested property
             };
 
             await udpClient.SendAsync(requestPacket, requestPacket.Length, targetEndPoint);
 
-            // Warte auf die Antwort
+            // Wait for the answer
             using var cts = new CancellationTokenSource(2000);
             var receiveTask = udpClient.ReceiveAsync();
 
@@ -301,14 +290,13 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Eine Antwort gilt als BACnet, wenn sie mit der BVLC-Kennung 0x81
-        /// beginnt und ihr Laengenfeld zur tatsaechlichen Laenge passt.
+        /// An answer counts as BACnet if it starts with the BVLC type 0x81 and
+        /// its length field matches the actual length.
         /// <para>
-        /// Das Laengenfeld steht in Byte 2 und 3 und zaehlt das ganze Paket
-        /// einschliesslich des vier Byte langen BVLC-Kopfes. Geprueft wird
-        /// "nicht groesser als angekommen": ein Datagramm darf abgeschnitten
-        /// bei uns eintreffen, aber ein zufaelliges Bytemuster besteht diese
-        /// Doppelbedingung kaum.
+        /// The length field is in bytes 2 and 3 and counts the whole packet
+        /// including the four-byte BVLC header. The check is "not larger than
+        /// received": a datagram may arrive truncated, but a random byte
+        /// pattern hardly meets both conditions.
         /// </para>
         /// </summary>
         public override bool Identify(byte[] response) => IsBacNet(response);

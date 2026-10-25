@@ -6,22 +6,19 @@ using static MyNetworkMonitor.ServiceScanData;
 namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 {
     /// <summary>
-    /// DHCP-Server. Der einzige Dienst, der nicht Ziel fuer Ziel gefragt wird:
-    /// ein DISCOVER geht als Rundruf ins Netz, und wer antwortet, hat sich
-    /// damit selbst benannt. Danach ist je Ziel nur noch zu vergleichen, ob es
-    /// in dieser Liste steht.
+    /// DHCP server. The only service that is not queried target by target: a
+    /// DHCPDISCOVER goes out as a broadcast, and whoever answers has named
+    /// itself. Afterwards each target is only compared against this list.
     /// <para>
-    /// Genau dafuer gibt es <see cref="PrepareAsync"/>. Vorher stand der
-    /// Rundruf im Ablauf je Ziel und wurde durch ein Flag gebremst, das die
-    /// Schleife bei <em>jedem</em> Ziel neu setzte - der DISCOVER ging also
-    /// einmal je Adresse hinaus statt einmal je Lauf, bei einem /24 also 254
-    /// Mal, und die Antwortliste wurde dabei aus 30 nebenlaeufigen Zielen
-    /// beschrieben.
+    /// That is what <see cref="PrepareAsync"/> is for. The broadcast is sent
+    /// once per run and guarded by a lock; sent per target, a /24 network
+    /// would receive 254 broadcasts, and 30 concurrent targets would write to
+    /// the answer list at the same time.
     /// </para>
     /// </summary>
     public sealed class DhcpProbe : ServiceProbeBase
     {
-        /// <summary>Der Port, unter dem ein Server antwortet - unabhaengig vom gefragten.</summary>
+        /// <summary>The port a server answers from, regardless of the port asked.</summary>
         private const int ServerPort = 67;
 
         private readonly SemaphoreSlim _once = new(1, 1);
@@ -33,7 +30,11 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         public override IReadOnlyList<int> DefaultPorts => [ServerPort];
 
 
-        /// <summary>Woertlich aus dem alten Schalter uebernommen - kein Byte veraendert.</summary>
+        /// <summary>
+        /// A DHCPDISCOVER (RFC 2131, section 4.4.1) with the broadcast flag set,
+        /// client hardware address DE:AD:C0:DE:CA:FE and a parameter request
+        /// list (option 55).
+        /// </summary>
         public override byte[] Hello => new byte[]
             {
                 0x01, 0x01, 0x06, 0x00, 0x60, 0xE7, 0xC5, 0x78, 0x00, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -66,14 +67,14 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         {
             token.ThrowIfCancellationRequested();
 
-            // Auch dann fragen, wenn der Aufrufer die Vorbereitung ausgelassen
-            // hat - ohne den Rundruf gaebe es sonst still nie einen Fund.
+            // Ask even if the caller skipped the preparation; without the
+            // broadcast there would silently never be a finding.
             await AskOnceAsync(token);
 
             return new PortResult
             {
-                // Gemeldet wird der Serverport, nicht der gefragte: geantwortet
-                // hat der Server von 67 aus, und dort ist er auch erreichbar.
+                // Reports the server port, not the one asked: the server
+                // answered from 67, and that is where it is reachable.
                 Ports = [ServerPort],
                 Status = _servers.Contains(address) ? PortStatus.IsRunning : PortStatus.NoResponse
             };
@@ -99,10 +100,9 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Der Rundruf selbst, wortgleich aus <c>ScanningMethod_Services</c>
-        /// uebernommen. Gebunden wird an die gewaehlte Schnittstelle, gehorcht
-        /// wird zwei Sekunden lang; jede Antwort benennt ueber
-        /// <see cref="GetDhcpServerIp"/> ihren Absender.
+        /// The broadcast itself. Binds to the selected interface and listens for
+        /// two seconds; <see cref="GetDhcpServerIp"/> names the sender of each
+        /// answer.
         /// </summary>
         private static List<string> SendDhcpDiscover(byte[] dhcpDiscoverPacket, CancellationToken token)
         {
@@ -113,22 +113,22 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                 using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp))
                 {
                     socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, true);
-                    // Port 68 auf der gewaehlten Schnittstelle, nicht auf Any -
-                    // sonst faengt bei mehreren Karten die falsche die Antwort.
+                    // Port 68 on the selected interface, not on Any; with
+                    // several adapters the wrong one would catch the answer.
                     socket.Bind(new IPEndPoint(SupportMethods.SelectedNetworkInterfaceInfos.IPv4, 68));
 
                     IPEndPoint dhcpServerEndPoint = new IPEndPoint(IPAddress.Broadcast, 67);
                     socket.SendTo(dhcpDiscoverPacket, dhcpServerEndPoint);
 
                     DateTime startTime = DateTime.Now;
-                    int timeout = 2000;  // 2 Sekunden Timeout
+                    int timeout = 2000;  // 2-second timeout
 
                     try
                     {
                         while ((DateTime.Now - startTime).TotalMilliseconds < timeout
                                && !token.IsCancellationRequested)
                         {
-                            if (socket.Poll(100000, SelectMode.SelectRead))  // 100 ms warten, ob Daten verfuegbar sind
+                            if (socket.Poll(100000, SelectMode.SelectRead))  // wait up to 100 ms for data
                             {
                                 byte[] buffer = new byte[1024];
                                 EndPoint remoteEndPoint = new IPEndPoint(SupportMethods.SelectedNetworkInterfaceInfos.IPv4, 0);
@@ -160,29 +160,29 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Wer hat geantwortet: erst Option 54, sonst der Relay (GIADDR),
-        /// zuletzt SIADDR.
+        /// Who answered: first option 54 (server identifier, RFC 2132,
+        /// section 9.7), otherwise the relay (giaddr), finally siaddr.
         /// </summary>
         private static string GetDhcpServerIp(byte[] response)
         {
-            // 1 Option 54 - die verlaesslichste Auskunft
+            // 1. Option 54, the most reliable information
             int index = Array.IndexOf(response, (byte)54);
             if (index > 0)
                 return new IPAddress(response.Skip(index + 2).Take(4).ToArray()).ToString();
 
-            // 2 GIADDR, falls ein Relay dazwischensteht
+            // 2. giaddr, if a relay agent is in between
             string relayAgentIp = new IPAddress(response.Skip(24).Take(4).ToArray()).ToString();
             if (relayAgentIp != "0.0.0.0")
                 return relayAgentIp;
 
-            // 3 SIADDR als letzte Zuflucht
+            // 3. siaddr as the last resort
             return new IPAddress(response.Skip(16).Take(4).ToArray()).ToString();
         }
 
         /// <summary>
-        /// Dieser Dienst hat keine eigene Antwortsignatur - er wird ueber
-        /// seinen eigenen Ablauf erkannt, nicht ueber ein Bytemuster. Es bleibt
-        /// bei der alten Regel fuer solche Faelle: eine Antwort zaehlt.
+        /// This service has no answer signature of its own; it is detected by
+        /// its own procedure, not by a byte pattern. For such cases any answer
+        /// counts.
         /// </summary>
         public override bool Identify(byte[] response) => response.Length > 0;
     }

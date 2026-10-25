@@ -1,17 +1,16 @@
 namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 {
     /// <summary>
-    /// RustDesk-Client mit Direktzugriff ueber die IP. Wer hier antwortet,
-    /// laesst sich im LAN unmittelbar fernsteuern - darum vom Serverdienst
-    /// getrennt gefuehrt.
+    /// RustDesk client with direct IP access. A device that answers here can
+    /// be remote-controlled directly in the LAN, which is why it is kept
+    /// separate from the server service.
     /// <para>
-    /// Der Client gruesst, sobald die Verbindung steht, unabhaengig vom Inhalt
-    /// des gesendeten Pakets. Geprueft wird nur die feste Marke und das
-    /// Geruest des ersten Feldes: die Zahlen dazwischen sind Laengen - die des
-    /// protobuf-Rumpfes und die der Geraetekennung -, und wie lang eine
-    /// Kennung ist, laesst sich von aussen nicht entscheiden. Eine fruehere
-    /// Fassung nagelte sie fest und liess jeden Client mit kurzer Kennung
-    /// durchfallen.
+    /// The client greets as soon as the connection is established, regardless
+    /// of the content of the packet sent. Only the fixed marker and the
+    /// structure of the first field are checked: the numbers in between are
+    /// lengths (of the protobuf body and of the device ID), and the length of
+    /// an ID cannot be known from outside. Fixing them would reject every
+    /// client whose ID has a different length.
     /// </para>
     /// </summary>
     public sealed class RustdeskClientProbe : ServiceProbeBase
@@ -20,103 +19,104 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         public override string Group => ServiceGroups.Remote;
         public override IReadOnlyList<int> DefaultPorts => [21118];
 
-        /// <summary>Woertlich aus dem alten Schalter uebernommen - kein Byte veraendert.</summary>
+        /// <summary>
+        /// A RustDesk client request with placeholder values; the client
+        /// greets regardless of its content. The field descriptions are
+        /// interpretations of the bytes.
+        /// </summary>
         public override byte[] Hello => new byte[]
             {
-                0x59, 0x01,                                                                 // Magic Number / ID
-                0x3A, 0x54,                                                                 // Paketlänge (wahrscheinlich 84 Bytes)
-                0x0A, 0x0C,                                                                 // Länge der folgenden IP-Adresse (12 Bytes)
-                0x31, 0x39, 0x38, 0x2E, 0x35, 0x31, 0x2E, 0x31, 0x30, 0x30, 0x2E, 0x31,     // IP-Adresse (ASCII), Beispielbereich RFC 5737
-                0x22, 0x09,                                                                 // Länge der Client-ID (9 Bytes)
-                0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39,                       // Client-ID (ASCII), Platzhalter
-                0x2A, 0x06,                                                                 // Länge des Client-Keys (6 Bytes)
-                0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x32,                                   // Client-Key (ASCII), Platzhalter; 0x32 gehört schon zum nächsten Feld
-                0x14, 0x48, 0x02,                                                           // Unbekannte Flags/Einstellungen
-                0x52, 0x10,                                                                 // Versionsstring / Protokoll
-                0x08, 0x01, 0x10, 0x01, 0x18, 0x01, 0x28, 0x01, 0x30, 0x01,                 // Verbindungsoptionen (z. B. Encryption, P2P)
-                0x3A, 0x04, 0x10, 0x01, 0x18, 0x01,                                         // Verschlüsselungsparameter
-                0x50, 0xFA, 0x8E, 0xF4, 0xBD, 0xDD, 0x8F, 0x88, 0xF0, 0x9F, 0x01,           // Wahrscheinlich eine Signatur oder ein Hash
-                0x5A, 0x05, 0x31, 0x2E, 0x33, 0x2E, 0x37,                                   // RustDesk-Version "1.3.7"
-                0x62, 0x00,                                                                 // Unbekannt (möglicherweise Terminator/Trennzeichen)
-                0x6A, 0x07, 0x57, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73,                       // Plattform (Windows)
-                0x08,                                                                       // Typ des Pakets (Möglicherweise ACK oder Keep-Alive)
-                0x2A,                                                                       // Möglicherweise ein Status-Code oder eine ID
-                0x00                                                                        // Terminierung / Ende des Pakets
+                0x59, 0x01,                                                                 // magic number / ID
+                0x3A, 0x54,                                                                 // packet length (probably 84 bytes)
+                0x0A, 0x0C,                                                                 // length of the following IP address (12 bytes)
+                0x31, 0x39, 0x38, 0x2E, 0x35, 0x31, 0x2E, 0x31, 0x30, 0x30, 0x2E, 0x31,     // IP address (ASCII), documentation range RFC 5737
+                0x22, 0x09,                                                                 // length of the client ID (9 bytes)
+                0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39,                       // client ID (ASCII), placeholder
+                0x2A, 0x06,                                                                 // length of the client key (6 bytes)
+                0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x32,                                   // client key (ASCII), placeholder; 0x32 already belongs to the next field
+                0x14, 0x48, 0x02,                                                           // unknown flags/settings
+                0x52, 0x10,                                                                 // version string / protocol
+                0x08, 0x01, 0x10, 0x01, 0x18, 0x01, 0x28, 0x01, 0x30, 0x01,                 // connection options (e.g. encryption, P2P)
+                0x3A, 0x04, 0x10, 0x01, 0x18, 0x01,                                         // encryption parameters
+                0x50, 0xFA, 0x8E, 0xF4, 0xBD, 0xDD, 0x8F, 0x88, 0xF0, 0x9F, 0x01,           // probably a signature or hash
+                0x5A, 0x05, 0x31, 0x2E, 0x33, 0x2E, 0x37,                                   // RustDesk version "1.3.7"
+                0x62, 0x00,                                                                 // unknown (possibly terminator/separator)
+                0x6A, 0x07, 0x57, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73,                       // platform (Windows)
+                0x08,                                                                       // packet type (possibly ACK or keep-alive)
+                0x2A,                                                                       // possibly a status code or an ID
+                0x00                                                                        // end of packet
             };
 
-        /// <summary>Woertlich aus der alten Antwortpruefung uebernommen - keine Bedingung veraendert.</summary>
+        /// <summary>Matches the client greeting by its fixed marker and the structure of its first field.</summary>
         public override bool Identify(byte[] response)
         {
             ServiceType service = Service;
             bool serviceMatched = false;
 
-            // ?? RustDesk-Client mit "Direct IP Access" (Port 21118)
+            // RustDesk client with "Direct IP Access" (port 21118)
             //
-            // Der Client gruesst beim Verbinden von sich aus - und zwar unabhaengig
-            // davon, was man ihm schickt. Gegengeprueft mit dem richtigen Paket,
-            // mit Muell und ganz ohne Nutzlast: die Antwort kam jedes Mal. Anders
-            // als beim Server (der schweigt auf alles ausser seinem Hello) ist hier
-            // also nicht das gesendete Paket der Filter, sondern allein diese
-            // Pruefung - jeder Dienst auf 21118, der beim Verbinden gruesst, kaeme
-            // sonst als RustDesk-Client durch.
+            // The client greets on its own when connected, regardless of what it
+            // is sent. Cross-checked with the correct packet, with garbage and with
+            // no payload at all: the answer came every time. Unlike the server
+            // (which stays silent on everything except its hello), the filter here
+            // is not the packet sent but this check alone; otherwise every service
+            // on 21118 that greets on connect would pass as a RustDesk client.
             //
-            // Der Aufbau, an vier lebenden Clients gemessen:
+            // The layout, measured on four live clients:
             //
-            //   b0 │ 4a │ 2a │ 0a 20 <32 Zeichen> │ 12 06 <6 Zeichen>
-            //   ^    ^    ^    ^                    ^
-            //   |    |    |    Feld 1: Kennung      Feld 2: Challenge
-            //   |    |    Laenge des protobuf-Rumpfes
-            //   |    protobuf Feld 9, laengenkodiert  <- konstant
-            //   Rahmenlaenge, um zwei Bit nach links geschoben
+            //   b0 │ 4a │ 2a │ 0a 20 <32 chars> │ 12 06 <6 chars>
+            //   ^    ^    ^    ^                  ^
+            //   |    |    |    field 1: ID        field 2: challenge
+            //   |    |    length of the protobuf body
+            //   |    protobuf field 9, length-delimited  <- constant
+            //   frame length, shifted left by two bits
             //
-            // Fest sind nur zwei Byte: die 0x4A an Position 1 und die 0x0A an
-            // Position 3. Alles andere sind Laengen oder Inhalte.
+            // Only two bytes are fixed: 0x4A at offset 1 and 0x0A at offset 3.
+            // Everything else is lengths or content.
             //
-            // Byte 0 ist der Rahmen von RustDesk: die Laenge des Restes, um zwei
-            // Bit nach links geschoben; die unteren zwei Bit sagen, in wie vielen
-            // Byte die Laenge selbst steht. Gemessen:
+            // Byte 0 is the RustDesk frame: the length of the rest, shifted left
+            // by two bits; the lower two bits tell how many bytes the length
+            // itself occupies. Measured:
             //
-            //   Client A   19 Byte   0x48 -> 18 == 19-1   Kennung  6 Zeichen
-            //   Client B   19 Byte   0x48 -> 18 == 19-1   Kennung  6 Zeichen
-            //   Client C   45 Byte   0xb0 -> 44 == 45-1   Kennung 32 Zeichen
-            //   Client D   45 Byte   0xb0 -> 44 == 45-1   Kennung 32 Zeichen
+            //   Client A   19 bytes   0x48 -> 18 == 19-1   ID  6 chars
+            //   Client B   19 bytes   0x48 -> 18 == 19-1   ID  6 chars
+            //   Client C   45 bytes   0xb0 -> 44 == 45-1   ID 32 chars
+            //   Client D   45 bytes   0xb0 -> 44 == 45-1   ID 32 chars
             //
-            // Genau hier lag der Fehler der frueheren Fassung: sie las 0x48 als
-            // feste Marke und bestand auf 19 Byte. 0x48 ist aber 18<<2, also eine
-            // Laenge - ein Client mit laengerer Kennung schickt dort etwas anderes
-            // und fiel durch, obwohl er einer ist. Aus demselben Grund sind auch
-            // 0x10 und 0x06 nicht festgenagelt: das sind die Laengen des Rumpfes
-            // und der Kennung. Wie lang eine Kennung ist, laesst sich von aussen
-            // nicht entscheiden.
+            // 0x48 is therefore not a fixed marker but 18<<2, a length: a client
+            // with a longer ID sends something else there and must still match.
+            // For the same reason 0x10 and 0x06 are not fixed either: they are the
+            // lengths of the body and of the ID. The length of an ID cannot be
+            // known from outside.
             //
-            // Die feste Laenge war zusaetzlich unzuverlaessig: in etwa einem von
-            // acht Versuchen schiebt der Client drei Byte nach (ein zweiter Rahmen,
-            // 08 2a 00), die im selben Lesevorgang ankommen. Das Geraet wurde also
-            // mal erkannt und mal nicht. Darum wird auf ">= Rahmenlaenge" geprueft
-            // und nicht auf Gleichheit.
+            // An exact length check is also unreliable: in roughly one of eight
+            // attempts the client sends three more bytes (a second frame,
+            // 08 2a 00) that arrive in the same read, so the device would be
+            // detected only sometimes. The check is therefore ">= frame length",
+            // not equality.
             //
-            // Damit ist der Client vom Serverdienst (21115/21116/21117) getrennt:
-            // wer hier so antwortet, laesst sich im LAN direkt ueber seine IP
-            // fernsteuern.
+            // This separates the client from the server service (21115/21116/21117):
+            // a device that answers like this can be remote-controlled directly
+            // via its IP in the LAN.
             if (service == ServiceType.RustdeskClient)
             {
-                // Nur der einbytige Rahmen wird ausgewertet - er reicht bis 63 Byte
-                // Rumpf und damit fuer jede gemessene Kennung. Bei einer laengeren
-                // steht die Laenge in mehreren Byte; deren Reihenfolge ist hier
-                // nicht gemessen, und geraten wird sie nicht. Der Rahmen geht dann
-                // in die Pruefung nicht ein, das Geruest darunter schon.
+                // Only the single-byte frame is evaluated; it covers up to 63 bytes
+                // of body and thus every measured ID. For a longer one the length
+                // occupies several bytes; their order has not been measured and is
+                // not guessed. The frame is then left out of the check, but the
+                // structure below it is still checked.
                 bool singleByteFrame = response.Length > 0 && (response[0] & 0x03) == 0;
                 int framed = response.Length > 0 ? response[0] >> 2 : 0;
 
                 serviceMatched = response.Length >= 6
-                    && response[1] == 0x4A                          // protobuf Feld 9
-                    && response[3] == 0x0A                          // Feld 1: die Kennung
-                    && response[4] > 0                              // sie ist nicht leer
-                    && response[2] >= response[4] + 2               // der Rumpf traegt sie
-                    && response.Length >= 5 + response[4]           // ... und sie ist da
+                    && response[1] == 0x4A                          // protobuf field 9
+                    && response[3] == 0x0A                          // field 1: the ID
+                    && response[4] > 0                              // it is not empty
+                    && response[2] >= response[4] + 2               // the body contains it
+                    && response.Length >= 5 + response[4]           // ... and it is present
                     && (!singleByteFrame
-                        || (response.Length >= framed + 1           // Rahmen vollstaendig
-                            && response[2] == framed - 2));         // und passt zum Rumpf
+                        || (response.Length >= framed + 1           // frame complete
+                            && response[2] == framed - 2));         // and matches the body
             }
 
             return serviceMatched;

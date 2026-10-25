@@ -6,15 +6,15 @@ using MyNetworkMonitor.Core.Scanning.ServiceScans;
 namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 {
     /// <summary>
-    /// Gemeinsame Grundlage aller Adapter, die ein bestehendes Scan-Modul in
-    /// die Engine einbinden. Die Module selbst bleiben unveraendert.
+    /// Common base of all adapters that integrate a scan module into the
+    /// engine. The modules themselves stay independent of the engine.
     /// <para>
-    /// Alle 16 arbeiten nach demselben Muster: sie nehmen eine
-    /// <see cref="IPToScan"/>-Liste entgegen, aendern sie an Ort und Stelle und
-    /// melden ueber Ereignisse. Hier steht die Verdrahtung einmal, statt in
-    /// jedem Adapter erneut - insbesondere die Abbildung von
-    /// <see cref="IPToScan"/> auf <see cref="DeviceObservation"/>, die sonst
-    /// 16-mal leicht unterschiedlich ausfiele.
+    /// All modules follow the same pattern: they take an
+    /// <see cref="IPToScan"/> list, modify it in place and report through
+    /// events. The wiring lives here once instead of in every adapter, in
+    /// particular the mapping from <see cref="IPToScan"/> to
+    /// <see cref="DeviceObservation"/>, which would otherwise differ slightly
+    /// in each adapter.
     /// </para>
     /// </summary>
     public abstract class LegacyScanMethod : IScanMethod
@@ -22,9 +22,9 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         public abstract string Id { get; }
         public abstract string DisplayName { get; }
 
-        // Bewusst abstrakt und nicht mit einem leeren Standard versehen: ein
-        // Verfahren ohne Erklaerung ist eines, das der Nutzer nicht einordnen
-        // kann - das soll beim Hinzufuegen auffallen und nicht im Betrieb.
+        // Deliberately abstract without an empty default: a method without an
+        // explanation cannot be judged in the UI, and that should become
+        // apparent when the method is added, not in operation.
         public abstract string Explanation { get; }
 
         public abstract ScanPhase Phase { get; }
@@ -34,26 +34,29 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         public virtual bool RequiresElevation => false;
         public virtual bool Indented => false;
 
-        // Die grosse Mehrheit der Module arbeitet eine Zielliste ab; die
-        // Ausnahmen - SSDP, mDNS, ARP-Cache - sagen es selbst.
+        // The vast majority of modules work through a target list; the
+        // exceptions (SSDP, mDNS, ARP cache) override this.
         public virtual bool EnumeratesTargets => true;
 
         public abstract ScanMethodAvailability CheckAvailability(ScanContext context);
         public abstract Task ExecuteAsync(ScanContext context, CancellationToken cancellationToken);
 
         /// <summary>
-        /// Begruendung fuer Verfahren, die nur IPv4 koennen. Mehrere Module
-        /// pruefen ihre Ziele mit <c>SupportMethods.Is_Valid_IP</c>, einer
-        /// reinen IPv4-Regex, und verwerfen IPv6-Ziele ohne Meldung.
+        /// Reason for methods that support IPv4 only. Several modules validate
+        /// their targets with <c>SupportMethods.Is_Valid_IP</c>, an IPv4-only
+        /// regular expression, and drop IPv6 targets silently.
         /// </summary>
         protected const string NoIpv4Targets =
             "No IPv4 targets selected. This method works over IPv4 only.";
 
         /// <summary>
-        /// Baut die Zielliste im alten Format auf und merkt sich, welcher
-        /// Eintrag zu welchem Bereich gehoert - Domain, DNS-Server und Gateway
-        /// unterscheiden sich je Bereich.
+        /// Builds the target list in the <see cref="IPToScan"/> format of the
+        /// scan modules and records which entry belongs to which scope; domain,
+        /// DNS servers and gateway differ per scope.
         /// </summary>
+        /// <param name="context">The run context.</param>
+        /// <param name="only">Address family to include; null includes all targets.</param>
+        /// <returns>The module target list with the mapping back to the scan targets.</returns>
         protected static LegacyTargets BuildTargets(ScanContext context, IpFamily? only = IpFamily.IPv4)
         {
             Dictionary<string, ScanTargetEntry> byText = new(StringComparer.OrdinalIgnoreCase);
@@ -70,32 +73,32 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 
                 ScanScope scope = target.Scope.Scope;
 
-                // Ein in den Einstellungen gesetzter DNS-Server sticht die des
-                // Bereichs - genau dafuer ist er da: gegen einen bestimmten
-                // Server pruefen, ohne jeden Bereich anzufassen.
+                // A DNS server set in the settings overrides those of the
+                // scope; that is its purpose: checking against a specific
+                // server without touching every scope.
                 string? overrideDns = context.Settings.OverrideDnsServer;
 
                 List<string> dnsServers = string.IsNullOrWhiteSpace(overrideDns)
                     ? [.. scope.DnsServerList]
                     : [overrideDns.Trim()];
 
-                // Ohne eigenen DNS-Server im Bereich sonst auf den
-                // System-Resolver zurueckzufallen bedeutet auf Linux fast immer
-                // einen lokalen Stub (z.B. systemd-resolved), der selbst erst an
-                // den eigentlichen Server weiterleitet - mit eigenem Zwischen-
-                // speicher und, unter Last, spuerbarem Verlust. Das Gateway des
-                // scannenden Interfaces beantwortet bei den meisten
-                // Heimroutern denselben Namensraum selbst und direkt: live
-                // gemessen 32 von 254 Adressen eines /24 in unter 60ms gegen
-                // das Gateway, gegenueber zig Sekunden ueber einen
-                // nachgelagerten Server. Kennt das Gateway die Namen nicht,
-                // bleibt die Adresse einfach ohne PTR-Ergebnis - bewusst kein
-                // weiterer Rueckfall auf den System-Resolver.
-                // Der am Bereich hinterlegte Router sticht den des Adapters -
-                // fuer den Fall, dass ein Bereich hinter einem anderen Router
-                // haengt als der, ueber den gescannt wird. Ist dort nichts
-                // eingetragen, bleibt es beim Adapter, auch wenn derselbe fuer
-                // alle Bereiche gilt.
+                // Without a DNS server of its own in the scope, the gateway is
+                // asked. Falling back to the system resolver instead means a
+                // local stub on Linux in almost all cases (for example
+                // systemd-resolved), which itself forwards to the actual
+                // server, with its own cache and noticeable losses under load.
+                // On most home routers the gateway of the scanning interface
+                // answers the same namespace itself and directly: measured, 32
+                // of 254 addresses of a /24 in under 60 ms against the gateway,
+                // compared to tens of seconds through a downstream server. If
+                // the gateway does not know the names, the address stays
+                // without a PTR result; deliberately no fallback to the system
+                // resolver. See docs/FEHLERGEDAECHTNIS.md, No. 8.
+                //
+                // The router configured for the scope overrides that of the
+                // interface, for scopes behind a different router than the one
+                // the scan runs through. If none is configured, the interface's
+                // gateway is used, even though it is the same for all scopes.
                 if (dnsServers.Count == 0)
                 {
                     string? gateway = scope.HasOwnGateway
@@ -104,20 +107,20 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 
                     if (gateway is not null) dnsServers = [gateway];
 
-                    // Hinter dem *geratenen* Gateway stehen die Namensserver des
-                    // Systems als Rueckhalt. Das Gateway behaelt die Vorfahrt -
-                    // die Messung oben gilt unveraendert -, aber wo es gar kein
-                    // Namensserver ist, geht der Name nicht mehr verloren.
+                    // Behind the *inferred* gateway, the system's name servers
+                    // (queried directly, not through the stub resolver) serve
+                    // as a backup. The gateway keeps priority, as the
+                    // measurement above still applies, but where it is no name
+                    // server at all, the name is not lost.
                     //
-                    // Genau das ist in einem Firmennetz passiert: das Gateway
-                    // beantwortete keine einzige Abfrage, jede Adresse lief in
-                    // ihr Zeitbudget, und die Geraeteliste zeigte weiter nur
-                    // Adressen - obwohl die Server des Systems den Namen sofort
-                    // lieferten.
+                    // In a corporate network whose gateway answers no query at
+                    // all, every address otherwise runs into its time budget
+                    // and the device list shows only addresses, although the
+                    // system's servers return the name immediately.
                     //
-                    // Nur beim geratenen: ein am Bereich eingetragener Router
-                    // ist eine Entscheidung des Nutzers und bleibt allein
-                    // massgeblich.
+                    // Only for the inferred gateway: a router configured for
+                    // the scope is an explicit choice and remains the only
+                    // server used.
                     if (!scope.HasOwnGateway)
                     {
                         dnsServers.AddRange(SystemDnsServers()
@@ -129,14 +132,14 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                 {
                     IPorHostname = text,
 
-                    // Der Name, den jemand selbst eingetippt hat, sticht den
-                    // aus dem Bestand.
+                    // A name entered in the target list overrides the one in
+                    // the store.
                     //
-                    // Seit ein Hostname vor dem Lauf aufgeloest wird, ist
-                    // TargetText die Adresse - KnownHostName suchte sie dann im
-                    // noch leeren Bestand und fand nichts. Der eingegebene Name
-                    // ging damit verloren und die Spalte blieb leer, obwohl das
-                    // Geraet gefunden wurde.
+                    // Host names are resolved before the run, so TargetText is
+                    // the address; KnownHostName alone would look it up in the
+                    // still empty store and find nothing. The entered name
+                    // would be lost and the column would stay empty although
+                    // the device was found.
                     HostName = NullIfBlank(target.HostName) ?? KnownHostName(context, text),
                     TimeOut = context.Settings.PortTimeoutMs,
                     IPGroupDescription = scope.GroupDescription,
@@ -153,11 +156,11 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         }
 
         /// <summary>
-        /// Die Namensserver, die das Betriebssystem selbst benutzt - als
-        /// Rueckhalt hinter dem geratenen Gateway, siehe Aufrufstelle.
+        /// The name servers the operating system itself uses, as a backup
+        /// behind the inferred gateway; see the call site.
         /// <para>
-        /// Genommen werden alle betriebsbereiten Karten ausser Rueckschleife
-        /// und Tunnel, in ihrer Reihenfolge und ohne Dubletten.
+        /// Takes all operational interfaces except loopback and tunnel, in
+        /// their order and without duplicates.
         /// </para>
         /// </summary>
         private static List<string> SystemDnsServers()
@@ -181,7 +184,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             }
         }
 
-        /// <summary>Die IPv4-Gateway-Adresse des Interfaces, falls vorhanden - siehe Kommentar an der Aufrufstelle.</summary>
+        /// <summary>The IPv4 gateway address of the interface, if any; see the comment at the call site.</summary>
         private static string? GatewayDnsFallback(NetworkInterface? nic)
         {
             if (nic is null) return null;
@@ -202,20 +205,20 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         }
 
         /// <summary>
-        /// Der Hostname, der im Lauf bereits zu diesem Ziel gefunden wurde.
+        /// The host name already found for this target during the run.
         /// <para>
-        /// Ohne ihn kann der Vorwaertslookup nichts ausrichten: er fragt nach
-        /// <c>HostnameWithDomain</c>, und wenn der Name fehlt, bleibt davon die
-        /// blosse Domain uebrig - eine Abfrage, die fuer jedes Ziel dasselbe
-        /// oder gar nichts liefert. Der Name entsteht in der Rueckwaerts-
-        /// aufloesung, die darum vorher laufen muss.
+        /// Without it the forward lookup cannot achieve anything: it queries
+        /// <c>HostnameWithDomain</c>, and without the name only the bare domain
+        /// remains, a query that returns the same or nothing for every target.
+        /// The name comes from the reverse lookup, which therefore has to run
+        /// first.
         /// </para>
         /// </summary>
         private static string KnownHostName(ScanContext context, string text)
         {
             if (!IpAddressAnalyzer.TryAnalyze(text, out IpAddressInfo? info) || info is null)
             {
-                // Das Ziel ist selbst ein Name - dann steht er schon da.
+                // The target itself is a name, so it is already present.
                 return text;
             }
 
@@ -226,18 +229,24 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         }
 
         /// <summary>
-        /// Leitet den Abbruch der Engine an das Modul weiter. Die Module
-        /// verwalten ihre Abbruchquelle selbst und kennen nur
-        /// <c>StopScan()</c>.
+        /// Forwards the engine's cancellation to the module. The modules manage
+        /// their own cancellation source and only offer <c>StopScan()</c>.
         /// </summary>
+        /// <param name="token">The engine's cancellation token.</param>
+        /// <param name="stopScan">The module's stop method.</param>
+        /// <returns>The registration; dispose it when the module has finished.</returns>
         protected static CancellationTokenRegistration BridgeCancellation(
             CancellationToken token, Action stopScan) => token.Register(stopScan);
 
         /// <summary>
-        /// Wandelt ein vom Modul geaendertes <see cref="IPToScan"/> in eine
-        /// Sichtung um und meldet sie. Uebertragen wird nur, was tatsaechlich
-        /// gefuellt ist - jedes Modul fuellt einen anderen Ausschnitt.
+        /// Converts an <see cref="IPToScan"/> modified by the module into an
+        /// observation and reports it. Only fields that are actually set are
+        /// transferred; each module fills a different subset.
         /// </summary>
+        /// <param name="context">The run context.</param>
+        /// <param name="result">The entry updated by the module.</param>
+        /// <param name="targets">Target list used to find the originating scope.</param>
+        /// <param name="sourceOverride">Source name to report instead of <see cref="DisplayName"/>.</param>
         protected void ReportResult(ScanContext context, IPToScan result, LegacyTargets targets, string? sourceOverride = null)
         {
             if (result is null) return;
@@ -257,15 +266,15 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 
             if (result.SMBVersions.Count > 0) Detail("SMB versions", string.Join(", ", result.SMBVersions));
 
-            // Der Name ist das eigentliche Ergebnis der NetBIOS-Abfrage. Bisher
-            // stand unter den Diensten nur, dass NetBIOS laeuft - der Name selbst
-            // war nirgends zu sehen.
+            // The name is the actual result of the NetBIOS query. Without this
+            // line the services would only show that NetBIOS is running, and
+            // the name itself would appear nowhere.
             Detail("NetBIOS", NetBiosDetail(result));
 
-            // Was die Industrieprotokolle ueber sich erzaehlen - Hersteller,
-            // Modell, Firmware, Anwendungsname. Die Sonden fragen das ohnehin
-            // ab; ohne diese Zeilen stuende in den Details nur, dass der Dienst
-            // laeuft.
+            // What the industrial protocols report about themselves: vendor,
+            // model, firmware, application name. The probes query this anyway;
+            // without these lines the details would only state that the
+            // service is running.
             foreach ((ServiceType service, string label) in ServiceNames.WithDeviceInfo)
             {
                 Detail(label, ServiceLog(result, service));
@@ -279,9 +288,9 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             {
                 Source = sourceOverride ?? DisplayName,
                 Address = info,
-                // Die MAC aus SNMP gilt nur noch als weicher Hinweis. Als
-                // harte Kennung genommen, widersprach sie der per ARP
-                // gesehenen und spaltete dasselbe Geraet in zwei Eintraege.
+                // The MAC from SNMP counts only as a soft hint. Taken as a
+                // hard identifier, it contradicts the one seen via ARP and
+                // splits the same device into two entries.
                 Mac = ParseMac(result.MAC),
                 SoftMac = ParseMac(result.SNMP_MAC),
                 Vendor = NullIfBlank(result.Vendor),
@@ -298,14 +307,13 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         }
 
         /// <summary>
-        /// Die Adressen, auf die der Name im DNS zeigt.
+        /// The addresses the name points to in DNS.
         /// <para>
-        /// Genommen wird der ganze <see cref="IPHostEntry"/>, nicht das Feld
-        /// <c>LookUpIPs</c>: das Modul fuellt es nur, wenn der Lookup
-        /// <em>abweicht</em>, und laesst es sonst leer. Leer hiesse damit
-        /// zugleich "stimmt ueberein" und "nicht geprueft" - zwei Dinge, die
-        /// auseinandergehalten werden muessen, wenn daraus ein Befund werden
-        /// soll.
+        /// Uses the whole <see cref="IPHostEntry"/>, not the
+        /// <c>LookUpIPs</c> field: the module fills that field only when the
+        /// lookup <em>differs</em> and leaves it empty otherwise. Empty would
+        /// then mean both "matches" and "not checked", two cases that must be
+        /// kept apart for a finding to be derived.
         /// </para>
         /// </summary>
         private static List<string>? LookupAddresses(IPToScan result)
@@ -313,9 +321,9 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             if (result.UsedScanMethod != ScanMethod.Lookup) return null;
             if (result.IP_HostEntry?.AddressList is not { } addresses) return null;
 
-            // Auf dieselbe Schreibweise bringen wie die Adressen am Geraet -
-            // sonst gilt fe80:0:0::1 als etwas anderes als fe80::1 und jeder
-            // Vergleich schlaegt fehl.
+            // Normalized to the same notation as the device's addresses;
+            // otherwise fe80:0:0::1 differs from fe80::1 and every comparison
+            // fails.
             return [.. addresses
                 .Select(a => IpAddressAnalyzer.TryAnalyze(a.ToString(), out IpAddressInfo? info) && info is not null
                     ? info.Canonical
@@ -323,7 +331,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                 .Distinct(StringComparer.OrdinalIgnoreCase)];
         }
 
-        /// <summary>Zerlegt ein mehrzeiliges Feld der alten Module in eine Liste.</summary>
+        /// <summary>Splits a multi-line field of the scan modules into a list.</summary>
         private static List<string>? SplitLines(string? value)
         {
             if (string.IsNullOrWhiteSpace(value)) return null;
@@ -336,27 +344,22 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         }
 
         /// <summary>
-        /// Ein Ziel gilt als erreichbar, sobald irgendein Verfahren eine
-        /// Antwort gesehen hat - nicht nur der Ping.
+        /// A target counts as reachable as soon as any method has seen an
+        /// answer, not only ping.
         /// </summary>
         private static bool IsResponding(IPToScan r) =>
             r.PingStatus || r.ARPStatus || r.SSDPStatus || r.IsIPCam ||
             r.TCP_OpenPorts.Count > 0 || r.UDP_OpenPorts.Count > 0 ||
             !string.IsNullOrWhiteSpace(r.SNMP_SysName);
 
-        /// <summary>
-        /// Bildet Ports und erkannte Dienste ab. Der Zustand wird nur fuer die
-        /// gepruefte Adressfamilie gesetzt; die andere Seite bleibt offen,
-        /// damit ein spaeterer Lauf sie ergaenzen kann.
-        /// </summary>
-        /// <summary>Der Port, auf dem die SMB-Pruefung arbeitet.</summary>
+        /// <summary>The port the SMB check works on.</summary>
         private const int SmbPort = 445;
 
         private const int NetBiosPort = 137;
 
         /// <summary>
-        /// Name und - sofern die Antwort ihn enthielt - Arbeitsgruppe bzw.
-        /// Domaene, in einer Zeile.
+        /// Name and, if the answer contained it, workgroup or domain, in one
+        /// line.
         /// </summary>
         private static string? NetBiosDetail(IPToScan r)
         {
@@ -371,13 +374,13 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         private const int OnvifPort = 3702;
 
         /// <summary>
-        /// Traegt einen Dienst nach, den ein eigenes Modul gefunden hat.
+        /// Adds a service found by a dedicated module.
         /// <para>
-        /// NetBIOS, SNMP, ONVIF und SMB laufen nicht ueber die Diensterkennung,
-        /// sondern haben je ein eigenes Verfahren - Dienste sind es trotzdem,
-        /// und sie gehoeren in dieselbe Spalte wie die uebrigen. Vorher waren
-        /// sie nur im Klartext unter den Details zu finden, wo man sie nur
-        /// sieht, wenn man ohnehin schon weiss, dass es sie gibt.
+        /// NetBIOS, SNMP, ONVIF and SMB do not run through service detection
+        /// but each have a method of their own. They are services nonetheless
+        /// and belong in the same column as the others. Listed only as plain
+        /// text in the details, they are visible only to someone who already
+        /// knows they exist.
         /// </para>
         /// </summary>
         private static void AddFoundService(
@@ -399,15 +402,15 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         }
 
         /// <summary>
-        /// Das Protokoll des Ports, an dem der genannte Dienst erkannt wurde.
-        /// Nur von einem laufenden Dienst - bei "offen, aber nichts erkannt"
-        /// steht dort die Notiz des Versuchs und keine Auskunft ueber das Geraet.
+        /// The log of the port on which the given service was detected. Only
+        /// from a running service: for "open, but nothing detected" the log
+        /// holds a note about the attempt, not information about the device.
         /// <para>
-        /// Uebergangen wird ausserdem der blosse Bestaetigungssatz einer
-        /// geglueckten Erkennung. Er steht ueberall dort, wo eine Sonde nichts
-        /// weiter zu melden hatte - etwa bei einem FTP-Server, dessen
-        /// Begruessung keinen Namen traegt -, und als Detailzeile stuende dann
-        /// unter "FTP server" nur, dass FTP laeuft.
+        /// The bare confirmation line of a successful detection is skipped as
+        /// well. It appears wherever a probe has nothing further to report,
+        /// for example an FTP server whose greeting carries no name, and as a
+        /// detail line under "FTP server" it would only state that FTP is
+        /// running.
         /// </para>
         /// </summary>
         private static string? ServiceLog(IPToScan r, ServiceType service)
@@ -431,13 +434,18 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         }
 
         /// <summary>
-        /// Ob ein Protokolltext eine Auskunft ueber das Geraet ist und nicht
-        /// blosse Buchhaltung des Versuchs.
+        /// Whether a log text is information about the device rather than mere
+        /// bookkeeping of the attempt.
         /// </summary>
         internal static bool IsDeviceInfo(string? portLog) =>
             !string.IsNullOrWhiteSpace(portLog) &&
             !portLog.Trim().Equals(ServiceProbeBase.ProtocolMatched, StringComparison.Ordinal);
 
+        /// <summary>
+        /// Maps ports and detected services. The state is set only for the
+        /// address family checked; the other family stays open, so that a
+        /// later run can fill it in.
+        /// </summary>
         private static List<DeviceServiceResult>? BuildServices(IPToScan r, IpFamily family)
         {
             List<DeviceServiceResult> services = [];
@@ -448,17 +456,17 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                 {
                     List<int> ports = port.Ports is null ? [] : [.. port.Ports];
 
-                    // Den Dienstnamen traegt nur, wer die Signatur seines
-                    // Protokolls geliefert hat. Ein Port, der bloss die
-                    // Verbindung annimmt, ist ein offener Port - und heisst
-                    // hier so wie die uebrigen unerkannten weiter unten.
+                    // Only a port that returned its protocol's signature
+                    // carries the service name. A port that merely accepts the
+                    // connection is an open port and is named like the other
+                    // unidentified ones further down.
                     //
-                    // Vorher stand an Port 3306 eines MariaDB-Servers
-                    // zusaetzlich "MySQL", weil die MySQL-Sonde dort ebenfalls
-                    // eine Verbindung bekam und ihre Zeile trotz nicht
-                    // passender Antwort den Namen der Sonde behielt. So fallen
-                    // mehrere durchgefallene Sonden auf demselben Port zu
-                    // einer einzigen Zeile zusammen.
+                    // Otherwise port 3306 of a MariaDB server would also show
+                    // "MySQL", because the MySQL probe gets a connection there
+                    // too and its row would keep the probe's name despite the
+                    // non-matching answer. This way several failed probes on
+                    // the same port collapse into a single row. See
+                    // docs/FEHLERGEDAECHTNIS.md, No. 2.
                     bool unidentifiedOpen = port.Status == PortStatus.Open && ports.Count == 1;
 
                     DeviceServiceResult entry = new()
@@ -476,11 +484,10 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                 }
             }
 
-            // SMB kommt aus einem eigenen Modul und nicht aus der
-            // Diensterkennung - ein Dienst ist es trotzdem, und in der Spalte
-            // "Running services" gehoert er neben die anderen. Die Versionen
-            // stehen im Protokoll: dass ein Ziel noch SMB 1.0 spricht, ist die
-            // eigentliche Nachricht.
+            // SMB comes from a dedicated module, not from service detection;
+            // it is a service nonetheless and belongs next to the others in
+            // the "Running services" column. The versions go into the log:
+            // that a target still speaks SMB 1.0 is the actual news.
             if (r.SMBVersions.Count > 0)
             {
                 AddFoundService(services, family, "SMB", "File services", SmbPort,
@@ -505,8 +512,8 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                     $"{r.IPCamName} {r.IPCamXAddress}".Trim());
             }
 
-            // Offene Ports ohne erkannten Dienst gehen nicht verloren - sie
-            // sind fuer den Portfilter genauso wichtig wie benannte Dienste.
+            // Open ports without a detected service are kept; they matter to
+            // the port filter just as much as named services.
             foreach (int open in r.TCP_OpenPorts.Where(p => !services.Any(s => s.Ports.Contains(p))))
             {
                 DeviceServiceResult entry = new()
@@ -522,9 +529,9 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                 services.Add(entry);
             }
 
-            // Dasselbe fuer UDP - bisher gingen offene UDP-Ports hier
-            // verloren und tauchten nur im CSV-Export auf, nicht in der
-            // Dienstspalte oder im Portfilter.
+            // The same for UDP; without this, open UDP ports would appear only
+            // in the CSV export, not in the services column or the port
+            // filter.
             foreach (int open in r.UDP_OpenPorts.Where(p => !services.Any(s => s.Ports.Contains(p))))
             {
                 DeviceServiceResult entry = new()
@@ -544,9 +551,9 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         }
 
         /// <summary>
-        /// Ordnet einen Dienst seiner Gruppe zu. Die Zuordnung steht in
-        /// <see cref="ServiceCategories"/>, weil auch die Portsuche ueber alle
-        /// Ports sie braucht.
+        /// Assigns a service to its category. The mapping lives in
+        /// <see cref="ServiceCategories"/> because the all-ports scan needs it
+        /// too.
         /// </summary>
         private static string CategoryOf(ServiceType service) => ServiceCategories.Of(service);
 
@@ -554,9 +561,11 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
         /// <summary>
-        /// Liest eine MAC in den Schreibweisen, die in den Modulen vorkommen:
-        /// mit Doppelpunkt, mit Bindestrich oder ohne Trenner.
+        /// Parses a MAC address in the notations used by the modules: with
+        /// colons, with hyphens or without separators.
         /// </summary>
+        /// <param name="text">The MAC address text.</param>
+        /// <returns>The parsed address, or null if the text is not a valid MAC address.</returns>
         protected static PhysicalAddress? ParseMac(string? text)
         {
             if (string.IsNullOrWhiteSpace(text)) return null;
@@ -569,15 +578,22 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
     }
 
     /// <summary>
-    /// Die Zielliste im alten Format samt Rueckweg zum Bereich, aus dem ein
-    /// Eintrag stammt.
+    /// The target list in the <see cref="IPToScan"/> format of the scan
+    /// modules, with the way back to the scope an entry comes from.
     /// </summary>
+    /// <param name="items">The module target list.</param>
+    /// <param name="byText">Scan targets keyed by target text (address or host name).</param>
     public sealed class LegacyTargets(List<IPToScan> items, Dictionary<string, ScanTargetEntry> byText)
     {
+        /// <summary>The module target list.</summary>
         public List<IPToScan> Items { get; } = items;
 
+        /// <summary>Number of entries in <see cref="Items"/>.</summary>
         public int Count => Items.Count;
 
+        /// <summary>Finds the scan target for a module entry.</summary>
+        /// <param name="targetText">Address or host name as used by the module.</param>
+        /// <returns>The scan target, or null if unknown.</returns>
         public ScanTargetEntry? Find(string? targetText) =>
             string.IsNullOrEmpty(targetText) ? null : byText.GetValueOrDefault(targetText);
     }

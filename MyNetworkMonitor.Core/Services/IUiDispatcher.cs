@@ -1,16 +1,16 @@
 namespace MyNetworkMonitor.Core.Services
 {
     /// <summary>
-    /// Plattformunabhängige Abstraktion für das Marshalling auf den UI-Thread.
-    /// Ersetzt direkte Zugriffe auf Application.Current.Dispatcher (WPF) bzw.
-    /// Dispatcher.UIThread (Avalonia) in der Logik-/ViewModel-Schicht.
+    /// Platform-independent abstraction for marshalling onto the UI thread.
+    /// Keeps the logic and view model layer free of direct access to
+    /// Dispatcher.UIThread (Avalonia).
     /// </summary>
     public interface IUiDispatcher
     {
-        /// <summary>Aktion asynchron auf dem UI-Thread ausführen (nicht blockierend).</summary>
+        /// <summary>Runs an action asynchronously on the UI thread (non-blocking).</summary>
         void Post(Action action);
 
-        /// <summary>Aktion auf dem UI-Thread ausführen und auf Abschluss warten.</summary>
+        /// <summary>Runs an action on the UI thread and waits for completion.</summary>
         Task InvokeAsync(Action action);
     }
 }

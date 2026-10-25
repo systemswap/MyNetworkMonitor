@@ -4,59 +4,57 @@ using DnsClient;
 namespace MyNetworkMonitor.Core.Services
 {
     /// <summary>
-    /// Ob im aktuellen Netz ein Active-Directory-Domänencontroller erreichbar ist -
-    /// die einzige plattformübergreifende, protokollbasierte Antwort auf die Frage
-    /// "bin ich gerade in einem Firmennetz".
+    /// Determines whether an Active Directory domain controller is reachable on the
+    /// current network - the only cross-platform, protocol-based answer to the
+    /// question "is this machine currently on a corporate network".
     /// <para>
-    /// Fragt DNS nach dem wohlbekannten AD-Dienstsatz
-    /// <c>_ldap._tcp.dc._msdcs.&lt;domain&gt;</c> (RFC 2782, von Microsoft für
-    /// die DC-Suche festgelegt) - demselben Weg, über den jeder domänengebundene
-    /// Windows-Rechner selbst seinen Domain Controller findet. Löst das auf,
-    /// steht ein echter DC im Netz; sonst nicht. Das ersetzt die frühere Prüfung
-    /// bekannter IP-Bereiche ("10.", "172."): die kommen auf Heimnetzen (Mesh-Router,
-    /// Docker, VPN, WSL) genauso vor wie in Firmen und waren nie ein verlässliches
-    /// Unterscheidungsmerkmal. Ein auflösbarer DC-SRV-Eintrag dagegen kommt in einem
-    /// privaten Netz praktisch nie vor.
+    /// Queries DNS for the well-known AD service record
+    /// <c>_ldap._tcp.dc._msdcs.&lt;domain&gt;</c> (RFC 2782 SRV record, defined by
+    /// Microsoft for domain controller location) - the same path every domain-joined
+    /// Windows machine uses to locate its own domain controller. If it resolves, a
+    /// real DC is on the network; otherwise not. Known IP ranges ("10.", "172.") are
+    /// not used: they occur on home networks (mesh routers, Docker, VPN, WSL) just as
+    /// in corporate networks and are no reliable distinguishing feature. A resolvable
+    /// DC SRV record, by contrast, practically never occurs on a private network.
+    /// See docs/FEHLERGEDAECHTNIS.md, No. 1.
     /// </para>
     /// <para>
-    /// Bewusst kein Rückgriff auf die Domänenmitgliedschaft des Geräts selbst
-    /// (<c>Domain.GetComputerDomain()</c> unter Windows): die beantwortet nur "ist
-    /// dieses Gerät jemals einer Domäne beigetreten", nicht "bin ich gerade in
-    /// diesem Netz" - ein domänengebundener Laptop im Homeoffice würde damit
-    /// dieselbe Fehlmeldung auslösen wie die alte IP-Heuristik, nur aus einem
-    /// anderen Grund. Die SRV-Abfrage braucht dagegen eine aktuell erreichbare
-    /// Gegenstelle und beantwortet damit die richtige Frage.
+    /// Deliberately does not rely on the device's own domain membership
+    /// (<c>Domain.GetComputerDomain()</c> on Windows): that only answers "has this
+    /// device ever joined a domain", not "is it on that network right now" - a
+    /// domain-joined laptop in a home office would produce the same false positive
+    /// as an IP-range heuristic, just for a different reason. The SRV query requires
+    /// a currently reachable peer and therefore answers the right question.
     /// </para>
     /// </summary>
     public static class ActiveDirectoryDetector
     {
         /// <summary>
-        /// Zeitlimit je Domänen-Kandidat. Kurz gehalten: ein Namensserver, der
-        /// diesen Eintrag nicht kennt, antwortet entweder schnell mit NXDOMAIN
-        /// oder gar nicht - und "gar nicht" darf den Programmstart nicht spürbar
-        /// aufhalten.
+        /// Timeout per candidate domain. Kept short: a name server that does not
+        /// know this record either answers quickly with NXDOMAIN or not at all -
+        /// and "not at all" must not noticeably delay application startup.
         /// </summary>
         private static readonly TimeSpan QueryTimeout = TimeSpan.FromSeconds(1.5);
 
         /// <summary>
-        /// Obergrenze für den gesamten Test, unabhängig davon, wie viele
-        /// Domänen-Kandidaten es gibt. Diese Uhr zählt, nicht die Summe der
-        /// Einzelzeitlimits - sonst könnten mehrere lahme Namensserver
-        /// hintereinander den Start doch wieder verzögern.
+        /// Upper bound for the entire check, regardless of how many candidate
+        /// domains exist. This clock counts, not the sum of the individual
+        /// timeouts - otherwise several slow name servers in a row could still
+        /// delay startup.
         /// </summary>
         private static readonly TimeSpan OverallTimeout = TimeSpan.FromSeconds(2.5);
 
         /// <summary>
-        /// Synchrone Fassade für Aufrufer wie <see cref="IEnterpriseEnvironment"/>,
-        /// deren Schnittstelle keine asynchrone Prüfung vorsieht.
+        /// Synchronous facade for callers such as <see cref="IEnterpriseEnvironment"/>
+        /// whose interface does not provide an asynchronous check.
         /// <para>
-        /// Läuft über <see cref="Task.Run(Func{Task})"/> statt direkt zu warten:
-        /// so hat die Prüfung keinen SynchronizationContext, auf den sie am Ende
-        /// zurück müsste - genau das hat den früheren Starthänger an der
-        /// Webengine verursacht, und dieselbe Falle soll hier nicht wieder
-        /// zuschnappen.
+        /// Runs through <see cref="Task.Run(Func{Task})"/> instead of blocking directly,
+        /// so the check has no SynchronizationContext it would have to return to.
+        /// Blocking on work that resumes on a captured context deadlocks startup
+        /// (the web engine initialization is known to hang this way).
         /// </para>
         /// </summary>
+        /// <returns><c>true</c> if a domain controller answered within the time limit.</returns>
         public static bool DomainControllerReachable()
         {
             try
@@ -66,12 +64,18 @@ namespace MyNetworkMonitor.Core.Services
             }
             catch (Exception)
             {
-                // Zeitlimit oder sonst ein Fehler ist kein Firmennetz - und
-                // darf den Start erst recht nicht zum Absturz bringen.
+                // A timeout or any other error means "no corporate network" -
+                // and must certainly not crash startup.
                 return false;
             }
         }
 
+        /// <summary>
+        /// Queries the DC SRV record for every candidate domain in parallel, bounded
+        /// by an overall time limit.
+        /// </summary>
+        /// <param name="cancellationToken">Cancels the check from the outside.</param>
+        /// <returns><c>true</c> if at least one candidate domain has a reachable domain controller.</returns>
         public static async Task<bool> DomainControllerReachableAsync(CancellationToken cancellationToken)
         {
             List<string> candidates = [.. CandidateDomains()];
@@ -88,15 +92,15 @@ namespace MyNetworkMonitor.Core.Services
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
-                // Nur das eigene Zeitlimit abgelaufen, kein Abbruch von aussen -
-                // dann ist "kein DC gefunden" die richtige Antwort.
+                // Only the internal time limit expired, no external cancellation -
+                // "no DC found" is the correct answer.
                 return false;
             }
         }
 
         /// <summary>
-        /// Eine einzelne SRV-Abfrage. Kein Treffer, kein Server, ein Zeitlimit -
-        /// alles zählt gleich als "hier kein Domänencontroller".
+        /// A single SRV query. No match, no server or a timeout -
+        /// all count equally as "no domain controller here".
         /// </summary>
         private static async Task<bool> HasDomainControllerAsync(string domain, CancellationToken cancellationToken)
         {
@@ -125,11 +129,11 @@ namespace MyNetworkMonitor.Core.Services
         }
 
         /// <summary>
-        /// Die Domänennamen, die geprüft werden: die globale DNS-Domäne des
-        /// Rechners sowie die DNS-Suffixe aktiver, physischer Adapter. Virtuelle
-        /// Adapter (Docker, libvirt, VPN, WSL) fallen heraus - sie tragen keine
-        /// vom DHCP zugewiesene Domäne, sondern höchstens einen geerbten oder
-        /// leeren Suffix, der die Prüfung nur verlangsamt, nie bestätigt.
+        /// The domain names to check: the machine's global DNS domain and the
+        /// DNS suffixes of active physical adapters. Virtual adapters (Docker,
+        /// libvirt, VPN, WSL) are skipped - they carry no DHCP-assigned domain,
+        /// at most an inherited or empty suffix that only slows the check down
+        /// and never confirms it.
         /// </summary>
         private static IEnumerable<string> CandidateDomains()
         {
@@ -173,11 +177,11 @@ namespace MyNetworkMonitor.Core.Services
         }
 
         /// <summary>
-        /// Adapternamen, die nie ein DHCP-zugewiesenes Firmen-Suffix tragen:
-        /// Container- und Hypervisor-Brücken, VPN- und Tunnel-Interfaces. Ihr
-        /// Vorhandensein war der eigentliche Grund für die Fehlalarme der alten
-        /// IP-Heuristik (siehe <c>docker0</c>, das mit <c>172.17.0.1</c> jede
-        /// "172."-Prüfung auf jedem Heimrechner mit Docker auslöste).
+        /// Adapter names that never carry a DHCP-assigned corporate suffix:
+        /// container and hypervisor bridges, VPN and tunnel interfaces. Their
+        /// presence is what makes IP-range heuristics produce false positives
+        /// (for example <c>docker0</c> with <c>172.17.0.1</c> matches any
+        /// "172." check on every home machine running Docker).
         /// </summary>
         private static bool IsVirtualAdapter(string name)
         {

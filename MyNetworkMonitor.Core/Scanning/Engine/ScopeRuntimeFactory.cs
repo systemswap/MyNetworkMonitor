@@ -7,19 +7,22 @@ using MyNetworkMonitor.Core.Network;
 namespace MyNetworkMonitor.Core.Scanning.Engine
 {
     /// <summary>
-    /// Loest Bereiche in Laufzeitangaben und Ziele auf.
+    /// Resolves scopes into runtime information and targets.
     /// <para>
-    /// Sitzt ausserhalb der <see cref="ScanEngine"/>, weil die Oberflaeche
-    /// dasselbe braucht: um zu zeigen, welche Verfahren verfuegbar sind, muss
-    /// sie die IPv6-Lage je Bereich kennen - ohne deshalb einen Scan zu starten
-    /// oder 254 Adressen aufzuzaehlen.
+    /// Lives outside <see cref="ScanEngine"/> because the UI needs the same
+    /// information: to show which methods are available, it has to know the
+    /// IPv6 state of each scope, without starting a scan or enumerating 254
+    /// addresses.
     /// </para>
     /// </summary>
     public static class ScopeRuntimeFactory
     {
         /// <summary>
-        /// Ordnet jedem Bereich seinen Adapter und dessen IPv6-Zustand zu.
+        /// Assigns each scope its network interface and that interface's IPv6 state.
         /// </summary>
+        /// <param name="scopes">The scopes to resolve.</param>
+        /// <returns>One runtime entry per scope, ordered by <see cref="ScanScope.Index"/>.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="scopes"/> is null.</exception>
         public static List<ScopeRuntime> Build(IEnumerable<ScanScope> scopes)
         {
             ArgumentNullException.ThrowIfNull(scopes);
@@ -36,8 +39,8 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
                     nic = all.FirstOrDefault(n => n.Id == scope.InterfaceId);
                 }
 
-                // Bereiche ohne festen Adapter laufen ueber den Adapter, ueber
-                // den das Betriebssystem sie ohnehin routen wuerde.
+                // Scopes without a fixed interface use the interface the
+                // operating system would route them through anyway.
                 nic ??= PickDefaultInterface(all);
 
                 result.Add(new ScopeRuntime
@@ -52,10 +55,13 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
         }
 
         /// <summary>
-        /// Zaehlt alle Ziele der Bereiche auf. Ein IPv6-Praefix liefert
-        /// bewusst keine - es wird nicht durchlaufen, sondern von den
-        /// IPv6-Verfahren selbst untersucht.
+        /// Enumerates all targets of the scopes. An IPv6 prefix deliberately
+        /// yields none; it is not iterated but examined by the IPv6 methods
+        /// themselves.
         /// </summary>
+        /// <param name="runtimes">Resolved scopes from <see cref="Build"/>.</param>
+        /// <returns>All targets; host names that resolve also carry their address.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="runtimes"/> is null.</exception>
         public static List<ScanTargetEntry> BuildTargets(IEnumerable<ScopeRuntime> runtimes)
         {
             ArgumentNullException.ThrowIfNull(runtimes);
@@ -86,19 +92,18 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
                         }
                         foreach (string host in hostnames)
                         {
-                            // Erst aufloesen, dann als Adressziel eintragen.
+                            // Resolved first, then added as an address target.
                             //
-                            // Ohne das wird der Name zwar gescannt, sein
-                            // Ergebnis aber verworfen: die Auswertung setzt ein
-                            // Ziel voraus, das sich als IP lesen laesst, und
-                            // ein Name tut das nicht. Wer in die eigene Eingabe
-                            // einen Hostnamen tippte, sah darum nie ein
-                            // Ergebnis - auch dann nicht, wenn das Geraet
-                            // antwortete.
+                            // Without resolution the name is scanned but its
+                            // result is discarded: the evaluation requires a
+                            // target that parses as an IP address, and a name
+                            // does not. A host name entered in the target list
+                            // would never show a result, even when the device
+                            // answers.
                             //
-                            // Der Name bleibt am Ziel stehen, damit er in der
-                            // Tabelle auftaucht und nicht erst durch die
-                            // Rueckwaertsaufloesung wiedergefunden werden muss.
+                            // The name stays on the target so that it appears
+                            // in the table and does not have to be recovered
+                            // by reverse resolution.
                             IpAddressInfo? resolved = ResolveHost(host);
 
                             targets.Add(resolved is null
@@ -120,14 +125,18 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
         }
 
         /// <summary>
-        /// Wie viele Ziele ein Bereich umfasst - ohne sie aufzuzaehlen.
+        /// Number of targets in a scope, without enumerating them.
         /// <para>
-        /// Der Adapter-Bereich kennt seine Groesse erst zur Laufzeit, aus
-        /// Adresse und Maske. Sie wird gerechnet und nicht durchlaufen, weil
-        /// die Oberflaeche diese Zahl bei jedem Haken neu braucht und ein /16
-        /// sonst 65.000 Objekte je Klick erzeugen wuerde.
+        /// An interface scope only knows its size at runtime, from address and
+        /// mask. The size is calculated rather than enumerated because the UI
+        /// needs this number again on every checkbox change, and a /16 would
+        /// otherwise create 65,000 objects per click.
         /// </para>
         /// </summary>
+        /// <param name="runtime">The resolved scope.</param>
+        /// <param name="isEstimate">Set to true if the number is only an estimate.</param>
+        /// <returns>The number of targets.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="runtime"/> is null.</exception>
         public static long CountTargets(ScopeRuntime runtime, out bool isEstimate)
         {
             ArgumentNullException.ThrowIfNull(runtime);
@@ -153,7 +162,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
                     uint mask = ToUInt32(unicast.IPv4Mask);
                     if (mask == 0) continue;
 
-                    // Anzahl der Hostbits, abzueglich Netz- und Broadcastadresse
+                    // Host addresses, minus network and broadcast address
                     long hosts = (long)(~mask) - 1;
                     if (hosts > 0) total += hosts;
                 }
@@ -168,11 +177,14 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
         }
 
         /// <summary>
-        /// Ein bis zwei Beispielziele je Bereich - genug, damit ein Verfahren
-        /// erkennt, welche Adressfamilien vorkommen. Fuer die
-        /// Verfuegbarkeitsanzeige der Oberflaeche, die bei jedem Haken neu
-        /// laeuft und darum nicht 254 Adressen erzeugen darf.
+        /// One or two sample targets per scope, enough for a method to see which
+        /// address families occur. Used by the availability display of the UI,
+        /// which runs again on every checkbox change and therefore must not
+        /// create 254 addresses.
         /// </summary>
+        /// <param name="runtime">The resolved scope.</param>
+        /// <returns>A few representative targets.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="runtime"/> is null.</exception>
         public static IEnumerable<ScanTargetEntry> SampleTargets(ScopeRuntime runtime)
         {
             ArgumentNullException.ThrowIfNull(runtime);
@@ -194,8 +206,8 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
                 case ScanScopeKind.TargetList:
                     (List<IpAddressInfo> addresses, List<string> hostnames) = runtime.Scope.SplitTargetList();
 
-                    // Je Familie ein Beispiel, damit eine gemischte Liste
-                    // beide Seiten zeigt.
+                    // One sample per family, so that a mixed list shows
+                    // both.
                     foreach (IpFamily family in (IpFamily[])[IpFamily.IPv4, IpFamily.IPv6])
                     {
                         IpAddressInfo? sample = addresses.FirstOrDefault(a => a.Family == family);
@@ -230,9 +242,8 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
         }
 
         /// <summary>
-        /// Leitet aus einem Adapter das IPv4-Subnetz ab und zaehlt es auf. Die
-        /// IPv6-Seite steuern die IPv6-Verfahren selbst bei - ein /64 laesst
-        /// sich nicht aufzaehlen.
+        /// Derives the IPv4 subnet from an interface and enumerates it. IPv6 is
+        /// covered by the IPv6 methods themselves; a /64 cannot be enumerated.
         /// </summary>
         private static IEnumerable<ScanTargetEntry> EnumerateInterfaceSubnet(ScopeRuntime runtime)
         {
@@ -260,8 +271,8 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
                 uint network = address & mask;
                 uint broadcast = network | ~mask;
 
-                // Netz- und Broadcast-Adresse sind keine Ziele. Bei /31 oder
-                // /32 bleibt nichts uebrig.
+                // Network and broadcast addresses are not targets. A /31 or
+                // /32 leaves nothing.
                 if (broadcast <= network + 1) continue;
 
                 for (uint value = network + 1; value < broadcast; value++)
@@ -276,20 +287,19 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
         }
 
         /// <summary>
-        /// Sucht den Adapter, ueber den der Rechner tatsaechlich im Netz haengt.
+        /// Finds the interface through which the machine is actually connected.
         /// <para>
-        /// "Der erste betriebsbereite" genuegt nicht: auf einem Arbeitsplatz
-        /// stehen regelmaessig Hyper-V-, VMware-, VPN- und Bluetooth-Adapter
-        /// davor, die alle "Up" melden. Wer das Netz wechselt - vom Kabel ins
-        /// WLAN - scannt dann das Netz einer virtuellen Bruecke statt seines
-        /// eigenen.
+        /// "The first operational one" is not sufficient: workstations commonly
+        /// list Hyper-V, VMware, VPN and Bluetooth adapters first, all reporting
+        /// "Up". After switching networks (from cable to Wi-Fi) the scan would
+        /// then cover the network of a virtual bridge instead of the real one.
         /// </para>
         /// <para>
-        /// Entscheidend ist das Standardgateway: nur ein Adapter, der eines
-        /// hat, fuehrt irgendwohin. Kommen mehrere in Frage, gewinnt der
-        /// physische - Kabel oder WLAN - vor allem Uebrigen. Die Routenmetrik
-        /// waere das genauere Kriterium, .NET gibt sie aber plattformneutral
-        /// nicht her.
+        /// The default gateway is decisive: only an interface that has one
+        /// leads anywhere. If several qualify, a physical one (Ethernet or
+        /// Wi-Fi) wins over all others. The route metric would be the more
+        /// precise criterion, but .NET does not expose it in a
+        /// platform-neutral way.
         /// </para>
         /// </summary>
         private static NetworkInterface? PickDefaultInterface(NetworkInterface[] all)
@@ -306,8 +316,8 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
                 .Where(HasGateway)
                 .OrderBy(Rank)
                 .FirstOrDefault()
-                // Kein Adapter mit Gateway - dann der erste brauchbare, damit
-                // ein Laborsegment ohne Router nicht leer ausgeht.
+                // No interface with a gateway: fall back to the first usable
+                // one, so that a lab segment without a router still gets a scope.
                 ?? usable.OrderBy(Rank).FirstOrDefault();
 
             static bool HasGateway(NetworkInterface nic)
@@ -320,9 +330,9 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
                 catch (NetworkInformationException) { return false; }
             }
 
-            // Ein Arbeitsplatz traegt regelmaessig Hyper-V-, VMware-, VPN- und
-            // Bluetooth-Adapter, die alle "Up" melden. Sie duerfen nicht vor
-            // dem Adapter stehen, an dem das Netzkabel oder das WLAN haengt.
+            // Workstations commonly carry Hyper-V, VMware, VPN and Bluetooth
+            // adapters, all reporting "Up". They must not rank ahead of the
+            // interface connected to the network cable or Wi-Fi.
             static int Rank(NetworkInterface nic) => nic.NetworkInterfaceType switch
             {
                 NetworkInterfaceType.Ethernet or NetworkInterfaceType.GigabitEthernet => 0,
@@ -332,11 +342,10 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
         }
 
         /// <summary>
-        /// Loest einen Hostnamen in eine Adresse auf. IPv4 vor IPv6, weil die
-        /// uebrigen Verfahren daran haengen. Scheitert die Aufloesung, gibt es
-        /// <c>null</c> - dann bleibt der Name als Ziel stehen und der Lauf
-        /// meldet ihn als nicht erreichbar, statt ihn stillschweigend zu
-        /// ueberspringen.
+        /// Resolves a host name to an address. IPv4 is preferred over IPv6
+        /// because the remaining methods depend on it. If resolution fails, the
+        /// result is <c>null</c>; the name then stays as a target and the run
+        /// reports it as unreachable instead of silently skipping it.
         /// </summary>
         private static IpAddressInfo? ResolveHost(string host)
         {
@@ -352,8 +361,8 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
             }
             catch (Exception)
             {
-                // Unbekannter Name, kein Namensserver erreichbar, Zeitlimit -
-                // alles derselbe Fall: es gibt keine Adresse.
+                // Unknown name, no reachable name server, timeout: all mean
+                // the same thing, there is no address.
                 return null;
             }
         }

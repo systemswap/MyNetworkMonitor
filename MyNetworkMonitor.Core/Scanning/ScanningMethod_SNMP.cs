@@ -12,10 +12,15 @@ using Lextm.SharpSnmpLib;
 
 namespace MyNetworkMonitor
 {
+    /// <summary>
+    /// Reads system information (name, description, location, contact), serial number and MAC
+    /// addresses of the targets by SNMP with the community "public".
+    /// </summary>
     public class ScanningMethod_SNMP
     {
 
 
+        /// <summary>Creates the SNMP scanner.</summary>
         public ScanningMethod_SNMP() { }
 
 
@@ -23,25 +28,19 @@ namespace MyNetworkMonitor
         private int responded = 0;
         private int total = 0;
 
-        private CancellationTokenSource _cts = new CancellationTokenSource(); // 🔹 Ermöglicht das Abbrechen
+        private CancellationTokenSource _cts = new CancellationTokenSource(); // Allows the scan to be cancelled.
 
-        //int currentValue = Interlocked.Increment(ref current);
-        //Task.Run(() => ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running));
-
-        //int respondedValue = Interlocked.Increment(ref responded);
-        //Task.Run(() => ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running));
-
-        //Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished));
-
+        /// <summary>
+        /// Cancels the running scan and reports <see cref="ScanStatus.stopped"/>.
+        /// </summary>
         public void StopScan()
         {
             if (_cts != null && !_cts.IsCancellationRequested)
             {
-                _cts.Cancel(); // 🔹 Scan abbrechen
-                // Hier NICHT aufraeumen und ersetzen: die Schleifen lesen _cts ueber
-                // das Feld. Ein frisches CTS an dieser Stelle meldet ihnen wieder
-                // "nicht abgebrochen", und der Lauf geht weiter, statt zu enden.
-                // Das Zuruecksetzen erledigt StartNewScan beim naechsten Lauf.
+                _cts.Cancel();
+                // Do NOT dispose and replace the source here: the loops read _cts through the
+                // field. A fresh source at this point would report "not cancelled" to them and
+                // the run would continue instead of ending. StartNewScan resets it for the next run.
             }
 
             ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped);
@@ -59,7 +58,7 @@ namespace MyNetworkMonitor
             }
             _cts = new CancellationTokenSource();
 
-            // 🔹 Zähler zurücksetzen
+            // Reset the counters.
             current = 0;
             responded = 0;
             total = 0;
@@ -69,16 +68,26 @@ namespace MyNetworkMonitor
 
 
         #region Event-Argumente und Events
+        /// <summary>Reports progress as (processed, responded, total, status).</summary>
         public event Action<int, int, int, ScanStatus> ProgressUpdated;
+
+        /// <summary>Raised for every target that answered.</summary>
         public event Action<IPToScan> SNMB_Task_Finished;        
+
+        /// <summary>Raised when all queries of a run have finished.</summary>
         public event Action<bool> SNMBFinished;
       
         #endregion
 
-        private static readonly int MaxParallelTasks = 100; // Erhöht für schnellere Scans
+        private static readonly int MaxParallelTasks = 100; // Concurrent queries
         private readonly SemaphoreSlim _semaphore = new SemaphoreSlim(MaxParallelTasks, MaxParallelTasks);
         private readonly ConcurrentBag<string> FailedIPs = new ConcurrentBag<string>();
 
+        /// <summary>
+        /// Queries every target that is a valid IP address, with a time limit of ten seconds per
+        /// target.
+        /// </summary>
+        /// <param name="IPsToRefresh">The targets.</param>
         public async Task ScanAsync(List<IPToScan> IPsToRefresh)
         {
             StartNewScan();
@@ -91,23 +100,6 @@ namespace MyNetworkMonitor
 
             var tasks = new List<Task>();
 
-            //foreach (var ip in IPsToRefresh)
-            //{
-            //    if (_cts.Token.IsCancellationRequested) break; // 🔹 Abbruchprüfung
-
-            //    await _semaphore.WaitAsync();
-            //    tasks.Add(Task.Run(async () =>
-            //    {
-            //        try
-            //        {
-            //            await ScanSingleIPAsync(ip);
-            //        }
-            //        finally
-            //        {
-            //            _semaphore.Release();
-            //        }
-            //    }));
-            //}
 
             foreach (var ip in IPsToRefresh)
             {
@@ -120,7 +112,7 @@ namespace MyNetworkMonitor
                 catch (OperationCanceledException)
                 {
                     Debug.WriteLine($"Scan für {ip.IPorHostname} wurde abgebrochen.");
-                    return; // ⛔ Sauber beenden, falls der gesamte Scan gestoppt wurde
+                    return; // The whole scan was stopped.
                 }
 
                 tasks.Add(Task.Run(async () =>
@@ -137,7 +129,7 @@ namespace MyNetworkMonitor
                     {
                         _semaphore.Release();
                     }
-                }, _cts.Token)); // 🔹 CancellationToken übergeben
+                }, _cts.Token));
             }
 
             await Task.WhenAll(tasks);
@@ -155,8 +147,8 @@ namespace MyNetworkMonitor
             }
             finally
             {
-                // Erst zaehlen, wenn die Abfrage beantwortet oder abgelaufen
-                // ist - beim Versenden stuende der Balken minutenlang am Ende.
+                // Count only once the query has been answered or has timed out; counting on
+                // sending would leave the progress bar full for minutes.
                 int currentValue = Interlocked.Increment(ref current);
                 ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
             }
@@ -168,7 +160,7 @@ namespace MyNetworkMonitor
                 return;
 
             if (cancellationToken.IsCancellationRequested)
-                return; // 🔹 Abbruch vor SNMP-Request prüfen
+                return;
 
             try
             {
@@ -180,10 +172,10 @@ namespace MyNetworkMonitor
 
                 var oids = new[]
                 {
-                    "1.3.6.1.2.1.1.5.0",    // System Name
-                    "1.3.6.1.2.1.1.1.0",    // System Description
-                    "1.3.6.1.2.1.1.6.0",    // System Location
-                    "1.3.6.1.2.1.1.4.0",      // System Contact
+                    "1.3.6.1.2.1.1.5.0",    // sysName (RFC 3418)
+                    "1.3.6.1.2.1.1.1.0",    // sysDescr
+                    "1.3.6.1.2.1.1.6.0",    // sysLocation
+                    "1.3.6.1.2.1.1.4.0",      // sysContact
                 };
                 Dictionary<string, string>? result = null;
 
@@ -233,7 +225,6 @@ namespace MyNetworkMonitor
 
                 }
 
-                //if (cancellationToken.IsCancellationRequested) return;
 
                 string str_SysName = result.TryGetValue(oids[0], out var sysName) ? sysName : string.Empty; ;
 
@@ -263,14 +254,12 @@ namespace MyNetworkMonitor
                 ipToScan.SNMP_Contact = str_contact;
                 ipToScan.SNMP_MAC = str_MacAddress;
 
-                //ipToScan.SNMP_SysDesc = string.Join("\t", lst_SNMPSysDesc);
-                //ipToScan.SNMP_Location = string.Join("\t", lst_SNMPLocation);
 
 
 
 
 
-                // **Optimierung: Zebra-Printer sofort erkennen**
+                // Zebra printers report host name and serial number under their own OIDs.
                 if (ipToScan.SNMP_SysDesc.Contains("Zebra Technologies", StringComparison.OrdinalIgnoreCase))
                 {
                     await QueryZebraPrinter(ipToScan, community, cancellationToken);
@@ -298,7 +287,7 @@ namespace MyNetworkMonitor
         }
 
 
-        // **Optimierung: Hex-String zu UTF8 nur, wenn nötig**
+        // Converts a hex string to UTF-8 text; any other value is returned unchanged.
         string ConvertHexToAscii(string hexString)
         {
             if (!Regex.IsMatch(hexString, @"\A\b[0-9a-fA-F\s]+\b\Z"))

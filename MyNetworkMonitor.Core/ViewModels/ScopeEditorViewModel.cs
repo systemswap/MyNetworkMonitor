@@ -9,18 +9,17 @@ using MyNetworkMonitor.Core.Persistence;
 namespace MyNetworkMonitor.Core.ViewModels
 {
     /// <summary>
-    /// Die Verwaltung der Scan-Bereiche: Liste links, Maske rechts.
+    /// Management of the scan scopes: list on the left, form on the right.
     /// <para>
-    /// Arbeitet auf <em>derselben</em> Sammlung wie die Bereichsauswahl im
-    /// Kommandobalken. Wer hier einen Bereich anlegt oder umbenennt, sieht das
-    /// sofort im Ausklappmenue - eine zweite Liste, die man haendisch abgleicht,
-    /// waere die naechste Fehlerquelle.
+    /// Works on <em>the same</em> collection as the scope selection in the
+    /// command bar. A scope created or renamed here appears in the drop-down
+    /// immediately; a second list that has to be kept in sync manually would
+    /// be another source of errors.
     /// </para>
     /// <para>
-    /// Gespeichert wird in das bisherige <c>ipGroups.xml</c>, damit beide
-    /// Oberflaechen waehrend des Umbaus denselben Bestand sehen. Bereiche, die
-    /// sich in diesem Format nicht abbilden lassen - der Adapter-Bereich, ein
-    /// IPv6-Praefix - werden uebersprungen statt verstuemmelt gespeichert.
+    /// Saved to <c>ipGroups.xml</c>. Scopes that this format cannot represent
+    /// (the adapter scope, an IPv6 prefix) are skipped instead of being saved
+    /// incompletely.
     /// </para>
     /// </summary>
     public partial class ScopeEditorViewModel : ObservableObject
@@ -29,19 +28,21 @@ namespace MyNetworkMonitor.Core.ViewModels
         private string _xmlPath = string.Empty;
 
         /// <summary>
-        /// Sperrt das Speichern waehrend des Ladens. Ohne sie wuerde jeder
-        /// hinzugefuegte Bereich die Datei neu schreiben - und der erste
-        /// Schreibvorgang aus einer noch halb gefuellten Liste heraus.
+        /// Blocks saving while loading. Without it every added scope would
+        /// rewrite the file, the first write coming from a half-filled list.
         /// </summary>
         private bool _loading;
 
+        /// <summary>Creates the editor on the shared scope collection.</summary>
+        /// <param name="scopes">The scope collection shared with the command bar.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="scopes"/> is <see langword="null"/>.</exception>
         public ScopeEditorViewModel(ObservableCollection<ScanScope> scopes)
         {
             _scopes = scopes ?? throw new ArgumentNullException(nameof(scopes));
 
-            // Auf jeden Bereich hoeren, nicht nur auf den in der Maske: der
-            // Active-Haken wird im Kommandobalken gesetzt, und gerade er ging
-            // bisher bei jedem Neustart verloren.
+            // Listen to every scope, not only the one in the form: the Active
+            // check mark is set in the command bar, and without this it would
+            // be lost on every restart.
             _scopes.CollectionChanged += (_, e) =>
             {
                 foreach (ScanScope scope in e.OldItems?.OfType<ScanScope>() ?? [])
@@ -56,27 +57,30 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Ein Bereich wurde an- oder abgewaehlt. Der Kommandobalken rechnet
-        /// daraufhin Zielzahl, Dauer und Verfahrensverfuegbarkeit neu.
+        /// Raised when a scope was checked or unchecked. The command bar then
+        /// recalculates target count, duration and method availability.
         /// </summary>
         public event Action? SelectionChanged;
 
+        /// <summary>The scan scopes, including the adapter scope at the top.</summary>
         public ObservableCollection<ScanScope> Scopes => _scopes;
 
+        /// <summary>The scope shown in the form.</summary>
         [ObservableProperty] private ScanScope? _selected;
 
-        /// <summary>Ohne Auswahl bleibt die Maske leer statt halb bedienbar.</summary>
+        /// <summary>Without a selection the form stays empty instead of half usable.</summary>
         public bool HasSelection => Selected is not null;
 
         /// <summary>
-        /// Der Adapter-Bereich wird beim Start erzeugt, nicht gespeichert - er
-        /// laesst sich darum weder loeschen noch sinnvoll bearbeiten.
+        /// The adapter scope is created at startup, not saved, so it can be
+        /// neither deleted nor meaningfully edited.
         /// </summary>
         public bool IsEditable => Selected is not null && Selected.Kind == ScanScopeKind.IPv4Range;
 
-        /// <summary>Was an der Maske nicht stimmt. Leer, wenn alles passt.</summary>
+        /// <summary>What is wrong with the form. Empty when everything is valid.</summary>
         [ObservableProperty] private string _problem = string.Empty;
 
+        /// <summary>The status line text.</summary>
         [ObservableProperty] private string _status = string.Empty;
 
         partial void OnSelectedChanged(ScanScope? value)
@@ -87,19 +91,18 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Jede Aenderung an der Maske wird sofort geprueft und gespeichert.
+        /// Every change in the form is validated and saved immediately.
         /// <para>
-        /// Kein Speichern-Knopf: die Liste links zeigt bereits, was gilt, und
-        /// ein Knopf, den man vergisst, kostet die Arbeit eines ganzen
-        /// Formulars. Ungueltige Zwischenstaende - eine halb getippte Adresse -
-        /// werden zwar gespeichert, aber angezeigt und beim Scannen
-        /// uebersprungen.
+        /// No save button: the list on the left already shows what applies, and
+        /// a forgotten button would lose a whole form's work. Invalid
+        /// intermediate states, such as a half-typed address, are saved but
+        /// flagged and skipped when scanning.
         /// </para>
         /// </summary>
         private void OnScopeEdited(object? sender, PropertyChangedEventArgs e)
         {
-            // RangeText ist abgeleitet und wird von FirstIP/LastIP mitgemeldet -
-            // darauf zu speichern hiesse, jede Aenderung zweimal zu schreiben.
+            // RangeText is derived and raised along with FirstIP/LastIP; saving
+            // on it would write every change twice.
             if (e.PropertyName == nameof(ScanScope.RangeText)) return;
 
             if (e.PropertyName == nameof(ScanScope.IsSelected)) SelectionChanged?.Invoke();
@@ -109,12 +112,13 @@ namespace MyNetworkMonitor.Core.ViewModels
             Save();
         }
 
-        // ------------------------------------------------------------- Laden
+        // ------------------------------------------------------------ Loading
 
         /// <summary>
-        /// Liest die gespeicherten Bereiche und stellt den Adapter-Bereich
-        /// voran, damit ohne jede Einrichtung sofort etwas da ist.
+        /// Reads the saved scopes and puts the adapter scope first, so there is
+        /// something to scan without any setup.
         /// </summary>
+        /// <param name="xmlPath">The <c>ipGroups.xml</c> file; also the target for later saves.</param>
         public void Load(string xmlPath)
         {
             _xmlPath = xmlPath;
@@ -135,16 +139,15 @@ namespace MyNetworkMonitor.Core.ViewModels
 
                 if (!File.Exists(xmlPath)) return;
 
-                // Die Tabelle mit *dem* Schema aufbauen, in dem auch
-                // gespeichert wird - nicht mit dem alten IPGroupData.
+                // Build the table with *the* schema that is also used for
+                // saving, not with IPGroupData.
                 //
-                // ReadXml traegt in eine Tabelle, die schon Spalten hat, keine
-                // unbekannten nach: was die Tabelle nicht kennt, faellt beim
-                // Lesen weg. IPGroupData kennt weder ScannedBy noch
-                // LastScanned. Beide standen also in der Datei, kamen aber nie
-                // zurueck - die Zuordnung eines Bereichs zu einem Satelliten
-                // ueberlebte keinen Neustart, und der Bereich wurde danach
-                // wieder still von hier aus gescannt.
+                // ReadXml does not add unknown columns to a table that already
+                // has columns: whatever the table does not know is dropped on
+                // reading. IPGroupData knows neither ScannedBy nor LastScanned.
+                // With it, both are in the file but never come back: the
+                // assignment of a scope to a satellite does not survive a
+                // restart, and the scope is silently scanned from here again.
                 System.Data.DataTable data = IpGroupTable.CreateTable();
                 data.ReadXml(xmlPath);
 
@@ -161,8 +164,8 @@ namespace MyNetworkMonitor.Core.ViewModels
             }
             catch (Exception ex)
             {
-                // Eine fehlende oder beschaedigte Datei darf den Start nicht
-                // verhindern - der Adapter-Bereich genuegt zum Arbeiten.
+                // A missing or damaged file must not prevent startup; the
+                // adapter scope is enough to work with.
                 Status = $"Ranges could not be loaded: {ex.Message}";
             }
             finally
@@ -171,36 +174,36 @@ namespace MyNetworkMonitor.Core.ViewModels
             }
         }
 
-        // --------------------------------------------------------- Speichern
+        // ------------------------------------------------------------- Saving
 
         /// <summary>
-        /// Wie lange nach der letzten Aenderung gewartet wird, bevor
-        /// geschrieben wird. Die Textfelder melden je Tastendruck - ohne diese
-        /// Pause entstuende je Buchstabe ein Dateizugriff.
+        /// How long to wait after the last change before writing. The text
+        /// fields report every keystroke; without this delay every character
+        /// would cause a file access.
         /// </summary>
         private static readonly TimeSpan SaveDelay = TimeSpan.FromMilliseconds(600);
 
         private Timer? _saveTimer;
 
         /// <summary>
-        /// Der Stand, der geschrieben werden soll. Wird beim Anfordern
-        /// aufgenommen, nicht beim Schreiben: der Zeitgeber laeuft auf einem
-        /// eigenen Thread, und die Bereichsliste gehoert der Oberflaeche.
+        /// The state to be written. Captured when the save is requested, not
+        /// when writing: the timer runs on its own thread, and the scope list
+        /// belongs to the UI.
         /// </summary>
         private List<IpGroup> _pending = [];
 
         /// <summary>
-        /// Ob seit dem Laden ueberhaupt etwas geaendert wurde. Ohne diese
-        /// Sperre wuerde blosses Oeffnen und Schliessen der Anwendung die
-        /// Datei neu schreiben - unnoetiges Risiko fuer einen Bestand, den auch
-        /// die bisherige Oberflaeche liest.
+        /// Whether anything has changed since loading. Without this guard,
+        /// merely opening and closing the application would rewrite the file,
+        /// an unnecessary risk for the saved scopes.
         /// </summary>
         private bool _dirty;
 
         /// <summary>
-        /// Merkt den aktuellen Stand zum Speichern vor. Wird nach jeder
-        /// Aenderung aufgerufen, auch nach einem Haken im Kommandobalken -
-        /// genau der ging bisher bei jedem Neustart verloren.
+        /// Captures the current state for saving and writes it after
+        /// <see cref="SaveDelay"/>. Called after every change, including a
+        /// check mark in the command bar, which would otherwise be lost on
+        /// restart.
         /// </summary>
         public void Save()
         {
@@ -208,7 +211,7 @@ namespace MyNetworkMonitor.Core.ViewModels
 
             _dirty = true;
 
-            // Aufnehmen, solange wir noch auf dem Oberflaechen-Thread sind.
+            // Capture while still on the UI thread.
             _pending =
             [
                 .. _scopes.OrderBy(s => s.Index)
@@ -221,7 +224,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             _saveTimer.Change(SaveDelay, Timeout.InfiniteTimeSpan);
         }
 
-        /// <summary>Schreibt den vorgemerkten Stand. Laeuft auf dem Zeitgeber-Thread.</summary>
+        /// <summary>Writes the captured state. Runs on the timer thread.</summary>
         private void Flush()
         {
             try
@@ -235,8 +238,8 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Schreibt sofort, ohne die Pause abzuwarten - beim Schliessen des
-        /// Fensters, wo der Zeitgeber sonst nie mehr feuern wuerde.
+        /// Writes immediately without waiting for the delay; used when the
+        /// window closes, where the timer would never fire again.
         /// </summary>
         public void SaveNow()
         {
@@ -247,7 +250,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             Flush();
         }
 
-        // ----------------------------------------------------------- Befehle
+        // ----------------------------------------------------------- Commands
 
         [RelayCommand]
         private void Add()
@@ -270,9 +273,8 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Ein neuer Bereich unterscheidet sich vom vorigen meist nur im
-        /// dritten Oktett - Kopieren ist darum der schnellere Weg als das
-        /// Formular erneut auszufuellen.
+        /// A new scope usually differs from the previous one only in the third
+        /// octet, so copying is quicker than filling in the form again.
         /// </summary>
         [RelayCommand]
         private void Duplicate()
@@ -293,8 +295,8 @@ namespace MyNetworkMonitor.Core.ViewModels
                 ScannedBy = Selected.ScannedBy,
                 AutomaticScan = Selected.AutomaticScan,
                 ScanIntervalMinutes = Selected.ScanIntervalMinutes,
-                // LastScanned wird bewusst nicht mitkopiert: die Kopie ist noch
-                // nie gelaufen, sonst gaelte sie sofort als frisch gescannt.
+                // LastScanned is deliberately not copied: the copy has never
+                // run and would otherwise count as freshly scanned.
                 IsSelected = false
             };
 
@@ -315,8 +317,8 @@ namespace MyNetworkMonitor.Core.ViewModels
 
             _scopes.Remove(Selected);
 
-            // Die naechstliegende Zeile waehlen, statt in eine leere Maske zu
-            // fallen - meistens will man gleich weiterarbeiten.
+            // Select the nearest row instead of falling back to an empty form;
+            // work usually continues right away.
             Selected = _scopes.Count == 0
                 ? null
                 : _scopes[Math.Min(position, _scopes.Count - 1)];
@@ -328,7 +330,7 @@ namespace MyNetworkMonitor.Core.ViewModels
         private int NextIndex() =>
             _scopes.Count == 0 ? 1 : _scopes.Max(s => s.Index) + 1;
 
-        // ----------------------------------------------------------- Pruefung
+        // --------------------------------------------------------- Validation
 
         private void Validate()
         {

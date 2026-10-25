@@ -4,12 +4,12 @@ using System.Text;
 namespace MyNetworkMonitor.Core.Services
 {
     /// <summary>
-    /// Kleiner statischer Dateiserver fuer die Topologie-Seite. Noetig, weil die
-    /// eingebettete Webansicht die Seite ueber http laden muss - ueber file://
-    /// verweigern Chromium-basierte Engines das Nachladen der Bibliothek.
+    /// Small static file server for the topology page. Required because the
+    /// embedded web view must load the page via http - via file:// Chromium-based
+    /// engines refuse to load the library.
     ///
-    /// Der Server laeuft prozessweit nur einmal und bedient ausschliesslich
-    /// Dateien unterhalb des Graph-Ordners.
+    /// The server runs only once per process and serves only files below the
+    /// graph folder.
     /// </summary>
     public static class TopologyWebServer
     {
@@ -17,11 +17,15 @@ namespace MyNetworkMonitor.Core.Services
         private static HttpListener? _listener;
         private static string _rootFolder = string.Empty;
 
+        /// <summary>The port used when none is given.</summary>
         public const int DefaultPort = 8080;
 
         /// <summary>
-        /// Startet den Server beim ersten Aufruf. Liefert die Basis-URL.
+        /// Starts the server on the first call.
         /// </summary>
+        /// <param name="rootFolder">The folder whose files are served.</param>
+        /// <param name="port">The local TCP port.</param>
+        /// <returns>The base URL, for example <c>http://127.0.0.1:8080/</c>.</returns>
         public static string EnsureStarted(string rootFolder, int port = DefaultPort)
         {
             lock (Sync)
@@ -32,10 +36,10 @@ namespace MyNetworkMonitor.Core.Services
                 {
                     _listener = new HttpListener();
 
-                    // Nicht "localhost": das bindet unter .NET auf Linux nur
-                    // IPv6 ([::1]), waehrend die eingebettete Webansicht ueber
-                    // IPv4 verbindet - die Anfrage liefe ins Leere, ohne dass
-                    // ein Fehler sichtbar wuerde. 127.0.0.1 ist eindeutig.
+                    // Not "localhost": on Linux, .NET binds that only to IPv6
+                    // ([::1]), while the embedded web view connects via IPv4 -
+                    // the request would go nowhere without any visible error.
+                    // 127.0.0.1 is unambiguous.
                     _listener.Prefixes.Add($"http://127.0.0.1:{port}/");
                     _listener.Start();
 
@@ -54,7 +58,7 @@ namespace MyNetworkMonitor.Core.Services
                 HttpListenerContext context;
 
                 try { context = _listener.GetContext(); }
-                catch (Exception) { return; /* Listener wurde beendet */ }
+                catch (Exception) { return; /* listener was stopped */ }
 
                 using HttpListenerResponse response = context.Response;
 
@@ -76,14 +80,14 @@ namespace MyNetworkMonitor.Core.Services
                 catch (Exception)
                 {
                     try { response.StatusCode = (int)HttpStatusCode.InternalServerError; }
-                    catch (Exception) { /* Verbindung bereits weg */ }
+                    catch (Exception) { /* connection already closed */ }
                 }
             }
         }
 
         /// <summary>
-        /// Loest den angefragten Pfad im Graph-Ordner auf. Gibt null zurueck,
-        /// wenn er aus dem Ordner herausfuehrt (Directory Traversal).
+        /// Resolves the requested path within the graph folder. Returns null if
+        /// it leads out of the folder (directory traversal).
         /// </summary>
         private static string? ResolvePath(string absolutePath)
         {

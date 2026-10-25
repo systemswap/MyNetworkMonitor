@@ -4,86 +4,93 @@ using System.Net.NetworkInformation;
 
 namespace MyNetworkMonitor.Core.Network
 {
-    /// <summary>Ein Praefix, wie es ein Router in seiner Ankuendigung nennt.</summary>
+    /// <summary>A prefix as a router announces it in its advertisement (RFC 4861, section 4.6.2).</summary>
     public sealed class AdvertisedPrefix
     {
+        /// <summary>The prefix address.</summary>
         public required IPAddress Prefix { get; init; }
+        /// <summary>The prefix length in bits.</summary>
         public required int Length { get; init; }
 
-        /// <summary>Geraete duerfen sich hier selbst eine Adresse bilden (A-Bit).</summary>
+        /// <summary>Devices may form an address of their own here (A flag).</summary>
         public bool Autonomous { get; init; }
 
-        /// <summary>Das Praefix gilt fuer dieses Segment (L-Bit).</summary>
+        /// <summary>The prefix applies to this segment (L flag).</summary>
         public bool OnLink { get; init; }
 
+        /// <summary>How long the prefix remains valid, in seconds.</summary>
         public uint ValidLifetimeSeconds { get; init; }
 
         public override string ToString() => $"{Prefix}/{Length}";
     }
 
     /// <summary>
-    /// Eine ausgewertete Router-Ankuendigung.
+    /// A parsed router advertisement (RFC 4861, section 4.2).
     /// <para>
-    /// Sie ist die aufschlussreichste Nachricht im IPv6-Segment: sie nennt den
-    /// Router, die gueltigen Praefixe, die Namensserver und - ueber zwei Bits -
-    /// ob im Netz zusaetzlich ein DHCPv6-Server arbeitet. Das alles, ohne
-    /// gefragt zu haben.
+    /// It is the most revealing message on the IPv6 segment: it names the
+    /// router, the valid prefixes, the name servers and - via two flags -
+    /// whether a DHCPv6 server also operates on the network. All of that
+    /// without having asked.
     /// </para>
     /// </summary>
     public sealed class RouterAdvertisement
     {
+        /// <summary>The sender address of the advertisement.</summary>
         public required IPAddress Router { get; init; }
 
-        /// <summary>MAC des Routers, sofern er sie mitschickt (Option 1).</summary>
+        /// <summary>MAC address of the router, if it sends it (option 1).</summary>
         public PhysicalAddress? RouterMac { get; init; }
 
         /// <summary>
-        /// Wie lange dieser Router als Standardgateway gilt. 0 heisst: er ist
-        /// keines - dann kuendigt er nur Praefixe an.
+        /// How long this router counts as default gateway. 0 means it is none -
+        /// it only announces prefixes.
         /// </summary>
         public int RouterLifetimeSeconds { get; init; }
 
-        /// <summary>M-Bit: Adressen kommen von einem DHCPv6-Server.</summary>
+        /// <summary>M flag: addresses come from a DHCPv6 server.</summary>
         public bool ManagedAddressConfiguration { get; init; }
 
-        /// <summary>O-Bit: weitere Angaben (etwa DNS) kommen von DHCPv6.</summary>
+        /// <summary>O flag: further information (such as DNS) comes from DHCPv6.</summary>
         public bool OtherConfiguration { get; init; }
 
+        /// <summary>The link MTU from the MTU option, if present.</summary>
         public int? Mtu { get; init; }
 
+        /// <summary>The advertised prefixes.</summary>
         public List<AdvertisedPrefix> Prefixes { get; } = [];
 
-        /// <summary>Namensserver aus der RDNSS-Option (RFC 8106).</summary>
+        /// <summary>Name servers from the RDNSS option (RFC 8106, section 5.1).</summary>
         public List<IPAddress> DnsServers { get; } = [];
 
-        /// <summary>Suchdomaenen aus der DNSSL-Option.</summary>
+        /// <summary>Search domains from the DNSSL option (RFC 8106, section 5.2).</summary>
         public List<string> SearchDomains { get; } = [];
     }
 
     /// <summary>
-    /// Ein Bericht ueber Multicast-Gruppen, denen ein Geraet beigetreten ist.
+    /// A report on the multicast groups a device has joined.
     /// </summary>
     public sealed class MulticastListenerReport
     {
+        /// <summary>The sender address of the report.</summary>
         public required IPAddress Listener { get; init; }
 
-        /// <summary>Die Gruppen, in denen das Geraet zuhoert.</summary>
+        /// <summary>The groups the device listens to.</summary>
         public List<IPAddress> Groups { get; } = [];
     }
 
     /// <summary>
-    /// Zerlegt die ICMPv6-Nachrichten, die sich mithoeren lassen.
+    /// Parses the ICMPv6 messages that can be overheard.
     /// <para>
-    /// Getrennt von den Verfahren, weil das Auswerten von Bytes eine andere
-    /// Sache ist als das Fuehren eines Scans - und weil es sich so ohne Netz
-    /// pruefen laesst. Alle Methoden sind gutmuetig: ein abgeschnittenes oder
-    /// unsinniges Paket ergibt <c>null</c> beziehungsweise eine leere Liste,
-    /// nie eine Ausnahme. Auf dem Netz liegt alles Moegliche.
+    /// Separate from the scan methods because evaluating bytes is a different
+    /// matter from running a scan - and because it can be tested this way
+    /// without a network. All methods are lenient: a truncated or nonsensical
+    /// packet yields <c>null</c> or an empty list, never an exception. Anything
+    /// can appear on the wire.
     /// </para>
     /// </summary>
     public static class Icmpv6Parser
     {
-        // --- Optionstypen aus RFC 4861 und RFC 8106 -------------------------
+        // --- Option types from RFC 4861 and RFC 8106 -------------------------
         private const byte OptionSourceLinkLayerAddress = 1;
         private const byte OptionPrefixInformation = 3;
         private const byte OptionMtu = 5;
@@ -91,18 +98,21 @@ namespace MyNetworkMonitor.Core.Network
         private const byte OptionDnsSearchList = 31;
 
         /// <summary>
-        /// Wertet eine Router-Ankuendigung aus. <paramref name="source"/> ist
-        /// die Absenderadresse aus dem Empfang - im ICMPv6-Rumpf steht sie
-        /// nicht, unter IPv6 wird der Paketkopf nicht mitgeliefert.
+        /// Parses a router advertisement. <paramref name="source"/> is the
+        /// sender address from the receive call - it is not part of the ICMPv6
+        /// body, and under IPv6 the packet header is not delivered.
         /// </summary>
+        /// <param name="packet">The ICMPv6 message, starting with the type byte.</param>
+        /// <param name="source">The sender address.</param>
+        /// <returns>The advertisement, or <c>null</c> if the packet is not a valid router advertisement.</returns>
         public static RouterAdvertisement? ParseRouterAdvertisement(ReadOnlyMemory<byte> packet, IPAddress source)
         {
             ArgumentNullException.ThrowIfNull(source);
 
             ReadOnlySpan<byte> message = packet.Span;
 
-            // 16 Byte fester Teil: Typ, Code, Pruefsumme, Hop Limit, Flags,
-            // Router-Lebensdauer, Reachable Time, Retrans Timer.
+            // 16-byte fixed part: type, code, checksum, hop limit, flags,
+            // router lifetime, reachable time, retrans timer.
             if (message.Length < 16) return null;
             if (message[0] != Icmpv6Channel.RouterAdvertisement) return null;
 
@@ -130,8 +140,8 @@ namespace MyNetworkMonitor.Core.Network
                         break;
 
                     case OptionPrefixInformation when body.Length >= 30:
-                        // Aufbau: Praefixlaenge(1) Flags(1) Gueltigkeit(4)
-                        // Bevorzugt(4) Reserviert(4) Praefix(16)
+                        // Layout: prefix length(1) flags(1) valid lifetime(4)
+                        // preferred lifetime(4) reserved(4) prefix(16)
                         advertisement.Prefixes.Add(new AdvertisedPrefix
                         {
                             Length = body[0],
@@ -147,7 +157,7 @@ namespace MyNetworkMonitor.Core.Network
                         break;
 
                     case OptionRecursiveDnsServer when body.Length >= 6:
-                        // Reserviert(2) Lebensdauer(4), dann je 16 Byte eine Adresse.
+                        // Reserved(2) lifetime(4), then one address per 16 bytes.
                         for (int offset = 6; offset + 16 <= body.Length; offset += 16)
                         {
                             advertisement.DnsServers.Add(new IPAddress(body.Slice(offset, 16).ToArray()));
@@ -164,10 +174,13 @@ namespace MyNetworkMonitor.Core.Network
         }
 
         /// <summary>
-        /// Wertet einen MLD-Bericht aus - Version 1 (Typ 131) wie Version 2
-        /// (Typ 143). Beide sagen dasselbe, nur in anderer Form: Version 1
-        /// nennt eine Gruppe je Nachricht, Version 2 beliebig viele.
+        /// Parses an MLD report - version 1 (type 131, RFC 2710) as well as
+        /// version 2 (type 143, RFC 3810). Both say the same in different form:
+        /// version 1 names one group per message, version 2 any number.
         /// </summary>
+        /// <param name="message">The ICMPv6 message, starting with the type byte.</param>
+        /// <param name="source">The sender address.</param>
+        /// <returns>The report, or <c>null</c> if the message is not a valid MLD report.</returns>
         public static MulticastListenerReport? ParseMulticastListenerReport(ReadOnlySpan<byte> message, IPAddress source)
         {
             ArgumentNullException.ThrowIfNull(source);
@@ -179,14 +192,14 @@ namespace MyNetworkMonitor.Core.Network
             switch (message[0])
             {
                 case Icmpv6Channel.MulticastListenerReportV1:
-                    // Typ(1) Code(1) Pruefsumme(2) Antwortzeit(2)
-                    // Reserviert(2) Gruppenadresse(16)
+                    // Type(1) code(1) checksum(2) maximum response delay(2)
+                    // reserved(2) multicast address(16)
                     if (message.Length < 24) return null;
                     report.Groups.Add(new IPAddress(message.Slice(8, 16).ToArray()));
                     return report;
 
                 case Icmpv6Channel.MulticastListenerReportV2:
-                    // Typ(1) Code(1) Pruefsumme(2) Reserviert(2) Anzahl(2)
+                    // Type(1) reserved(1) checksum(2) reserved(2) record count(2)
                     if (message.Length < 8) return null;
 
                     int records = BinaryPrimitives.ReadUInt16BigEndian(message[6..]);
@@ -194,8 +207,8 @@ namespace MyNetworkMonitor.Core.Network
 
                     for (int i = 0; i < records && position + 20 <= message.Length; i++)
                     {
-                        // Datensatz: Typ(1) AuxLaenge(1) Quellenzahl(2)
-                        // Gruppenadresse(16) Quellen(je 16) Zusatz(je 4 Byte)
+                        // Record: type(1) aux data length(1) source count(2)
+                        // multicast address(16) sources(16 each) aux data(4-byte words)
                         int auxWords = message[position + 1];
                         int sources = BinaryPrimitives.ReadUInt16BigEndian(message[(position + 2)..]);
 
@@ -212,10 +225,10 @@ namespace MyNetworkMonitor.Core.Network
         }
 
         /// <summary>
-        /// Laeuft die Optionen einer Nachbarschaftsnachricht ab. Die Laenge
-        /// steht in Einheiten von 8 Byte und schliesst Typ und Laenge selbst
-        /// ein; eine Laenge von 0 ist laut RFC 4861 ungueltig und beendet den
-        /// Durchlauf - sonst liefe die Schleife ewig.
+        /// Walks the options of a neighbor discovery message. The length is given
+        /// in units of 8 bytes and includes type and length themselves; a length
+        /// of 0 is invalid per RFC 4861, section 4.6, and ends the walk -
+        /// otherwise the loop would never terminate.
         /// </summary>
         private static IEnumerable<(byte Type, byte[] Body)> Options(ReadOnlyMemory<byte> options)
         {
@@ -235,9 +248,9 @@ namespace MyNetworkMonitor.Core.Network
         }
 
         /// <summary>
-        /// Liest Domaennamen im DNS-Format: je Bestandteil ein Laengenbyte,
-        /// eine Null beendet den Namen. Auffuellbytes am Ende sind Nullen und
-        /// ergeben leere Namen, die verworfen werden.
+        /// Reads domain names in DNS wire format: one length byte per label, a
+        /// zero ends the name. Padding bytes at the end are zeros and yield empty
+        /// names, which are discarded.
         /// </summary>
         private static List<string> ReadDomainNames(ReadOnlySpan<byte> data)
         {
@@ -266,10 +279,9 @@ namespace MyNetworkMonitor.Core.Network
         }
 
         /// <summary>
-        /// Setzt die beiden Angaben nach, die erst beim Durchlaufen der
-        /// Optionen bekannt werden. <see cref="RouterAdvertisement"/> ist
-        /// unveraenderlich angelegt, damit ein halb gefuelltes Ergebnis gar
-        /// nicht erst entstehen kann.
+        /// Fills in the two values that only become known while walking the
+        /// options. <see cref="RouterAdvertisement"/> uses init-only properties
+        /// so that a half-filled result cannot arise in the first place.
         /// </summary>
         private readonly struct RouterAdvertisementBuilder(RouterAdvertisement source, PhysicalAddress? mac, int? mtu)
         {

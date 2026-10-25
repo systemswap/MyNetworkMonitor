@@ -8,26 +8,22 @@
         Background="#F5F7FA">
 
     <!--
-        Originalgetreue Portierung von ZZZ_EnterpriseUsage.ShowEnterpriseMessage()
-        (WPF, programmatisch gebaut). Design und Verhalten 1:1: weisser Container
-        mit Schatten, Headline, Lizenz-/Support-Text, Kontakt-Link und OK-Button
-        mit Countdown (erst nach Ablauf klickbar). X schliesst die Anwendung.
+        Notice shown in an enterprise network: white container with shadow,
+        headline, license and support text, contact link and an OK button with
+        a countdown (clickable only after it expires). Closing the window with
+        X exits the application.
 
-        Die Fenstermasse sind bewusst nicht 500x350 wie im Original: WPF misst
-        das ganze Fenster samt Rahmen und Titelleiste, Avalonia nur die
-        Innenflaeche. Uebernommen ergaeben dieselben Zahlen ein sichtbar
-        groesseres Fenster - 484x311 ist die Innenflaeche eines 500x350 grossen
-        WPF-Fensters bei hundert Prozent Skalierung.
+        Avalonia sizes only the client area, without frame and title bar.
+        484x311 is the client area of a window with an outer size of 500x350
+        at 100 percent scaling.
     -->
     <Window.Styles>
         <!--
-            Fluent faerbt Schalter beim Ueberfahren, beim Druecken und im
-            gesperrten Zustand selbst um. Das Original tut nichts davon: der
-            Knopf bleibt blau, und waehrend der Sperre steht graue Schrift auf
-            eben diesem Blau. Ohne diese vier Regeln waere der Knopf die ganze
-            Wartezeit ueber grau in grau - der auffaelligste Unterschied
-            ueberhaupt, weil er genau den Zustand betrifft, den man am
-            laengsten sieht.
+            Fluent recolors buttons on hover, on press and when disabled. This
+            button stays blue in every state; while it is locked, it shows grey
+            text on the same blue. Without these four rules the button would be
+            grey on grey for the whole countdown, which is the state that is
+            visible longest.
         -->
         <Style Selector="Button#CloseButton /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="#0070BA"/>
@@ -49,11 +45,10 @@
         </Style>
 
         <!--
-            Derselbe Grund beim Link: der HyperlinkButton bringt Polsterung,
-            eine Mindesthoehe von 32 und einen eigenen Hintergrund beim
-            Ueberfahren mit. Im Original ist es ein Hyperlink mitten im Satz,
-            der nichts davon hat - er sitzt auf der Grundlinie des Textes und
-            haette mit Fluent-Masse eine Zeile fuer sich.
+            Same reason for the link: HyperlinkButton brings padding, a minimum
+            height of 32 and its own hover background. The link is meant to sit
+            inline on the baseline of the sentence; with the Fluent metrics it
+            would take up a line of its own.
         -->
         <Style Selector="HyperlinkButton#EmailLink">
             <Setter Property="MinHeight" Value="0"/>
@@ -75,29 +70,27 @@
     </Window.Styles>
 
     <Border Background="White" Padding="20" CornerRadius="10" BoxShadow="2 2 10 0 #33000000">
-        <!-- Wie im WPF-Original: nur horizontal zentriert, vertikal oben-ausgerichtet
-             (StackPanel-Default = Stretch, Inhalt fliesst von oben). -->
+        <!-- Centered horizontally only, aligned to the top vertically
+             (StackPanel default is Stretch, content flows from the top). -->
         <StackPanel HorizontalAlignment="Center">
 
-            <!-- Ueberschrift -->
+            <!-- Headline -->
             <TextBlock Text="Make a Difference Today ❤️"
                        FontSize="18" FontWeight="Bold" Foreground="#0070BA"
                        TextAlignment="Center" HorizontalAlignment="Center" Margin="0,5,0,10"/>
 
-            <!-- Hauptnachricht -->
+            <!-- Main message -->
             <TextBlock Text="This software is free for private use only.&#10;For companies and commercial usage, a license is required."
                        FontSize="14" Foreground="Black"
                        TextAlignment="Center" HorizontalAlignment="Center" Margin="0,5,0,15"/>
 
-            <!-- Entwickler-Unterstuetzung -->
+            <!-- Developer support -->
             <TextBlock Text="This project has taken around 500 hours to develop until this version,&#10;and even Open-Source developers need coffee ☕."
                        FontSize="13" Foreground="Gray"
                        TextAlignment="Center" HorizontalAlignment="Center" Margin="0,5,0,15"/>
 
-            <!-- Kontakt-Link. FontSize 12 steht ausdruecklich da: das Original
-                 gibt dem Satz keine Groesse und bekommt damit die 12 von WPF;
-                 Fluent wuerde ihn ohne Angabe mit 14 setzen und damit groesser
-                 als die Zeile darueber. -->
+            <!-- Contact link. FontSize 12 is set explicitly: without it, Fluent
+                 uses 14, which makes the sentence larger than the line above. -->
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                 <TextBlock Text="If you need a licensed version, contact me: "
                            FontSize="12" VerticalAlignment="Center"/>
@@ -108,7 +101,7 @@
                                  VerticalAlignment="Center"/>
             </StackPanel>
 
-            <!-- OK-Button mit Countdown -->
+            <!-- OK button with countdown -->
             <Button x:Name="CloseButton"
                     Content="You can click OK in: 3 seconds"
                     Width="250" Height="50"

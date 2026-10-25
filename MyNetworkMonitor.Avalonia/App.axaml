@@ -3,28 +3,27 @@
              xmlns:controls="clr-namespace:MyNetworkMonitor.Avalonia.Controls"
              x:Class="MyNetworkMonitor.Avalonia.App"
              RequestedThemeVariant="Light">
-             <!-- Fix auf "Light": das WPF-Original ist ein helles Design (WhiteSmoke,
-                  schwarze Schrift). Mit "Default" wuerde bei dunklem System-Theme
-                  weisse Schrift auf hellem Hintergrund gerendert. -->
+             <!-- Fixed to "Light": the layout uses a light design (WhiteSmoke,
+                  black text). With "Default", a dark system theme would render
+                  white text on the light backgrounds. -->
 
     <Application.Styles>
         <FluentTheme />
         <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
 
         <!--
-            Projektweit: Spalten richten sich nach Kopfzeile und Zellinhalt.
-            DataGridLength.Auto ist das Maximum aus beidem, damit weder die
-            Ueberschrift noch ein Wert abgeschnitten wird. Gilt fuer jedes
-            DataGrid der Anwendung - auch fuer Spalten, die spaeter im AXAML
-            ergaenzt werden, solange sie keine eigene Breite setzen.
+            Application-wide: columns size to both header and cell content.
+            DataGridLength.Auto is the maximum of both, so neither the header
+            nor a value is truncated. Applies to every DataGrid in the
+            application and to every column that does not set its own width.
         -->
         <Style Selector="DataGrid">
             <Setter Property="ColumnWidth" Value="Auto"/>
 
             <!--
-                Die horizontale Bildlaufleiste liegt im DataGrid-Template ueber
-                dem Zeilenbereich und verdeckt sonst die letzte Zeile - man
-                scrollt ans Ende und sieht sie trotzdem nicht.
+                The DataGrid template places the horizontal scroll bar over the
+                row area, where it would otherwise cover the last row: scrolled
+                to the end, that row still stays hidden.
             -->
             <Setter Property="controls:DataGridBehaviors.ReserveHorizontalScrollBarSpace" Value="True"/>
         </Style>

@@ -4,19 +4,19 @@ using MyNetworkMonitor.Core.Network;
 namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 {
     /// <summary>
-    /// Fragt die Switches, an welchem Port welches Geraet haengt.
+    /// Asks the switches which device is connected to which port.
     /// <para>
-    /// <b>Die Frage, die sonst niemand beantwortet:</b> alle uebrigen Verfahren
-    /// sagen, <em>dass</em> ein Geraet da ist. Dieses sagt, <em>wo</em> es
-    /// steckt - an welchem Switch, an welchem Port, in welchem VLAN. Das ist die
-    /// Angabe, mit der man tatsaechlich hingehen und ein Kabel ziehen kann.
+    /// <b>The question no other method answers:</b> all other methods tell
+    /// <em>that</em> a device exists. This one tells <em>where</em> it is
+    /// connected: on which switch, which port, which VLAN. That is the
+    /// information needed to actually go there and pull a cable.
     /// </para>
     /// <para>
-    /// Gefragt wird ueber SNMP und nicht durch Mithoeren von LLDP-Frames.
-    /// Mithoeren braeuchte npcap beziehungsweise <c>CAP_NET_RAW</c> und
-    /// verriete nur, woran der eigene Rechner haengt; der Switch dagegen fuehrt
-    /// die Zuordnung fuer alle seine Ports und gibt sie heraus, sobald die
-    /// Gemeinschaftskennung stimmt.
+    /// The query uses SNMP rather than capturing LLDP frames. Capturing would
+    /// require npcap or <c>CAP_NET_RAW</c> and would only reveal where the
+    /// local machine is connected; the switch, by contrast, keeps the mapping
+    /// for all of its ports and returns it once the community string is
+    /// correct.
     /// </para>
     /// </summary>
     public sealed class SwitchPortScanMethod : LegacyScanMethod
@@ -35,8 +35,8 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         public override ScanPhase Phase => ScanPhase.Identification;
         public override FamilySupport Families => FamilySupport.IPv4;
 
-        // Gefragt werden die Switches, nicht die Geraete - eine Zielliste der
-        // gefundenen Geraete gibt es hier also nicht zu kuerzen.
+        // The switches are queried, not the devices, so there is no target
+        // list of found devices to restrict.
         public override bool EnumeratesTargets => false;
 
         public override ScanMethodAvailability CheckAvailability(ScanContext context) =>
@@ -77,14 +77,14 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         }
 
         /// <summary>
-        /// Welche Adressen als Switch befragt werden: die Gateways der Adapter,
-        /// die zu den gewaehlten Bereichen gehoeren.
+        /// The addresses queried as switches: the gateways of the interfaces
+        /// that belong to the selected scopes.
         /// <para>
-        /// Das Gateway ist nicht immer der Switch, an dem das Geraet haengt -
-        /// in kleinen Netzen aber fast immer, und in groesseren ist es der
-        /// Ausgangspunkt, von dem aus man weitersucht. Ein Verfahren, das
-        /// stattdessen jede gefundene Adresse mit SNMP anspraeche, waere ein
-        /// Portscan auf 161 und dauerte ein Vielfaches.
+        /// The gateway is not always the switch the device is connected to,
+        /// but in small networks it almost always is, and in larger ones it is
+        /// the starting point for further searching. Querying every found
+        /// address with SNMP instead would amount to a port scan on 161 and
+        /// take many times longer.
         /// </para>
         /// </summary>
         private static List<string> SwitchAddresses(ScanContext context)
@@ -102,9 +102,8 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 
                 foreach (string gateway in gateways)
                 {
-                    // Nur IPv4: die Bridge-MIB wird ueber die v4-Adresse des
-                    // Switches abgefragt, und der Umbau auf v6 steht erst mit
-                    // den uebrigen Verfahren an.
+                    // IPv4 only: the Bridge MIB is queried through the
+                    // switch's IPv4 address.
                     if (!IpAddressAnalyzer.TryAnalyze(gateway, out IpAddressInfo? info) || info is null) continue;
                     if (info.Family != IpFamily.IPv4) continue;
 
@@ -119,14 +118,14 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         }
 
         /// <summary>
-        /// Meldet den Fund ueber die MAC-Adresse.
+        /// Reports the finding by MAC address.
         /// <para>
-        /// Bewusst ohne IP-Adresse: der Switch kennt nur MAC-Adressen, und die
-        /// Zuordnung zum Geraet macht der Speicher ueber seine Kennungskaskade
-        /// ohnehin besser, als es hier gelaenge. Ein Geraet, das noch gar nicht
-        /// gefunden wurde, entsteht dabei neu - mit seinem Switchport als
-        /// erster Angabe. Das ist gewollt: es haengt am Netz, auch wenn es auf
-        /// nichts antwortet.
+        /// Deliberately without an IP address: the switch only knows MAC
+        /// addresses, and the store maps them to devices through its
+        /// identifier cascade better than could be done here. A device not yet
+        /// found is created, with its switch port as the first information.
+        /// That is intended: it is connected to the network, even if it
+        /// answers nothing.
         /// </para>
         /// </summary>
         private static void Report(ScanContext context, SwitchPortResult found)
@@ -146,9 +145,9 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                 Source = "Switch port and VLAN",
                 Mac = mac,
 
-                // Kein IsResponding: dass der Switch die MAC in seiner Tabelle
-                // fuehrt, heisst nur, dass sie kuerzlich gesprochen hat - nicht,
-                // dass sie uns geantwortet haette.
+                // No IsResponding: that the switch lists the MAC in its table
+                // only means it has recently sent traffic, not that it has
+                // answered this scanner.
                 SwitchName = found.SwitchName,
                 SwitchPort = found.Port,
                 Vlan = found.Vlan,
@@ -157,7 +156,10 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         }
     }
 
-    /// <summary>Loest Hostnamen ueber DNS auf.</summary>
+    /// <summary>
+    /// Resolves host names through DNS. Without a DNS server configured for
+    /// the scope, the gateway is queried; see docs/FEHLERGEDAECHTNIS.md, No. 8.
+    /// </summary>
     public sealed class HostnameLookupScanMethod : LegacyScanMethod
     {
         public override string Id => "dns.lookup";
@@ -172,8 +174,8 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             "and only the record stayed behind.";
         public override ScanPhase Phase => ScanPhase.Identification;
 
-        // DNS kennt AAAA-Eintraege; das Modul reicht den Zieltext durch,
-        // ohne ihn auf IPv4 zu pruefen.
+        // DNS has AAAA records; the module passes the target text through
+        // without checking it for IPv4.
         public override FamilySupport Families => FamilySupport.Both;
 
         public override ScanMethodAvailability CheckAvailability(ScanContext context) =>
@@ -207,13 +209,14 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
     }
 
     /// <summary>
-    /// Rueckwaertsaufloesung samt Aliasen. Unter IPv6 laeuft sie ueber
-    /// ip6.arpa - das Modul reicht die Adresse durch, die Aufloesung uebernimmt
-    /// der Resolver.
+    /// Reverse lookup including aliases. Over IPv6 it runs through ip6.arpa;
+    /// the module passes the address through and the DNS client builds the
+    /// query. Concurrency and time budget: see docs/FEHLERGEDAECHTNIS.md,
+    /// No. 7; DNS server selection: No. 8.
     /// </summary>
     public sealed class ReverseLookupScanMethod : LegacyScanMethod
     {
-        /// <summary>Alle hinterlegten DNS-Server abfragen statt nur den ersten.</summary>
+        /// <summary>Query all configured DNS servers instead of only the first.</summary>
         public bool DeepScan { get; set; }
 
         public override string Id => "dns.reverse";
@@ -246,10 +249,10 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 
             void OnProgress(int c, int r, int t, ScanStatus s) => context.ReportProgress(c, r, t);
 
-            // Das Modul meldet einen Fehlschlag, indem es die Ereignisdaten
-            // selbst auf null setzt - eine Adresse ohne PTR-Eintrag ist der
-            // Normalfall, nicht die Ausnahme. Ungeprueft zugegriffen, reisst
-            // das den Task mit und der Rest des Laufs bleibt liegen.
+            // The module reports a failure by passing null event data; an
+            // address without a PTR record is the normal case, not the
+            // exception. Accessed unchecked, this takes down the task and the
+            // rest of the run stalls.
             void OnFound(object? _, ScanTask_Finished_EventArgs? e)
             {
                 if (e?.ipToScan is null) return;
@@ -273,8 +276,10 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
     }
 
     /// <summary>
-    /// NetBIOS-Namensabfrage. Es gibt kein NetBIOS ueber IPv6 - das Verfahren
-    /// bleibt dauerhaft auf IPv4 beschraenkt, das ist keine Luecke im Adapter.
+    /// NetBIOS node status query (RFC 1002, section 4.2.17/4.2.18; see
+    /// docs/FEHLERGEDAECHTNIS.md, No. 15). NetBIOS over TCP/IP does not exist
+    /// for IPv6; the method is restricted to IPv4 by design, not because of a
+    /// gap in the adapter.
     /// </summary>
     public sealed class NetBiosScanMethod : LegacyScanMethod
     {
@@ -323,11 +328,12 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
     }
 
     /// <summary>
-    /// SNMP-Abfrage. Liefert Systemname, Seriennummer, Standort und MAC -
-    /// besonders bei Druckern und aktiven Netzkomponenten ergiebig.
+    /// SNMP query. Returns system name, serial number, location and MAC,
+    /// which is particularly informative for printers and active network
+    /// components.
     /// <para>
-    /// Nur IPv4: <c>ScanningMethod_SNMP</c> prueft jedes Ziel mit
-    /// <c>SupportMethods.Is_Valid_IP</c>, einer reinen IPv4-Regex.
+    /// IPv4 only: <c>ScanningMethod_SNMP</c> validates every target with
+    /// <c>SupportMethods.Is_Valid_IP</c>, an IPv4-only regular expression.
     /// </para>
     /// </summary>
     public sealed class SnmpScanMethod : LegacyScanMethod

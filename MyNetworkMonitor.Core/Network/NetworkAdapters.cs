@@ -4,71 +4,86 @@ using System.Net.NetworkInformation;
 namespace MyNetworkMonitor.Core.Network
 {
     /// <summary>
-    /// Ein Netzwerkadapter dieses Rechners, so wie er in der Netzansicht steht.
+    /// A network adapter of this machine as shown in the network view.
     /// </summary>
     public sealed class AdapterInfo
     {
+        /// <summary>The adapter name as the operating system reports it.</summary>
         public required string Name { get; init; }
+        /// <summary>The adapter description (usually the driver or device name).</summary>
         public required string Description { get; init; }
+        /// <summary>The adapter type.</summary>
         public required NetworkInterfaceType Type { get; init; }
+        /// <summary>Whether the adapter is operational.</summary>
         public required bool IsUp { get; init; }
 
+        /// <summary>The MAC address, lower case and colon-separated; empty if none.</summary>
         public string MacText { get; init; } = string.Empty;
 
+        /// <summary>The IPv4 addresses of the adapter.</summary>
         public IReadOnlyList<string> Ipv4Addresses { get; init; } = [];
+        /// <summary>The IPv6 addresses of the adapter.</summary>
         public IReadOnlyList<string> Ipv6Addresses { get; init; } = [];
+        /// <summary>The default gateways of the adapter.</summary>
         public IReadOnlyList<string> Gateways { get; init; } = [];
 
         /// <summary>
-        /// Die Namensserver dieses Adapters, in der Reihenfolge, in der sie
-        /// gefragt werden.
+        /// The name servers of this adapter, in the order in which they are
+        /// queried.
         /// </summary>
         public IReadOnlyList<string> DnsServers { get; init; } = [];
 
-        /// <summary>Die Adresse stammt von einem DHCP-Server, nicht aus der Konfiguration.</summary>
+        /// <summary>The address comes from a DHCP server, not from the configuration.</summary>
         public bool DhcpEnabled { get; init; }
 
+        /// <summary>The DNS suffix of the adapter; empty if none.</summary>
         public string DnsSuffix { get; init; } = string.Empty;
 
         /// <summary>
-        /// Auffaellig viele Namensserver. Zwei bis drei sind ueblich, vier noch
-        /// erklaerbar - was darueber liegt, hat sich der Adapter irgendwo
-        /// eingesammelt, meist ueber wiederholte DHCP-Bezuege, und kostet bei
-        /// jedem fehlschlagenden Server Wartezeit.
+        /// Conspicuously many name servers. Two to three are common, four still
+        /// explainable - anything above that the adapter has collected somewhere,
+        /// usually through repeated DHCP leases, and every failing server costs
+        /// waiting time.
         /// </summary>
         public bool HasTooManyDnsServers => DnsServers.Count > MaxPlausibleDnsServers;
 
-        /// <summary>Ab wann die Zahl der Namensserver als Befund gilt.</summary>
+        /// <summary>The highest number of name servers that does not yet count as a finding.</summary>
         public const int MaxPlausibleDnsServers = 4;
 
+        /// <summary>The IPv4 addresses as one comma-separated line.</summary>
         public string Ipv4Text => string.Join(", ", Ipv4Addresses);
+        /// <summary>The IPv6 addresses as one comma-separated line.</summary>
         public string Ipv6Text => string.Join(", ", Ipv6Addresses);
+        /// <summary>The gateways as one comma-separated line.</summary>
         public string GatewayText => string.Join(", ", Gateways);
+        /// <summary>The name servers as one comma-separated line.</summary>
         public string DnsText => string.Join(", ", DnsServers);
 
+        /// <summary>Number of name servers.</summary>
         public int DnsServerCount => DnsServers.Count;
 
-        /// <summary>Woher die Konfiguration stammt - fuer die Spalte daneben.</summary>
+        /// <summary>Where the configuration comes from - for the adjacent column.</summary>
         public string ConfigurationText => DhcpEnabled ? "DHCP" : "static";
 
         public override string ToString() => $"{Name} [{DnsServers.Count} DNS]";
     }
 
     /// <summary>
-    /// Liest die Adapter dieses Rechners samt ihrer Namensserver.
+    /// Reads the adapters of this machine with their name servers.
     /// <para>
-    /// Die Namensserver stehen bewusst je Adapter und nicht als eine Liste:
-    /// genau daran war einmal zu sehen, dass sich ein einzelner Adapter ueber
-    /// DHCP fuenfundzwanzig Server gezogen hatte. Zusammengefasst waere das
-    /// nicht aufgefallen.
+    /// The name servers are deliberately kept per adapter and not as one list:
+    /// only this way does it become visible when a single adapter has collected,
+    /// for example, twenty-five servers via DHCP. A merged list would hide that.
     /// </para>
     /// </summary>
     public static class NetworkAdapters
     {
         /// <summary>
-        /// Alle Adapter, die eine Adresse tragen. Loopback und Tunnel bleiben
-        /// draussen - sie stehen in jeder Aufzaehlung und sagen nichts.
+        /// All adapters that carry an address. Loopback and tunnel adapters are
+        /// excluded - they appear in every enumeration and say nothing.
         /// </summary>
+        /// <param name="includeDown">Also include adapters that are not operational.</param>
+        /// <returns>The adapters in the order of the operating system.</returns>
         public static List<AdapterInfo> Read(bool includeDown = false)
         {
             List<AdapterInfo> adapters = [];
@@ -88,16 +103,16 @@ namespace MyNetworkMonitor.Core.Network
                 }
                 catch (NetworkInformationException)
                 {
-                    // Ein Adapter kann zwischen Aufzaehlung und Abfrage
-                    // verschwinden - VPN-Clients tun das staendig.
+                    // An adapter can disappear between enumeration and
+                    // query - VPN clients do that constantly.
                     continue;
                 }
 
-                // Windows fuehrt jeden gebundenen Filtertreiber als eigenen
-                // Adapter - "…-QoS Packet Scheduler-0000" und ein halbes
-                // Dutzend mehr je echter Karte. Sie tragen nie eine Adresse,
-                // und daran sind sie zu erkennen: ohne Adresse ist ein Adapter
-                // fuer diese Ansicht nichts wert.
+                // Windows lists every bound filter driver as an adapter of its
+                // own - "...-QoS Packet Scheduler-0000" and half a dozen more
+                // per real card. They never carry an address, which is how
+                // they are recognized: without an address, an adapter is of no
+                // use for this view.
                 List<string> v4 = [.. Unicast(properties, System.Net.Sockets.AddressFamily.InterNetwork)];
                 List<string> v6 = [.. Unicast(properties, System.Net.Sockets.AddressFamily.InterNetworkV6)];
 
@@ -130,9 +145,9 @@ namespace MyNetworkMonitor.Core.Network
                 .Select(u => u.Address.ToString());
 
         /// <summary>
-        /// Ob der Adapter seine Adresse ueber DHCP bezieht. Unter Linux wirft
-        /// die Abfrage, statt eine Antwort zu verweigern - dort laesst sich das
-        /// so nicht feststellen.
+        /// Whether the adapter obtains its address via DHCP. On Linux the query
+        /// throws instead of declining to answer - there it cannot be determined
+        /// this way.
         /// </summary>
         private static bool IsDhcp(IPInterfaceProperties properties)
         {

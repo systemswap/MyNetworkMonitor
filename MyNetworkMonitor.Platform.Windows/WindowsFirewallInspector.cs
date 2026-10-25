@@ -5,19 +5,19 @@ using MyNetworkMonitor.Core.Services;
 namespace MyNetworkMonitor.Platform.Windows
 {
     /// <summary>
-    /// Zugriff auf die Windows-Firewall ueber deren COM-Schnittstelle
+    /// Access to Windows Firewall through its COM interface
     /// (<c>HNetCfg.FwPolicy2</c>).
     /// <para>
-    /// Bewusst COM und nicht das Auswerten von <c>netsh advfirewall</c>: dessen
-    /// Ausgabe ist uebersetzt. Auf einem deutschen Windows heissen die Spalten
-    /// anders als auf einem englischen, und ein Auswerten nach Text waere je
-    /// nach Sprache des Rechners kaputt.
+    /// Uses COM on purpose instead of parsing <c>netsh advfirewall</c>: its
+    /// output is localized. The columns are named differently on a German and
+    /// an English Windows, so text parsing would break depending on the system
+    /// language.
     /// </para>
     /// </summary>
     [SupportedOSPlatform("windows")]
     public sealed class WindowsFirewallInspector : IFirewallInspector
     {
-        // Werte der Firewall-COM-Schnittstelle.
+        // Constants of the firewall COM interface.
         private const int DirectionIn = 1;
         private const int ActionAllow = 1;
         private const int ProtocolTcp = 6;
@@ -26,8 +26,8 @@ namespace MyNetworkMonitor.Platform.Windows
         public bool IsSupported => OperatingSystem.IsWindows();
 
         /// <summary>
-        /// Regeln anlegen darf nur, wer erhoeht laeuft. Ohne diese Pruefung
-        /// wuerde der Versuch mit einem nichtssagenden COM-Fehler enden.
+        /// Only an elevated process may create rules. Without this check the
+        /// attempt would end in a meaningless COM error.
         /// </summary>
         public bool CanCreateRule
         {
@@ -58,8 +58,8 @@ namespace MyNetworkMonitor.Platform.Windows
                 dynamic? policy = CreatePolicy();
                 if (policy is null) return [];
 
-                // Nur die Profile, die gerade gelten: eine Regel, die allein im
-                // oeffentlichen Profil greift, hilft im Firmennetz nicht.
+                // Only the profiles currently in effect: a rule that applies only
+                // to the public profile does not help in a company network.
                 int active = (int)policy.CurrentProfileTypes;
 
                 foreach (dynamic rule in policy.Rules)
@@ -89,21 +89,20 @@ namespace MyNetworkMonitor.Platform.Windows
                     }
                     catch
                     {
-                        // Eine einzelne kaputte Regel darf die Liste nicht
-                        // kippen - es gibt Regeln, die beim Auslesen einzelner
-                        // Felder werfen.
+                        // A single broken rule must not spoil the list: some
+                        // rules throw when individual fields are read.
                     }
                 }
             }
             catch
             {
-                // Kein Zugriff auf den Firewall-Dienst: dann eben keine Liste.
+                // No access to the firewall service: no list.
                 return [];
             }
 
-            // Gleiche Portangabe mehrfach ist die Regel, nicht die Ausnahme -
-            // fuer die Anzeige genuegt sie einmal, und zwar die aussagekraeftigste:
-            // gilt sie fuer jedes Programm, ist das die brauchbare Auskunft.
+            // The same port specification appearing several times is common.
+            // The display needs it once, and the most informative one: a rule
+            // that applies to every program is the useful answer.
             return [.. found
                 .GroupBy(p => (p.Protocol, p.Ports))
                 .Select(g => g.OrderByDescending(p => p.AnyProgram).First())
@@ -129,9 +128,9 @@ namespace MyNetworkMonitor.Platform.Windows
                 dynamic? policy = CreatePolicy();
                 if (policy is null) return new(false, "The firewall service could not be reached.");
 
-                // Gibt es die eigene Regel schon, wird sie umgestellt statt
-                // eine zweite anzulegen - sonst sammeln sich bei jedem
-                // Portwechsel Leichen an.
+                // If the rule already exists, it is updated instead of creating
+                // a second one; otherwise every port change would leave a stale
+                // rule behind.
                 dynamic? existing = FindByName(policy, ruleName);
 
                 if (existing is not null)
@@ -155,8 +154,8 @@ namespace MyNetworkMonitor.Platform.Windows
                 rule.Action = ActionAllow;
                 rule.Enabled = true;
 
-                // An die eigene Anwendung gebunden statt den Port pauschal zu
-                // oeffnen: die Erlaubnis gilt damit nur diesem Programm.
+                // Bound to this application instead of opening the port for
+                // everything: the permission applies to this program only.
                 string? self = Environment.ProcessPath;
                 if (!string.IsNullOrWhiteSpace(self)) rule.ApplicationName = self;
 
@@ -208,9 +207,9 @@ namespace MyNetworkMonitor.Platform.Windows
         }
 
         /// <summary>
-        /// Sucht eine Regel nach Namen. Ueber die Sammlung statt ueber
-        /// <c>Rules.Item(name)</c>: das wirft, wenn es sie nicht gibt, und eine
-        /// Ausnahme als Normalfall ist teuer und unuebersichtlich.
+        /// Finds a rule by name. Iterates the collection instead of calling
+        /// <c>Rules.Item(name)</c>: that throws when the rule does not exist, and
+        /// an exception as the normal case is expensive and hard to follow.
         /// </summary>
         private static dynamic? FindByName(dynamic policy, string ruleName)
         {

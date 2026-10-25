@@ -1,95 +1,99 @@
 namespace MyNetworkMonitor.Core.ServiceLink
 {
     /// <summary>
-    /// Die Nachrichtenarten zwischen Oberflaeche und Dienst.
+    /// The message types between user interface and service.
     /// <para>
-    /// Bewusst dieselbe Huelle wie im Satellitenprotokoll
-    /// (<c>SatelliteMessage</c>) und dasselbe Rahmenformat: es gibt keinen
-    /// Grund, fuer zwei Meter Datenweg eine zweite Sprache zu erfinden, und was
-    /// hier laeuft, laesst sich mit denselben Augen lesen.
+    /// Deliberately the same envelope as the satellite protocol
+    /// (<c>SatelliteMessage</c>) and the same framing: a local connection
+    /// needs no second protocol, and its traffic can be read with the same
+    /// tools.
     /// </para>
     /// </summary>
     public static class ServiceMessageType
     {
-        /// <summary>Oberflaeche fragt: was tust du gerade?</summary>
+        /// <summary>User interface asks for the current state.</summary>
         public const string Status = "svc.status";
 
-        /// <summary>Dienst antwortet mit einem <see cref="ServiceSnapshot"/> als JSON.</summary>
+        /// <summary>Service answers with a <see cref="ServiceSnapshot"/> as JSON.</summary>
         public const string StatusReply = "svc.status.reply";
 
-        /// <summary>Oberflaeche: halte den laufenden Auftrag an.</summary>
+        /// <summary>User interface requests to stop the running job.</summary>
         public const string StopJob = "svc.stopJob";
 
-        /// <summary>Oberflaeche: lies die Hostliste neu und verbinde neu.</summary>
+        /// <summary>User interface requests to reload the host list and reconnect.</summary>
         public const string Reconnect = "svc.reconnect";
 
-        /// <summary>Dienst: Befehl ausgefuehrt, mit Klartext.</summary>
+        /// <summary>Service reports a command as executed, with a plain-text result.</summary>
         public const string Done = "svc.done";
     }
 
-    /// <summary>Wie es einem einzelnen Empfaenger geht, aus Sicht des Dienstes.</summary>
+    /// <summary>The state of a single receiver, as seen by the service.</summary>
     public sealed class ServiceHostState
     {
+        /// <summary>How the receiver is shown in the list.</summary>
         public string Display { get; set; } = string.Empty;
+        /// <summary>Whether the connection is established.</summary>
         public bool IsConnected { get; set; }
+        /// <summary>Whether the receiver has approved this installation.</summary>
         public bool IsApproved { get; set; }
+        /// <summary>The last status message of the connection.</summary>
         public string Status { get; set; } = string.Empty;
     }
 
     /// <summary>
-    /// Was der Dienst gerade tut - eine Momentaufnahme, wie die Oberflaeche
-    /// sie anzeigt.
+    /// What the service is currently doing - a snapshot as shown by the user
+    /// interface.
     /// <para>
-    /// Eine Momentaufnahme auf Abruf und kein Strom von Ereignissen: die
-    /// Oberflaeche fragt im Sekundentakt nach. Das ist unspektakulaer, aber es
-    /// braucht keinen Zustand auf beiden Seiten, ueberlebt jedes Zu- und
-    /// Aufmachen des Fensters und kann nicht aus dem Tritt geraten.
+    /// A snapshot on request rather than a stream of events: the user
+    /// interface polls every second. This needs no state on either side,
+    /// survives every closing and reopening of the window and cannot get out
+    /// of sync.
     /// </para>
     /// </summary>
     public sealed class ServiceSnapshot
     {
-        /// <summary>Unter welchem Namen sich der Dienst meldet.</summary>
+        /// <summary>The name the service announces itself with.</summary>
         public string OwnName { get; set; } = string.Empty;
 
-        /// <summary>Seine Anwendungsversion.</summary>
+        /// <summary>The application version of the service.</summary>
         public string Version { get; set; } = string.Empty;
 
-        /// <summary>Fuer welchen Hauptscanner gerade gescannt wird. Leer = keiner.</summary>
+        /// <summary>The main scanner the current scan runs for; empty if none.</summary>
         public string JobHost { get; set; } = string.Empty;
 
-        /// <summary>Kennung des laufenden Auftrags.</summary>
+        /// <summary>Identifier of the running job.</summary>
         public string JobId { get; set; } = string.Empty;
 
-        /// <summary>0 bis 100.</summary>
+        /// <summary>Job progress from 0 to 100.</summary>
         public int JobPercent { get; set; }
 
-        /// <summary>Das Verfahren, das gerade laeuft.</summary>
+        /// <summary>The scan method currently running.</summary>
         public string JobCurrent { get; set; } = string.Empty;
 
-        /// <summary>Was schon fertig ist.</summary>
+        /// <summary>The steps already completed.</summary>
         public string JobDone { get; set; } = string.Empty;
 
-        /// <summary>Was noch aussteht.</summary>
+        /// <summary>The steps still pending.</summary>
         public string JobPending { get; set; } = string.Empty;
 
-        /// <summary>Der Zustand je Empfaenger.</summary>
+        /// <summary>The state per receiver.</summary>
         public List<ServiceHostState> Hosts { get; set; } = [];
 
-        /// <summary>Es laeuft gerade ein Auftrag.</summary>
+        /// <summary>A job is currently running.</summary>
         public bool IsBusy => !string.IsNullOrEmpty(JobId);
     }
 
-    /// <summary>Wie die Pipe heisst - auf beiden Seiten dieselbe Konstante.</summary>
+    /// <summary>The pipe name - the same constant on both sides.</summary>
     public static class ServicePipe
     {
         /// <summary>
-        /// Der Name der Pipe.
+        /// The name of the pipe.
         /// <para>
-        /// Unter Windows wird daraus <c>\\.\pipe\MyNetworkMonitorSatellite</c>,
-        /// unter Linux eine Datei im temporaeren Verzeichnis - .NET setzt
-        /// benannte Pipes dort auf Unix-Domain-Sockets um. Derselbe Quelltext
-        /// traegt also beide Plattformen; nur die Zugriffsrechte werden
-        /// verschieden geregelt, siehe die Pipe-Fabrik in PlatformServices.
+        /// On Windows this becomes <c>\\.\pipe\MyNetworkMonitorSatellite</c>, on
+        /// Linux a file in the temporary directory - .NET maps named pipes to
+        /// Unix domain sockets there. The same code serves both platforms; only
+        /// access permissions are handled differently, see the pipe factory in
+        /// PlatformServices.
         /// </para>
         /// </summary>
         public const string Name = "MyNetworkMonitorSatellite";

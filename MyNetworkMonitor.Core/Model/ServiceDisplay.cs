@@ -1,64 +1,66 @@
 namespace MyNetworkMonitor.Core.Model
 {
     /// <summary>
-    /// Welche Dienste in der Tabellenspalte einzeln stehen und welche zu
-    /// einem "+n" zusammengefasst werden.
+    /// Decides which services appear individually in the table column and
+    /// which are folded into a "+n".
     /// <para>
-    /// Standardmaessig wird <b>nichts</b> zusammengefasst: wer eine Spalte
-    /// "Running services" liest, will wissen, was laeuft. Die fruehere feste
-    /// Grenze bei drei Namen hat die Antwort hinter einem "+5" versteckt, und
-    /// zwar ausgerechnet bei den Geraeten mit den meisten Diensten - also
-    /// dort, wo es am meisten zu sehen gab.
+    /// By default <b>nothing</b> is folded: a column labelled "Running
+    /// services" is read to find out what runs. A fixed limit of three names
+    /// would hide the answer behind a "+5" precisely on the devices with the
+    /// most services, where there is the most to see.
     /// </para>
     /// <para>
-    /// Bewusst statisch. Die Spalte bindet unmittelbar an <see cref="Device"/>,
-    /// und ein Geraet traegt keinen Verweis auf die Einstellungen - es kommt
-    /// aus dem Netz, nicht aus der Oberflaeche. Eine Anzeigeoption ueber das
-    /// ganze Fenster hinweg ist der eine Fall, in dem das vertretbar ist.
+    /// Static on purpose. The column binds directly to <see cref="Device"/>,
+    /// and a device carries no reference to the settings - it comes from the
+    /// network, not from the user interface. A display option that applies to
+    /// the whole window is the one case where this is acceptable.
     /// </para>
     /// </summary>
     public static class ServiceDisplay
     {
         /// <summary>
-        /// Die ausgewaehlten Dienste zusammenfassen. Aus bedeutet: alle
-        /// einzeln zeigen.
+        /// Folds the selected services. When off, all services are shown
+        /// individually.
         /// </summary>
         public static bool GroupSelected { get; set; }
 
         /// <summary>
-        /// Die Dienste, die zusammengefasst werden - der Nutzer waehlt sie
-        /// selbst. Gedacht fuer das, was auf jedem zweiten Geraet steht und
-        /// darum nichts unterscheidet.
+        /// The services that are folded, as selected in the settings. Intended
+        /// for services that run on nearly every device and therefore do not
+        /// distinguish devices.
         /// </summary>
         public static HashSet<string> Grouped { get; } = new(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
-        /// Offene TCP-Ports ohne erkannten Dienst zu einem Chip "TCP Ports"
-        /// zusammenfassen, statt jeden einzeln als "TCP 8080", "TCP 8443" usw.
-        /// zu zeigen. Anders als bei <see cref="Grouped"/> steht hier keine
-        /// feste Namensliste dahinter, sondern jeder Fund der Form "TCP {Port}"
-        /// - genau die Faelle, in denen ein Geraet mit vielen offenen Ports die
-        /// Spalte sonst sprengt. Standardmaessig an, weil das der Fall ist, der
-        /// die Spalte am haeufigsten unlesbar macht.
+        /// Folds open TCP ports without a detected service into one "TCP Ports"
+        /// chip instead of showing each one as "TCP 8080", "TCP 8443" and so on.
+        /// Unlike <see cref="Grouped"/>, this is not a fixed list of names but
+        /// every finding of the form "TCP {Port}" - exactly the cases in which a
+        /// device with many open ports would otherwise overflow the column. On
+        /// by default because this is the case that most often makes the column
+        /// unreadable.
         /// </summary>
         public static bool GroupTcpPorts { get; set; } = true;
 
-        /// <summary>Dasselbe fuer UDP-Ports, siehe <see cref="GroupTcpPorts"/>.</summary>
+        /// <summary>The same for UDP ports, see <see cref="GroupTcpPorts"/>.</summary>
         public static bool GroupUdpPorts { get; set; } = true;
 
         /// <summary>
-        /// Die Einstellung hat sich geaendert. Die Geraeteliste haengt sich
-        /// hier ein und laesst die Spalte neu zeichnen - berechnete
-        /// Eigenschaften melden sich nicht von allein.
+        /// Raised when the setting changes. The device list subscribes and
+        /// redraws the column, because computed properties do not raise change
+        /// notifications on their own.
         /// </summary>
         public static event Action? Changed;
 
+        /// <summary>Raises <see cref="Changed"/>.</summary>
         public static void NotifyChanged() => Changed?.Invoke();
 
         /// <summary>
-        /// Teilt die Dienstnamen eines Geraets in "einzeln zeigen" und "zaehlt
-        /// zum +n".
+        /// Splits the service names of a device into "shown individually" and
+        /// "counted in the +n".
         /// </summary>
+        /// <param name="names">The service names of the device.</param>
+        /// <returns>The names to show and the number of folded names.</returns>
         public static (IReadOnlyList<string> Shown, int Folded) Split(IReadOnlyList<string> names)
         {
             if (!GroupSelected || Grouped.Count == 0) return (names, 0);

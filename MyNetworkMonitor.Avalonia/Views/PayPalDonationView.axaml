@@ -6,28 +6,25 @@
         WindowStartupLocation="CenterOwner">
 
     <!--
-        Originalgetreue Portierung von PayPalDonation.xaml (WPF).
+        Donation window.
 
-        Die Masse sind nicht die des WPF-Fensters, sondern ergeben dasselbe
-        Bild: WPF zaehlt bei Width/Height das ganze Fenster samt Rahmen,
-        Avalonia nur die Innenflaeche. Aus 801 x 628 aussen werden bei
-        Standardrahmen (8 Punkt je Seite, 31 Punkt Titelzeile) 785 x 589 innen -
-        nachgemessen mit GetWindowRect/GetClientRect. Mit 801 x 628 waere die
-        Flaeche 16 Punkt breiter und 39 Punkt hoeher, und damit zeigte das
-        Hintergrundbild einen anderen Ausschnitt und die weisse Karte saesse
-        an anderer Stelle. Dasselbe gilt fuer die Mindestmasse (500 x 500).
+        Avalonia's Width/Height cover only the client area, not the frame.
+        785 x 589 is the client area of an 801 x 628 outer window with a
+        standard frame (8 points per side, 31-point title bar), measured with
+        GetWindowRect/GetClientRect. With 801 x 628 as client size the area
+        would be 16 points wider and 39 points taller, so the background image
+        would show a different section and the white card would sit elsewhere.
+        The minimum size is derived the same way from an outer 500 x 500.
     -->
 
     <Window.Resources>
         <!--
-            Entspricht dem RoundedButtonStyle des WPF-Fensters: dort ersetzt ein
-            ControlTemplate den Button vollstaendig durch einen Border mit
-            CornerRadius 2 und mittig sitzendem Inhalt.
+            Rounded button: the ControlTemplate replaces the Button completely
+            with a Border with CornerRadius 2 and centered content.
 
-            Avalonias Fluent-Theme braucht dieselbe Behandlung, sonst legt es
-            eigene Raender, Innenabstaende und - vor allem - eigene Hintergruende
-            fuer PointerOver/Pressed darueber. Das Blau verschwindet dann beim
-            Ueberfahren, und Padding plus feste Groesse verschieben die Beschriftung.
+            Without it, the Fluent theme adds its own borders, padding and, above
+            all, its own PointerOver/Pressed backgrounds. The blue then disappears
+            on hover, and padding plus the fixed size shift the label.
         -->
         <ControlTheme x:Key="RoundedButtonTheme" TargetType="Button">
             <Setter Property="Background" Value="#0070BA"/>
@@ -48,7 +45,7 @@
                 </ControlTemplate>
             </Setter>
 
-            <!-- Dezente Abstufung statt der Fluent-Graustufen -->
+            <!-- Subtle shades of blue instead of the Fluent grey states -->
             <Style Selector="^:pointerover">
                 <Setter Property="Background" Value="#0086DE"/>
             </Style>
@@ -58,16 +55,15 @@
         </ControlTheme>
     </Window.Resources>
     <Grid Background="#F5F7FA">
-        <!-- Hintergrundbild -->
+        <!-- Background image -->
         <Image Source="avares://MyNetworkMonitor.Avalonia/Images/DevDonationCuted.jpg"
                Stretch="UniformToFill" Opacity="0.9"
                RenderOptions.BitmapInterpolationMode="HighQuality"/>
 
         <!--
-            Der Schatten entspricht dem DropShadowEffect des WPF-Fensters:
-            dort ShadowDepth 3 bei der Standardrichtung 315 Grad, also 3 * cos45
-            = rund 2 Punkte nach rechts und nach unten - nicht 3 je Achse.
-            BlurRadius 10, Schwarz mit Deckkraft 0,2 (= Alpha 0x33).
+            Shadow: a depth of 3 in the direction 315 degrees, i.e. 3 * cos 45
+            = about 2 points to the right and down, not 3 per axis. Blur radius
+            10, black at opacity 0.2 (alpha 0x33).
         -->
         <Border Background="White" Padding="20" CornerRadius="20" Margin="151,64,151,140"
                 BoxShadow="2 2 10 0 #33000000">
@@ -78,16 +74,16 @@
                        Width="180" Height="80" Margin="0,20,0,10"
                        RenderOptions.BitmapInterpolationMode="HighQuality"/>
 
-                <!-- Emotionale Headline -->
+                <!-- Headline -->
                 <TextBlock Text="Make a Difference Today ❤️" FontSize="18" FontWeight="Bold" Foreground="Black"
                            HorizontalAlignment="Center" Margin="0,5,0,10"/>
 
-                <!-- Kurzer Erklärtext -->
+                <!-- Short explanation -->
                 <TextBlock Text="Your support keeps such projects alive."
                            FontSize="14" Foreground="Gray" TextAlignment="Center"
                            HorizontalAlignment="Center" Width="300" Margin="0,0,0,15"/>
 
-                <!-- Betrag + Währung in einer Zeile -->
+                <!-- Amount and currency on one line -->
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="5">
                     <TextBox x:Name="AmountTextBox" Width="80" FontSize="28"
                              TextAlignment="Center" Text="25"/>
@@ -100,7 +96,7 @@
                            Text="feeling better when"
                            FontSize="12" Foreground="Gray" HorizontalAlignment="Center" Margin="0,5,0,10"/>
 
-                <!-- Spenden-Button -->
+                <!-- Donate button -->
                 <Button x:Name="DonatePayPalButton"
                         Content="Donate Now 🚀"
                         Click="DonateWithPayPal_Click"

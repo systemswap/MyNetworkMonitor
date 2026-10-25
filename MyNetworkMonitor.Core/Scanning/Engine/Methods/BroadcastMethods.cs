@@ -4,19 +4,19 @@ using MyNetworkMonitor.Core.Network;
 namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 {
     /// <summary>
-    /// SSDP/UPnP-Suche. Fragt nicht jedes Ziel einzeln, sondern schickt eine
-    /// Anfrage an alle und wartet auf Meldungen - findet darum auch Geraete
-    /// ausserhalb der gewaehlten Bereiche.
+    /// SSDP/UPnP discovery. Instead of querying each target, it sends one
+    /// request to everyone and waits for announcements, and therefore also
+    /// finds devices outside the selected scopes.
     /// <para>
-    /// Das Modul bindet seinen Empfangspunkt an
-    /// <c>SupportMethods.SelectedNetworkInterfaceInfos.IPv4</c>. Ist dort noch
-    /// nichts gesetzt, wirft es - darum die Vorbedingung in
+    /// The module binds its receive endpoint to
+    /// <c>SupportMethods.SelectedNetworkInterfaceInfos.IPv4</c>. If nothing is
+    /// set there, it throws; hence the precondition in
     /// <see cref="CheckAvailability"/>.
     /// </para>
     /// </summary>
     public sealed class SsdpScanMethod : LegacyScanMethod
     {
-        /// <summary>Wie lange auf Meldungen gewartet wird.</summary>
+        /// <summary>How long to wait for announcements, in milliseconds.</summary>
         public int ScanDurationMs { get; set; } = 5000;
 
         public override string Id => "ssdp";
@@ -32,8 +32,8 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         public override ScanPhase Phase => ScanPhase.Discovery;
         public override FamilySupport Families => FamilySupport.IPv4;
 
-        // Eine Frage an alle, dann zuhoeren - es gibt keine Zielliste, die
-        // sich auf die bekannten Geraete kuerzen liesse.
+        // One query to everyone, then listen: there is no target list that
+        // could be restricted to known devices.
         public override bool EnumeratesTargets => false;
 
         public override ScanMethodAvailability CheckAvailability(ScanContext context) =>
@@ -70,20 +70,21 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
     }
 
     /// <summary>
-    /// mDNS/Bonjour-Suche ueber einen Adapter.
+    /// mDNS/Bonjour discovery over one network interface.
     /// <para>
-    /// Das Modul kennt kein <c>StopScan()</c> - es laeuft, bis seine Hoerzeit
-    /// abgelaufen ist. Bei Abbruch kehrt der Adapter darum zurueck, ohne auf
-    /// das Modul zu warten; dessen Aufgabe laeuft im Hintergrund aus.
+    /// The module has no <c>StopScan()</c>; it listens until its listening
+    /// time has elapsed or the cancellation token passed to
+    /// <c>DiscoverAsync</c> is cancelled.
     /// </para>
     /// <para>
-    /// Unter IPv6 lauscht mDNS auf ff02::fb. Das Modul bindet seinen Socket
-    /// jedoch mit <c>AddressFamily.InterNetwork</c> und deckt damit nur IPv4
-    /// ab; die IPv6-Seite kommt mit den passiven Verfahren.
+    /// Over IPv6, mDNS listens on ff02::fb. The module binds its socket with
+    /// <c>AddressFamily.InterNetwork</c> and therefore covers IPv4 only; IPv6
+    /// is covered by the passive IPv6 methods.
     /// </para>
     /// </summary>
     public sealed class MdnsScanMethod : LegacyScanMethod
     {
+        /// <summary>How long to listen for answers, in milliseconds.</summary>
         public int ListenTimeMs { get; set; } = 5000;
 
         public override string Id => "mdns";
@@ -99,14 +100,14 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         public override ScanPhase Phase => ScanPhase.Discovery;
         public override FamilySupport Families => FamilySupport.IPv4;
 
-        // Zuhoeren auf der Multicast-Gruppe, keine Zielliste.
+        // Listens on the multicast group; no target list.
         public override bool EnumeratesTargets => false;
 
-        // Wie SSDP an der global gewaehlten Schnittstelle festgemacht, nicht am
-        // Adapter eines Bereichs: <c>EnsureLocalInterfaceSelected</c> fuellt die
-        // auch dann, wenn kein Bereich angehakt ist. Vorher war mDNS ausgegraut,
-        // sobald kein Bereich gewaehlt war - obwohl der Rechner sehr wohl einen
-        // Adapter hat, auf dem sich lauschen laesst.
+        // Like SSDP, tied to the globally selected interface rather than to
+        // the interface of a scope: <c>EnsureLocalInterfaceSelected</c> sets it
+        // even when no scope is checked. Tied to a scope instead, mDNS would be
+        // greyed out whenever no scope is selected, although the machine has
+        // an interface it can listen on.
         public override ScanMethodAvailability CheckAvailability(ScanContext context) =>
             SupportMethods.SelectedNetworkInterfaceInfos.IPv4 is null
                 ? ScanMethodAvailability.Blocked(
@@ -115,9 +116,9 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 
         public override async Task ExecuteAsync(ScanContext context, CancellationToken cancellationToken)
         {
-            // Der Adapter des Bereichs, wenn es einen gibt; sonst der lokale
-            // Standard - damit mDNS auch beim erneuten Scannen einzelner Geraete
-            // laeuft, wo kein Bereich mit Adapter dahintersteht.
+            // The scope's interface if there is one, otherwise the local
+            // default, so that mDNS also runs when rescanning individual
+            // devices, where no scope with an interface is involved.
             string? interfaceName =
                 context.Scopes.FirstOrDefault(s => s.Interface is not null)?.Interface?.Name
                 ?? SupportMethods.SelectedNetworkInterfaceInfos.Name;
@@ -136,10 +137,9 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 
             try
             {
-                // DiscoverAsync nimmt den Abbruch inzwischen selbst entgegen -
-                // der fruehere Task.WhenAny-Umweg (ohne echtes StopScan lief
-                // die Empfangsschleife im Hintergrund weiter, auch nachdem
-                // hier laengst nicht mehr gewartet wurde) ist damit ueberfluessig.
+                // DiscoverAsync observes the cancellation token itself, so its
+                // receive loop ends on cancellation instead of continuing in
+                // the background after the caller has stopped waiting.
                 await mdns.DiscoverAsync(interfaceName, ListenTimeMs, cancellationToken);
             }
             finally
@@ -151,24 +151,24 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
     }
 
     /// <summary>
-    /// WS-Discovery: die Rundfrage, auf die Windows-Rechner und Netzwerkdrucker
-    /// antworten.
+    /// WS-Discovery: the multicast probe that Windows machines and network
+    /// printers answer.
     /// <para>
-    /// Der Grund, warum es dieses Verfahren gibt: alle uebrigen finden nur
-    /// Geraete, die auf eine gezielte Anfrage antworten. Ein Windows-Rechner mit
-    /// Standardfirewall tut das nicht - er blockt ICMP, hat oft keinen
-    /// PTR-Eintrag und zeigt von aussen keine offenen Ports. Hier antwortet er,
-    /// weil Windows selbst darueber seine Netzwerkumgebung fuellt.
+    /// The reason this method exists: all others only find devices that
+    /// answer a directed request. A Windows machine with the default firewall
+    /// does not: it blocks ICMP, often has no PTR record and shows no open
+    /// ports from outside. It answers here, because Windows itself uses this
+    /// protocol to populate its network neighbourhood.
     /// </para>
     /// <para>
-    /// Meldet die Adresse als antwortend und traegt die Geraeteklasse ein.
-    /// Bindet den Empfangspunkt wie SSDP an die gewaehlte Netzkarte - darum
-    /// dieselbe Vorbedingung.
+    /// Reports the address as responding and records the device class. Binds
+    /// the receive endpoint to the selected network interface like SSDP, hence
+    /// the same precondition.
     /// </para>
     /// </summary>
     public sealed class WsDiscoveryScanMethod : LegacyScanMethod
     {
-        /// <summary>Wie lange auf Antworten gewartet wird.</summary>
+        /// <summary>How long to wait for answers, in milliseconds.</summary>
         public int ListenTimeMs { get; set; } = 5000;
 
         public override string Id => "wsdiscovery";
@@ -186,7 +186,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         public override ScanPhase Phase => ScanPhase.Discovery;
         public override FamilySupport Families => FamilySupport.IPv4;
 
-        // Eine Frage an alle, dann zuhoeren - es gibt keine Zielliste.
+        // One query to everyone, then listen: there is no target list.
         public override bool EnumeratesTargets => false;
 
         public override ScanMethodAvailability CheckAvailability(ScanContext context) =>
@@ -215,8 +215,8 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                     Source = DisplayName,
                     Address = info,
 
-                    // Der eigentliche Fund: die Adresse lebt. Genau das war
-                    // vorher nicht zu sehen.
+                    // The actual finding: the address is alive, which no
+                    // other method can show for such a device.
                     IsResponding = true,
                     Details = details,
                     Services = BuildService(found, info.Family)
@@ -241,10 +241,10 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         }
 
         /// <summary>
-        /// Traegt den Fund auch in die Dienstspalte ein - Port 3702, wie SMB
-        /// und SNMP es an ihrer Stelle tun. Sonst stuende ein Geraet, das nur
-        /// hierueber gefunden wurde, ohne einen einzigen Dienst in der Tabelle
-        /// und saehe aus wie ein leerer Eintrag.
+        /// Also records the finding in the services column (port 3702), as SMB
+        /// and SNMP do for theirs. Otherwise a device found only this way would
+        /// appear in the table without a single service and look like an empty
+        /// entry.
         /// </summary>
         private static List<DeviceServiceResult> BuildService(WsDiscoveryResult found, IpFamily family)
         {
@@ -264,8 +264,8 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
     }
 
     /// <summary>
-    /// ONVIF-Suche nach IP-Kameras. Wie SSDP eine Rundfrage an alle statt
-    /// einer Abfrage je Ziel.
+    /// ONVIF discovery of IP cameras. Like SSDP, a multicast probe to everyone
+    /// instead of one query per target.
     /// </summary>
     public sealed class OnvifScanMethod : LegacyScanMethod
     {

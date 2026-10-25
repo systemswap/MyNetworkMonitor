@@ -7,9 +7,10 @@ using MyNetworkMonitor.Core.Services;
 namespace MyNetworkMonitor.Avalonia.Platform.Linux
 {
     /// <summary>
-    /// Linux-Implementierung von <see cref="IWifiProvider"/> über "nmcli".
-    /// Pollt in Intervallen das aktive WLAN und meldet Signalstärke (0-100),
-    /// analog zur Windows-Variante (dBm-Näherung: (signal - 100) * 2).
+    /// Linux implementation of <see cref="IWifiProvider"/> based on "nmcli".
+    /// Polls the active Wi-Fi network at an interval and reports its signal
+    /// quality (0-100), using the same dBm approximation as the Windows
+    /// provider: (signal - 100) * 2.
     /// </summary>
     public sealed class LinuxWifiProvider : IWifiProvider
     {
@@ -32,7 +33,7 @@ namespace MyNetworkMonitor.Avalonia.Platform.Linux
                 while (!token.IsCancellationRequested)
                 {
                     try { await ScanOnceAsync(token).ConfigureAwait(false); }
-                    catch { /* Scanfehler ignorieren, weiter pollen */ }
+                    catch { /* Ignore scan errors and keep polling. */ }
 
                     try { await Task.Delay(intervalMs, token).ConfigureAwait(false); }
                     catch (OperationCanceledException) { break; }
@@ -42,7 +43,7 @@ namespace MyNetworkMonitor.Avalonia.Platform.Linux
 
         private async Task ScanOnceAsync(CancellationToken cancellationToken)
         {
-            // -t = maschinenlesbar (":" getrennt); nur das aktive Netz (ACTIVE=yes).
+            // -t = terse, machine-readable output (":"-separated); only the active network (ACTIVE=yes) counts.
             string output = await ProcessRunner.RunAsync("nmcli", "-t -f ACTIVE,SSID,SIGNAL dev wifi", cancellationToken)
                 .ConfigureAwait(false);
 

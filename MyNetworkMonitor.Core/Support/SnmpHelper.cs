@@ -8,17 +8,22 @@ using Lextm.SharpSnmpLib.Messaging;
 namespace MyNetworkMonitor
 {
     /// <summary>
-    /// Kapselt die SNMP-Zugriffe auf Basis von Lextm.SharpSnmpLib und bildet das
-    /// frühere SnmpSharpNet-Verhalten nach:
-    ///  - Get/Walk liefern eine geordnete OID->Wert Zuordnung (oder null bei Fehler/keine Antwort).
-    ///  - Binäre OctetStrings (z.B. MAC-Adressen) werden als Hex-String mit Leerzeichen
-    ///    ausgegeben (z.B. "00 1a 2b 3c 4d 5e"), druckbare als Text.
+    /// Wraps SNMP access based on Lextm.SharpSnmpLib in the form the scan
+    /// methods expect:
+    ///  - Get/Walk return an OID-to-value map (or null on error or no answer).
+    ///  - Binary OctetStrings (such as MAC addresses) are returned as a hex string
+    ///    with spaces (for example "00 1a 2b 3c 4d 5e"), printable ones as text.
     /// </summary>
     public static class SnmpHelper
     {
+        /// <summary>Default timeout in milliseconds.</summary>
         public const int DefaultTimeout = 2000;
 
-        /// <summary>Prüft, ob der Zielhost eine gültige IP-Adresse ist (Voraussetzung für einen Endpoint).</summary>
+        /// <summary>Checks whether the target host is a valid IP address, which is required for an endpoint.</summary>
+        /// <param name="host">The target as text.</param>
+        /// <param name="endpoint">The endpoint if the address is valid; otherwise <c>null</c>.</param>
+        /// <param name="port">The SNMP port.</param>
+        /// <returns><c>true</c> if <paramref name="host"/> is an IP address.</returns>
         public static bool TryGetEndpoint(string host, out IPEndPoint endpoint, int port = 161)
         {
             endpoint = null;
@@ -29,9 +34,14 @@ namespace MyNetworkMonitor
         }
 
         /// <summary>
-        /// Führt einen SNMP-GET für eine oder mehrere OIDs aus.
-        /// Gibt eine OID->Wert Zuordnung zurück oder null, wenn kein Ergebnis vorliegt.
+        /// Performs an SNMP GET for one or more OIDs.
         /// </summary>
+        /// <param name="host">IP address of the target.</param>
+        /// <param name="version">SNMP version.</param>
+        /// <param name="community">Community string; <c>null</c> uses "public".</param>
+        /// <param name="oids">The OIDs to query.</param>
+        /// <param name="timeout">Timeout in milliseconds.</param>
+        /// <returns>An OID-to-value map, or <c>null</c> if there is no result.</returns>
         public static Dictionary<string, string> Get(string host, VersionCode version, string community,
             IEnumerable<string> oids, int timeout = DefaultTimeout)
         {
@@ -54,15 +64,20 @@ namespace MyNetworkMonitor
             }
             catch
             {
-                // Timeout, NoSuchName (SNMPv1) usw. -> wie zuvor als "kein Ergebnis" behandeln.
+                // Timeout, NoSuchName (SNMPv1) and similar are treated as "no result".
                 return null;
             }
         }
 
         /// <summary>
-        /// Führt einen SNMP-WALK über einen OID-Teilbaum aus.
-        /// Gibt eine OID->Wert Zuordnung zurück oder null bei Fehler/keiner Antwort.
+        /// Performs an SNMP walk over an OID subtree.
         /// </summary>
+        /// <param name="host">IP address of the target.</param>
+        /// <param name="version">SNMP version.</param>
+        /// <param name="community">Community string; <c>null</c> uses "public".</param>
+        /// <param name="tableOid">Root OID of the subtree.</param>
+        /// <param name="timeout">Timeout in milliseconds.</param>
+        /// <returns>An OID-to-value map, or <c>null</c> on error or no answer.</returns>
         public static Dictionary<string, string> Walk(string host, VersionCode version, string community,
             string tableOid, int timeout = DefaultTimeout)
         {
@@ -88,9 +103,11 @@ namespace MyNetworkMonitor
         }
 
         /// <summary>
-        /// Wandelt einen SNMP-Wert in einen String um und bildet dabei das SnmpSharpNet-Verhalten nach:
-        /// druckbare OctetStrings als Text, binäre (z.B. MAC-Adressen) als Hex mit Leerzeichen.
+        /// Converts an SNMP value to a string: printable OctetStrings as text,
+        /// binary ones (such as MAC addresses) as hex with spaces.
         /// </summary>
+        /// <param name="data">The SNMP value.</param>
+        /// <returns>The value as text; empty for <c>null</c> or an empty OctetString.</returns>
         public static string DataToString(ISnmpData data)
         {
             if (data is OctetString os)

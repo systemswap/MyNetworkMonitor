@@ -10,15 +10,27 @@ using System.Threading.Tasks.Dataflow;
 
 namespace MyNetworkMonitor
 {
+    /// <summary>
+    /// Resolves the addresses of the targets backwards (PTR) into host name, domain and aliases.
+    /// </summary>
     public class ScanningMethod_ReverseLookupToHostAndAlieases
     {
+        /// <summary>Creates the reverse lookup.</summary>
         public ScanningMethod_ReverseLookupToHostAndAlieases()
         {
 
         }
 
+        /// <summary>Reports progress as (sent, responded, total, status).</summary>
         public event Action<int, int, int, ScanStatus> ProgressUpdated;
+
+        /// <summary>
+        /// Raised for every resolved address; the event arguments are <see langword="null"/> if the
+        /// address could not be resolved.
+        /// </summary>
         public event EventHandler<ScanTask_Finished_EventArgs>? GetHostAliases_Task_Finished;
+
+        /// <summary>Raised when all lookups of a run have finished.</summary>
         public event Action<ScanStatus>? GetHostAliases_Finished;
 
 
@@ -28,20 +40,22 @@ namespace MyNetworkMonitor
         private int total = 0;
 
 
-        private CancellationTokenSource _cts = new CancellationTokenSource(); // 🔹 Ermöglicht das Abbrechen
+        private CancellationTokenSource _cts = new CancellationTokenSource(); // Allows the scan to be cancelled.
 
+        /// <summary>
+        /// Cancels the running lookup and reports <see cref="ScanStatus.stopped"/>.
+        /// </summary>
         public void StopScan()
         {
             if (_cts != null && !_cts.IsCancellationRequested)
             {
-                _cts.Cancel(); // 🔹 Scan abbrechen
-                // Hier NICHT aufraeumen und ersetzen: die Schleifen lesen _cts ueber
-                // das Feld. Ein frisches CTS an dieser Stelle meldet ihnen wieder
-                // "nicht abgebrochen", und der Lauf geht weiter, statt zu enden.
-                // Das Zuruecksetzen erledigt StartNewScan beim naechsten Lauf.
+                _cts.Cancel();
+                // Do NOT dispose and replace the source here: the loops read _cts through the
+                // field. A fresh source at this point would report "not cancelled" to them and
+                // the run would continue instead of ending. StartNewScan resets it for the next run.
             }
           
-            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped); // 🔹 UI auf 0 setzen
+            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped); // Resets the progress display.
         }
 
         private void StartNewScan()
@@ -56,12 +70,20 @@ namespace MyNetworkMonitor
             }
             _cts = new CancellationTokenSource();
 
-            // 🔹 Zähler zurücksetzen
+            // Reset the counters.
             current = 0;
             responded = 0;
             total = 0;
         }
 
+        /// <summary>
+        /// Resolves every target address backwards and reports host name, domain and aliases.
+        /// </summary>
+        /// <param name="IPs">The targets.</param>
+        /// <param name="isDeepDNSServerScan">
+        /// <see langword="true"/> to additionally ask every configured DNS server on its own and
+        /// record which one resolves the address.
+        /// </param>
         public async Task GetHost_Aliases(List<IPToScan> IPs, bool isDeepDNSServerScan)
         {
 
@@ -70,12 +92,12 @@ namespace MyNetworkMonitor
 
             current = 0;
             responded = 0;
-            total = IPs.Count; // 🔹 Gesamtanzahl setzen
+            total = IPs.Count;
 
-            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running); // 🔹 UI auf 0 setzen
+            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running);
 
 
-            if (_cts.Token.IsCancellationRequested) return; // 🔹 Falls der Scan direkt nach Start gestoppt wird
+            if (_cts.Token.IsCancellationRequested) return; // Stopped right after the start.
 
 
             if (IPs.Count == 0)
@@ -85,35 +107,12 @@ namespace MyNetworkMonitor
 
             var tasks = new List<Task>();
 
-            //Parallel.ForEach(IPs, async ip =>
-            //        {
-            //            await Task.Delay(50, _cts.Token);
 
-            //            int currentValue = Interlocked.Increment(ref current);
-            //            Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running));
-
-            //            var task = Task.Run(() => ReverseLookupToHostAndAliases(ip), _cts.Token);
-            //            if (task != null) tasks.Add(task);
-            //        });
-
-            //foreach (IPToScan ip in IPs)
-            //{
-            //    if (_cts.Token.IsCancellationRequested) return;
-
-            //    int currentValue = Interlocked.Increment(ref current);
-            //    Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running));
-
-            //    var task = Task.Run(() => ReverseLookupToHostAndAliases(ip));
-            //    if (task != null) tasks.Add(task);
-            //}
-
-
-            // War 50: ein Heim-DNS-Server (Router oder NAS) verliert unter einem
-            // Burst von 50 gleichzeitigen PTR-Anfragen die meisten UDP-Pakete,
-            // bevor die Zeitgrenze ablaeuft. Live gemessen an einem echten /24
-            // mit ca. 33 Geraeten: bei 50 kamen 4 Treffer zurueck, bei 8 (mit den
-            // unten angepassten Zeiten) alle 32 erreichbaren - und das in einem
-            // Bruchteil der Zeit, die eine rein sequentielle Abfrage braeuchte.
+            // Limited concurrency: a small DNS server (router or NAS) loses most UDP packets under a
+            // burst of 50 concurrent PTR queries before the timeout expires. Measured on a /24 with
+            // about 33 devices: 50 concurrent queries returned 4 names, 8 (with the timing below)
+            // returned all 32 reachable ones, in a fraction of the time of sequential queries.
+            // See docs/FEHLERGEDAECHTNIS.md, No. 7.
             SemaphoreSlim semaphore = new SemaphoreSlim(MaxConcurrentLookups);
 
             foreach (IPToScan ip in IPs)
@@ -152,12 +151,11 @@ namespace MyNetworkMonitor
 
 
         /// <summary>
-        /// Wie viele Adressen gleichzeitig abgefragt werden. Siehe Kommentar
-        /// oben an der Semaphore.
+        /// How many addresses are queried concurrently; values below 1 are raised to 1. See the
+        /// comment at the semaphore in <see cref="GetHost_Aliases"/>.
         /// <para>
-        /// Kein fester Wert mehr: die 8 sind die schonende Vorgabe fuer einen
-        /// Heimrouter, ein Namensserver im Firmennetz vertraegt ein Vielfaches.
-        /// Gesetzt wird das aus den Einstellungen.
+        /// Configurable: the default of 8 is gentle on a home router, while a name server in a
+        /// corporate network handles many times that. The value is set from the settings.
         /// </para>
         /// </summary>
         public int MaxConcurrentLookups
@@ -168,68 +166,59 @@ namespace MyNetworkMonitor
 
         private int _maxConcurrentLookups = 8;
 
-        /// <summary>Wie oft eine ausbleibende Antwort erneut angefragt wird, bevor die Adresse als "kein PTR" gilt.</summary>
+        /// <summary>How often a missing answer is requested again before the address counts as "no PTR".</summary>
         private const int QueryRetries = 3;
 
         /// <summary>
-        /// Wie lange je Versuch auf eine Antwort gewartet wird. Kurz gehalten:
-        /// eine einzelne Rueckwaertsaufloesung, die zwei Sekunden braucht, wird
-        /// auch nach zehn nicht besser - stattdessen zaehlt <see cref="QueryRetries"/>
-        /// mehr als ein langes Warten, weil ein Heim-DNS-Server verlorene Pakete
-        /// eher durch eine zweite Chance kurz danach wettmacht als durch mehr
-        /// Geduld beim ersten Versuch.
+        /// How long each attempt waits for an answer. Kept short: a reverse lookup that takes two
+        /// seconds does not succeed after ten either. <see cref="QueryRetries"/> matters more than a
+        /// long wait, because a small DNS server makes up for lost packets with a second chance
+        /// shortly afterwards rather than with more patience on the first attempt.
         /// </summary>
         private static readonly TimeSpan QueryTimeout = TimeSpan.FromSeconds(1);
 
         /// <summary>
-        /// Gesamtbudget je Adresse, ueber alle Wiederholungen hinweg. Der
-        /// aeussere Abbruch (<see cref="CancellationTokenSource.CancelAfter"/>)
-        /// muss dafuer mehr Zeit einraeumen als <see cref="QueryTimeout"/> allein -
-        /// sonst reisst er die Abfrage schon beim ersten Versuch ab, und die im
-        /// Client konfigurierten Wiederholungen kommen nie zum Zug.
+        /// Total time budget per address across all retries. The outer cancellation
+        /// (<see cref="CancellationTokenSource.CancelAfter(TimeSpan)"/>) must allow more time than
+        /// <see cref="QueryTimeout"/> alone; otherwise it aborts the query during the first attempt
+        /// and the retries configured in the client never run (see docs/FEHLERGEDAECHTNIS.md, No. 7).
         /// </summary>
         private static readonly TimeSpan QueryBudget =
             QueryTimeout * (QueryRetries + 1) + TimeSpan.FromMilliseconds(500);
 
         /// <summary>
-        /// Ein Client je Namensserver-Zusammenstellung, ueber den ganzen Lauf
-        /// hinweg.
+        /// One client per set of name servers for the whole run.
         /// <para>
-        /// Vorher wurde je Adresse ein neuer <see cref="LookupClient"/> gebaut.
-        /// Der bringt seinen eigenen Zwischenspeicher mit - je Abfrage neu
-        /// erzeugt, ist der immer leer, und dieselbe Zone wird hundertfach neu
-        /// erfragt. Wiederverwendet traegt er dagegen ueber den ganzen Lauf.
+        /// Each <see cref="LookupClient"/> has its own cache. A client created per query always
+        /// starts with an empty cache, and the same zone is queried hundreds of times; a reused
+        /// client keeps its cache for the whole run.
         /// </para>
         /// </summary>
         private readonly System.Collections.Concurrent.ConcurrentDictionary<string, LookupClient> _clients = new();
 
         /// <summary>
-        /// Namensserver, die in diesem Lauf nur Zeitueberschreitungen
-        /// geliefert haben, mit der Zahl ihrer Fehlversuche.
+        /// Name servers that only timed out in this run, with the number of their failed attempts.
         /// <para>
-        /// Ein Server, der gar keiner ist - etwa ein Gateway, das als Rueckfall
-        /// eingetragen wurde -, kostet sonst bei <em>jeder</em> Adresse das
-        /// volle Zeitbudget. Nach <see cref="SilentAfter"/> Fehlversuchen ohne
-        /// eine einzige Antwort wird er fuer den Rest des Laufs uebergangen;
-        /// eine Antwort setzt den Zaehler sofort zurueck, damit ein kurzer
-        /// Aussetzer keinen brauchbaren Server aussperrt.
+        /// A server that is not a name server at all, such as a gateway entered as a fallback,
+        /// would otherwise cost the full time budget for <em>every</em> address. After
+        /// <see cref="SilentAfter"/> failed attempts without a single answer it is skipped for the
+        /// rest of the run; an answer resets the counter at once, so a short outage does not lock
+        /// out a usable server.
         /// </para>
         /// </summary>
         private readonly System.Collections.Concurrent.ConcurrentDictionary<string, int> _silence = new();
 
-        /// <summary>So viele Fehlversuche in Folge gelten als "antwortet nicht".</summary>
+        /// <summary>Number of consecutive failed attempts after which a server counts as "not answering".</summary>
         private const int SilentAfter = 3;
 
         /// <summary>
-        /// Der Server, der zuletzt einen Namen geliefert hat. Er wird bei der
-        /// naechsten Adresse zuerst gefragt.
+        /// The server that last returned a name. It is asked first for the next address.
         /// <para>
-        /// In einem Netz mit mehreren Namensservern kennt oft nur einer die
-        /// gesuchte Zone. Ihn zu merken macht aus dem Suchen beim ersten Mal
-        /// eine einzige Abfrage bei allen weiteren. Kennt er ein Geraet
-        /// <em>nicht</em>, aendert das nichts an seinem Rang: dann laeuft
-        /// darunter wie bisher der ganze Durchgang ueber alle Server, denn
-        /// dieses eine Geraet kann sehr wohl in der Zone eines anderen stehen.
+        /// In a network with several name servers often only one knows the zone in question.
+        /// Remembering it turns the search for the first address into a single query for all
+        /// following ones. If it does <em>not</em> know a device, its rank stays the same: the full
+        /// pass over all servers runs below, because that one device may well be in the zone of
+        /// another server.
         /// </para>
         /// </summary>
         private volatile string? _preferredServer;
@@ -244,9 +233,8 @@ namespace MyNetworkMonitor
             _silence[server.Address.ToString()] = 0;
 
         /// <summary>
-        /// Fragt genau einen Server, mit eigenem Zeitbudget. Liefert den
-        /// Eintrag oder <c>null</c>; ein Schweigen wird vermerkt, eine Antwort
-        /// setzt den Zaehler zurueck.
+        /// Asks exactly one server with its own time budget. Returns the entry or <c>null</c>; a
+        /// timeout is recorded, an answer resets the counter.
         /// </summary>
         private async Task<IPHostEntry?> AskOneAsync(NameServer server, string address)
         {
@@ -294,8 +282,9 @@ namespace MyNetworkMonitor
                 }
                 else
                 {
-                    // Ohne eigene Angabe die Server des Systems - dieselben,
-                    // die auch der Rest des Rechners benutzt.
+                    // Without usable server addresses, the system's name servers are used.
+                    // The scan normally supplies the scope's server or the gateway
+                    // (see docs/FEHLERGEDAECHTNIS.md, No. 8).
                     options = new LookupClientOptions();
                 }
 
@@ -303,14 +292,13 @@ namespace MyNetworkMonitor
                 options.Retries = QueryRetries;
                 options.UseCache = true;
 
-                // Der Reihe nach fragen, nicht zufaellig: die Liste ist eine
-                // Rangfolge - erst der Server des Bereichs oder das Gateway,
-                // dann der Rueckhalt dahinter. Mit der Vorgabe (zufaellige
-                // Wahl) waere sie bedeutungslos.
+                // Ask in order, not at random: the list is a ranking, first the server of the scope
+                // or the gateway, then the fallback behind it. With the default (random choice) the
+                // order would be meaningless.
                 options.UseRandomNameServer = false;
 
-                // Ein fehlender Eintrag ist eine Antwort, kein Fehler. Als
-                // Ausnahme geworfen, kostet er nur Zeit.
+                // A missing entry is an answer, not an error; throwing it as an exception only
+                // costs time.
                 options.ThrowDnsErrors = false;
 
                 return new LookupClient(options);
@@ -318,9 +306,8 @@ namespace MyNetworkMonitor
         }
 
         /// <summary>
-        /// Ein Client je einzelnem Namensserver, fuer den Deep-Scan - derselbe
-        /// Grund wie bei <see cref="ClientFor"/>, nur nach Server statt nach
-        /// Server-Zusammenstellung geschluesselt.
+        /// One client per single name server, for the deep scan. Same reason as for
+        /// <see cref="ClientFor"/>, keyed by server instead of by set of servers.
         /// </summary>
         private LookupClient SingleServerClientFor(NameServer dnsServer)
         {
@@ -340,36 +327,30 @@ namespace MyNetworkMonitor
 
         private async Task ReverseLookupToHostAndAliases(IPToScan ipToScan, bool isDeepDNSServerScan)
         {
-            if (_cts.Token.IsCancellationRequested) return; // 🔹 Abbruch vor dem Start prüfen
+            if (_cts.Token.IsCancellationRequested) return;
 
             try
             {
                 LookupClient client = ClientFor(ipToScan);
 
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
-                // Muss QueryBudget sein, nicht QueryTimeout: sonst reisst dieser
-                // aeussere Abbruch die Abfrage schon nach dem ersten Versuch ab,
-                // noch bevor der Client unten selbst zum zweiten kommt - genau
-                // das hat die konfigurierten Retries bisher wirkungslos gemacht.
+                // Must be QueryBudget, not QueryTimeout: otherwise this outer cancellation aborts the
+                // query after the first attempt, before the client gets to its own retry, and the
+                // configured retries have no effect (see docs/FEHLERGEDAECHTNIS.md, No. 7).
                 cts.CancelAfter(QueryBudget);
 
-                // Die abgeschickte Abfrage zaehlt. Neben "geantwortet" und
-                // "gesamt" ergibt das die dreiteilige Anzeige, an der man sieht,
-                // wie viel schon draussen ist und wie viel davon zurueckkam.
+                // Count the sent query. Together with "responded" and "total" this gives the
+                // three-part display that shows how many queries are out and how many came back.
                 int sentCount = Interlocked.Increment(ref current);
                 ProgressUpdated?.Invoke(sentCount, responded, total, ScanStatus.running);
 
-                // Eine Abfrage, kein eigener Wiederholungslauf: der Client
-                // wiederholt selbst und kennt sein Zeitlimit. Die fruehere
-                // Schleife hat daneben noch dreimal gefragt und dabei eine
-                // Adresse ohne PTR-Eintrag - den Normalfall - wie einen Fehler
-                // behandelt.
+                // One query, no retry loop of its own: the client retries by itself and knows its
+                // time limit. An additional loop would ask again and treat an address without a PTR
+                // record, the normal case, as an error.
                 IPHostEntry? _IPHostEntry = null;
 
-                // Zuerst der Server, der zuletzt einen Namen geliefert hat.
-                // Danach ist fuer die allermeisten Adressen schon Schluss - der
-                // Rest darunter greift nur, wenn gerade er dieses Geraet nicht
-                // kennt.
+                // First the server that last returned a name. For most addresses this is the only
+                // query; the rest below applies only when this server does not know the device.
                 if (_preferredServer is { } preferredAddress)
                 {
                     NameServer? preferred = client.NameServers
@@ -381,10 +362,9 @@ namespace MyNetworkMonitor
                     }
                 }
 
-                // Steht vorn ein Server, der in diesem Lauf schon mehrfach
-                // geschwiegen hat, wird die gemeinsame Abfrage uebersprungen -
-                // sie liefe genau in dieselbe Zeitueberschreitung. Unten sind
-                // die uebrigen Server ohnehin einzeln an der Reihe.
+                // If the leading server has already been silent several times in this run, the
+                // combined query is skipped; it would run into the same timeout. The remaining
+                // servers are asked one by one below anyway.
                 NameServer? leading = client.NameServers.FirstOrDefault();
                 bool firstServerSilent =
                     leading is not null && client.NameServers.Count > 1 && IsKnownSilent(leading);
@@ -404,39 +384,33 @@ namespace MyNetworkMonitor
                     firstServerSilent = true;
                     if (leading is not null) NoteSilence(leading);
 
-                    // Nur das Budget dieser einen Abfrage ist abgelaufen - der
-                    // erste Server hat also nicht geantwortet. Das ist kein
-                    // Grund aufzugeben: unten bekommt jeder Server seinen
-                    // eigenen Anlauf mit eigenem Budget.
+                    // Only the budget of this one query has expired, so the first server did not
+                    // answer. That is no reason to give up: below, every server gets its own
+                    // attempt with its own budget.
                     //
-                    // Frueher riss dieser Abbruch die ganze Aufloesung mit, und
-                    // ein stummer erster Server (etwa ein Gateway, das gar kein
-                    // Namensserver ist) kostete jeden Namen im Lauf.
+                    // This timeout must not abort the whole resolution; otherwise a silent first
+                    // server (such as a gateway that is no name server) costs every name in the run.
                 }
 
-                // Bleibt die erste Abfrage ohne Namen, wird jeder hinterlegte
-                // Server einzeln gefragt, bis einer auflöst.
+                // If the first query returns no name, each configured server is asked on its own
+                // until one resolves the address.
                 //
-                // Noetig, weil die erste Abfrage die Liste nur bei einem
-                // *Fehlschlag* weiterreicht - antwortet ein Server "kenne ich
-                // nicht", ist fuer sie Schluss. In einem Netz mit mehreren
-                // Zonen kennt aber oft nur einer der Server den Namen, und
-                // ohne diesen Durchgang entschiede allein, welcher Server
-                // zufaellig vorne steht.
+                // Needed because the first query passes on to the next server only on a
+                // *failure*; if a server answers "unknown", it stops. In a network with several
+                // zones often only one of the servers knows the name, and without this pass the
+                // result would depend on which server happens to be first.
                 if (_IPHostEntry is null && client.NameServers.Count > 1)
                 {
-                    // Hat der erste Server geschwiegen, wird er hier nicht noch
-                    // einmal gefragt - er hat sein Budget gerade eben schon
-                    // verbraucht, und ein zweiter Anlauf verdoppelt nur die
-                    // Wartezeit je Adresse. Die Reihenfolge steht fest
-                    // (UseRandomNameServer ist aus), also ist der erste der
-                    // Liste auch der, der eben stumm blieb.
+                    // A first server that was silent is not asked again here: it has just used up
+                    // its budget, and a second attempt only doubles the wait per address. The order
+                    // is fixed (UseRandomNameServer is off), so the first in the list is the one
+                    // that just stayed silent.
                     foreach (NameServer dnsServer in client.NameServers.Skip(firstServerSilent ? 1 : 0))
                     {
                         if (_cts.Token.IsCancellationRequested) return;
 
-                        // Uebergangen wird, wer nur schweigt, und wer eben
-                        // schon als bevorzugter Server gefragt wurde.
+                        // Skip servers that only stay silent and the preferred server that was
+                        // just asked.
                         if (IsKnownSilent(dnsServer)) continue;
                         if (dnsServer.Address.ToString() == _preferredServer) continue;
 
@@ -454,17 +428,12 @@ namespace MyNetworkMonitor
 
                 if (isDeepDNSServerScan)
                 {
-                    // Alle DNS-Server einzeln pruefen, welcher diesen Hostnamen
-                    // aufloesen kann. Jeder Server bekommt sein eigenes
-                    // Zeitbudget statt sich eines mit der ersten Abfrage und
-                    // allen uebrigen Servern zu teilen - vorher lief das
-                    // gemeinsame CancelAfter(QueryTimeout) schon fuer die
-                    // Abfrage oben mit, und bei mehr als ein, zwei konfigurierten
-                    // Servern blieb fuer die spaeteren nichts mehr uebrig; sie
-                    // scheiterten dann lautlos an der bereits abgelaufenen Zeit,
-                    // nicht am fehlenden Eintrag. Der Client wird ausserdem
-                    // wiederverwendet statt bei jeder Adresse neu gebaut -
-                    // derselbe Grund wie bei ClientFor().
+                    // Check each DNS server on its own for whether it resolves this address. Each
+                    // server gets its own time budget instead of sharing one with the query above
+                    // and all other servers: with a shared budget, nothing is left for the later
+                    // servers once more than one or two are configured, and they fail silently on
+                    // the expired time rather than on a missing entry. The client is reused instead
+                    // of being created per address, for the same reason as in ClientFor().
                     foreach (var dnsServer in client.NameServers)
                     {
                         try
@@ -496,11 +465,10 @@ namespace MyNetworkMonitor
                 }
 
 
-                // Bewusst der Abbruch des Laufs und nicht mehr das Zeitbudget
-                // dieser Abfrage: seit die erste Abfrage ihr Budget ueberziehen
-                // darf, ist "cts" hier regelmaessig abgelaufen, obwohl ein
-                // spaeterer Server laengst geantwortet hat. Mit cts.Token waere
-                // genau dieses Ergebnis wieder weggeworfen worden.
+                // Deliberately the cancellation of the run, not the time budget of this query:
+                // because the servers after the first one have their own budgets, "cts" has often
+                // expired here although a later server has already answered. Checking cts.Token
+                // would throw away exactly that result.
                 if (_cts.Token.IsCancellationRequested) return;
 
 
@@ -511,10 +479,9 @@ namespace MyNetworkMonitor
 
                 if (GetHostAliases_Task_Finished != null)
                 {
-                    // Ab zwei Labels trennen, nicht erst ab drei: ein Name wie
-                    // "router.example" oder "dns.google" hat nur zwei und gehoert
-                    // getrennt in Host und Domain, nicht komplett ins Feld
-                    // HostName (Fehlergedaechtnis Nr. 6).
+                    // Split from two labels on, not only from three: a name such as "router.example"
+                    // has only two and belongs split into host and domain, not entirely into the
+                    // HostName field. See docs/FEHLERGEDAECHTNIS.md, No. 6.
                     if (_IPHostEntry.HostName.Split('.').ToList().Count > 1)
                     {
                         List<string> HostDomainSplit = new List<string>();

@@ -3,11 +3,12 @@ using System.Text;
 namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 {
     /// <summary>
-    /// Secure Shell. Der Server gruesst mit seiner Protokollkennung
-    /// ("SSH-2.0-..."), sobald die Verbindung steht - das Hello-Paket ist nur
-    /// die Gegenvorstellung, damit die Gegenseite die Verhandlung beginnt.
+    /// Secure Shell. The server greets with its protocol identification
+    /// ("SSH-2.0-...") as soon as the connection is established; the hello
+    /// packet is only the client's own identification, so that the remote
+    /// side starts the negotiation (RFC 4253, section 4.2).
     /// <para>
-    /// Der Normalfall: verbinden, Hello, lesen, pruefen - alles in
+    /// The common case: connect, hello, read, check, all in
     /// <see cref="ServiceProbeBase"/>.
     /// </para>
     /// </summary>
@@ -17,25 +18,21 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         public override string Group => ServiceGroups.Network;
         public override IReadOnlyList<int> DefaultPorts => [22];
 
-        /// <summary>Woertlich aus dem alten Schalter uebernommen - kein Byte veraendert.</summary>
+        /// <summary>The client identification string.</summary>
         public override byte[] Hello => Encoding.ASCII.GetBytes("SSH-2.0-MySSHClient\r\n");
 
-        /// <summary>Woertlich aus der alten Antwortpruefung uebernommen - keine Bedingung veraendert.</summary>
+        /// <summary>Matches an answer that starts with "SSH-2.0".</summary>
         public override bool Identify(byte[] response)
         {
             ServiceType service = Service;
             bool serviceMatched = false;
 
-            // ?? SSH / SFTP
+            // SSH / SFTP
             if (service == ServiceType.SSH)
             {
                 string sshResponse = Encoding.ASCII.GetString(response);
 
-                // Prüfen, ob die Antwort das typische "SSH-2.0" enthält
-                // Die Bedingung ist unveraendert. Weggefallen ist allein eine
-                // Console-Ausgabe, die den ganzen Rest der Antwort mitschrieb -
-                // also auch die Rohbytes der Schluesselverhandlung hinter dem
-                // Begruessungstext. Ausgewertet hat sie niemand.
+                // Check whether the answer starts with the typical "SSH-2.0".
                 if (sshResponse.StartsWith("SSH-2.0"))
                 {
                     serviceMatched = true;
@@ -46,14 +43,14 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Zerlegt die Begruessungszeile, an der der Dienst ohnehin erkannt
-        /// wird. Ihr Aufbau ist festgelegt:
-        /// <c>SSH-&lt;Protokoll&gt;-&lt;Software&gt; &lt;Bemerkung&gt;</c>.
+        /// Splits the greeting line by which the service is detected anyway. Its
+        /// layout is fixed (RFC 4253, section 4.2):
+        /// <c>SSH-&lt;protoversion&gt;-&lt;softwareversion&gt; &lt;comments&gt;</c>.
         /// <para>
-        /// Die Software nennt Programm und Version - "OpenSSH_8.9p1" -, und die
-        /// Bemerkung dahinter ist der Zusatz, den Linux-Ausgaben ihrem Paket
-        /// mitgeben: "Ubuntu-3ubuntu0.4" sagt Betriebssystem und Paketstand.
-        /// Beides kommt ungefragt und vor jeder Anmeldung.
+        /// The software part names program and version ("OpenSSH_8.9p1"), and
+        /// the comment after it is the suffix Linux distributions add to their
+        /// package: "Ubuntu-3ubuntu0.4" names operating system and package
+        /// revision. Both arrive unprompted and before any login.
         /// </para>
         /// </summary>
         protected override string? Describe(byte[] response)
@@ -61,15 +58,15 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             string banner = FirstLine(Encoding.ASCII.GetString(response));
             if (banner.Length == 0) return null;
 
-            // Hinter "SSH-2.0-" beginnt die Kennung der Gegenseite. Der zweite
-            // Bindestrich trennt sie vom Protokollteil und gehoert nicht dazu.
+            // The identification of the remote side starts after "SSH-2.0-". The
+            // second hyphen separates it from the protocol part and is not part of it.
             int softwareStart = banner.IndexOf('-', banner.IndexOf('-') + 1);
             if (softwareStart < 0 || softwareStart + 1 >= banner.Length) return null;
 
             string identification = banner[(softwareStart + 1)..].Trim();
             if (identification.Length == 0) return null;
 
-            // Das erste Leerzeichen trennt Software von der freien Bemerkung.
+            // The first space separates the software from the free-form comment.
             int space = identification.IndexOf(' ');
             string software = space > 0 ? identification[..space] : identification;
             string remark = space > 0 ? identification[(space + 1)..].Trim() : string.Empty;
@@ -78,9 +75,9 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
             if (remark.Length > 0) lines.Add($"Remark: {remark}");
 
-            // Die Protokollfassung steht zwischen den beiden Bindestrichen.
-            // Praktisch immer 2.0; ein Server, der noch 1.99 anbietet, spricht
-            // auch das alte SSH-1 und ist damit ein Befund fuer sich.
+            // The protocol version is between the two hyphens. Practically
+            // always 2.0; a server that still offers 1.99 also speaks the
+            // obsolete SSH-1 and is a finding in itself (RFC 4253, section 5.1).
             string protocol = banner[4..softwareStart];
             if (protocol.Length > 0 && protocol != "2.0") lines.Add($"Protocol: {protocol}");
 

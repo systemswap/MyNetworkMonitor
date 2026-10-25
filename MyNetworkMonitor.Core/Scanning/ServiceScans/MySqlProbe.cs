@@ -2,15 +2,15 @@ using System.Text;
 namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 {
     /// <summary>
-    /// MySQL und die Server, die dasselbe Protokoll sprechen. Gruesst
-    /// unaufgefordert mit dem Handshake-Paket; erkannt wird dessen Geruest,
-    /// und die Sorte steht im Versionstext daraus.
+    /// MySQL and the servers that speak the same protocol. Greets unprompted
+    /// with the handshake packet; its structure is checked, and the variant is
+    /// in its version text.
     /// <para>
-    /// Teilt sich Port 3306 mit MariaDB, und die Trennung liegt allein in
-    /// diesem Text: fuehrt er "-MariaDB" oder das Scheinpraefix "5.5.5-",
-    /// gehoert der Befund dorthin, sonst hierher. Ableger wie Percona oder
-    /// TiDB melden ihre Version ohne diese Kennung und landen darum hier -
-    /// die Reihe stimmt damit, der Hersteller ist damit nicht gesagt.
+    /// Shares port 3306 with MariaDB, and the distinction lies solely in this
+    /// text: if it contains "-MariaDB" or the fake prefix "5.5.5-", the
+    /// finding belongs there, otherwise here. Derivatives such as Percona or
+    /// TiDB report their version without this marker and therefore end up
+    /// here; the product line is right, the vendor is not implied.
     /// </para>
     /// </summary>
     public sealed class MySqlProbe : ServiceProbeBase
@@ -19,38 +19,37 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         public override string Group => ServiceGroups.SqlDatabases;
         public override IReadOnlyList<int> DefaultPorts => [3306];
 
-        /// <summary>Gruesst von sich aus - es gibt nichts zu senden.</summary>
+        /// <summary>Greets on its own; there is nothing to send.</summary>
         public override byte[] Hello => [];
 
-        /// <summary>Woertlich aus der alten Antwortpruefung uebernommen - keine Bedingung veraendert.</summary>
+        /// <summary>Matches a MySQL-family greeting or rejection that does not identify MariaDB.</summary>
         public override bool Identify(byte[] response)
         {
             ServiceType service = Service;
             bool serviceMatched = false;
             string str_serviceResponse = Encoding.ASCII.GetString(response);
 
-            // ?? MariaDB / MySQL: beide gruessen unaufgefordert mit demselben
-            // Handshake-Paket. Dass es eines ist, entscheidet sein Geruest
-            // (siehe ReadMySqlServerVersion) - welche der beiden Sorten dort
-            // laeuft, entscheidet der Versionstext daraus.
+            // MariaDB / MySQL: both greet unprompted with the same handshake
+            // packet. Its structure decides whether it is one (see
+            // ReadMySqlServerVersion); its version text decides which of the
+            // two is running.
             //
-            // Die frueheren drei gepruften Byte reichten dafuer nicht: eine
-            // Sequenznummer 0 an Stelle 3 und eine 10 an Stelle 4 fallen auch bei
-            // anderen Protokollen an, und ohne den Versionstext sauber zu lesen,
-            // wurde "kein 'mariadb' im ganzen Puffer" als MySQL gewertet - also
-            // auch dann, wenn dort gar keine Begruessung stand.
+            // Checking only a few fixed bytes is not enough: a sequence number 0
+            // at offset 3 and a 10 at offset 4 also occur in other protocols, and
+            // treating "no 'mariadb' anywhere in the buffer" as MySQL would count
+            // answers that are no greeting at all. See docs/FEHLERGEDAECHTNIS.md, No. 2.
             if (service == ServiceType.MariaDB || service == ServiceType.MySQL)
             {
                 string? serverVersion = ReadMySqlServerVersion(response);
 
                 if (serverVersion is not null)
                 {
-                    // MariaDB ab 10.0 stellt der echten Version das Scheinpraefix
-                    // "5.5.5-" voran, damit alte Clients die Hauptversion nicht
-                    // fuer zu alt halten, und haengt "-MariaDB" an - gemessen an
-                    // einem 10.0er Server: "5.5.5-10.0.20-MariaDB". Kein Server
-                    // der MySQL-Reihe fuehrt eines von beiden; die meldet ihre
-                    // Version schlicht als "8.0.36" oder "5.7.44-log".
+                    // MariaDB 10.0 and later prefixes the real version with the
+                    // fake "5.5.5-", so that old clients do not consider the major
+                    // version too old, and appends "-MariaDB"; measured on a 10.0
+                    // server: "5.5.5-10.0.20-MariaDB". No server of the MySQL line
+                    // carries either; it reports its version plainly, such as
+                    // "8.0.36" or "5.7.44-log".
                     bool isMariaDb =
                         serverVersion.Contains("mariadb", StringComparison.OrdinalIgnoreCase) ||
                         serverVersion.StartsWith("5.5.5-", StringComparison.Ordinal);
@@ -59,11 +58,11 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                 }
                 else if (response.Length >= 7 && response[3] == 0x00 && response[4] == 0xFF)
                 {
-                    // Statt zu gruessen weist der Server die Verbindung ab -
+                    // Instead of greeting, the server rejects the connection:
                     // "Host ... is not allowed to connect to this MariaDB server",
-                    // "blocked because of many connection errors". Das ist ein
-                    // Fehlerpaket (0xff) und damit ebenso ein Beweis, dass dort
-                    // einer laeuft; welcher, sagt er im Klartext selbst.
+                    // "blocked because of many connection errors". That is an ERR
+                    // packet (0xff) and equally proves that a server is running;
+                    // which one, it states in plain text.
                     bool namesMariaDb = str_serviceResponse.Contains("mariadb", StringComparison.OrdinalIgnoreCase);
                     bool namesMySql = str_serviceResponse.Contains("mysql", StringComparison.OrdinalIgnoreCase);
 
@@ -77,9 +76,8 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Der Versionstext aus der Begruessung - dieselbe Zeichenkette, an der
-        /// die Erkennung schon entscheidet, ob hier MySQL oder MariaDB laeuft.
-        /// Gelesen wurde sie bisher also ohnehin, nur nirgends angezeigt.
+        /// The version text from the greeting, the same string by which
+        /// detection decides whether MySQL or MariaDB is running.
         /// </summary>
         protected override string? Describe(byte[] response) => MySqlDetails(response);
     }

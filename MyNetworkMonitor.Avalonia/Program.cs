@@ -16,9 +16,8 @@ namespace MyNetworkMonitor.Avalonia;
 class Program
 {
     /// <summary>
-    /// Absturzprotokoll neben den Einstellungen. Ohne das laesst sich ein
-    /// Fehler in einem Scan-Callback nicht diagnostizieren - die App wuerde
-    /// kommentarlos beendet.
+    /// Crash log in the temporary folder. Without it, an error in a scan
+    /// callback cannot be diagnosed: the application would exit without a word.
     /// </summary>
     private static readonly string CrashLog = Path.Combine(Path.GetTempPath(), "MyNetworkMonitor_crash.log");
 
@@ -33,14 +32,14 @@ class Program
 
         try
         {
-            // Muss vor allem anderen stehen: davon haengt ab, wo Schluessel,
-            // Listen und Einstellungen liegen.
+            // Must come before everything else: it determines where keys,
+            // lists and settings are stored.
             ApplyStateFolder(args);
 
-            // Die drei Betriebsarten ohne Fenster stehen vor Avalonia: der
-            // Dienst hat keine Oberflaeche, und die beiden Einrichtungslaeufe
-            // sind nach einer Sekunde wieder vorbei. Wuerde erst Avalonia
-            // hochfahren, blitzte bei jedem davon ein Fenster auf.
+            // The three modes without a window come before Avalonia: the
+            // service has no user interface, and the two setup runs end after
+            // a second. If Avalonia started first, each of them would flash a
+            // window.
             if (HandledWithoutWindow(args)) return;
 
             BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
@@ -53,9 +52,9 @@ class Program
     }
 
     /// <summary>
-    /// Faengt die Aufrufe ab, die ohne Oberflaeche auskommen. Gibt zurueck, ob
-    /// einer davon zutraf - dann ist die Arbeit schon getan.
+    /// Handles the invocations that need no user interface.
     /// </summary>
+    /// <returns>True if one of them applied; the work is then already done.</returns>
     private static bool HandledWithoutWindow(string[] args)
     {
 #if WINDOWS
@@ -84,14 +83,13 @@ class Program
         args?.Any(a => string.Equals(a, name, StringComparison.OrdinalIgnoreCase)) == true;
 
     /// <summary>
-    /// Wertet <c>--state &lt;Ordner&gt;</c> aus: diese Instanz legt Schluessel,
-    /// Listen und Einstellungen dort ab statt an den ueblichen Orten.
+    /// Evaluates <c>--state &lt;folder&gt;</c>: this instance stores keys,
+    /// lists and settings there instead of in the usual locations.
     /// <para>
-    /// Gedacht zum Ausprobieren auf einem einzigen Rechner - Hauptscanner in
-    /// der einen Instanz, Satellit in der anderen. Ohne das teilten sich beide
-    /// denselben Schluessel und damit denselben Fingerabdruck: die Freigabe
-    /// waere eine Freigabe fuer sich selbst, und beide schrieben abwechselnd
-    /// dieselben Dateien leer.
+    /// Intended for trying things out on a single machine: main scanner in one
+    /// instance, satellite in the other. Without it, both would share the same
+    /// key and therefore the same fingerprint: an approval would approve
+    /// itself, and both would overwrite the same files in turn.
     /// </para>
     /// </summary>
     private static void ApplyStateFolder(string[] args)
@@ -109,10 +107,10 @@ class Program
 
 #if WINDOWS
     /// <summary>
-    /// Der erhoeht gestartete Durchlauf: richtet den Dienst ein oder entfernt
-    /// ihn und beendet sich sofort wieder. Der Rueckgabewert ist das, was der
-    /// aufrufende Durchlauf auswertet.
+    /// The elevated run: installs or removes the service and exits right away.
     /// </summary>
+    /// <param name="install">True to install, false to remove.</param>
+    /// <returns>The exit code the calling process evaluates: 0 on success, 1 on failure.</returns>
     private static int RunServiceSetup(bool install)
     {
         try
@@ -123,9 +121,9 @@ class Program
                 ? control.InstallElevated(Environment.ProcessPath ?? string.Empty)
                 : control.UninstallElevated();
 
-            // In das Protokoll, weil dieser Durchlauf keine Oberflaeche hat:
-            // der aufrufende sieht nur den Rueckgabewert und verweist fuer die
-            // Einzelheiten hierher.
+            // Written to the log because this run has no user interface: the
+            // calling process only sees the exit code and refers to the log
+            // for details.
             Note($"Service {(install ? "setup" : "removal")}: {result.Message}");
 
             return result.Success ? 0 : 1;
@@ -138,9 +136,8 @@ class Program
     }
 
     /// <summary>
-    /// Laeuft als Windows-Dienst: verbindet sich zu allen eingetragenen
-    /// Hauptscannern und wartet auf Auftraege, bis die Dienstverwaltung ihn
-    /// anhaelt.
+    /// Runs as a Windows service: connects to all configured main scanners and
+    /// waits for jobs until the Service Control Manager stops it.
     /// </summary>
     private static void RunAsService(string[] args)
     {
@@ -152,9 +149,9 @@ class Program
 
             runtime = new SatelliteRuntime(OwnVersion(), Path.Combine(AppPaths.MachineFolder, "services.xml"));
 
-            // Ohne args: der Aufbau liest sonst die Befehlszeile als
-            // Konfiguration, und "--satellite" ohne Wert ist fuer ihn kein
-            // gueltiges Paar - der Dienst startete gar nicht erst.
+            // Without args: the builder would otherwise read the command line as
+            // configuration, and "--satellite" without a value is not a valid
+            // pair for it; the service would not start at all.
             HostApplicationBuilder builder = Host.CreateApplicationBuilder();
 
             builder.Services.AddWindowsService(options =>
@@ -162,9 +159,9 @@ class Program
 
             IHost host = builder.Build();
 
-            // Vor dem Lauf, damit die Verbindungen stehen, sobald die
-            // Dienstverwaltung "gestartet" meldet. Der Aufruf kehrt sofort
-            // zurueck - das Verbinden selbst laeuft im Hintergrund.
+            // Before Run, so that the connections are up as soon as the Service
+            // Control Manager reports "started". The call returns immediately;
+            // connecting runs in the background.
             runtime.Start();
 
             host.Run();
@@ -184,7 +181,7 @@ class Program
         System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version?.ToString() ?? string.Empty;
 #endif
 
-    /// <summary>Eine Zeile ins Protokoll, ohne dass etwas schiefging.</summary>
+    /// <summary>Writes an informational line to the log.</summary>
     private static void Note(string text)
     {
         try
@@ -193,7 +190,7 @@ class Program
         }
         catch (Exception)
         {
-            // Protokollieren darf nie selbst zum Problem werden
+            // Logging must never become a problem of its own.
         }
     }
 
@@ -205,7 +202,7 @@ class Program
         }
         catch (Exception)
         {
-            // Protokollieren darf nie selbst zum Problem werden
+            // Logging must never become a problem of its own.
         }
     }
 

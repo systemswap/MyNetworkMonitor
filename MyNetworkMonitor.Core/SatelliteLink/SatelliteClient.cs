@@ -7,25 +7,33 @@ using MyNetworkMonitor.Core.Network;
 
 namespace MyNetworkMonitor.Core.SatelliteLink
 {
-    /// <summary>Was der Satellit gerade tut - fuer die Anzeige.</summary>
+    /// <summary>What the satellite connection is doing, for the display.</summary>
     public enum SatelliteLinkState
     {
+        /// <summary>Not connected and not trying to.</summary>
         Idle,
+
+        /// <summary>A connection attempt is in progress.</summary>
         Connecting,
+
+        /// <summary>Connected, but the main scanner has not approved this satellite yet.</summary>
         WaitingForApproval,
+
+        /// <summary>Connected and approved.</summary>
         Connected,
+
+        /// <summary>The last attempt failed; a retry follows.</summary>
         Failed
     }
 
     /// <summary>
-    /// Die Seite des Satelliten: verbindet sich hinaus zu einem Hauptscanner
-    /// und haelt die Verbindung offen.
+    /// The satellite side: connects out to a main scanner and keeps the
+    /// connection open.
     /// <para>
-    /// Ausgehend, weil damit keine Freigabe in das fremde Segment hinein
-    /// noetig ist und der Satellit selbst auf nichts lauscht - siehe
-    /// SATELLIT.md, Abschnitt 1. Der Hauptscanner darf seine Adresse wechseln,
-    /// solange sein Name gleich bleibt; wiedererkannt wird er ohnehin am
-    /// Fingerabdruck.
+    /// Outgoing, because then no firewall opening into the remote segment is
+    /// needed and the satellite itself listens on nothing, see SATELLIT.md,
+    /// section 1. The main scanner may change its address as long as its name
+    /// stays the same; it is recognized by its fingerprint anyway.
     /// </para>
     /// </summary>
     public sealed class SatelliteClient : IAsyncDisposable
@@ -37,6 +45,11 @@ namespace MyNetworkMonitor.Core.SatelliteLink
         private CancellationTokenSource? _cts;
         private Task? _loop;
 
+        /// <summary>Creates the client; it connects only after <see cref="Start"/>.</summary>
+        /// <param name="certificate">Own certificate with private key, presented to the main scanner.</param>
+        /// <param name="ownName">Name reported to the main scanner; empty means the machine name.</param>
+        /// <param name="ownVersion">Own application version.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="certificate"/> is null.</exception>
         public SatelliteClient(X509Certificate2 certificate, string ownName, string ownVersion)
         {
             _certificate = certificate ?? throw new ArgumentNullException(nameof(certificate));
@@ -44,59 +57,61 @@ namespace MyNetworkMonitor.Core.SatelliteLink
             _ownVersion = ownVersion ?? string.Empty;
         }
 
-        /// <summary>Zustandsaenderung samt Klartext fuer die Anzeige.</summary>
+        /// <summary>State change with plain text for the display.</summary>
         public event EventHandler<(SatelliteLinkState State, string Text)>? StateChanged;
 
         /// <summary>
-        /// Der Fingerabdruck des Hauptscanners, wie er beim ersten
-        /// erfolgreichen Verbinden gemerkt wurde. Leer heisst: noch keiner -
-        /// dann wird der naechste uebernommen (Vertrauen beim ersten Mal).
+        /// The fingerprint of the main scanner, as remembered on the first
+        /// successful connection. Empty means none yet; the next one is then
+        /// adopted (trust on first use).
         /// </summary>
         public string PinnedFingerprint { get; set; } = string.Empty;
 
-        /// <summary>Meldet sich, wenn ein Fingerabdruck neu uebernommen wurde.</summary>
+        /// <summary>Raised when a fingerprint has been newly adopted.</summary>
         public event EventHandler<string>? FingerprintPinned;
 
         /// <summary>
-        /// Fuehrt einen Auftrag aus und liefert den gefundenen Bestand als
-        /// JSON zurueck.
+        /// Runs a job and returns the devices found as JSON.
         /// <para>
-        /// Als Rueckruf und nicht als Abhaengigkeit: der Transport soll die
-        /// Scan-Engine nicht kennen. So bleibt er fuer sich testbar, und wer
-        /// ihn benutzt, entscheidet, was ein Auftrag bewirkt.
+        /// A callback rather than a dependency: the transport must not know the
+        /// scan engine. It stays testable on its own, and the code using it
+        /// decides what a job does.
         /// </para>
         /// </summary>
         public Func<string, IProgress<ProgressPayload>, CancellationToken, Task<string>>? JobRunner { get; set; }
 
         /// <summary>
-        /// Die gemeinsame Auftragsverwaltung. Gemeinsam ueber alle Empfaenger:
-        /// nur so laesst sich "einer zur Zeit" halten und beantworten, wer
-        /// abbrechen darf.
+        /// The shared job management. Shared across all main scanners: only
+        /// then can "one at a time" be enforced and the question of who may
+        /// cancel be answered.
         /// </summary>
         public SatelliteJobHost Jobs { get; set; } = new();
 
         /// <summary>
-        /// Wie dieser Empfaenger heisst - der Hauptscanner, mit dem diese
-        /// Verbindung spricht. Dient als Kennung des Auftraggebers.
+        /// Key of the main scanner this connection talks to. Serves as the
+        /// identity of the job's owner.
         /// </summary>
         private string _receiverKey = string.Empty;
 
         /// <summary>
-        /// Ob der Handschlag beim letzten Versuch durchging. Entscheidet, ob
-        /// nach einem Abbruch sofort oder mit gewachsenem Abstand erneut
-        /// versucht wird.
+        /// Whether the handshake succeeded on the last attempt. Decides whether
+        /// a retry after a disconnect happens right away or after a grown delay.
         /// </summary>
         private bool _wasConnected;
 
-        /// <summary>Laeuft gerade ein Auftrag - und welcher.</summary>
+        /// <summary>Identifier of the running job, or <c>null</c>.</summary>
         public string? CurrentJobId => Jobs.CurrentJobId;
 
+        /// <summary>The current connection state.</summary>
         public SatelliteLinkState State { get; private set; } = SatelliteLinkState.Idle;
 
         /// <summary>
-        /// Verbindet und haelt die Verbindung, mit wachsendem Abstand nach
-        /// einem Fehlschlag. Kehrt erst zurueck, wenn abgebrochen wird.
+        /// Connects in the background and keeps the connection, with a growing
+        /// delay after failures. Returns immediately; the loop runs until
+        /// <see cref="Stop"/>.
         /// </summary>
+        /// <param name="host">Host name or address of the main scanner.</param>
+        /// <param name="port">TCP port of the main scanner.</param>
         public void Start(string host, int port)
         {
             Stop();
@@ -106,6 +121,7 @@ namespace MyNetworkMonitor.Core.SatelliteLink
             _loop = Task.Run(() => ConnectLoopAsync(host, port, _cts.Token));
         }
 
+        /// <summary>Stops the connection loop and reports <see cref="SatelliteLinkState.Idle"/>.</summary>
         public void Stop()
         {
             try { _cts?.Cancel(); } catch { }
@@ -114,9 +130,9 @@ namespace MyNetworkMonitor.Core.SatelliteLink
 
         private async Task ConnectLoopAsync(string host, int port, CancellationToken token)
         {
-            // Wachsender Abstand: ein Hauptscanner, der aus ist, soll nicht
-            // sekuendlich angeklopft bekommen. Deckel bei einer Minute, damit
-            // das Wiederkommen nicht ewig dauert.
+            // Growing delay: a main scanner that is switched off should not be
+            // contacted every second. Capped at one minute so that reconnecting
+            // does not take forever.
             TimeSpan wait = TimeSpan.FromSeconds(2);
             TimeSpan maxWait = TimeSpan.FromMinutes(1);
 
@@ -128,8 +144,8 @@ namespace MyNetworkMonitor.Core.SatelliteLink
                 {
                     await ConnectOnceAsync(host, port, token);
 
-                    // Sauber getrennt: sofort wieder versuchen, das war kein
-                    // Fehler.
+                    // Disconnected cleanly: retry right away, that was not an
+                    // error.
                     wait = TimeSpan.FromSeconds(2);
                 }
                 catch (OperationCanceledException)
@@ -140,12 +156,11 @@ namespace MyNetworkMonitor.Core.SatelliteLink
                 {
                     Report(SatelliteLinkState.Failed, ex.Message);
 
-                    // Stand die Verbindung schon einmal, faengt der Abstand
-                    // wieder von vorne an. Sonst wartete ein Satellit, der
-                    // stundenlang verbunden war, nach einem Neustart des
-                    // Hauptscanners bis zu einer Minute - obwohl der Weg
-                    // nachweislich frei ist und nur die Gegenstelle kurz weg
-                    // war.
+                    // If the connection had been up, the delay starts over.
+                    // Otherwise a satellite that was connected for hours would
+                    // wait up to a minute after a restart of the main scanner,
+                    // although the path is known to be clear and only the peer
+                    // was briefly gone.
                     if (_wasConnected) wait = TimeSpan.FromSeconds(2);
                 }
 
@@ -187,10 +202,9 @@ namespace MyNetworkMonitor.Core.SatelliteLink
                     using X509Certificate2 presented = new(certificate);
                     seenFingerprint = SatelliteIdentity.Fingerprint(presented);
 
-                    // Vertrauen beim ersten Mal: ist noch keiner gemerkt, wird
-                    // dieser uebernommen. Danach muss er passen - ein anderer
-                    // Schluessel ist ein anderer Gegenueber, egal wie der Name
-                    // lautet.
+                    // Trust on first use: if none is remembered yet, this one is
+                    // adopted. After that it must match; a different key is a
+                    // different peer, whatever its name.
                     if (string.IsNullOrEmpty(PinnedFingerprint)) return true;
 
                     return string.Equals(PinnedFingerprint, seenFingerprint, StringComparison.OrdinalIgnoreCase);
@@ -205,11 +219,10 @@ namespace MyNetworkMonitor.Core.SatelliteLink
 
             MessageChannel channel = new(tls);
 
-            // Der Standort wird hier erhoben und nicht einmal beim Start:
-            // dieser Weg wird bei jedem Verbindungsaufbau durchlaufen, auch
-            // beim Wiederverbinden nach einem Abbruch. Damit stimmen die
-            // Adressen drueben nach einem Neustart oder einer neuen
-            // DHCP-Lease von selbst wieder.
+            // The site is collected here and not once at start: this path runs
+            // on every connection, including reconnects after a disconnect. The
+            // addresses on the main scanner are thus correct again after a
+            // restart or a new DHCP lease.
             SiteInfo site = SiteInfo.Read();
 
             await channel.SendAsync(new SatelliteMessage
@@ -233,7 +246,7 @@ namespace MyNetworkMonitor.Core.SatelliteLink
             SatelliteMessage? answer = await channel.ReceiveAsync(token)
                 ?? throw new AuthenticationException("The main scanner closed the connection without answering.");
 
-            // Ab hier stand die Verbindung wirklich - der Handschlag ist durch.
+            // From here on the connection is really up: the handshake is done.
             _wasConnected = true;
 
             switch (answer.Type)
@@ -258,20 +271,21 @@ namespace MyNetworkMonitor.Core.SatelliteLink
         }
 
         /// <summary>
-        /// Haelt die Verbindung und beantwortet, was hereinkommt. Endet, wenn
-        /// die Gegenstelle auflegt.
+        /// Keeps the connection and answers what comes in. Ends when the peer
+        /// closes the connection.
         /// </summary>
         private async Task PumpAsync(MessageChannel channel, CancellationToken token)
         {
-            // Lebendpruefung. Ohne sie merkt der Satellit nicht, wenn der
-            // Hauptscanner verschwindet: stirbt der Rechner drueben abrupt -
-            // Neustart, Stromausfall, gekapptes Kabel -, kommt weder ein FIN
-            // noch ein RST an. Die Verbindung ist halboffen, das Lesen unten
-            // wartet unbegrenzt, und der Satellit haelt sich fuer verbunden.
-            // Erst ein Druck auf "Connect" half. Genau so gemeldet.
+            // Liveness check. Without it the satellite does not notice when the
+            // main scanner disappears: if the remote machine dies abruptly
+            // (restart, power failure, cut cable), neither a FIN nor an RST
+            // arrives. The connection is half-open, the read below waits
+            // forever, and the satellite considers itself connected until
+            // "Connect" is pressed by hand.
             //
-            // Ping und Pong gab es schon, aber beide Seiten haben nur
-            // geantwortet und nie gefragt - die Mechanik lief also leer.
+            // Answering pings is not enough: a side that only answers and
+            // never asks detects nothing. The satellite therefore sends pings
+            // itself and watches for silence.
             using CancellationTokenSource dead = CancellationTokenSource.CreateLinkedTokenSource(token);
 
             long lastHeard = DateTimeOffset.UtcNow.Ticks;
@@ -284,9 +298,9 @@ namespace MyNetworkMonitor.Core.SatelliteLink
             }
             catch (OperationCanceledException) when (!token.IsCancellationRequested)
             {
-                // Nicht der Nutzer hat abgebrochen, sondern die Lebendpruefung
-                // hat aufgegeben. Als Fehler melden, damit der Verbindungs-
-                // kreislauf es erneut versucht, statt sich zu beenden.
+                // Not a cancellation by the caller: the liveness check gave up.
+                // Reported as an error so that the connection loop retries
+                // instead of ending.
                 throw new TimeoutException(
                     "The main scanner stopped answering - reconnecting.");
             }
@@ -297,19 +311,19 @@ namespace MyNetworkMonitor.Core.SatelliteLink
             }
         }
 
-        /// <summary>Wie oft ein Lebenszeichen geschickt wird.</summary>
+        /// <summary>How often a keep-alive is sent.</summary>
         private static readonly TimeSpan HeartbeatEvery = TimeSpan.FromSeconds(20);
 
         /// <summary>
-        /// Nach welcher Stille die Verbindung als tot gilt. Grosszuegiger als
-        /// der Abstand der Lebenszeichen, damit ein langer Scan drueben oder
-        /// eine kurze Netzstoerung nicht sofort zum Abbruch fuehrt.
+        /// Silence after which the connection counts as dead. More generous
+        /// than the keep-alive interval so that a long scan on the other side
+        /// or a brief network disruption does not cause an immediate disconnect.
         /// </summary>
         private static readonly TimeSpan SilenceLimit = TimeSpan.FromSeconds(70);
 
         /// <summary>
-        /// Schickt regelmaessig ein Lebenszeichen und bricht ab, wenn zu lange
-        /// nichts zurueckkam.
+        /// Sends a keep-alive at regular intervals and cancels when nothing has
+        /// come back for too long.
         /// </summary>
         private static async Task HeartbeatAsync(
             MessageChannel channel, Func<long> lastHeard, CancellationTokenSource dead)
@@ -326,8 +340,8 @@ namespace MyNetworkMonitor.Core.SatelliteLink
                         return;
                     }
 
-                    // Der Kanal buendelt Schreibvorgaenge selbst, ein Ping
-                    // mitten in einem Ergebnis kann also nichts zerreissen.
+                    // The channel serializes writes itself, so a ping in the
+                    // middle of a result cannot tear anything apart.
                     await channel.SendAsync(new SatelliteMessage
                     {
                         Type = MessageType.Ping,
@@ -338,7 +352,7 @@ namespace MyNetworkMonitor.Core.SatelliteLink
             catch (OperationCanceledException) { }
             catch (Exception)
             {
-                // Schreiben gescheitert heisst: die Verbindung ist hin.
+                // A failed write means the connection is gone.
                 try { dead.Cancel(); } catch (Exception) { }
             }
         }
@@ -351,9 +365,9 @@ namespace MyNetworkMonitor.Core.SatelliteLink
             while (!token.IsCancellationRequested)
             {
                 SatelliteMessage? message = await channel.ReceiveAsync(token);
-                if (message is null) return; // Gegenstelle hat aufgelegt
+                if (message is null) return; // peer closed the connection
 
-                // Jede Nachricht zaehlt als Lebenszeichen, nicht nur ein Pong.
+                // Every message counts as a sign of life, not only a pong.
                 heard();
 
                 switch (message.Type)
@@ -367,8 +381,8 @@ namespace MyNetworkMonitor.Core.SatelliteLink
                         break;
 
                     case MessageType.Welcome:
-                        // Freigabe kann nachtraeglich kommen, waehrend die
-                        // Verbindung schon steht.
+                        // Approval can arrive later, while the connection is
+                        // already up.
                         Report(SatelliteLinkState.Connected, "Approved.");
                         break;
 
@@ -381,11 +395,10 @@ namespace MyNetworkMonitor.Core.SatelliteLink
                         break;
 
                     case MessageType.Cancel:
-                        // Wer abbrechen darf, entscheidet die Auftragsverwaltung:
-                        // der Auftraggeber immer, jeder andere nur, wenn es
-                        // erlaubt ist. Ein abgelehnter Abbruch wird beantwortet
-                        // statt verschluckt - sonst drueckt jemand auf Stopp und
-                        // nichts geschieht.
+                        // The job management decides who may cancel: the owner
+                        // always, anyone else only if allowed. A refused cancel
+                        // is answered rather than swallowed; otherwise pressing
+                        // Stop would do nothing visible.
                         if (!Jobs.TryCancel(message.JobId, _receiverKey, out string refused))
                         {
                             await channel.SendAsync(new SatelliteMessage
@@ -405,11 +418,11 @@ namespace MyNetworkMonitor.Core.SatelliteLink
         }
 
         /// <summary>
-        /// Nimmt einen Auftrag an und laesst ihn im Hintergrund laufen.
+        /// Accepts a job and runs it in the background.
         /// <para>
-        /// Im Hintergrund, damit die Verbindung waehrenddessen ansprechbar
-        /// bleibt: sonst kaeme waehrend eines langen Scans weder ein Abbruch
-        /// noch ein Lebenszeichen durch.
+        /// In the background so that the connection stays responsive: otherwise
+        /// neither a cancel nor a keep-alive would get through during a long
+        /// scan.
         /// </para>
         /// </summary>
         private async Task StartJobAsync(MessageChannel channel, SatelliteMessage message, CancellationToken token)
@@ -455,8 +468,8 @@ namespace MyNetworkMonitor.Core.SatelliteLink
                 {
                     Progress<ProgressPayload> progress = new(p =>
                     {
-                        // Fortschritt ist fluechtig: geht er verloren, fehlt nur
-                        // die Anzeige. Darum ohne Warten und ohne Aufhebens.
+                        // Progress is transient: if it is lost, only the display
+                        // misses an update. Hence fire-and-forget.
                         _ = channel.SendAsync(new SatelliteMessage
                         {
                             Type = MessageType.Progress,
@@ -468,10 +481,9 @@ namespace MyNetworkMonitor.Core.SatelliteLink
 
                     string devices = await JobRunner(message.Text ?? string.Empty, progress, jobCts.Token);
 
-                    // Auch ein abgebrochener Auftrag liefert, was er bis dahin
-                    // gefunden hat - nur eben als "unvollstaendig" ausgewiesen.
-                    // Ob abgebrochen wurde, sagt der Token: der Auftrag laeuft
-                    // an genau dieser Quelle.
+                    // A cancelled job also delivers what it has found so far,
+                    // marked as partial. The token tells whether it was
+                    // cancelled: the job runs on exactly this source.
                     await channel.SendAsync(new SatelliteMessage
                     {
                         Type = MessageType.Result,
@@ -483,8 +495,8 @@ namespace MyNetworkMonitor.Core.SatelliteLink
                 }
                 catch (OperationCanceledException)
                 {
-                    // Hierher kommt nur noch, wer abbricht, bevor ueberhaupt
-                    // etwas zusammenkam - dann gibt es auch nichts zu schicken.
+                    // Reached only when cancelled before anything was collected;
+                    // then there is nothing to send.
                     await TrySend(channel, new SatelliteMessage
                     {
                         Type = MessageType.Cancelled,
@@ -510,8 +522,8 @@ namespace MyNetworkMonitor.Core.SatelliteLink
         }
 
         /// <summary>
-        /// Sendet, ohne dass ein Fehlschlag den Aufrufer stoert - fuer
-        /// Abschlussmeldungen, bei denen die Verbindung schon weg sein kann.
+        /// Sends without a failure disturbing the caller; for final messages
+        /// where the connection may already be gone.
         /// </summary>
         private static async Task TrySend(MessageChannel channel, SatelliteMessage message)
         {
@@ -524,6 +536,7 @@ namespace MyNetworkMonitor.Core.SatelliteLink
             StateChanged?.Invoke(this, (state, text));
         }
 
+        /// <summary>Stops the client and waits for the connection loop to end.</summary>
         public async ValueTask DisposeAsync()
         {
             Stop();

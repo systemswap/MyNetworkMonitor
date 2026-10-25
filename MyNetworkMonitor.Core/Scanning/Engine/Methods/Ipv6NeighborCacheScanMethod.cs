@@ -5,20 +5,20 @@ using MyNetworkMonitor.Core.Services;
 namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 {
     /// <summary>
-    /// Liest die Nachbarschaftstabelle des Betriebssystems aus - das
-    /// IPv6-Gegenstueck zur ARP-Tabelle.
+    /// Reads the operating system's neighbor table, the IPv6 counterpart of
+    /// the ARP table.
     /// <para>
-    /// Steht bewusst als erstes der sechs Verfahren: es sendet kein einziges
-    /// Paket, braucht keine Rechte und liefert sofort. Alles, womit der eigene
-    /// Rechner in letzter Zeit gesprochen hat, steht schon da.
+    /// Deliberately the first of the six methods: it sends not a single
+    /// packet, needs no privileges and returns immediately. Everything the
+    /// local machine has recently exchanged data with is already listed.
     /// </para>
     /// <para>
-    /// Die Tabelle traegt unter IPv6 zwei Angaben, die es unter IPv4 nicht
-    /// gibt und die hier ausgewertet werden: den Zustand des Eintrags und das
-    /// Router-Merkmal. Der Zustand trennt echte Nachbarn von blossen
-    /// Anfrageversuchen - ein Eintrag im Zustand <c>INCOMPLETE</c> bezeugt nur,
-    /// dass <em>wir</em> gefragt haben, nicht dass jemand da ist. Ihn als
-    /// gefundenes Geraet zu melden waere eine Erfindung.
+    /// Under IPv6 the table carries two pieces of information that do not
+    /// exist under IPv4 and are evaluated here: the entry state and the
+    /// router flag. The state separates real neighbors from mere resolution
+    /// attempts; an entry in state <c>INCOMPLETE</c> only shows that the
+    /// local machine has asked, not that anyone is there. Reporting it as a
+    /// found device would be a fabrication.
     /// </para>
     /// </summary>
     public sealed class Ipv6NeighborCacheScanMethod : Ipv6MethodBase
@@ -37,7 +37,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 
         protected override Ipv6Discovery Discovery => Ipv6Discovery.NeighborCache;
 
-        /// <summary>Zuhoeren statt fragen - es geht kein Paket hinaus.</summary>
+        /// <summary>Listening rather than asking; no packet is sent.</summary>
         public override bool IsPassive => true;
 
         public override ScanMethodAvailability CheckAvailability(ScanContext context)
@@ -67,18 +67,17 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 
             int reported = Report(context, segments, entries);
 
-            // Die Tabelle ist eine Momentaufnahme: gelesen ist gelesen, es gibt
-            // keinen Fortschritt zu zeigen. Der Endstand steht trotzdem in der
-            // Anzeige, damit man sieht, dass das Verfahren gelaufen ist - ein
-            // Verfahren ohne Zahlen sieht aus wie eines, das uebersprungen wurde.
+            // The table is a snapshot: once read, there is no progress to
+            // show. The final count is still reported, so that it is visible
+            // that the method ran; a method without numbers looks like one
+            // that was skipped.
             context.ReportProgress(entries.Count, reported, entries.Count);
         }
 
         /// <summary>
-        /// Meldet alle brauchbaren IPv6-Eintraege und liefert deren Anzahl.
-        /// Ausgelagert, weil der Multicast-Ping dieselbe Auswertung braucht:
-        /// ohne Rohsocket sammelt er seine Antworten ebenfalls aus dieser
-        /// Tabelle ein.
+        /// Reports all usable IPv6 entries and returns their number. A separate
+        /// method because the multicast ping needs the same evaluation: without
+        /// a raw socket, it also collects its answers from this table.
         /// </summary>
         internal static int Report(
             ScanContext context,
@@ -95,18 +94,18 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             {
                 if (entry.Address.AddressFamily != System.Net.Sockets.AddressFamily.InterNetworkV6) continue;
 
-                // Nur Eintraege, hinter denen tatsaechlich ein Geraet steht.
+                // Only entries that actually stand for a device.
                 if (!entry.IsUsable) continue;
 
-                // Multicast-Adressen stehen in der Tabelle, sind aber kein
-                // Geraet: ff02::1 ist die Ansprache aller, nicht eines.
+                // Multicast addresses appear in the table but are not devices:
+                // ff02::1 addresses everyone, not one.
                 IpAddressInfo info = IpAddressAnalyzer.Analyze(entry.Address);
                 if (info.Scope is IpAddressScope.Multicast
                                 or IpAddressScope.Loopback
                                 or IpAddressScope.Unspecified) continue;
 
-                // Ein Eintrag ohne zugeordneten Adapter gehoert zu einem
-                // Segment, das gar nicht gescannt werden sollte.
+                // An entry without a matching interface belongs to a segment
+                // that is not to be scanned.
                 if (!byIndex.TryGetValue(entry.InterfaceIndex, out Ipv6Segment? segment))
                 {
                     continue;
@@ -117,8 +116,8 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                     ["Neighbour state"] = entry.State.ToString()
                 };
 
-                // Wer im Segment routet, ist die erste Frage bei jeder
-                // IPv6-Untersuchung - und die Tabelle beantwortet sie umsonst.
+                // Who routes on the segment is the first question of any IPv6
+                // investigation, and the table answers it for free.
                 if (entry.IsRouter) details["Role"] = "Router (announces itself on this segment)";
 
                 context.Report(new DeviceObservation
@@ -127,9 +126,9 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                     Address = info,
                     Mac = entry.Mac ?? info.DerivedMac,
 
-                    // Der Eintrag bezeugt, dass das Geraet einmal geantwortet
-                    // hat - nicht, dass es jetzt antwortet. Nur ein frisch
-                    // bestaetigter Eintrag gilt als erreichbar.
+                    // The entry shows that the device answered at some point,
+                    // not that it answers now. Only a recently confirmed entry
+                    // counts as reachable.
                     IsResponding = entry.State is NeighborState.Reachable,
 
                     GroupDescription = segment.Scope.Scope.GroupDescription,

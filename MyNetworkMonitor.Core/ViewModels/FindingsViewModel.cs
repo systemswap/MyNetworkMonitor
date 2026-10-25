@@ -6,83 +6,81 @@ using MyNetworkMonitor.Core.Network;
 
 namespace MyNetworkMonitor.Core.ViewModels
 {
-    /// <summary>Wie dringend ein Befund ist.</summary>
+    /// <summary>How urgent a finding is.</summary>
     public enum FindingSeverity
     {
-        /// <summary>Gut zu wissen, kein Handlungsdruck.</summary>
+        /// <summary>Good to know; no action required.</summary>
         Note = 0,
 
-        /// <summary>Sollte angesehen werden.</summary>
+        /// <summary>Should be looked at.</summary>
         Warning = 1,
 
-        /// <summary>Etwas ist kaputt oder offen und gehoert abgestellt.</summary>
+        /// <summary>Something is broken or exposed and should be fixed.</summary>
         Critical = 2
     }
 
     /// <summary>
-    /// Wozu ein Befund gehoert. Gruppiert die Liste und laesst sie wachsen,
-    /// ohne dass sie unuebersichtlich wird.
+    /// The area a finding belongs to. Groups the list so it stays clear as it
+    /// grows.
     /// <para>
-    /// Die IPv6-Kategorien stehen hier bereits, obwohl die Verfahren dahinter
-    /// noch fehlen: <see cref="RouterAdvertisement"/> und
-    /// <see cref="Reachability"/> sind der Grund, warum es diese Seite gibt.
-    /// Sie jetzt zu benennen kostet nichts und haelt die Gliederung stabil -
-    /// nachtraeglich eingefuegte Kategorien verschieben sonst die ganze
-    /// Anzeige.
+    /// <see cref="RouterAdvertisement"/> has no rule that produces findings
+    /// yet. It is defined anyway so the order of the categories stays stable;
+    /// categories inserted later would shift the whole display.
     /// </para>
     /// </summary>
     public enum FindingCategory
     {
-        /// <summary>Adressen und Namen: doppelt vergeben, widersprüchlich, verwaist.</summary>
+        /// <summary>Addresses and names: duplicate, contradictory, orphaned.</summary>
         Addressing,
 
-        /// <summary>Dienste und Ports.</summary>
+        /// <summary>Services and ports.</summary>
         Services,
 
-        /// <summary>Der eigene Rechner - Adapter, Namensserver, Rechte.</summary>
+        /// <summary>The local computer: adapters, DNS servers, privileges.</summary>
         LocalMachine,
 
-        /// <summary>Router Advertisements und Praefixe. Kommt mit dem RA-Mitschnitt.</summary>
+        /// <summary>Router advertisements and prefixes.</summary>
         RouterAdvertisement,
 
-        /// <summary>Erreichbarkeit von aussen, NAT und Firewall-Luecken.</summary>
+        /// <summary>Reachability from outside, NAT and firewall gaps.</summary>
         Reachability
     }
 
     /// <summary>
-    /// Ein einzelner Befund. Bewusst flach und ohne Bezug zur Oberflaeche - was
-    /// die Regeln finden, soll sich auch ausgeben oder abspeichern lassen.
+    /// A single finding. Deliberately flat and independent of the UI, so the
+    /// rule results can also be printed or saved.
     /// </summary>
     public sealed class Finding
     {
+        /// <summary>How urgent the finding is.</summary>
         public required FindingSeverity Severity { get; init; }
 
+        /// <summary>The area the finding belongs to.</summary>
         public required FindingCategory Category { get; init; }
 
         /// <summary>
-        /// Welche Adressfamilie betroffen ist, oder <c>null</c>, wenn es keine
-        /// Rolle spielt. Traegt die Farbgebung des Entwurfs - Tuerkis fuer
-        /// IPv4, Indigo fuer IPv6 - auch in diese Liste, und macht die
-        /// IPv6-Befunde spaeter auf einen Blick erkennbar.
+        /// The affected address family, or <c>null</c> if it does not matter.
+        /// Carries the colour scheme (teal for IPv4, indigo for IPv6) into this
+        /// list so IPv6 findings are recognisable at a glance.
         /// </summary>
         public IpFamily? Family { get; init; }
 
-        /// <summary>Kurzbezeichnung der Regel, etwa "Duplicate address".</summary>
+        /// <summary>Short name of the rule, e.g. "Duplicate address".</summary>
         public required string Title { get; init; }
 
-        /// <summary>Was konkret gefunden wurde, in einem Satz.</summary>
+        /// <summary>What exactly was found, in one sentence.</summary>
         public required string Detail { get; init; }
 
-        /// <summary>Woran es haengt - Geraetename oder Adapter.</summary>
+        /// <summary>What it concerns: device name or adapter.</summary>
         public string Subject { get; init; } = string.Empty;
 
         /// <summary>
-        /// Das betroffene Geraet, falls es eines gibt. Daran haengt der Sprung
-        /// in die Geraeteliste; ein Befund, den man nicht aufsuchen kann, ist
-        /// nur halb so viel wert.
+        /// The affected device, if any. Used to jump to the device list; a
+        /// finding that cannot be located is of limited use.
         /// </summary>
         public Device? Device { get; init; }
 
+        /// <summary>The severity as upper-case label.</summary>
         public string SeverityText => Severity switch
         {
             FindingSeverity.Critical => "CRITICAL",
@@ -90,6 +88,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             _ => "NOTE"
         };
 
+        /// <summary>The category as display label.</summary>
         public string CategoryText => Category switch
         {
             FindingCategory.Addressing => "Addressing",
@@ -100,7 +99,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             _ => string.Empty
         };
 
-        /// <summary>Kuerzel der Adressfamilie fuer die schmale Spalte.</summary>
+        /// <summary>Short label of the address family for the narrow column.</summary>
         public string FamilyText => Family switch
         {
             IpFamily.IPv4 => "v4",
@@ -112,30 +111,34 @@ namespace MyNetworkMonitor.Core.ViewModels
     }
 
     /// <summary>
-    /// Sammelt alle Befunde an einer Stelle.
+    /// Collects all findings in one place.
     /// <para>
-    /// Die Regeln selbst laufen anderswo - Doppelbelegungen im
-    /// <see cref="DuplicateDetector"/>, die Adapterpruefung in
-    /// <see cref="NetworkAdapters"/>. Hier werden sie nur eingesammelt und
-    /// nach Dringlichkeit sortiert. Verteilt ueber die Gerätetabelle findet
-    /// man einen Befund naemlich nur, wenn man ohnehin schon weiss, dass es
-    /// ihn gibt.
+    /// The detection itself happens elsewhere: address conflicts in the
+    /// <see cref="DuplicateDetector"/>, the adapter check in
+    /// <see cref="NetworkAdapters"/>. Here they are only collected and sorted
+    /// by urgency. Spread across the device table, a finding is only noticed
+    /// by someone who already knows it exists.
     /// </para>
     /// </summary>
     public sealed partial class FindingsViewModel : ObservableObject
     {
         private readonly DeviceStore _store;
 
+        /// <summary>Creates the view model.</summary>
+        /// <param name="store">The device store whose devices are evaluated.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="store"/> is <see langword="null"/>.</exception>
         public FindingsViewModel(DeviceStore store)
         {
             _store = store ?? throw new ArgumentNullException(nameof(store));
         }
 
+        /// <summary>The findings shown, sorted by severity, title and subject.</summary>
         public ObservableCollection<Finding> Findings { get; } = [];
 
+        /// <summary>The selected finding.</summary>
         [ObservableProperty] private Finding? _selected;
 
-        /// <summary>Nur das Dringende zeigen.</summary>
+        /// <summary>Shows critical findings only.</summary>
         [ObservableProperty] private bool _criticalOnly;
 
         partial void OnCriticalOnlyChanged(bool value) => Refresh();
@@ -144,20 +147,22 @@ namespace MyNetworkMonitor.Core.ViewModels
         [ObservableProperty] private int _warningCount;
         [ObservableProperty] private int _noteCount;
 
-        /// <summary>Wann die Regeln zuletzt gelaufen sind.</summary>
+        /// <summary>When the rules last ran.</summary>
         [ObservableProperty] private DateTimeOffset _lastRun;
 
+        /// <summary>At least one finding is shown.</summary>
         public bool HasFindings => Findings.Count > 0;
 
         /// <summary>
-        /// Was oben steht, wenn nichts gefunden wurde. Ein leerer Bildschirm
-        /// liesse offen, ob geprueft wurde oder ob nur nichts angezeigt wird.
+        /// The text shown when nothing was found. An empty screen would leave
+        /// open whether a check ran or whether nothing is displayed.
         /// </summary>
         public string EmptyText =>
             LastRun == default
                 ? "Nothing checked yet. Run a scan, then the rules run over the result."
                 : "No findings. Every rule ran and none of them matched.";
 
+        /// <summary>Runs all rules over the current devices and adapters and rebuilds the list and counters.</summary>
         [RelayCommand]
         public void Refresh()
         {
@@ -198,11 +203,12 @@ namespace MyNetworkMonitor.Core.ViewModels
             OnPropertyChanged(nameof(EmptyText));
         }
 
-        // ------------------------------------------------------- Die Regeln
+        // ------------------------------------------------------------- Rules
 
         /// <summary>
-        /// Doppelt vergebene Adressen und Namen. Der Detektor hat sie am Ende
-        /// des Laufs bereits bestimmt - hier werden sie nur uebersetzt.
+        /// Duplicate addresses and names. The detector has already determined
+        /// them at the end of the run; here they are only translated into
+        /// findings.
         /// </summary>
         private void CollectDuplicates(List<Finding> found)
         {
@@ -213,8 +219,8 @@ namespace MyNetworkMonitor.Core.ViewModels
                 {
                     found.Add(new Finding
                     {
-                        // Eine doppelte Adresse kostet Pakete, ein doppelter
-                        // Name kostet Nerven - das ist nicht dasselbe.
+                        // A duplicate address loses packets, a duplicate name
+                        // only causes confusion; the severity differs.
                         Severity = device.Conflicts.HasFlag(DeviceConflict.Address)
                             ? FindingSeverity.Critical
                             : FindingSeverity.Warning,
@@ -238,12 +244,11 @@ namespace MyNetworkMonitor.Core.ViewModels
             "Duplicate assignment";
 
         /// <summary>
-        /// Namensserver, die dieselbe Adresse verschieden beantworten.
+        /// DNS servers that answer differently for the same address.
         /// <para>
-        /// Der Befund ist nicht "der Name stimmt nicht", sondern "die Server
-        /// sind sich uneinig" - und er nennt den Server beim Namen. Ohne diese
-        /// Angabe wuesste man zwar, dass etwas klemmt, nicht aber, wo man
-        /// nachsehen muss.
+        /// The finding is not "the name is wrong" but "the servers disagree",
+        /// and it names the server. Without that, the problem would be known
+        /// but not where to look.
         /// </para>
         /// </summary>
         private void CollectDnsCrossChecks(List<Finding> found)
@@ -254,10 +259,10 @@ namespace MyNetworkMonitor.Core.ViewModels
 
                 found.Add(new Finding
                 {
-                    // Widersprechen sich die Server, loest derselbe Name je
-                    // nach Rechner etwas anderes auf - das trifft im Betrieb
-                    // sofort jemanden. Ein stummer oder verwaister Eintrag ist
-                    // ein Pflegethema und wiegt leichter.
+                    // If the servers contradict each other, the same name
+                    // resolves differently depending on the client, which
+                    // affects operation immediately. A silent or orphaned
+                    // entry is a maintenance issue and weighs less.
                     Severity = check.DistinctNames.Count > 1
                         ? FindingSeverity.Critical
                         : FindingSeverity.Warning,
@@ -273,10 +278,8 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Was an den gefundenen Diensten auffaellt. Bisher zwei Regeln, die
-        /// ohne IPv6 auskommen; die uebrigen - offene Ports ohne NAT,
-        /// abweichende Antworten je Adressfamilie - kommen mit den passiven
-        /// IPv6-Verfahren dazu.
+        /// Rules over the discovered services: SMB 1.0 still enabled, services
+        /// open over IPv6 only, and open ports on a globally routable address.
         /// </summary>
         private void CollectServices(List<Finding> found)
         {
@@ -284,8 +287,8 @@ namespace MyNetworkMonitor.Core.ViewModels
             {
                 foreach (DeviceServiceResult service in device.OpenServices)
                 {
-                    // SMB 1.0 ist seit Jahren abgekuendigt und der Weg, auf dem
-                    // WannaCry durch die Netze gelaufen ist.
+                    // SMB 1.0 is long deprecated and the route by which
+                    // WannaCry spread through networks.
                     if (string.Equals(service.ServiceName, "SMB", StringComparison.OrdinalIgnoreCase) &&
                         service.PortLog?.Contains("1.0", StringComparison.Ordinal) == true)
                     {
@@ -301,8 +304,8 @@ namespace MyNetworkMonitor.Core.ViewModels
                         });
                     }
 
-                    // Der Befund, den es ohne die Gegenueberstellung beider
-                    // Familien gar nicht gaebe.
+                    // This finding only exists because both address families
+                    // are compared.
                     if (service.IsExposedOnlyViaIpv6)
                     {
                         found.Add(new Finding
@@ -336,20 +339,19 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Mehr als ein antwortender DHCP-Server im selben Netz.
+        /// More than one DHCP server answering in the same network.
         /// <para>
-        /// Der Klassiker unter den schwer zu findenden Stoerungen: irgendwo
-        /// haengt ein mitgebrachter Router mit der falschen Seite am Netz und
-        /// verteilt Adressen. Betroffen ist immer nur, wer zufaellig zuerst von
-        /// ihm eine Antwort bekommt - darum melden sich einzelne Nutzer mit
-        /// "Internet geht nicht", waehrend eine Pruefung vom Arbeitsplatz des
-        /// Administrators nichts findet.
+        /// A classic hard-to-find fault: a privately connected router is
+        /// plugged in the wrong way round and hands out addresses. Only clients
+        /// that happen to get its answer first are affected, so individual
+        /// clients lose connectivity while a check from the administrator's
+        /// workstation finds nothing.
         /// </para>
         /// <para>
-        /// Zwei Server sind nicht immer falsch - Ausfallsicherheit wird genau so
-        /// gebaut. Darum eine Warnung und keine kritische Meldung; die
-        /// Entscheidung, ob der zweite dort hingehoert, kann nur der Betreiber
-        /// treffen. Aufgezaehlt werden sie deshalb alle beim Namen.
+        /// Two servers are not always wrong; redundancy is built exactly this
+        /// way. Hence a warning rather than a critical finding: only the
+        /// operator can decide whether the second server belongs there, so all
+        /// of them are listed by name.
         /// </para>
         /// </summary>
         private void CollectDhcpServers(List<Finding> found)
@@ -381,13 +383,12 @@ namespace MyNetworkMonitor.Core.ViewModels
                 s.ServiceName.Contains("DHCP", StringComparison.OrdinalIgnoreCase));
 
         /// <summary>
-        /// Was an den gelesenen TLS-Zertifikaten auffaellt.
+        /// Rules over the TLS certificates that were read.
         /// <para>
-        /// Ein abgelaufenes Zertifikat ist der Grund, aus dem Nutzer lernen,
-        /// Sicherheitswarnungen wegzuklicken - und danach klicken sie auch die
-        /// echte weg. Selbst ausgestellt ist bei Geraeten dagegen der Normalfall
-        /// und allein noch keine Meldung wert; erst zusammen mit dem Ablauf
-        /// wird daraus eine.
+        /// Expired certificates teach people to click away security warnings,
+        /// including the genuine ones. Self-signed certificates, on the other
+        /// hand, are normal for devices and not worth a finding on their own;
+        /// they are only mentioned together with an expiry.
         /// </para>
         /// </summary>
         private void CollectCertificates(List<Finding> found)
@@ -413,9 +414,9 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Die eigene Seite: Adapter, die sich zu viele Namensserver gezogen
-        /// haben. Kostet bei jedem fehlschlagenden Server Wartezeit und faellt
-        /// sonst nirgends auf.
+        /// The local side: adapters that have accumulated too many DNS servers.
+        /// Every failing server costs waiting time, and the problem is not
+        /// visible anywhere else.
         /// </summary>
         private static void CollectAdapters(List<Finding> found)
         {

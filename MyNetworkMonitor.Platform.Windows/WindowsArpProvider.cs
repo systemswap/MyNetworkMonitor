@@ -12,9 +12,9 @@ using MyNetworkMonitor.Core.Services;
 namespace MyNetworkMonitor.Platform.Windows
 {
     /// <summary>
-    /// Windows-Implementierung von <see cref="IArpProvider"/>.
-    /// Kapselt die plattformspezifischen ARP-Primitiven (Win32 SendARP sowie das
-    /// arp-Kommandozeilenwerkzeug), damit die Scan-Logik davon unabhängig bleibt.
+    /// Windows implementation of <see cref="IArpProvider"/>.
+    /// Encapsulates the platform-specific ARP primitives (Win32 SendARP and the
+    /// arp command-line tool) so that the scan logic stays independent of them.
     /// </summary>
     public sealed class WindowsArpProvider : IArpProvider
     {
@@ -32,7 +32,7 @@ namespace MyNetworkMonitor.Platform.Windows
 
                 int result = SendARP(BitConverter.ToInt32(ip.GetAddressBytes(), 0), 0, macAddr, ref macAddrLen);
                 if (result != 0)
-                    return (string?)null; // keine Auflösung möglich
+                    return (string?)null; // address could not be resolved
 
                 return string.Join("-", macAddr.Take((int)macAddrLen).Select(b => b.ToString("x2")));
             }, cancellationToken);
@@ -47,11 +47,11 @@ namespace MyNetworkMonitor.Platform.Windows
             {
                 var pieces = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
 
-                // "3 Wortstuecke" allein reicht nicht - Ueberschriften- und
-                // Interface-Zeilen ("Interface: 192.168.1.5 --- 0xc") koennen
-                // je nach Windows-Version und Sprache zufaellig auch auf drei
-                // Stuecke aufgehen. Erst wenn das erste Stueck wirklich eine
-                // IP-Adresse ist, ist es ein Datensatz und keine Kopfzeile.
+                // Three tokens alone are not enough: header and interface lines
+                // ("Interface: 192.0.2.5 --- 0xc") can also split into three
+                // tokens, depending on the Windows version and language. Only
+                // when the first token is an IP address is the line an entry
+                // rather than a header.
                 if (pieces.Length == 3 && IPAddress.TryParse(pieces[0], out _))
                 {
                     entries.Add(new ArpEntry { IpAddress = pieces[0], MacAddress = pieces[1] });
@@ -100,12 +100,12 @@ namespace MyNetworkMonitor.Platform.Windows
             }
             catch (OperationCanceledException)
             {
-                // Sonst laeuft "arp -a" im Hintergrund weiter, obwohl der Scan
-                // laengst als abgebrochen gilt - kurzlebig genug, dass es
-                // selten auffiel, aber bei vielen Zielen in Folge unnoetig.
+                // Otherwise "arp -a" keeps running in the background although the
+                // scan has been cancelled; short-lived, but needless across many
+                // targets in a row.
                 if (p is not null)
                 {
-                    try { p.Kill(entireProcessTree: true); } catch (InvalidOperationException) { /* bereits beendet */ }
+                    try { p.Kill(entireProcessTree: true); } catch (InvalidOperationException) { /* already exited */ }
                 }
                 throw;
             }

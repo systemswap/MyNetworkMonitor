@@ -7,34 +7,45 @@ using System.Security.Cryptography.X509Certificates;
 
 namespace MyNetworkMonitor.Core.SatelliteLink
 {
-    /// <summary>Ein Satellit hat sich gemeldet.</summary>
+    /// <summary>A satellite has announced itself.</summary>
     public sealed class SatelliteAnnouncedEventArgs : EventArgs
     {
+        /// <summary>The name the satellite reports for itself.</summary>
         public required string Name { get; init; }
+
+        /// <summary>Fingerprint of the certificate it presented.</summary>
         public required string Fingerprint { get; init; }
+
+        /// <summary>Application version of the satellite.</summary>
         public required string AppVersion { get; init; }
+
+        /// <summary>Operating system of the satellite.</summary>
         public required string Os { get; init; }
+
+        /// <summary>Remote endpoint of the connection.</summary>
         public required string RemoteAddress { get; init; }
 
         /// <summary>
-        /// Wo der Satellit steht - oder <c>null</c>, wenn er nichts gemeldet
-        /// hat. Kommt bei jeder Anmeldung frisch, nicht nur beim ersten Mal.
+        /// Where the satellite is located, or <c>null</c> if it reported
+        /// nothing. Sent fresh with every login, not only the first time.
         /// </summary>
         public SitePayload? Site { get; init; }
     }
 
     /// <summary>
-    /// Die Seite des Hauptscanners: nimmt Verbindungen von Satelliten an.
+    /// The main scanner side: accepts connections from satellites.
     /// <para>
-    /// Der Satellit verbindet sich hierher, nicht umgekehrt - siehe
-    /// SATELLIT.md, Abschnitt 1. Darum lauscht diese Klasse, und darum kennt
-    /// sie keine Adressen von Satelliten: die erfaehrt sie erst, wenn einer
-    /// anklopft.
+    /// The satellite connects here, not the other way round, see SATELLIT.md,
+    /// section 1. That is why this class listens, and why it knows no
+    /// satellite addresses: it learns them only when one connects.
     /// </para>
     /// </summary>
     public sealed class SatelliteListener : IAsyncDisposable
     {
+        /// <summary>Version of the satellite protocol; both sides must match.</summary>
         public const int ProtocolVersion = 1;
+
+        /// <summary>TCP port the main scanner listens on by default.</summary>
         public const int DefaultPort = 27411;
 
         private readonly X509Certificate2 _certificate;
@@ -45,9 +56,14 @@ namespace MyNetworkMonitor.Core.SatelliteLink
         private CancellationTokenSource? _cts;
         private Task? _acceptLoop;
 
-        /// <summary>Die derzeit offenen Verbindungen, nach Fingerabdruck.</summary>
+        /// <summary>The currently open connections, by fingerprint.</summary>
         private readonly ConcurrentDictionary<string, SatelliteSession> _sessions = new(StringComparer.OrdinalIgnoreCase);
 
+        /// <summary>Creates the listener; it accepts nothing before <see cref="Start"/>.</summary>
+        /// <param name="certificate">Own certificate with private key, presented to satellites.</param>
+        /// <param name="isApproved">Tells whether a fingerprint has been approved.</param>
+        /// <param name="ownVersion">Own application version, sent to satellites.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="certificate"/> or <paramref name="isApproved"/> is null.</exception>
         public SatelliteListener(X509Certificate2 certificate, Func<string, bool> isApproved, string ownVersion)
         {
             _certificate = certificate ?? throw new ArgumentNullException(nameof(certificate));
@@ -55,33 +71,41 @@ namespace MyNetworkMonitor.Core.SatelliteLink
             _ownVersion = ownVersion ?? string.Empty;
         }
 
-        /// <summary>Ein Satellit hat sich vorgestellt - Name, Kennung, Herkunft.</summary>
+        /// <summary>A satellite has introduced itself: name, identity, origin.</summary>
         public event EventHandler<SatelliteAnnouncedEventArgs>? Announced;
 
-        /// <summary>Die Verbindung zu einem Satelliten ist weg.</summary>
+        /// <summary>The connection to a satellite is gone; the argument is its fingerprint.</summary>
         public event EventHandler<string>? Disconnected;
 
-        /// <summary>Etwas ist schiefgegangen - Klartext fuer die Statuszeile.</summary>
+        /// <summary>Something went wrong; plain text for the status line.</summary>
         public event EventHandler<string>? Failed;
 
-        /// <summary>Ein Satellit meldet Fortschritt: Fingerabdruck und Stand.</summary>
+        /// <summary>A satellite reports progress: fingerprint and state.</summary>
         public event EventHandler<(string Fingerprint, ProgressPayload Progress)>? ProgressReported;
 
         /// <summary>
-        /// Ein Auftrag ist fertig: Fingerabdruck, Auftragskennung und der
-        /// gefundene Bestand als JSON.
+        /// A job has finished: fingerprint, job identifier, the devices found as
+        /// JSON, and whether the result is partial.
         /// </summary>
         public event EventHandler<(string Fingerprint, string JobId, string Devices, bool Partial)>? ResultReceived;
 
-        /// <summary>Ein Auftrag endete ohne Ergebnis - abgebrochen oder gescheitert.</summary>
+        /// <summary>A job ended without a result: cancelled, refused or failed.</summary>
         public event EventHandler<(string Fingerprint, string Text)>? JobEnded;
 
+        /// <summary>True while the listener accepts connections.</summary>
         public bool IsListening => _listener is not null;
+
+        /// <summary>The port passed to the last <see cref="Start"/>.</summary>
         public int Port { get; private set; }
 
-        /// <summary>Fingerabdruecke der gerade verbundenen Satelliten.</summary>
+        /// <summary>Fingerprints of the currently connected satellites.</summary>
         public IReadOnlyCollection<string> ConnectedFingerprints => [.. _sessions.Keys];
 
+        /// <summary>
+        /// Starts listening on <paramref name="port"/> for IPv4 and IPv6. Stops a
+        /// previous listener first. Failures are reported through <see cref="Failed"/>.
+        /// </summary>
+        /// <param name="port">TCP port to listen on.</param>
         public void Start(int port)
         {
             Stop();
@@ -91,8 +115,8 @@ namespace MyNetworkMonitor.Core.SatelliteLink
 
             try
             {
-                // IPv6Any mit DualMode: so werden Satelliten ueber IPv4 und
-                // IPv6 angenommen, ohne zwei Lauscher zu betreiben.
+                // IPv6Any with DualMode: accepts satellites over IPv4 and IPv6
+                // without running two listeners.
                 _listener = new TcpListener(IPAddress.IPv6Any, port);
                 _listener.Server.DualMode = true;
                 _listener.Start();
@@ -107,6 +131,7 @@ namespace MyNetworkMonitor.Core.SatelliteLink
             _acceptLoop = Task.Run(() => AcceptLoopAsync(_cts.Token));
         }
 
+        /// <summary>Stops listening and closes all connections.</summary>
         public void Stop()
         {
             try { _cts?.Cancel(); } catch { }
@@ -135,8 +160,8 @@ namespace MyNetworkMonitor.Core.SatelliteLink
                     return;
                 }
 
-                // Jede Verbindung fuer sich: ein Satellit, der beim Handschlag
-                // haengt, darf die uebrigen nicht aufhalten.
+                // Each connection on its own: a satellite that hangs during the
+                // handshake must not hold up the others.
                 _ = Task.Run(() => HandshakeAsync(client, token), token);
             }
         }
@@ -156,10 +181,9 @@ namespace MyNetworkMonitor.Core.SatelliteLink
                     ClientCertificateRequired = true,
                     EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13,
 
-                    // Jedes Zertifikat annehmen: geprueft wird nicht die
-                    // Vertrauenskette, sondern der Fingerabdruck gegen die
-                    // Freigabe. Ein Satellit stellt sein Zertifikat selbst aus,
-                    // eine Kette gaebe es also gar nicht.
+                    // Accepts any certificate: what is checked is not the chain
+                    // of trust but the fingerprint against the approval. A
+                    // satellite issues its own certificate, so there is no chain.
                     RemoteCertificateValidationCallback = (_, _, _, _) => true
                 }, token);
 
@@ -205,21 +229,19 @@ namespace MyNetworkMonitor.Core.SatelliteLink
 
                 SatelliteSession session = new(client, tls, channel, fingerprint);
 
-                // Meldet sich derselbe Satellit ein zweites Mal, gilt die neue
-                // Verbindung: die alte ist dann fast immer eine Leiche, die der
-                // Abbruch nicht erreicht hat.
+                // If the same satellite connects a second time, the new
+                // connection wins: the old one is almost always a dead
+                // connection that the disconnect never reached.
                 if (_sessions.TryRemove(fingerprint, out SatelliteSession? stale)) stale.Dispose();
                 _sessions[fingerprint] = session;
 
-                // Erst jetzt melden, dass er da ist - nicht schon nach der
-                // Begruessung.
+                // Announces the satellite only now, not right after the hello.
                 //
-                // "Angemeldet" heisst fuer jeden Zuhoerer: ab hier kann man ihm
-                // etwas schicken. Wurde das Ereignis noch vor dem Eintragen der
-                // Sitzung ausgeloest, lief ein Auftrag, den jemand unmittelbar
-                // darauf abschickte, ins Leere - SendJobAsync fand keine
-                // Sitzung und gab null zurueck. Von Hand fiel das nie auf, weil
-                // zwischen Anmeldung und Klick immer Sekunden liegen.
+                // "Announced" means to every listener: from here on, messages
+                // can be sent to it. Raised before the session is registered, a
+                // job sent immediately afterwards would go nowhere: SendJobAsync
+                // would find no session and return null. Manual operation never
+                // shows this, because seconds pass between login and click.
                 Announced?.Invoke(this, new SatelliteAnnouncedEventArgs
                 {
                     Name = hello.Name ?? "unnamed",
@@ -244,7 +266,7 @@ namespace MyNetworkMonitor.Core.SatelliteLink
             }
         }
 
-        /// <summary>Liest, was der Satellit schickt, bis die Verbindung endet.</summary>
+        /// <summary>Reads what the satellite sends until the connection ends.</summary>
         private async Task PumpAsync(SatelliteSession session, CancellationToken token)
         {
             try
@@ -252,7 +274,7 @@ namespace MyNetworkMonitor.Core.SatelliteLink
                 while (!token.IsCancellationRequested)
                 {
                     SatelliteMessage? message = await session.Channel.ReceiveAsync(token);
-                    if (message is null) break; // sauber aufgelegt
+                    if (message is null) break; // closed cleanly
 
                     switch (message.Type)
                     {
@@ -279,8 +301,8 @@ namespace MyNetworkMonitor.Core.SatelliteLink
                                 (session.Fingerprint, message.JobId ?? string.Empty,
                                  message.Devices ?? "[]", message.Partial));
 
-                            // Empfang bestaetigen, damit der Satellit das
-                            // Ergebnis loslassen darf.
+                            // Acknowledges receipt so that the satellite may
+                            // release the result.
                             await session.Channel.SendAsync(new SatelliteMessage
                             {
                                 Type = MessageType.ResultAck,
@@ -311,17 +333,17 @@ namespace MyNetworkMonitor.Core.SatelliteLink
             catch (Exception) { }
             finally
             {
-                // Nur austragen, wenn *diese* Sitzung noch die eingetragene ist.
+                // Removes the entry only if *this* session is still the
+                // registered one.
                 //
-                // Meldet sich derselbe Satellit ein zweites Mal - etwa weil auf
-                // seiner Seite die Oberflaeche und der Dienst gleichzeitig
-                // verbinden -, ersetzt die neue Sitzung die alte. Die alte
-                // laeuft danach hier aus, und ein blindes TryRemove nach dem
-                // Fingerabdruck loeschte die *neue* wieder aus der Liste: die
-                // Verbindung stuende noch, waere aber fuer Auftraege
-                // unerreichbar, und die Anzeige meldete "offline". Genau so
-                // sah es aus, wenn man den Satelliten als Dienst einrichtete,
-                // waehrend sein Fenster noch verbunden war.
+                // If the same satellite connects a second time (for example
+                // because its user interface and its service connect at the
+                // same time), the new session replaces the old one. The old one
+                // then ends here, and a blind TryRemove by fingerprint would
+                // delete the *new* one from the list: the connection would still
+                // be up but unreachable for jobs, and the display would show
+                // "offline". This is what happens when the satellite is set up
+                // as a service while its window is still connected.
                 bool wasCurrent = _sessions.TryRemove(
                     new KeyValuePair<string, SatelliteSession>(session.Fingerprint, session));
 
@@ -332,10 +354,12 @@ namespace MyNetworkMonitor.Core.SatelliteLink
         }
 
         /// <summary>
-        /// Schickt einen Auftrag an einen verbundenen Satelliten. Gibt die
-        /// Auftragskennung zurueck, oder <c>null</c>, wenn er nicht verbunden
-        /// ist.
+        /// Sends a job to a connected satellite.
         /// </summary>
+        /// <param name="fingerprint">Fingerprint of the satellite.</param>
+        /// <param name="jobText">The job as produced by <see cref="JobRequest.Format"/>.</param>
+        /// <param name="token">Cancels the send.</param>
+        /// <returns>The job identifier, or <c>null</c> if the satellite is not connected.</returns>
         public async Task<string?> SendJobAsync(string fingerprint, string jobText, CancellationToken token)
         {
             if (!_sessions.TryGetValue(fingerprint, out SatelliteSession? session)) return null;
@@ -354,15 +378,16 @@ namespace MyNetworkMonitor.Core.SatelliteLink
         }
 
         /// <summary>
-        /// Sagt einem bereits verbundenen Satelliten, dass er soeben
-        /// freigegeben wurde.
+        /// Tells an already connected satellite that it has just been approved.
         /// <para>
-        /// Ohne das bliebe er auf "wartet auf Freigabe" stehen, obwohl
-        /// Auftraege schon durchgehen - er erfuehre es erst beim naechsten
-        /// Verbinden. Wer beide Seiten nebeneinander einrichtet, saehe dann am
-        /// Satelliten etwas anderes als am Hauptscanner.
+        /// Without this it would keep showing "waiting for approval" although
+        /// jobs already go through; it would learn of the approval only on the
+        /// next connect. When both sides are set up side by side, the satellite
+        /// would show something different from the main scanner.
         /// </para>
         /// </summary>
+        /// <param name="fingerprint">Fingerprint of the approved satellite.</param>
+        /// <param name="token">Cancels the send.</param>
         public async Task NotifyApprovedAsync(string fingerprint, CancellationToken token)
         {
             if (!_sessions.TryGetValue(fingerprint, out SatelliteSession? session)) return;
@@ -375,7 +400,10 @@ namespace MyNetworkMonitor.Core.SatelliteLink
             }, token);
         }
 
-        /// <summary>Bricht den laufenden Auftrag eines Satelliten ab.</summary>
+        /// <summary>Cancels the running job of a satellite.</summary>
+        /// <param name="fingerprint">Fingerprint of the satellite.</param>
+        /// <param name="jobId">The job to cancel, or <c>null</c> for whatever is running.</param>
+        /// <param name="token">Cancels the send.</param>
         public async Task CancelAsync(string fingerprint, string? jobId, CancellationToken token)
         {
             if (!_sessions.TryGetValue(fingerprint, out SatelliteSession? session)) return;
@@ -388,6 +416,7 @@ namespace MyNetworkMonitor.Core.SatelliteLink
             }, token);
         }
 
+        /// <summary>Stops the listener and waits for the accept loop to end.</summary>
         public async ValueTask DisposeAsync()
         {
             Stop();
@@ -400,7 +429,7 @@ namespace MyNetworkMonitor.Core.SatelliteLink
             _cts?.Dispose();
         }
 
-        /// <summary>Eine offene Verbindung zu einem Satelliten.</summary>
+        /// <summary>An open connection to a satellite.</summary>
         private sealed class SatelliteSession(
             TcpClient client, SslStream stream, MessageChannel channel, string fingerprint) : IDisposable
         {

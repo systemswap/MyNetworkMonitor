@@ -8,33 +8,33 @@ using MyNetworkMonitor.Core.Services;
 namespace MyNetworkMonitor.Platform.Windows
 {
     /// <summary>
-    /// Richtet den Satellitendienst unter Windows ein - ueber <c>sc.exe</c>,
-    /// mit einer Rueckfrage des Betriebssystems, wenn die Rechte fehlen.
+    /// Sets up the satellite service on Windows with <c>sc.exe</c>, with an
+    /// elevation prompt of the operating system when rights are missing.
     /// <para>
-    /// Warum <c>sc.exe</c> und nicht die API: Anlegen und Entfernen sind zwei
-    /// Aufrufe, die genau einmal je Anlage vorkommen. Der Rueckgabewert des
-    /// Programms genuegt als Auskunft, und es ist nichts zu uebersetzen - im
-    /// Gegensatz zur Ausgabe von <c>sc query</c>, die auf einem deutschen
-    /// Windows deutsch ist. Fuer den <em>Zustand</em> wird darum
-    /// <see cref="ServiceController"/> benutzt, der liefert Zahlen statt Text.
+    /// Why <c>sc.exe</c> and not the API: creating and removing are two calls
+    /// that happen once per installation. The exit code of the program is
+    /// sufficient information and needs no parsing, unlike the output of
+    /// <c>sc query</c>, which is localized. For the <em>state</em>,
+    /// <see cref="ServiceController"/> is used instead; it returns numbers
+    /// rather than text.
     /// </para>
     /// </summary>
     [SupportedOSPlatform("windows")]
     public sealed class WindowsServiceControl : IServiceControl
     {
-        /// <summary>Der Name, unter dem der Dienst eingetragen wird.</summary>
+        /// <summary>The name under which the service is registered.</summary>
         public const string ServiceName = "MyNetworkMonitorSatellite";
 
-        /// <summary>Der Name, den die Dienstverwaltung anzeigt.</summary>
+        /// <summary>The name the Services console shows.</summary>
         public const string DisplayName = "MyNetworkMonitor Satellite";
 
-        /// <summary>Das Argument, mit dem sich die Anwendung erhoeht selbst einrichtet.</summary>
+        /// <summary>The argument with which the elevated application installs the service itself.</summary>
         public const string InstallArgument = "--install-service";
 
-        /// <summary>Das Gegenstueck zum Einrichten.</summary>
+        /// <summary>The counterpart of <see cref="InstallArgument"/>: removes the service.</summary>
         public const string UninstallArgument = "--uninstall-service";
 
-        /// <summary>Das Argument, mit dem der Dienst die Anwendung startet.</summary>
+        /// <summary>The argument with which the service starts the application.</summary>
         public const string SatelliteArgument = "--satellite";
 
         public bool IsSupported => true;
@@ -55,7 +55,7 @@ namespace MyNetworkMonitor.Platform.Windows
             }
         }
 
-        // ------------------------------------------------------------ Zustand
+        // -------------------------------------------------------------- State
 
         public ServiceStatus Read()
         {
@@ -63,8 +63,8 @@ namespace MyNetworkMonitor.Platform.Windows
             {
                 using ServiceController controller = new(ServiceName);
 
-                // Der Zugriff auf Status wirft, wenn es den Dienst nicht gibt -
-                // das ist der einzige verlaessliche Weg, ihn zu erkennen.
+                // Reading Status throws when the service does not exist; that is
+                // the only reliable way to detect it.
                 ServiceControllerStatus status = controller.Status;
 
                 bool running = status is ServiceControllerStatus.Running
@@ -84,7 +84,7 @@ namespace MyNetworkMonitor.Platform.Windows
             }
             catch (InvalidOperationException)
             {
-                // Nicht eingetragen - der Normalfall vor der Einrichtung.
+                // Not registered: the normal case before setup.
                 return new ServiceStatus(
                     ServiceState.NotInstalled,
                     "No service set up. This machine is a satellite only while this window is open.",
@@ -96,7 +96,7 @@ namespace MyNetworkMonitor.Platform.Windows
             }
         }
 
-        // --------------------------------------------------- Einrichten
+        // -------------------------------------------------------------- Setup
 
         public ServiceChangeResult Install(string executablePath)
         {
@@ -111,15 +111,16 @@ namespace MyNetworkMonitor.Platform.Windows
         }
 
         /// <summary>
-        /// Legt den Dienst tatsaechlich an. Nur mit erhoehten Rechten
-        /// aufzurufen - oeffentlich, weil der erhoeht gestartete Durchlauf der
-        /// Anwendung genau hier hereinkommt.
+        /// Actually creates the service. Must be called with elevated rights;
+        /// public because the elevated run of the application enters here.
         /// </summary>
+        /// <param name="executablePath">Path of the application the service starts.</param>
+        /// <returns>Whether setup succeeded, with a message to display.</returns>
         public ServiceChangeResult InstallElevated(string executablePath)
         {
-            // Ein vorhandener Eintrag wird ersetzt statt danebengelegt: sonst
-            // zeigte der alte womoeglich auf eine Anwendung, die nicht mehr da
-            // ist, und niemand saehe den Unterschied.
+            // An existing entry is replaced rather than kept alongside: it might
+            // point to an application that no longer exists, and nobody would
+            // notice the difference.
             if (Read().IsInstalled) RemoveService();
 
             (int code, string output) = Run("sc.exe",
@@ -133,15 +134,15 @@ namespace MyNetworkMonitor.Platform.Windows
                 return new ServiceChangeResult(false, $"The service could not be created: {output.Trim()}");
             }
 
-            // Beschreibung und Wiederanlauf sind Beiwerk - schlaegt eines fehl,
-            // laeuft der Dienst trotzdem, und eine Fehlermeldung darueber waere
-            // nur verwirrend.
+            // Description and restart policy are secondary: if either fails,
+            // the service still runs, and an error message about it would only
+            // confuse.
             Run("sc.exe", "description", ServiceName,
                 "Scans the local network segment on behalf of a MyNetworkMonitor main scanner.");
 
-            // Nach einem Absturz nach einer Minute erneut versuchen, dreimal,
-            // und der Zaehler faellt taeglich zurueck. Ein Satellit steht in
-            // einem Schaltschrank - niemand sieht dort nach.
+            // After a crash, retries after one minute, three times; the counter
+            // resets daily. A satellite sits in a network cabinet where nobody
+            // checks on it.
             Run("sc.exe", "failure", ServiceName,
                 "reset=", "86400",
                 "actions=", "restart/60000/restart/60000/restart/60000");
@@ -167,7 +168,8 @@ namespace MyNetworkMonitor.Platform.Windows
             return UninstallElevated();
         }
 
-        /// <summary>Entfernt den Dienst. Nur mit erhoehten Rechten aufzurufen.</summary>
+        /// <summary>Removes the service. Must be called with elevated rights.</summary>
+        /// <returns>Whether removal succeeded, with a message to display.</returns>
         public ServiceChangeResult UninstallElevated()
         {
             (int code, string output) = RemoveService();
@@ -183,7 +185,7 @@ namespace MyNetworkMonitor.Platform.Windows
             return Run("sc.exe", "delete", ServiceName);
         }
 
-        // ------------------------------------------------------ Starten/Halten
+        // ------------------------------------------------------- Start/Stop
 
         public ServiceChangeResult Start()
         {
@@ -245,11 +247,11 @@ namespace MyNetworkMonitor.Platform.Windows
             }
         }
 
-        // --------------------------------------------------------- Werkzeug
+        // ------------------------------------------------------------ Helpers
 
         /// <summary>
-        /// Startet die Anwendung erhoeht neu, damit sie den Eingriff selbst
-        /// vornimmt, und wartet ab, wie es ausging.
+        /// Restarts the application elevated so that it performs the change
+        /// itself, and waits for the outcome.
         /// </summary>
         private static ServiceChangeResult Elevate(string executablePath, string argument, string what)
         {
@@ -275,8 +277,8 @@ namespace MyNetworkMonitor.Platform.Windows
             }
             catch (Win32Exception ex) when (ex.NativeErrorCode == 1223)
             {
-                // ERROR_CANCELLED - der Nutzer hat die Rueckfrage weggeklickt.
-                // Das ist kein Fehler, sondern eine Entscheidung.
+                // ERROR_CANCELLED: the elevation prompt was dismissed.
+                // That is not an error but a decision.
                 return new ServiceChangeResult(false, "Cancelled - the service needs administrator rights.");
             }
             catch (Exception ex)
@@ -286,12 +288,12 @@ namespace MyNetworkMonitor.Platform.Windows
         }
 
         /// <summary>
-        /// Gibt den maschinenweiten Datenordner fuer normale Benutzer frei.
+        /// Grants normal users write access to the machine-wide data folder.
         /// <para>
-        /// Noetig, weil beide Seiten hineinschreiben: der Dienst als
-        /// LocalSystem und die Oberflaeche als angemeldeter Nutzer. Legt der
-        /// Dienst den Ordner zuerst an, duerfte der Nutzer sonst nur lesen und
-        /// koennte seine Hostliste nicht mehr speichern.
+        /// Required because both sides write to it: the service as LocalSystem
+        /// and the user interface as the logged-on account. If the service
+        /// creates the folder first, the user interface could otherwise only
+        /// read and could no longer save its host list.
         /// </para>
         /// </summary>
         private static void GrantUsersAccessToDataFolder()
@@ -300,19 +302,18 @@ namespace MyNetworkMonitor.Platform.Windows
             {
                 string folder = AppPaths.EnsureMachineFolder();
 
-                // Ueber die bekannte Kennung und nicht ueber den Namen
-                // "Users" - der heisst auf einem deutschen Windows
-                // "Benutzer", und icacls nimmt beides, aber die Kennung
-                // stimmt ueberall.
+                // Uses the well-known SID rather than the name "Users": the
+                // name is localized (e.g. "Benutzer" on German Windows); icacls
+                // accepts both, but the SID is valid everywhere.
                 SecurityIdentifier users = new(WellKnownSidType.BuiltinUsersSid, null);
 
                 Run("icacls.exe", folder, "/grant", $"*{users.Value}:(OI)(CI)M", "/T");
             }
             catch (Exception)
             {
-                // Klappt es nicht, faellt es beim Speichern auf - dort gibt es
-                // eine Meldung. Die Einrichtung daran scheitern zu lassen waere
-                // unverhaeltnismaessig.
+                // If this fails, it shows when saving, which reports an error.
+                // Failing the whole setup because of it would be
+                // disproportionate.
             }
         }
 

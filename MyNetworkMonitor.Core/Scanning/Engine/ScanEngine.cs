@@ -4,64 +4,78 @@ using MyNetworkMonitor.Core.Network;
 
 namespace MyNetworkMonitor.Core.Scanning.Engine
 {
-    /// <summary>Was mit einem Verfahren in einem Durchlauf geschehen ist.</summary>
+    /// <summary>Outcome of a single scan method within a run.</summary>
     public sealed class ScanMethodOutcome
     {
+        /// <summary>Identifier of the method (<see cref="IScanMethod.Id"/>).</summary>
         public required string MethodId { get; init; }
+        /// <summary>Display name of the method.</summary>
         public required string MethodName { get; init; }
+
+        /// <summary>Phase the method belongs to.</summary>
         public required ScanPhase Phase { get; init; }
+
+        /// <summary>Availability state the method had when the run reached it.</summary>
         public required ScanMethodState State { get; init; }
 
-        /// <summary>Begruendung bei Ueberspringen oder Fehlschlag.</summary>
+        /// <summary>Reason for skipping or failure; empty when the method ran normally.</summary>
         public string Reason { get; init; } = string.Empty;
 
+        /// <summary>Time the method took.</summary>
         public TimeSpan Duration { get; init; }
 
-        /// <summary>Ausnahme, falls das Verfahren gescheitert ist.</summary>
+        /// <summary>Exception thrown by the method, if it failed.</summary>
         public Exception? Error { get; init; }
 
+        /// <summary>True if the method was available and completed without an exception.</summary>
         public bool Ran => State == ScanMethodState.Available && Error is null;
 
+        /// <inheritdoc />
         public override string ToString() =>
             $"{MethodName}: {State}{(Reason.Length > 0 ? $" - {Reason}" : "")}";
     }
 
-    /// <summary>Ergebnis eines gesamten Durchlaufs.</summary>
+    /// <summary>Result of a complete scan run.</summary>
     public sealed class ScanRunResult
     {
+        /// <summary>Outcome of every method the run reached, in execution order.</summary>
         public required IReadOnlyList<ScanMethodOutcome> Outcomes { get; init; }
+
+        /// <summary>Number of targets built from the selected scopes.</summary>
         public required int TargetCount { get; init; }
 
         /// <summary>
-        /// Wie viele Geraete eine Doppelbelegung tragen.
+        /// Number of devices that carry an address conflict.
         /// <para>
-        /// Wird vom Aufrufer nachgetragen, nicht von der Engine gefuellt: die
-        /// Auswertung schreibt <see cref="Model.Device.Conflicts"/>, und das ist
-        /// eine gebundene Eigenschaft. Der Lauf selbst findet im Thread-Pool
-        /// statt - von dort aus geschrieben, faellt die Oberflaeche beim
-        /// naechsten Zeichnen um.
+        /// Set by the caller, not by the engine: the analysis writes
+        /// <see cref="Model.Device.Conflicts"/>, which is a bound property. The
+        /// run itself executes on the thread pool; written from there, the UI
+        /// crashes on its next render pass.
         /// </para>
         /// </summary>
         public int ConflictCount { get; set; }
 
+        /// <summary>Total duration of the run.</summary>
         public required TimeSpan Duration { get; init; }
+
+        /// <summary>True if the run was cancelled before all methods finished.</summary>
         public required bool WasCancelled { get; init; }
 
+        /// <summary>Outcomes of methods that did not run because they were unavailable.</summary>
         public IEnumerable<ScanMethodOutcome> Skipped =>
             Outcomes.Where(o => o.State != ScanMethodState.Available);
 
+        /// <summary>Outcomes of methods that threw an exception.</summary>
         public IEnumerable<ScanMethodOutcome> Failed =>
             Outcomes.Where(o => o.Error is not null);
     }
 
     /// <summary>
-    /// Fuehrt Scan-Verfahren aus. Loest die Orchestrierung aus dem Hauptfenster
-    /// heraus - dort lagen bisher gut 1.200 Zeilen, die jedes Modul einzeln
-    /// verdrahtet haben.
+    /// Runs scan methods. Keeps the orchestration of all scan modules out of the
+    /// main window.
     /// <para>
-    /// Die Engine kennt nur <see cref="IScanMethod"/>. Ein IPv6-Verfahren
-    /// hinzuzufuegen heisst darum: registrieren. An der Engine aendert sich
-    /// nichts.
+    /// The engine only knows <see cref="IScanMethod"/>. Adding a method (such as
+    /// an IPv6 method) means registering it; the engine itself does not change.
     /// </para>
     /// </summary>
     public sealed class ScanEngine
@@ -71,26 +85,37 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
 
         private CancellationTokenSource? _cts;
 
-        /// <summary>Alle registrierten Verfahren, in Ausfuehrungsfolge.</summary>
+        /// <summary>All registered methods, in execution order.</summary>
         public IReadOnlyList<IScanMethod> Methods =>
             _methods.OrderBy(m => (int)m.Phase).ToList();
 
+        /// <summary>True while a run is in progress.</summary>
         public bool IsRunning => _cts is not null;
 
-        // ------------------------------------------------------------ Meldungen
+        // ------------------------------------------------------------ Events
 
+        /// <summary>Raised when a method reports progress. Raised on a worker thread.</summary>
         public event Action<ScanProgress>? ProgressChanged;
+
+        /// <summary>Raised when a method starts executing.</summary>
         public event Action<IScanMethod>? MethodStarted;
+
+        /// <summary>Raised when a method has finished or was skipped.</summary>
         public event Action<ScanMethodOutcome>? MethodFinished;
+
+        /// <summary>Raised once at the end of a run.</summary>
         public event Action<ScanRunResult>? RunFinished;
 
-        // ---------------------------------------------------------- Registrierung
+        // ---------------------------------------------------------- Registration
 
         /// <summary>
-        /// Nimmt ein Verfahren auf. Ein bereits vorhandener
-        /// <see cref="IScanMethod.Id"/> wird abgelehnt - doppelte Schluessel
-        /// wuerden die gespeicherte Auswahl mehrdeutig machen.
+        /// Registers a method. An already registered
+        /// <see cref="IScanMethod.Id"/> is rejected; duplicate keys would make
+        /// the saved selection ambiguous.
         /// </summary>
+        /// <param name="method">The method to add.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="method"/> is null.</exception>
+        /// <exception cref="InvalidOperationException">A method with the same identifier is already registered.</exception>
         public void Register(IScanMethod method)
         {
             ArgumentNullException.ThrowIfNull(method);
@@ -103,27 +128,38 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
             _methods.Add(method);
         }
 
+        /// <summary>Looks up a registered method by identifier (case-insensitive).</summary>
+        /// <param name="id">The method identifier.</param>
+        /// <returns>The method, or null if none is registered under <paramref name="id"/>.</returns>
         public IScanMethod? Find(string id) =>
             _methods.FirstOrDefault(m => string.Equals(m.Id, id, StringComparison.OrdinalIgnoreCase));
 
-        // ------------------------------------------------------------- Abbruch
+        // ------------------------------------------------------------- Cancellation
 
         /// <summary>
-        /// Bricht den laufenden Durchlauf ab. Die Verfahren beenden sich ueber
-        /// den Token; Adapter bestehender Module rufen darauf hin deren
-        /// <c>StopScan()</c> auf.
+        /// Cancels the current run. Methods end via the cancellation token;
+        /// adapters around scan modules then call the module's
+        /// <c>StopScan()</c>.
         /// </summary>
         public void Stop() => _cts?.Cancel();
 
-        // ---------------------------------------------------------------- Lauf
+        // ---------------------------------------------------------------- Run
 
         /// <summary>
-        /// Fuehrt die gewaehlten Verfahren ueber die gewaehlten Bereiche aus.
-        /// Die Stufen laufen nacheinander - erst finden, dann bestimmen, dann
-        /// Dienste - und innerhalb einer Stufe ebenfalls nacheinander, weil die
-        /// Module sich Netzwerkressourcen und Zeitlimits teilen. Nebenlaeufig
-        /// wuerden sie sich gegenseitig die Antwortzeiten verderben.
+        /// Runs the selected methods over the selected scopes. Phases run one
+        /// after another (discovery, then identification, then services), and
+        /// methods within a phase run sequentially as well, because the modules
+        /// share network resources and timeouts. Run concurrently, they would
+        /// distort each other's response times.
         /// </summary>
+        /// <param name="selectedScopes">Scopes (address ranges, hosts) to scan.</param>
+        /// <param name="selectedMethodIds">Identifiers of the methods to run.</param>
+        /// <param name="settings">Scan settings.</param>
+        /// <param name="store">Device store that receives all observations.</param>
+        /// <param name="cancellationToken">Cancels the run.</param>
+        /// <returns>The result of the run.</returns>
+        /// <exception cref="ArgumentNullException">An argument is null.</exception>
+        /// <exception cref="InvalidOperationException">A run is already in progress.</exception>
         public async Task<ScanRunResult> RunAsync(
             IEnumerable<ScanScope> selectedScopes,
             IEnumerable<string> selectedMethodIds,
@@ -160,10 +196,10 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
                     {
                         if (_cts.IsCancellationRequested) break;
 
-                        // Erst hier kuerzen, nicht einmal vor dem Lauf: bis das
-                        // Verfahren an der Reihe ist, haben die vorherigen
-                        // schon Geraete gefunden, und genau die soll es
-                        // abfragen.
+                        // Restricted here rather than once before the run: by
+                        // the time this method's turn comes, the preceding
+                        // methods have already found devices, and those are
+                        // exactly the ones it should query.
                         List<ScanTargetEntry> forMethod = settings.IsRestrictedToKnown(method.Id)
                             ? KeepKnown(targets, store)
                             : targets;
@@ -176,16 +212,16 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
                     if (_cts.IsCancellationRequested) break;
                 }
 
-                // Die Suche nach Doppelbelegungen steht bewusst *nicht* hier.
+                // Duplicate detection deliberately does *not* run here.
                 //
-                // Sie gehoert ans Ende des Laufs - waehrenddessen waere jeder
-                // Befund vorlaeufig, weil das zweite Geraet mit derselben
-                // Adresse noch kommen kann. Sie schreibt dabei aber
-                // Device.Conflicts und Device.ConflictDetails, und beide sind
-                // gebunden. Dieser Lauf findet im Thread-Pool statt; von dort
-                // aus geschrieben, riss es die Oberflaeche mit. Darum ruft der
-                // Aufrufer DuplicateDetector.Analyze selbst auf, sobald er
-                // wieder auf seinem Thread ist, und traegt die Zahl nach.
+                // It belongs at the end of the run; any finding made during the
+                // run would be provisional, because the second device with the
+                // same address may still turn up. It writes Device.Conflicts
+                // and Device.ConflictDetails, however, and both are bound
+                // properties. This run executes on the thread pool; written
+                // from there, the UI crashes. The caller therefore calls
+                // DuplicateDetector.Analyze itself once it is back on its own
+                // thread and sets the count afterwards.
                 ScanRunResult result = new()
                 {
                     Outcomes = outcomes,
@@ -205,24 +241,23 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
         }
 
         /// <summary>
-        /// Leert den ARP-Cache des Systems. Ein Fehlschlag ist kein Grund, den
-        /// Lauf abzubrechen - ohne erhoehte Rechte geht es schlicht nicht, und
-        /// der Scan liefert dann eben die zwischengespeicherten Zuordnungen.
+        /// Flushes the system ARP cache. A failure does not abort the run:
+        /// without elevated privileges flushing is not possible, and the scan
+        /// then returns the cached mappings.
         /// </summary>
         private static void FlushArpCache()
         {
             try { Services.PlatformServices.ArpOrNull?.FlushArpCache(); }
-            catch (Exception) { /* siehe oben */ }
+            catch (Exception) { /* see summary */ }
         }
 
         /// <summary>
-        /// Reduziert die Ziele auf die bereits bekannten Geraete. Aus einem
-        /// Lauf ueber ein ganzes /24 wird damit ein Nachfassen bei den wenigen
-        /// Adressen, die tatsaechlich belegt sind - der uebliche zweite und
-        /// dritte Durchgang.
+        /// Reduces the targets to devices already known. A run over a whole /24
+        /// then becomes a follow-up on the few addresses actually in use,
+        /// which is the typical second and third pass.
         /// <para>
-        /// Hostnamen bleiben in jedem Fall stehen: ob sie zu einem bekannten
-        /// Geraet gehoeren, weiss man erst nach dem Aufloesen.
+        /// Host names are always kept: whether they belong to a known device is
+        /// only known after resolution.
         /// </para>
         /// </summary>
         private static List<ScanTargetEntry> KeepKnown(List<ScanTargetEntry> targets, DeviceStore store)
@@ -254,8 +289,8 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
                 Store = store,
                 Report = observation =>
                 {
-                    // Die Module melden aus beliebigen Aufgaben heraus. Der
-                    // Store ist nicht threadsicher, darum hier serialisieren.
+                    // Modules report from arbitrary tasks. The store is not
+                    // thread-safe, so reports are serialized here.
                     lock (_reportLock)
                     {
                         store.Observe(observation);
@@ -319,8 +354,8 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
             }
             catch (Exception ex)
             {
-                // Ein gescheitertes Verfahren darf den Durchlauf nicht beenden -
-                // die uebrigen liefern weiterhin Ergebnisse.
+                // A failed method must not end the run; the remaining methods
+                // still deliver results.
                 return new ScanMethodOutcome
                 {
                     MethodId = method.Id,

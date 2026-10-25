@@ -11,23 +11,23 @@ using MyNetworkMonitor.Core.Services;
 namespace MyNetworkMonitor.Platform.Windows
 {
     /// <summary>
-    /// Liest die Nachbarschaftstabelle ueber <c>GetIpNetTable2</c> aus
-    /// <c>iphlpapi.dll</c> - dieselbe Quelle, aus der auch
-    /// <c>netsh interface ipv6 show neighbors</c> schoepft.
+    /// Reads the neighbor table with <c>GetIpNetTable2</c> from
+    /// <c>iphlpapi.dll</c>, the same source that
+    /// <c>netsh interface ipv6 show neighbors</c> uses.
     /// <para>
-    /// Bewusst die API statt der Ausgabe von <c>netsh</c>: deren Spaltenkoepfe
-    /// sind uebersetzt, und auf einem deutschen Windows steht in der
-    /// Typ-Spalte "Erreichbar" statt "Reachable". Ein Auswerten nach Text
-    /// waere damit an die Sprache des Systems gebunden. Die API liefert Zahlen.
+    /// Uses the API on purpose instead of the output of <c>netsh</c>: its
+    /// column headers are localized, and on a German Windows the type column
+    /// says "Erreichbar" instead of "Reachable". Text parsing would tie the
+    /// result to the system language. The API returns numbers.
     /// </para>
     /// <para>
-    /// Die Tabelle wird byteweise gelesen statt ueber
+    /// The table is read byte by byte instead of with
     /// <see cref="Marshal.PtrToStructure(IntPtr, Type)"/>: <c>MIB_IPNET_ROW2</c>
-    /// beginnt mit <c>SOCKADDR_INET</c>, und das ist eine Union aus IPv4- und
-    /// IPv6-Adresse. Als C#-Struktur laesst sich das nur mit ueberlappenden
-    /// Feldern nachbilden, und Feldversatz plus <c>ByValArray</c> vertragen
-    /// sich schlecht. Die Versaetze stehen darum als Konstanten hier - einmal
-    /// nachgerechnet und benannt, statt in einer Struktur versteckt.
+    /// starts with <c>SOCKADDR_INET</c>, a union of an IPv4 and an IPv6
+    /// address. As a C# struct this can only be modeled with overlapping
+    /// fields, and explicit field offsets do not combine well with
+    /// <c>ByValArray</c>. The offsets are therefore constants here, computed
+    /// once and named instead of hidden in a struct.
     /// </para>
     /// </summary>
     [SupportedOSPlatform("windows")]
@@ -37,20 +37,20 @@ namespace MyNetworkMonitor.Platform.Windows
         private const int AF_INET = 2;
         private const int AF_INET6 = 23;
 
-        // --- Versaetze in MIB_IPNET_ROW2 -----------------------------------
+        // --- Offsets in MIB_IPNET_ROW2 -------------------------------------
         //
-        // SOCKADDR_INET  Address              0   (28 Byte, Union)
+        // SOCKADDR_INET  Address              0   (28 bytes, union)
         //   ADDRESS_FAMILY sin_family           0   (2)
         //   IPv4: sin_addr                      4   (4)
         //   IPv6: sin6_addr                     8   (16), sin6_scope_id 24 (4)
         // NET_IFINDEX    InterfaceIndex      28   (4)
-        // NET_LUID       InterfaceLuid       32   (8, deshalb Auffuellung ab 28)
+        // NET_LUID       InterfaceLuid       32   (8, hence padding after offset 28)
         // UCHAR          PhysicalAddress[32] 40
         // ULONG          PhysicalAddressLength 72 (4)
         // NL_NEIGHBOR_STATE State            76   (4)
         // UCHAR          Flags               80   (1)
         // ULONG          ReachabilityTime    84   (4)
-        //                                    88   Gesamtgroesse (8er-Ausrichtung)
+        //                                    88   total size (8-byte alignment)
         private const int OffsetFamily = 0;
         private const int OffsetV4Address = 4;
         private const int OffsetV6Address = 8;
@@ -62,10 +62,10 @@ namespace MyNetworkMonitor.Platform.Windows
         private const int OffsetFlags = 80;
         private const int RowSize = 88;
 
-        /// <summary>MIB_IPNET_TABLE2: ULONG NumEntries, dann die Zeilen ab 8.</summary>
+        /// <summary>MIB_IPNET_TABLE2: ULONG NumEntries, followed by the rows from offset 8.</summary>
         private const int OffsetFirstRow = 8;
 
-        /// <summary>Bit 0 von MIB_IPNET_ROW2.Flags - der Nachbar ist ein Router.</summary>
+        /// <summary>Bit 0 of MIB_IPNET_ROW2.Flags: the neighbor is a router.</summary>
         private const byte FlagIsRouter = 0x01;
 
         [DllImport("iphlpapi.dll", ExactSpelling = true)]
@@ -100,8 +100,8 @@ namespace MyNetworkMonitor.Platform.Windows
                         if (entry is not null) entries.Add(entry);
                     }
                 }
-                catch (DllNotFoundException) { /* kein Windows-Netzwerkstapel - leere Liste */ }
-                catch (EntryPointNotFoundException) { /* vor Vista, laengst irrelevant, aber kein Absturz */ }
+                catch (DllNotFoundException) { /* no Windows network stack: empty list */ }
+                catch (EntryPointNotFoundException) { /* function missing (pre-Vista): empty list instead of a crash */ }
                 finally
                 {
                     if (table != IntPtr.Zero) FreeMibTable(table);
@@ -129,13 +129,13 @@ namespace MyNetworkMonitor.Platform.Windows
                     byte[] v6 = new byte[16];
                     Marshal.Copy(row + OffsetV6Address, v6, 0, 16);
 
-                    // Ohne Zone ist eine Link-Local-Adresse nicht ansprechbar:
-                    // fe80::1 gibt es auf jedem Adapter einmal. Windows laesst
-                    // sin6_scope_id in dieser Tabelle durchweg auf 0 und fuehrt
-                    // den Adapter stattdessen in InterfaceIndex - nachgemessen
-                    // an einem Rechner mit sechs Adaptern. Also von dort
-                    // nehmen, sonst kommt die Adresse ohne %n heraus und laesst
-                    // sich nicht ansprechen.
+                    // A link-local address cannot be reached without a zone:
+                    // fe80::1 can exist once on every adapter. Windows leaves
+                    // sin6_scope_id at 0 throughout this table and records the
+                    // adapter in InterfaceIndex instead (measured on a machine
+                    // with six adapters). The zone is therefore taken from
+                    // there; otherwise the address comes out without %n and
+                    // cannot be reached.
                     uint scopeId = (uint)Marshal.ReadInt32(row, OffsetV6ScopeId);
                     if (scopeId == 0 && interfaceIndex > 0) scopeId = (uint)interfaceIndex;
 
@@ -169,8 +169,8 @@ namespace MyNetworkMonitor.Platform.Windows
         }
 
         /// <summary>
-        /// NL_NEIGHBOR_STATE aus <c>nldef.h</c>. Die Reihenfolge ist Teil der
-        /// API und aendert sich nicht.
+        /// NL_NEIGHBOR_STATE from <c>nldef.h</c>. The order is part of the API
+        /// and does not change.
         /// </summary>
         private static NeighborState ToState(int value) => value switch
         {

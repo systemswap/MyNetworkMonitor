@@ -7,13 +7,13 @@ using MyNetworkMonitor.Core.Network;
 namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 {
     /// <summary>
-    /// Ein Adapter, ueber den ein IPv6-Verfahren arbeiten kann, samt der
-    /// Bereiche, die ihn benutzen.
+    /// A network interface an IPv6 method can work over, together with the
+    /// scope that uses it.
     /// <para>
-    /// Die Bereiche werden mitgefuehrt, weil ein Fund einem Bereich
-    /// zugeschlagen werden muss - Gruppenbezeichnung und Domain haengen daran.
-    /// Zeigen mehrere Bereiche auf denselben Adapter, gewinnt der erste; das
-    /// Segment ist dasselbe, und ein Geraet zweimal zu melden brachte nichts.
+    /// The scope is carried along because a finding has to be assigned to a
+    /// scope; group description and domain depend on it. If several scopes
+    /// point to the same interface, the first one wins; the segment is the
+    /// same, and reporting a device twice gains nothing.
     /// </para>
     /// </summary>
     internal sealed class Ipv6Segment
@@ -26,26 +26,9 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
     }
 
     /// <summary>
-    /// Gemeinsamer Unterbau der sechs IPv6-Suchverfahren.
-    /// <para>
-    /// Sie teilen mehr, als sie unterscheidet: alle arbeiten am Adapter statt
-    /// an einer Zielliste, alle sind auf ein Segment mit nutzbarem IPv6
-    /// angewiesen, und alle werden je Bereich ueber ein Flag in
-    /// <see cref="Ipv6Discovery"/> zu- oder abgewaehlt. Diese drei Pruefungen
-    /// stehen darum einmal hier statt sechsmal.
-    /// </para>
-    /// <para>
-    /// Warum ueberhaupt eigene Verfahren und keine Erweiterung der bestehenden:
-    /// ein /64 umfasst 18 Trillionen Adressen. Eine Zielliste, wie sie Ping und
-    /// Portscan durchgehen, gibt es unter IPv6 nicht - es bleibt nur, einmal in
-    /// die Runde zu fragen oder zuzuhoeren. Das ist eine andere Bauform, keine
-    /// zweite Adressfamilie am selben Verfahren.
-    /// </para>
-    /// </summary>
-    /// <summary>
-    /// Eine erratene Adresse, die noch zu pruefen ist - samt der Begruendung,
-    /// warum sie geraten wurde. Die Begruendung landet am Fund: "aus der MAC
-    /// abgeleitet" ist eine andere Auskunft als "durchprobiert".
+    /// A guessed address still to be checked, together with the reason it was
+    /// guessed. The reason ends up on the finding: "derived from the MAC" is
+    /// different information from "tried in a sweep".
     /// </summary>
     internal sealed class Ipv6Candidate
     {
@@ -54,27 +37,44 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         public required string Origin { get; init; }
     }
 
+    /// <summary>
+    /// Common base of the six IPv6 discovery methods.
+    /// <para>
+    /// They share more than separates them: all work on an interface rather
+    /// than a target list, all depend on a segment with usable IPv6, and all
+    /// are enabled or disabled per scope through a flag in
+    /// <see cref="Ipv6Discovery"/>. These three checks therefore live here
+    /// once instead of six times.
+    /// </para>
+    /// <para>
+    /// Why separate methods rather than extending the IPv4 ones: a /64
+    /// contains 18 quintillion addresses. A target list as walked by ping and
+    /// the port scan does not exist under IPv6; what remains is asking
+    /// everyone at once or listening. That is a different design, not a
+    /// second address family on the same method.
+    /// </para>
+    /// </summary>
     public abstract class Ipv6MethodBase : IScanMethod
     {
         public abstract string Id { get; }
         public abstract string DisplayName { get; }
         public abstract string Explanation { get; }
 
-        /// <summary>Welches Flag am Bereich dieses Verfahren zulaesst.</summary>
+        /// <summary>The scope flag that enables this method.</summary>
         protected abstract Ipv6Discovery Discovery { get; }
 
         public virtual ScanPhase Phase => ScanPhase.Discovery;
 
-        /// <summary>Ausnahmslos IPv6 - dafuer gibt es die Verfahren.</summary>
+        /// <summary>Always IPv6; that is what these methods exist for.</summary>
         public FamilySupport Families => FamilySupport.IPv6;
 
         public virtual bool IsPassive => false;
         public virtual bool RequiresElevation => false;
 
         /// <summary>
-        /// Keines der sechs geht eine Zielliste durch - sie fragen ins Segment
-        /// oder hoeren zu. Damit gibt es auch nichts, das sich auf die bereits
-        /// gefundenen Geraete kuerzen liesse.
+        /// None of the six walks through a target list; they query the segment
+        /// or listen. So there is nothing that could be restricted to devices
+        /// already found.
         /// </summary>
         public virtual bool EnumeratesTargets => false;
 
@@ -104,12 +104,12 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 
         public abstract Task ExecuteAsync(ScanContext context, CancellationToken cancellationToken);
 
-        // ------------------------------------------------------------ Segmente
+        // ------------------------------------------------------------ Segments
 
         /// <summary>
-        /// Die Adapter, ueber die dieses Verfahren laufen soll: aus jedem
-        /// gewaehlten Bereich, der IPv6 im Segment kann und dieses Verfahren
-        /// zugelassen hat - jeder Adapter nur einmal.
+        /// The interfaces this method runs over: from every selected scope that
+        /// supports IPv6 on its segment and has this method enabled, each
+        /// interface only once.
         /// </summary>
         internal List<Ipv6Segment> Segments(ScanContext context)
         {
@@ -122,13 +122,12 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                 if (!runtime.Scope.Ipv6Discovery.HasFlag(Discovery)) continue;
                 if (runtime.Interface is null) continue;
 
-                // Ein getrennter Adapter behaelt seine Link-Local-Adresse und
-                // seine Eintraege in der Nachbarschaftstabelle - er sieht in
-                // jeder Pruefung nutzbar aus. Am 2026-08-09 aufgefallen: ein
-                // Lauf ging ueber sieben Segmente, davon zwei mit
-                // abgezogenem Kabel bzw. abgeschaltetem Bluetooth. Die
-                // lieferten nichts als Karteileichen aus einem Netz, in dem
-                // der Rechner laengst nicht mehr steckt.
+                // A disconnected interface keeps its link-local address and
+                // its neighbor table entries, so it looks usable in every
+                // other check. A run over seven segments, two of them with an
+                // unplugged cable or Bluetooth switched off, would deliver
+                // nothing but stale entries from a network the machine is no
+                // longer connected to.
                 if (runtime.Interface.OperationalStatus != OperationalStatus.Up) continue;
 
                 int index = IndexOf(runtime.Interface);
@@ -146,8 +145,8 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         }
 
         /// <summary>
-        /// Der IPv6-Adapterindex. 0 heisst "nicht ermittelbar" - dann ist der
-        /// Adapter fuer IPv6 ohnehin nicht zu gebrauchen.
+        /// The IPv6 interface index. 0 means "cannot be determined"; the
+        /// interface is then unusable for IPv6 anyway.
         /// </summary>
         internal static int IndexOf(NetworkInterface nic)
         {
@@ -156,25 +155,25 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             catch (PlatformNotSupportedException) { return 0; }
         }
 
-        // ------------------------------------------------------------ Pruefen
+        // ------------------------------------------------------------ Probing
 
         /// <summary>
-        /// Wie viele Proben gleichzeitig laufen. Ein Multicast-Verfahren
-        /// braucht das nicht - diese beiden schon: sie gehen eine geratene
-        /// Liste durch, und die besteht ueberwiegend aus Adressen, an denen
-        /// niemand ist. Nacheinander waeren 255 Zeitlimits nacheinander.
+        /// Number of probes running concurrently. A multicast method does not
+        /// need this, but the two guessing methods do: they walk through a
+        /// guessed list consisting mostly of addresses where nobody is.
+        /// Sequentially, that would be 255 timeouts in a row.
         /// </summary>
         private const int ParallelProbes = 32;
 
         /// <summary>
-        /// Prueft geratene Adressen einzeln per Echo und meldet, wer antwortet.
+        /// Checks guessed addresses individually by echo request and reports
+        /// who answers.
         /// <para>
-        /// Bewusst ueber <see cref="Ping"/> und nicht ueber einen eigenen
-        /// ICMPv6-Socket: eine Echo-Anforderung an eine <em>einzelne</em>
-        /// Adresse kann <see cref="Ping"/> vollstaendig, auf beiden Plattformen
-        /// und ohne Sonderrechte. Der eigene Socket ist nur dort noetig, wo
-        /// viele Antworten auf ein Paket kommen - beim Multicast - oder wo
-        /// mitgehoert wird.
+        /// Deliberately uses <see cref="Ping"/> rather than a dedicated ICMPv6
+        /// socket: <see cref="Ping"/> fully handles an echo request to a
+        /// <em>single</em> address, on both platforms and without special
+        /// privileges. A dedicated socket is only needed where many answers
+        /// arrive for one packet (multicast) or where traffic is captured.
         /// </para>
         /// </summary>
         private protected async Task<int> ProbeCandidatesAsync(
@@ -202,9 +201,9 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                     PingReply reply = await ping.SendPingAsync(
                         candidate.Address, TimeSpan.FromMilliseconds(context.Settings.PortTimeoutMs));
 
-                    // Die gesendeten Proben werden gezaehlt, sobald die Probe
-                    // fertig ist - nicht beim Absenden. Sonst stuende die
-                    // Anzeige sofort auf 255/255, waehrend noch gewartet wird.
+                    // Sent probes are counted when the probe has finished, not
+                    // when it is sent. Otherwise the display would show
+                    // 255/255 immediately while still waiting.
                     Interlocked.Increment(ref sent);
 
                     if (IsGeneralFailure(reply.Status)) Interlocked.Increment(ref generalFailures);
@@ -222,7 +221,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                 }
                 catch (PingException) { Interlocked.Increment(ref sent); }
                 catch (SocketException) { Interlocked.Increment(ref sent); }
-                catch (OperationCanceledException) { /* Abbruch - nicht mitzaehlen */ }
+                catch (OperationCanceledException) { /* cancelled - not counted */ }
                 finally
                 {
                     gate.Release();
@@ -234,11 +233,11 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            // Kein einziger Erfolg, und jede Probe scheiterte am
-            // Betriebssystem statt an einer ausbleibenden Antwort: dann war
-            // hier gar kein Versuch moeglich. Das ist etwas anderes als "es
-            // hat niemand geantwortet" und muss auch anders dastehen - sonst
-            // sucht der Nutzer den Fehler bei den Geraeten.
+            // Not a single success, and every probe failed in the operating
+            // system rather than for lack of an answer: no attempt was
+            // possible here at all. That differs from "nobody answered" and
+            // must be reported differently; otherwise the cause would be
+            // sought in the devices.
             if (responded == 0 && generalFailures == sent && sent > 0)
             {
                 throw new InvalidOperationException(
@@ -252,33 +251,32 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         }
 
         /// <summary>
-        /// Die Probe ist nicht unbeantwortet geblieben, sondern gar nicht erst
-        /// hinausgegangen.
+        /// The probe did not go unanswered; it never left the machine.
         /// <para>
-        /// <c>IP_GENERAL_FAILURE</c> (11050) fehlt in <see cref="IPStatus"/> -
-        /// .NET reicht die Zahl unuebersetzt durch. Sie steht unter anderem
-        /// dafuer, dass dem Adapter die On-Link-Route fuer <c>fe80::/64</c>
-        /// fehlt; am 2026-08-09 an einem Rechner mit aktivem VPN gesehen, wo
-        /// selbst <c>ping -6</c> nur "Allgemeiner Fehler" meldete.
+        /// <c>IP_GENERAL_FAILURE</c> (11050) is missing from
+        /// <see cref="IPStatus"/>; .NET passes the number through untranslated.
+        /// Among other things it indicates that the interface lacks the on-link
+        /// route for <c>fe80::/64</c>, as happens on a machine with an active
+        /// VPN, where even <c>ping -6</c> reports only "General failure".
         /// </para>
         /// </summary>
         private static bool IsGeneralFailure(IPStatus status) =>
             (int)status == 11050 || status == IPStatus.Unknown;
 
-        // ------------------------------------------------------------ Mithoeren
+        // ------------------------------------------------------------ Listening
 
         /// <summary>
-        /// Hoert einen Kanal fuer die Dauer eines Zeitfensters ab und reicht
-        /// jedes Paket weiter.
+        /// Listens on a channel for the duration of a time window and passes
+        /// on every packet.
         /// <para>
-        /// Das Zeitfenster ist der ganze Unterschied zwischen "hat nichts
-        /// gefunden" und "war zu kurz da": mitgehoerte Nachrichten kommen,
-        /// wann der Absender will, nicht wann wir fragen. Der Aufrufer legt
-        /// die Dauer darum selbst fest.
+        /// The window makes all the difference between "found nothing" and
+        /// "did not listen long enough": captured messages arrive when the
+        /// sender chooses, not when asked. The caller therefore sets the
+        /// duration.
         /// </para>
         /// <para>
-        /// Ein Abbruch durch den Nutzer wird vom Ablaufen des Fensters
-        /// unterschieden - Ersteres wirft, Letzteres kehrt zurueck.
+        /// Cancellation through the token is distinguished from the window
+        /// expiring: the former throws, the latter returns.
         /// </para>
         /// </summary>
         private protected static async Task ListenAsync(
@@ -310,9 +308,8 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                 }
                 catch (SocketException)
                 {
-                    // Ein einzelnes verworfenes Paket beendet das Zuhoeren
-                    // nicht - etwa ein zu grosses, das nicht in den Puffer
-                    // passte.
+                    // A single dropped packet does not end listening, for
+                    // example one too large for the buffer.
                     continue;
                 }
 
@@ -326,10 +323,10 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         }
 
         /// <summary>
-        /// Der Grund, den ein Mithoer-Verfahren meldet, wenn kein Rohsocket zu
-        /// bekommen ist. Steht hier, weil beide betroffenen Verfahren
-        /// denselben Satz brauchen und er die eigentliche Frage beantworten
-        /// muss: was der Nutzer dagegen tun kann.
+        /// The reason a listening method reports when no raw socket can be
+        /// obtained. Lives here because both affected methods need the same
+        /// text, and it has to answer the actual question: what can be done
+        /// about it.
         /// </summary>
         private protected static string NoRawSocketReason(string what) =>
             OperatingSystem.IsWindows()
@@ -339,12 +336,12 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                   "program with sudo, or grant it once with: " +
                   "sudo setcap cap_net_raw+ep $(which MyNetworkMonitor.Avalonia)";
 
-        // ------------------------------------------------------------ Meldung
+        // ------------------------------------------------------------ Reporting
 
         /// <summary>
-        /// Meldet eine gefundene IPv6-Adresse. Nimmt dem einzelnen Verfahren
-        /// das Zusammenbauen der Sichtung ab - Bereichsangaben und die Analyse
-        /// der Adresse sind ueberall dieselben.
+        /// Reports a found IPv6 address. Builds the observation for the
+        /// individual method; scope information and address analysis are the
+        /// same everywhere.
         /// </summary>
         private protected void ReportAddress(
             ScanContext context,
@@ -361,8 +358,8 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                 Source = DisplayName,
                 Address = info,
 
-                // Steht keine MAC zur Verfuegung, kann sie in der Adresse
-                // stecken: eine EUI-64-Adresse traegt sie im hinteren Teil.
+                // Without a known MAC, it may be contained in the address: an
+                // EUI-64 address carries it in its interface identifier.
                 Mac = mac ?? info.DerivedMac,
 
                 IsResponding = isResponding,

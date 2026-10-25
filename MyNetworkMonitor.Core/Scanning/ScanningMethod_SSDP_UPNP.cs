@@ -13,19 +13,29 @@ using System.Net.NetworkInformation;
 
 namespace MyNetworkMonitor
 {
+    /// <summary>
+    /// Finds UPnP devices by SSDP M-SEARCH (multicast 239.255.255.250, port 1900) and reads their
+    /// device descriptions.
+    /// </summary>
     public class ScanningMethod_SSDP_UPNP
     {
 
        
 
+        /// <summary>Creates the SSDP scanner.</summary>
         public ScanningMethod_SSDP_UPNP()
         {
 
         }
 
         AsyncTimer timer = new AsyncTimer();
+        /// <summary>Reports progress as (processed, responded, total, status).</summary>
         public event Action<int, int, int, ScanStatus> ProgressUpdated;
+
+        /// <summary>Raised for every device found, on a background thread.</summary>
         public event EventHandler<ScanTask_Finished_EventArgs>? SSDP_foundNewDevice;
+
+        /// <summary>Raised when the scan has finished.</summary>
         public event Action<ScanStatus>? SSDP_Scan_Finished;
 
 
@@ -35,28 +45,22 @@ namespace MyNetworkMonitor
         private int responded = 0;
         private int total = 0;
 
-        private CancellationTokenSource _cts = new CancellationTokenSource(); // 🔹 Ermöglicht das Abbrechen
+        private CancellationTokenSource _cts = new CancellationTokenSource(); // Allows the scan to be cancelled.
 
-        //int currentValue = Interlocked.Increment(ref current);
-        //Task.Run(() => ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running));
-
-        //int respondedValue = Interlocked.Increment(ref responded);
-        //Task.Run(() => ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running));
-
-        //Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished));
-
+        /// <summary>
+        /// Cancels the running scan and reports <see cref="ScanStatus.stopped"/>.
+        /// </summary>
         public void StopScan()
         {
             if (_cts != null && !_cts.IsCancellationRequested)
             {
-                _cts.Cancel(); // 🔹 Scan abbrechen
-                // Hier NICHT aufraeumen und ersetzen: die Schleifen lesen _cts ueber
-                // das Feld. Ein frisches CTS an dieser Stelle meldet ihnen wieder
-                // "nicht abgebrochen", und der Lauf geht weiter, statt zu enden.
-                // Das Zuruecksetzen erledigt StartNewScan beim naechsten Lauf.
+                _cts.Cancel();
+                // Do NOT dispose and replace the source here: the loops read _cts through the
+                // field. A fresh source at this point would report "not cancelled" to them and
+                // the run would continue instead of ending. StartNewScan resets it for the next run.
             }
 
-            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped); // 🔹 UI auf 0 setzen
+            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped); // Resets the progress display.
         }
 
         private void StartNewScan()
@@ -71,7 +75,7 @@ namespace MyNetworkMonitor
             }
             _cts = new CancellationTokenSource();
 
-            // 🔹 Zähler zurücksetzen
+            // Reset the counters.
             current = 0;
             responded = 0;
             total = 0;
@@ -80,20 +84,46 @@ namespace MyNetworkMonitor
 
 
 
+        /// <summary>
+        /// What a device reported in its SSDP answer and its UPnP device description.
+        /// </summary>
         public class SSDPDeviceInfo
         {
-            public string IP { get; set; } = string.Empty;  // IP-Adresse des Geräts
+            /// <summary>The IP address of the device.</summary>
+            public string IP { get; set; } = string.Empty;
+
+            /// <summary>The SERVER header of the answer.</summary>
             public string Server { get; set; } = string.Empty;
+
+            /// <summary>The LOCATION header: the address of the device description.</summary>
             public string Location { get; set; } = string.Empty;
+
+            /// <summary>The friendlyName of the device description.</summary>
             public string FriendlyName { get; set; } = string.Empty;
+
+            /// <summary>The manufacturer of the device description.</summary>
             public string Manufacturer { get; set; } = string.Empty;
+
+            /// <summary>The modelDescription of the device description.</summary>
             public string ModelDescription { get; set; } = string.Empty;
+
+            /// <summary>The modelName of the device description.</summary>
             public string ModelName { get; set; } = string.Empty;
+
+            /// <summary>The modelNumber of the device description.</summary>
             public string ModelNumber { get; set; } = string.Empty;
+
+            /// <summary>The modelType of the device description.</summary>
             public string ModelType { get; set; } = string.Empty;
+
+            /// <summary>The URLBase of the device description.</summary>
             public string URLBase { get; set; } = string.Empty;
+
+            /// <summary>The presentationURL of the device description.</summary>
             public string PresentationURL { get; set; } = string.Empty;
 
+            /// <summary>Formats all values as multi-line text.</summary>
+            /// <returns>The values, one per line.</returns>
             public override string ToString()
             {
                 return $"📡 SSDP-Gerät gefunden:\n" +
@@ -107,21 +137,21 @@ namespace MyNetworkMonitor
 
 
 
-        private readonly string SSDP_IP = "239.255.255.250"; // SSDP Multicast-Adresse
-        private readonly int SSDP_PORT = 1900;               // Standard-SSDP-Port
+        private readonly string SSDP_IP = "239.255.255.250"; // SSDP multicast address
+        private readonly int SSDP_PORT = 1900;               // SSDP port
     
         
         /// <summary>
-        /// Führt einen SSDP-Scan durch, empfängt Antworten und extrahiert Geräteinformationen.
+        /// Sends an SSDP M-SEARCH on the selected interface, receives the answers and reads the
+        /// device description of every answering device.
         /// </summary>
-        /// <param name="scanDuration">in milliseconds</param>
-        // Rueckgabe Task statt void: bei "async void" landet eine Ausnahme
-        // unbehandelt im Threadpool und beendet den Prozess - kein try/catch
-        // am Aufrufer kann das verhindern. Genau das passiert hier, wenn noch
-        // kein Netzwerkadapter gewaehlt wurde und
-        // SelectedNetworkInterfaceInfos.IPv4 null ist. Nur die Signatur
-        // geaendert, der Ablauf ist unveraendert; die bestehenden Aufrufer
-        // (Task.Run(() => ...)) binden dadurch sogar sauber ein.
+        /// <param name="scanDuration">How long answers are received, in milliseconds.</param>
+        /// <remarks>
+        /// Returns <see cref="Task"/>, not <c>async void</c>: with <c>async void</c> an exception
+        /// ends up unhandled on the thread pool and terminates the process, and no try/catch at the
+        /// caller can prevent that (for example when no network adapter is selected yet). Callers
+        /// using <c>Task.Run(() => ...)</c> await the returned task.
+        /// </remarks>
         public async Task Scan_for_SSDP_devices_async(int scanDuration = 5000)
         {
             StartNewScan();
@@ -137,12 +167,10 @@ namespace MyNetworkMonitor
                 udpClient.EnableBroadcast = true;
                 udpClient.MulticastLoopback = true;
 
-                // Ohne das hier geht die M-SEARCH-Anfrage ueber die
-                // Standardroute des Betriebssystems hinaus, nicht ueber das
-                // ausgewaehlte Interface - auf einem Rechner mit mehreren
-                // Adaptern (VPN, Docker, zweite Netzkarte) kam die Anfrage
-                // dann von der falschen Seite und Antworten aus dem
-                // eigentlich gewuenschten Segment blieben aus.
+                // Without this option the M-SEARCH leaves through the default route of the operating
+                // system, not through the selected interface. On a computer with several adapters
+                // (VPN, Docker, a second network card) the request then comes from the wrong side and
+                // the devices of the intended segment do not answer.
                 if (SupportMethods.SelectedNetworkInterfaceInfos.IPv4 is { } selectedInterface)
                 {
                     udpClient.Client.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastInterface,
@@ -151,37 +179,36 @@ namespace MyNetworkMonitor
 
                 IPEndPoint multicastEP = new IPEndPoint(IPAddress.Parse(SSDP_IP), SSDP_PORT);
 
-                // SSDP-M-SEARCH Anfrage erstellen
+                // Build the SSDP M-SEARCH request.
                 string ssdpRequest =
                     "M-SEARCH * HTTP/1.1\r\n" +
                     $"HOST: {SSDP_IP}:{SSDP_PORT}\r\n" +
                     "MAN: \"ssdp:discover\"\r\n" +
-                    "MX: 3\r\n" +  // Maximale Wartezeit für Antworten
-                    "ST: ssdp:all\r\n" +  // Suche nach allen UPnP-Geräten
+                    "MX: 3\r\n" +  // Maximum answer delay in seconds
+                    "ST: ssdp:all\r\n" +  // Search for all UPnP devices and services
                     "\r\n";
 
                 byte[] requestBytes = Encoding.UTF8.GetBytes(ssdpRequest);
                 await udpClient.SendAsync(requestBytes, requestBytes.Length, multicastEP);
 
-                //Console.WriteLine("📡 SSDP-Scan gesendet... Warte auf Antworten...");
 
-                udpClient.Client.ReceiveTimeout = scanDuration; // Timeout für Antworten (5 Sekunden)
+                udpClient.Client.ReceiveTimeout = scanDuration; // Receive timeout for answers
 
                 try
                 {
-                    // Starte den Timer und warte nicht auf seine Beendigung
+                    // Start the timer without waiting for it to end.
                     var timerTask = timer.StartAsync(scanDuration, 1000, async () => { });
 
                     while (timer.IsRunning)
                     {
-                        if (_cts.Token.IsCancellationRequested) break; // 🔹 Abbruchprüfung
+                        if (_cts.Token.IsCancellationRequested) break;
 
                         var receiveTask = udpClient.ReceiveAsync();
                         var completedTask = await Task.WhenAny(receiveTask, Task.Delay(10, _cts.Token));
 
-                        if (_cts.Token.IsCancellationRequested) break; // 🔹 Falls während `Task.WhenAny()` ein Abbruch passiert
+                        if (_cts.Token.IsCancellationRequested) break; // Cancelled during Task.WhenAny()
 
-                        if (completedTask == receiveTask && !_cts.Token.IsCancellationRequested) // Antwort erhalten
+                        if (completedTask == receiveTask && !_cts.Token.IsCancellationRequested) // Answer received
                         {
                             UdpReceiveResult result = receiveTask.Result;
                             string response = Encoding.UTF8.GetString(result.Buffer);
@@ -211,8 +238,8 @@ namespace MyNetworkMonitor
 
                                 if (!_cts.Token.IsCancellationRequested)
                                 {
-                                    // Event vom Hintergrund-Thread feuern; der UI-Subscriber (MainWindow)
-                                    // marshalt selbst via Dispatcher – daher hier keine WPF-Abhängigkeit nötig.
+                                    // Raised on the background thread; UI subscribers marshal to the UI
+                                    // thread themselves, so the core needs no UI dependency.
                                     SSDP_foundNewDevice?.Invoke(this, scanTask_Finished);
 
                                     int respondedValue = Interlocked.Increment(ref responded);
@@ -224,17 +251,15 @@ namespace MyNetworkMonitor
                 }
                 catch (SocketException)
                 {
-                    //Console.WriteLine("⚠ Keine Antwort erhalten. Beende Scan.");
+                    // No further answer within the receive timeout: the scan ends.
                 }
                 finally
                 {
-                    //Console.WriteLine("✅ SSDP-Scan abgeschlossen.");
 
                     SSDP_Scan_Finished?.Invoke(ScanStatus.finished);
 
                 }
             }
-            //return devices;        
         }
 
 
@@ -248,18 +273,18 @@ namespace MyNetworkMonitor
 
 
         /// <summary>
-        /// Analysiert eine SSDP-Antwort und lädt die XML-Datei zur weiteren Verarbeitung.
+        /// Evaluates an SSDP answer and loads the device description it points to.
         /// </summary>
         private async Task<SSDPDeviceInfo?> ParseSSDPResponseAsync(string ssdpResponse, string ipAddress)
         {
             var device = new SSDPDeviceInfo
             {
-                IP = ipAddress,  // Speichert die IP-Adresse des Geräts
+                IP = ipAddress,
                 Server = ExtractValue(ssdpResponse, @"SERVER:\s*(.+)"),
                 Location = ExtractValue(ssdpResponse, @"LOCATION:\s*(.+)")
             };
 
-            // Falls eine Location gefunden wurde, lade die XML-Datei und parse sie
+            // If the answer has a LOCATION, load and parse the device description.
             if (!string.IsNullOrEmpty(device.Location))
             {
                 await ParseXMLFromURL(device, device.Location);
@@ -269,7 +294,7 @@ namespace MyNetworkMonitor
         }
 
         /// <summary>
-        /// Extrahiert Werte aus einer SSDP-Antwort mithilfe von Regex.
+        /// Extracts a header value from an SSDP answer with a regular expression.
         /// </summary>
         private static string ExtractValue(string input, string pattern)
         {
@@ -282,17 +307,16 @@ namespace MyNetworkMonitor
         {
             try
             {
-                // Ohne eigenes Zeitlimit haengt ein einzelnes langsames oder
-                // totes Geraet hier bis zu HttpClients Standard von 100
-                // Sekunden - waehrend die Empfangsschleife nicht mehr zum
-                // Zug kommt und Antworten anderer Geraete liegenbleiben.
+                // Without its own time limit a single slow or dead device would block here for up to
+                // the HttpClient default of 100 seconds, while the receive loop does not run and the
+                // answers of other devices stay unprocessed.
                 using HttpClient client = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
                 string xmlContent = await client.GetStringAsync(url);
 
-                // XML in XDocument laden
+                // Load the XML into an XDocument.
                 XDocument doc = XDocument.Parse(xmlContent);
 
-                // Prüfen, ob es ein Default-Namespace gibt
+                // Use the default namespace, if there is one.
                 XNamespace ns = doc.Root?.GetDefaultNamespace() ?? XNamespace.None;
 
                 XElement deviceElement = doc.Descendants(ns + "device").FirstOrDefault();
@@ -318,14 +342,27 @@ namespace MyNetworkMonitor
     }
 }
 
+/// <summary>
+/// Runs a callback at a fixed interval for a given duration.
+/// </summary>
 public class AsyncTimer
 {
     private CancellationTokenSource _cts;
+
+    /// <summary>Whether the timer is running.</summary>
     public bool IsRunning { get; private set; } = false;
 
+    /// <summary>
+    /// Calls <paramref name="onTick"/> every <paramref name="intervalMs"/> milliseconds until
+    /// <paramref name="durationMs"/> has passed or <see cref="Stop"/> is called. A second call
+    /// while the timer runs returns at once.
+    /// </summary>
+    /// <param name="durationMs">The total duration in milliseconds.</param>
+    /// <param name="intervalMs">The interval between the calls in milliseconds.</param>
+    /// <param name="onTick">The callback.</param>
     public async Task StartAsync(int durationMs, int intervalMs, Func<Task> onTick)
     {
-        if (IsRunning) return; // Verhindert mehrfaches Starten
+        if (IsRunning) return; // Prevents a second start.
         IsRunning = true;
         _cts = new CancellationTokenSource();
 
@@ -334,7 +371,7 @@ public class AsyncTimer
             int elapsed = 0;
             while (elapsed < durationMs && !_cts.Token.IsCancellationRequested)
             {
-                await onTick(); // Callback ausführen
+                await onTick();
                 await Task.Delay(intervalMs, _cts.Token);
                 elapsed += intervalMs;
             }
@@ -349,6 +386,7 @@ public class AsyncTimer
         }
     }
 
+    /// <summary>Stops the timer.</summary>
     public void Stop()
     {
         _cts?.Cancel();

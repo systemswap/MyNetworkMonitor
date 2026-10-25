@@ -12,34 +12,33 @@ using System.Threading.Tasks;
 namespace MyNetworkMonitor
 {
     /// <summary>
-    /// Fragt eine offene Weboberflaeche danach, wer sie ist: Seitentitel,
-    /// Serverkennung und das TLS-Zertifikat.
+    /// Asks an open web interface what it is: page title, server header and the TLS certificate.
     /// <para>
-    /// <b>Der Unterschied zum Portscan:</b> der sagt "Port 443 ist offen". Hier
-    /// steht danach "Drucker HP LaserJet, Zertifikat selbst ausgestellt,
-    /// abgelaufen seit 2019". Erst damit laesst sich eine Liste von Adressen zu
-    /// einer Liste von Geraeten machen.
+    /// <b>The difference to the port scan:</b> the port scan says "port 443 is open". This scan
+    /// adds, for example, "printer, self-signed certificate, expired years ago". Only that turns
+    /// a list of addresses into a list of devices.
     /// </para>
     /// <para>
-    /// Die Namen im Feld <c>Subject Alternative Name</c> sind der zweite Gewinn:
-    /// dort stehen haeufig weitere Hostnamen des Geraets, die im DNS gar nicht
-    /// auftauchen. Sie gehen als Aliase ins Modell und damit in die Pruefung auf
-    /// doppelt vergebene Namen.
+    /// The names in the <c>Subject Alternative Name</c> field are a second benefit: they often
+    /// contain further host names of the device that do not appear in DNS. They go into the model
+    /// as aliases and thus into the check for duplicate names.
     /// </para>
     /// </summary>
     public class ScanningMethod_WebIdentity
     {
         /// <summary>
-        /// Die Ports, die gepruft werden, wenn das Geraet keine eigenen offenen
-        /// Webports gemeldet hat. Bewusst kurz: das hier ist kein Portscan,
-        /// sondern die Nachfrage an einer bekannten Tuer.
+        /// The ports checked when no open web ports are known for the device. Deliberately short:
+        /// this is no port scan but a request at a known door.
         /// </summary>
         public static readonly int[] DefaultPorts = [80, 443, 8080, 8443];
 
-        /// <summary>Welche dieser Ports ueber TLS sprechen.</summary>
+        /// <summary>Which of these ports use TLS.</summary>
         private static readonly HashSet<int> TlsPorts = [443, 8443];
 
+        /// <summary>Reports progress as (targets done, targets identified, total, status).</summary>
         public event Action<int, int, int, ScanStatus>? ProgressUpdated;
+
+        /// <summary>Raised for every target whose web interface answered.</summary>
         public event Action<WebIdentityResult>? WebIdentityFound;
 
         private int current;
@@ -48,9 +47,12 @@ namespace MyNetworkMonitor
 
         private CancellationTokenSource _cts = new();
 
-        /// <summary>Wie lange auf eine Antwort gewartet wird.</summary>
+        /// <summary>How long to wait for a connection and for an answer, in milliseconds.</summary>
         public int TimeoutMs { get; set; } = 3000;
 
+        /// <summary>
+        /// Cancels the running scan and reports <see cref="ScanStatus.stopped"/>.
+        /// </summary>
         public void StopScan()
         {
             if (_cts != null && !_cts.IsCancellationRequested) _cts.Cancel();
@@ -74,10 +76,13 @@ namespace MyNetworkMonitor
         }
 
         /// <summary>
-        /// Prueft je Ziel dessen Webports. <paramref name="portsPerTarget"/>
-        /// nennt die Ports, die am jeweiligen Ziel bereits als offen bekannt
-        /// sind - fehlt ein Eintrag, werden <see cref="DefaultPorts"/> genommen.
+        /// Checks the web ports of every target. <paramref name="portsPerTarget"/> lists the ports
+        /// already known to be open on each target; without an entry, <see cref="DefaultPorts"/>
+        /// are used.
         /// </summary>
+        /// <param name="targets">The target addresses.</param>
+        /// <param name="portsPerTarget">The known open web ports per address, or <see langword="null"/>.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="targets"/> is <see langword="null"/>.</exception>
         public async Task ScanAsync(
             IReadOnlyList<string> targets,
             IReadOnlyDictionary<string, List<int>>? portsPerTarget = null)
@@ -89,9 +94,8 @@ namespace MyNetworkMonitor
             total = targets.Count;
             ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running);
 
-            // Zwanzig gleichzeitig: jede Probe haelt eine Verbindung ueber bis
-            // zu drei Sekunden, und mehr davon bringt bei Webports nichts, weil
-            // die allermeisten Ziele gar keinen offen haben.
+            // Twenty at a time: each probe holds a connection for up to three seconds, and more
+            // gains nothing for web ports, because most targets have none open.
             using SemaphoreSlim gate = new(20);
 
             IEnumerable<Task> work = targets.Select(async address =>
@@ -140,14 +144,13 @@ namespace MyNetworkMonitor
             }
             catch (OperationCanceledException)
             {
-                // Abbruch ist kein Fehler.
+                // A cancellation is no error.
             }
         }
 
         /// <summary>
-        /// Probiert die Ports der Reihe nach und nimmt den ersten, der
-        /// antwortet. TLS-Ports zuerst - dort gibt es zusaetzlich das
-        /// Zertifikat, also mehr Auskunft fuer dieselbe Verbindung.
+        /// Tries the ports one after the other and takes the first that answers. TLS ports come
+        /// first: they also provide the certificate, so more information for the same connection.
         /// </summary>
         private async Task<WebIdentityResult?> ProbeAsync(string address, List<int> ports)
         {
@@ -174,10 +177,9 @@ namespace MyNetworkMonitor
 
                 X509Certificate2? certificate = null;
 
-                // Jedes Zertifikat annehmen: hier wird geprueft, was da steht,
-                // nicht ob man ihm trauen kann. Ein selbst ausgestelltes oder
-                // abgelaufenes Zertifikat abzulehnen hiesse, genau den Fall
-                // wegzuwerfen, um den es geht.
+                // Accept every certificate: the check is about what it says, not whether it can be
+                // trusted. Rejecting a self-signed or expired certificate would discard exactly the
+                // case of interest.
                 using SslStream tls = new(client.GetStream(), false, (_, cert, _, _) =>
                 {
                     if (cert is not null) certificate = new X509Certificate2(cert);
@@ -236,13 +238,12 @@ namespace MyNetworkMonitor
         }
 
         /// <summary>
-        /// Holt die Startseite und liest Titel und Serverkennung heraus.
+        /// Fetches the start page and returns the raw response, from which title and server
+        /// header are read.
         /// <para>
-        /// Bewusst von Hand gesprochenes HTTP statt <c>HttpClient</c>: das Ziel
-        /// ist oft ein Geraet mit einem eigenwilligen Webserver, der auf einer
-        /// Umleitung oder einem fehlenden Feld besteht. Ein roher Lesevorgang
-        /// bekommt hier mehr zu sehen als eine Bibliothek, die auf
-        /// Wohlgeformtheit besteht.
+        /// Deliberately hand-written HTTP instead of <c>HttpClient</c>: the target is often a
+        /// device with an idiosyncratic web server that insists on a redirect or omits a field. A
+        /// raw read sees more here than a library that insists on well-formed responses.
         /// </para>
         /// </summary>
         private async Task<string?> ReadTitleAsync(
@@ -258,9 +259,8 @@ namespace MyNetworkMonitor
             using System.IO.MemoryStream buffer = new();
             byte[] chunk = new byte[4096];
 
-            // 64 KB reichen fuer Kopfzeilen und Titel bei Weitem. Mehr zu lesen
-            // hiesse, sich von einer Geraeteseite mit eingebettetem Bild die
-            // Zeit stehlen zu lassen.
+            // 64 KB is far more than enough for headers and title. Reading more would waste time
+            // on a device page with an embedded image.
             while (buffer.Length < 65536)
             {
                 int read = await stream.ReadAsync(chunk, token);
@@ -268,7 +268,7 @@ namespace MyNetworkMonitor
 
                 buffer.Write(chunk, 0, read);
 
-                // Sobald der Titel da ist, muss der Rest nicht mehr kommen.
+                // Once the title has arrived, the rest is not needed.
                 if (Encoding.UTF8.GetString(buffer.ToArray()).Contains("</title>", StringComparison.OrdinalIgnoreCase))
                 {
                     break;
@@ -295,10 +295,9 @@ namespace MyNetworkMonitor
                 CertificateIssuer = certificate is null ? null : Clean(certificate.Issuer),
                 CertificateExpires = certificate?.NotAfter,
 
-                // Selbst ausgestellt heisst: Aussteller und Inhaber sind
-                // dieselbe Stelle. Das ist bei Geraeten die Regel, nicht die
-                // Ausnahme - gemeldet wird es trotzdem, weil es zusammen mit
-                // einem abgelaufenen Datum den Unterschied macht.
+                // Self-signed means issuer and subject are the same. On devices that is the rule,
+                // not the exception; it is still reported, because together with an expired date
+                // it makes the difference.
                 IsSelfSigned = certificate is not null &&
                                string.Equals(certificate.Subject, certificate.Issuer, StringComparison.OrdinalIgnoreCase),
                 AlternativeNames = ExtractAlternativeNames(certificate)
@@ -316,8 +315,7 @@ namespace MyNetworkMonitor
 
             string title = System.Net.WebUtility.HtmlDecode(match.Groups[1].Value).Trim();
 
-            // Zeilenumbrueche im Titel kommen vor und wuerden die Detailansicht
-            // auseinanderreissen.
+            // Titles can contain line breaks, which would break up the detail view.
             title = Regex.Replace(title, @"\s+", " ");
 
             return title.Length == 0 ? null : title;
@@ -334,9 +332,9 @@ namespace MyNetworkMonitor
         }
 
         /// <summary>
-        /// Die Namen aus dem Feld <c>Subject Alternative Name</c>. Dort stehen
-        /// oft Hostnamen, die im DNS fehlen - fuer die Pruefung auf doppelt
-        /// vergebene Namen sind sie genauso viel wert wie ein PTR-Eintrag.
+        /// The names from the <c>Subject Alternative Name</c> field (OID 2.5.29.17, RFC 5280,
+        /// section 4.2.1.6). They often contain host names missing in DNS; for the check for
+        /// duplicate names they are worth as much as a PTR record.
         /// </summary>
         private static List<string> ExtractAlternativeNames(X509Certificate2? certificate)
         {
@@ -350,7 +348,7 @@ namespace MyNetworkMonitor
                 foreach (string line in extension.Format(true)
                              .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
                 {
-                    // Die Formatierung sieht so aus: "DNS Name=drucker.firma.de".
+                    // The formatted line looks like "DNS Name=printer.example.com".
                     int separator = line.IndexOf('=');
                     if (separator < 0 || separator == line.Length - 1) continue;
 
@@ -363,8 +361,8 @@ namespace MyNetworkMonitor
         }
 
         /// <summary>
-        /// Kuerzt einen Zertifikatsnamen auf das <c>CN=</c>-Feld. Der ganze
-        /// Distinguished Name ist eine Zeile, die kein Detailpanel fasst.
+        /// Shortens a certificate name to its <c>CN=</c> field. The full distinguished name is a
+        /// line no detail panel can hold.
         /// </summary>
         private static string Clean(string distinguishedName)
         {
@@ -373,28 +371,41 @@ namespace MyNetworkMonitor
         }
     }
 
-    /// <summary>Was hinter einem offenen Webport gefunden wurde.</summary>
+    /// <summary>What was found behind an open web port.</summary>
     public sealed class WebIdentityResult
     {
+        /// <summary>The address of the target.</summary>
         public required string Address { get; init; }
+
+        /// <summary>The port that answered.</summary>
         public int Port { get; init; }
+
+        /// <summary>Whether the port uses TLS.</summary>
         public bool IsTls { get; init; }
 
-        /// <summary>Der Seitentitel - meist der aussagekraeftigste Fund.</summary>
+        /// <summary>The page title, usually the most telling finding.</summary>
         public string? Title { get; init; }
 
-        /// <summary>Die Serverkennung aus der Kopfzeile.</summary>
+        /// <summary>The value of the Server header.</summary>
         public string? Server { get; init; }
 
+        /// <summary>The CN of the certificate subject.</summary>
         public string? CertificateSubject { get; init; }
+
+        /// <summary>The CN of the certificate issuer.</summary>
         public string? CertificateIssuer { get; init; }
+
+        /// <summary>The end of the validity period of the certificate.</summary>
         public DateTime? CertificateExpires { get; init; }
+
+        /// <summary>Whether subject and issuer of the certificate are the same.</summary>
         public bool IsSelfSigned { get; init; }
 
-        /// <summary>Weitere Namen aus dem Zertifikat.</summary>
+        /// <summary>Further names from the certificate.</summary>
         public List<string> AlternativeNames { get; init; } = [];
 
-        /// <summary>Die Zeilen fuer die Detailansicht.</summary>
+        /// <summary>The lines for the detail view.</summary>
+        /// <returns>The findings as multi-line text.</returns>
         public string ToInfoText()
         {
             List<string> lines = [$"Reached on port {Port}{(IsTls ? " over TLS" : string.Empty)}"];

@@ -3,11 +3,10 @@ using System.Text;
 namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 {
     /// <summary>
-    /// File Transfer Protocol. Gruesst von sich aus mit "220 ..." - es gibt
-    /// nichts zu senden, und genau darum steht als Hello-Paket ein leeres
-    /// Feld. Frueher stand dort ein rohes TCP-SYN-Paket aus einem Mitschnitt;
-    /// aufgefallen war das nie, weil ein FTP-Server ohnehin antwortet, egal
-    /// was ankommt.
+    /// File Transfer Protocol. Greets on its own with "220 ..."; there is
+    /// nothing to send, which is why the hello packet is empty. A wrong hello
+    /// packet would go unnoticed here, because an FTP server answers whatever
+    /// arrives. See docs/FEHLERGEDAECHTNIS.md, No. 2.
     /// </summary>
     public sealed class FtpProbe : ServiceProbeBase
     {
@@ -15,17 +14,16 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         public override string Group => ServiceGroups.Network;
         public override IReadOnlyList<int> DefaultPorts => [21];
 
-        /// <summary>Nichts zu senden - siehe oben.</summary>
+        /// <summary>Nothing to send; see above.</summary>
         public override byte[] Hello => [];
 
-        /// <summary>Woertlich aus der alten Antwortpruefung uebernommen - keine Bedingung veraendert.</summary>
+        /// <summary>Matches a greeting that starts with "220 " (RFC 959, section 4.2).</summary>
         public override bool Identify(byte[] response)
         {
             ServiceType service = Service;
             bool serviceMatched = false;
             string str_serviceResponse = Encoding.ASCII.GetString(response);
 
-            // ?? FTP
             if (service == ServiceType.FTP)
             {
                 if (str_serviceResponse.StartsWith("220 "))
@@ -38,34 +36,35 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Die Begruessung ohne den Zahlencode. Fast jeder Server nennt sich
-        /// darin selbst - "220 (vsFTPd 3.0.3)", "220 Microsoft FTP Service",
-        /// "220 ProFTPD 1.3.5 Server ready" - und damit Produkt und oft die
-        /// Version, ohne dass danach gefragt werden muesste.
+        /// The greeting without the reply code. Almost every server names itself
+        /// in it, such as "220 (vsFTPd 3.0.3)", "220 Microsoft FTP Service" or
+        /// "220 ProFTPD 1.3.5 Server ready", and with it the product and often
+        /// the version, without having to ask.
         /// </summary>
         protected override string? Describe(byte[] response)
         {
             string banner = FirstLine(Encoding.ASCII.GetString(response));
 
-            // Die drei Ziffern und das Leerzeichen sind der Protokollcode und
-            // sagen nur "bereit" - die Auskunft ist, was dahinter steht.
+            // The three digits and the space are the reply code and only mean
+            // "ready"; the information is what follows.
             string text = banner.Length > 4 ? banner[4..].Trim() : string.Empty;
 
             return text.Length > 0 ? $"Banner: {text}" : null;
         }
 
         /// <summary>
-        /// Die zwei Fragen, die jeder FTP-Client vor der Anmeldung stellen darf.
+        /// The two requests every FTP client may send before logging in.
         /// <para>
-        /// <c>SYST</c> nennt die Systemart, mit der der Server sich meldet -
-        /// "215 UNIX Type: L8", "215 Windows_NT". <c>FEAT</c> listet seine
-        /// Erweiterungen, und dort steht die eigentlich wichtige Auskunft: fehlt
-        /// <c>AUTH TLS</c>, laeuft die Anmeldung dieses Servers im Klartext
-        /// durchs Netz. Beides ohne Benutzernamen, ohne Passwort.
+        /// <c>SYST</c> (RFC 959) names the system type the server reports, such
+        /// as "215 UNIX Type: L8" or "215 Windows_NT". <c>FEAT</c> (RFC 2389)
+        /// lists its extensions, and that is where the important information
+        /// is: without <c>AUTH TLS</c> (RFC 4217), logins to this server cross
+        /// the network in plain text. Neither request needs a user name or
+        /// password.
         /// </para>
         /// <para>
-        /// Ein <c>QUIT</c> hinterher waere hoeflich, kostet aber einen weiteren
-        /// Umlauf; die Verbindung wird ohnehin gleich geschlossen.
+        /// A <c>QUIT</c> afterwards would be polite but costs another round
+        /// trip; the connection is closed right after anyway.
         /// </para>
         /// </summary>
         protected override async Task<string?> InterrogateAsync(
@@ -75,8 +74,8 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
             string system = FirstLine(await AskLineAsync(stream, "SYST", token));
 
-            // Nur die geglueckte Antwort: 215 ist die einzige Zusage auf SYST,
-            // alles andere ist eine Ablehnung und keine Auskunft.
+            // Only the successful reply: 215 is the only positive reply to SYST;
+            // everything else is a rejection and carries no information.
             if (system.StartsWith("215", StringComparison.Ordinal) && system.Length > 4)
             {
                 lines.Add($"System: {system[4..].Trim()}");
@@ -90,8 +89,8 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                     features.Contains("AUTH TLS", StringComparison.OrdinalIgnoreCase) ||
                     features.Contains("AUTH SSL", StringComparison.OrdinalIgnoreCase);
 
-                // Bewusst als Aussage ueber den Server und nicht als blosse
-                // Merkmalsliste: dass hier "no" steht, ist der Befund.
+                // Deliberately a statement about the server rather than a mere
+                // feature list: a "no" here is the finding.
                 lines.Add($"Encryption (AUTH TLS): {(supportsTls ? "yes" : "no")}");
 
                 string extensions = FeatureList(features);
@@ -102,10 +101,10 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Macht aus der mehrzeiligen FEAT-Antwort eine Zeile. Der Aufbau ist
-        /// festgelegt: "211-Features:", dann je Erweiterung eine mit Leerzeichen
-        /// eingerueckte Zeile, dann "211 End". Genommen wird allein das
-        /// Eingerueckte - die Rahmenzeilen sind Protokoll, keine Erweiterung.
+        /// Turns the multi-line FEAT reply into one line. The layout is fixed
+        /// (RFC 2389, section 3.2): "211-Features:", then one line per extension
+        /// indented by a space, then "211 End". Only the indented lines are
+        /// taken; the frame lines are protocol, not extensions.
         /// </summary>
         private static string FeatureList(string response)
         {
@@ -113,7 +112,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
             foreach (string raw in response.Split('\n'))
             {
-                // Das Zeilenende faellt weg, die Einrueckung entscheidet.
+                // Drop the line ending; the indentation decides.
                 string line = raw.TrimEnd('\r');
                 if (line.Length < 2 || line[0] != ' ') continue;
 
@@ -121,8 +120,8 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                 if (feature.Length > 0 && !features.Contains(feature)) features.Add(feature);
             }
 
-            // Genug, um den Server einzuordnen, ohne die Detailansicht mit einer
-            // Auflistung von dreissig Erweiterungen zu fluten.
+            // Enough to classify the server without flooding the details view
+            // with a list of thirty extensions.
             return string.Join(", ", features.Take(12));
         }
     }

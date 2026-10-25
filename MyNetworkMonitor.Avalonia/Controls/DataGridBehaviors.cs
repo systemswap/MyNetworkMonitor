@@ -9,32 +9,33 @@ using Avalonia.VisualTree;
 namespace MyNetworkMonitor.Avalonia.Controls
 {
     /// <summary>
-    /// Korrekturen am Verhalten von Avalonias DataGrid, die sich nicht ueber
-    /// Eigenschaften einstellen lassen.
+    /// Corrections to the behavior of the Avalonia DataGrid that cannot be
+    /// configured through properties.
     /// </summary>
     public static class DataGridBehaviors
     {
         /// <summary>
-        /// Haelt den Bereich unter der letzten Zeile frei, solange die
-        /// horizontale Bildlaufleiste sichtbar ist.
+        /// Keeps the area below the last row free while the horizontal scroll
+        /// bar is visible.
         ///
-        /// Im DataGrid-Template liegt diese Leiste ueber dem Zeilenbereich statt
-        /// darunter: gemessen reicht der Zeilenbereich von y=32 bis y=500, die
-        /// Leiste von y=484 bis y=500. Die letzte Zeile wird dadurch von ihr
-        /// verdeckt - man scrollt ans Ende und sieht sie trotzdem nicht.
-        /// Betroffen ist nur die Ergebnistabelle, weil nur sie genug Spalten fuer
-        /// eine horizontale Leiste hat.
+        /// The DataGrid template places this scroll bar over the row area instead
+        /// of below it: measured, the row area spans y=32 to y=500 and the scroll
+        /// bar y=484 to y=500. The scroll bar therefore covers the last row, which
+        /// stays hidden even when scrolled to the end. Only the results table is
+        /// affected, because only it has enough columns for a horizontal scroll bar.
         ///
-        /// Die Korrektur verkuerzt den Zeilenbereich um die Hoehe der Leiste,
-        /// sodass beide aneinander grenzen statt sich zu ueberlappen.
+        /// The correction shortens the row area by the height of the scroll bar so
+        /// that both are adjacent instead of overlapping.
         /// </summary>
         public static readonly AttachedProperty<bool> ReserveHorizontalScrollBarSpaceProperty =
             AvaloniaProperty.RegisterAttached<DataGrid, bool>(
                 "ReserveHorizontalScrollBarSpace", typeof(DataGridBehaviors));
 
+        /// <summary>Sets <see cref="ReserveHorizontalScrollBarSpaceProperty"/> on a grid.</summary>
         public static void SetReserveHorizontalScrollBarSpace(DataGrid grid, bool value)
             => grid.SetValue(ReserveHorizontalScrollBarSpaceProperty, value);
 
+        /// <summary>Gets <see cref="ReserveHorizontalScrollBarSpaceProperty"/> of a grid.</summary>
         public static bool GetReserveHorizontalScrollBarSpace(DataGrid grid)
             => grid.GetValue(ReserveHorizontalScrollBarSpaceProperty);
 
@@ -67,8 +68,8 @@ namespace MyNetworkMonitor.Avalonia.Controls
 
             Thickness margin = presenter.Margin;
 
-            // Nur bei echter Abweichung schreiben - sonst stiesse jede
-            // Layout-Runde die naechste an.
+            // Writes only on a real difference; otherwise every layout pass
+            // would trigger the next one.
             if (Math.Abs(margin.Bottom - reserved) < 0.5) return;
 
             presenter.Margin = new Thickness(margin.Left, margin.Top, margin.Right, reserved);

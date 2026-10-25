@@ -10,9 +10,9 @@ using Avalonia.Interactivity;
 namespace MyNetworkMonitor.Avalonia.Views
 {
     /// <summary>
-    /// Avalonia-Portierung von PayPalDonation (WPF). Verhalten unveraendert:
-    /// Waehrung nach Systemsprache, nur Ziffern im Betrag, Spenden-URL im
-    /// Standardbrowser oeffnen.
+    /// Donation window: chooses the currency from the system language, accepts
+    /// only digits in the amount field and opens the donation URL in the
+    /// default browser.
     /// </summary>
     public partial class PayPalDonationView : Window
     {
@@ -22,12 +22,12 @@ namespace MyNetworkMonitor.Avalonia.Views
         {
             InitializeComponent();
 
-            // Systemsprache: Deutsch -> EUR, sonst USD
+            // System language: German -> EUR, otherwise USD.
             string systemLang = CultureInfo.CurrentCulture.TwoLetterISOLanguageName;
             Currency = systemLang == "de" ? "EUR" : "USD";
             CurrencyTextBlock.Text = Currency;
 
-            // Nur Ziffern im Betragsfeld zulassen (Gegenstueck zu PreviewTextInput).
+            // Allows only digits in the amount field; the tunneling handler rejects input before the TextBox sees it.
             AmountTextBox.AddHandler(TextInputEvent, OnAmountTextInput, RoutingStrategies.Tunnel);
         }
 
@@ -50,7 +50,7 @@ namespace MyNetworkMonitor.Avalonia.Views
             {
                 const string baseUrl = "https://www.paypal.com/cgi-bin/webscr";
 
-                // Query manuell aufbauen (plattformneutral, ohne System.Web).
+                // Builds the query by hand (platform-neutral, without System.Web).
                 var query = new StringBuilder();
                 void Add(string key, string value)
                 {
@@ -58,7 +58,7 @@ namespace MyNetworkMonitor.Avalonia.Views
                     query.Append(Uri.EscapeDataString(key)).Append('=').Append(Uri.EscapeDataString(value));
                 }
 
-                // Einmalige Spende (Abo-Zweig war im Original deaktiviert).
+                // One-time donation.
                 Add("cmd", "_donations");
                 Add("business", paypalEmail);
                 Add("amount", amount.ToString("0.00", CultureInfo.InvariantCulture));
@@ -70,7 +70,7 @@ namespace MyNetworkMonitor.Avalonia.Views
 
                 string donationUrl = $"{baseUrl}?{query}";
 
-                // Standardbrowser oeffnen (Windows: Browser, Linux: xdg-open).
+                // Opens the default browser (Windows: shell association, Linux: xdg-open).
                 Process.Start(new ProcessStartInfo
                 {
                     FileName = donationUrl,

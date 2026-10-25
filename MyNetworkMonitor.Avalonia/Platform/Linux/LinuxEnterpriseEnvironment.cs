@@ -3,12 +3,12 @@ using MyNetworkMonitor.Core.Services;
 namespace MyNetworkMonitor.Avalonia.Platform.Linux
 {
     /// <summary>
-    /// Linux-Implementierung von <see cref="IEnterpriseEnvironment"/>. Nutzt
-    /// denselben plattformneutralen Test wie Windows - siehe
-    /// <see cref="ActiveDirectoryDetector"/>. Die frühere IP-Bereichs-Heuristik
-    /// ("10.", "172.") ist entfallen: sie feuerte auf jedem Heimrechner mit
-    /// Docker, libvirt oder VPN, weil deren virtuelle Adapter genau diese
-    /// Bereiche belegen, ohne dass ein Firmennetz beteiligt ist.
+    /// Linux implementation of <see cref="IEnterpriseEnvironment"/>. Uses the
+    /// same platform-neutral test as Windows, see
+    /// <see cref="ActiveDirectoryDetector"/>. Private address ranges ("10.",
+    /// "172.") are no indicator: Docker, libvirt and VPN adapters on any home
+    /// machine use exactly these ranges without a company network being
+    /// involved. See docs/FEHLERGEDAECHTNIS.md, No. 1.
     /// </summary>
     public sealed class LinuxEnterpriseEnvironment : IEnterpriseEnvironment
     {

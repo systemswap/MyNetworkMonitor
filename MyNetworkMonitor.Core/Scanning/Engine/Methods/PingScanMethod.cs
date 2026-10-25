@@ -4,18 +4,19 @@ using MyNetworkMonitor.Core.Network;
 namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 {
     /// <summary>
-    /// Bindet das bestehende <see cref="ScanningMethods_Ping"/> in die Engine
-    /// ein. Vorlage fuer die uebrigen 15 Module: das Modul selbst bleibt
-    /// unveraendert, der Adapter setzt nur seine Ereignisse auf
-    /// <see cref="ScanContext.Report"/> um und leitet den Abbruch weiter.
+    /// Integrates <see cref="ScanningMethods_Ping"/> into the engine. The
+    /// module itself stays independent of the engine; the adapter only
+    /// translates its events into <see cref="ScanContext.Report"/> and
+    /// forwards cancellation.
     /// <para>
-    /// <b>Bewusst nur IPv4.</b> <c>ScanningMethods_Ping.PingTask</c> prueft
-    /// jedes Ziel mit <c>SupportMethods.Is_Valid_IP</c>, und das ist eine reine
-    /// IPv4-Regex - IPv6-Ziele werden dort ohne Meldung verworfen. Der Adapter
-    /// gibt darum <see cref="FamilySupport.IPv4"/> an, statt eine Faehigkeit zu
-    /// behaupten, die das Modul nicht hat. Das ICMPv6-Gegenstueck kommt als
-    /// eigenes Verfahren (Echo an ff02::1), das ohnehin anders arbeitet: ein
-    /// Paket an alle statt eines je Adresse.
+    /// <b>Deliberately IPv4 only.</b> <c>ScanningMethods_Ping.PingTask</c>
+    /// validates every target with <c>SupportMethods.Is_Valid_IP</c>, an
+    /// IPv4-only regular expression; IPv6 targets are dropped there silently.
+    /// The adapter therefore declares <see cref="FamilySupport.IPv4"/> instead
+    /// of claiming a capability the module lacks. The ICMPv6 counterpart is a
+    /// separate method (<see cref="Ipv6MulticastPingScanMethod"/>, echo to
+    /// ff02::1), which works differently anyway: one packet to everyone
+    /// instead of one per address.
     /// </para>
     /// </summary>
     public sealed class PingScanMethod : IScanMethod
@@ -52,9 +53,9 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             List<ScanTargetEntry> targets = context.TargetsOf(IpFamily.IPv4).ToList();
             if (targets.Count == 0) return;
 
-            // Das Modell der Engine auf das Modell des Moduls abbilden. Die
-            // Zuordnung wird behalten, damit die Rueckmeldung des Moduls dem
-            // richtigen Bereich zugeschlagen werden kann.
+            // Maps the engine's model to the module's model. The mapping is
+            // kept so that the module's response can be assigned to the
+            // correct scope.
             Dictionary<string, ScanTargetEntry> byText = [];
             List<IPToScan> legacy = [];
 
@@ -95,24 +96,23 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                     Address = info,
                     IsResponding = result.PingStatus,
 
-                    // Der Name, unter dem das Ziel eingegeben wurde.
+                    // The name under which the target was entered.
                     //
-                    // Wer in die eigene Eingabe einen Hostnamen tippt, will ihn
-                    // in der Tabelle wiederfinden - und nicht nur die Adresse,
-                    // zu der er aufgeloest wurde. Ping ist bei einem einzelnen
-                    // Ziel oft das einzige Verfahren, das laeuft; ohne diese
-                    // Zeile blieb die Spalte "Device" auf der Adresse stehen,
-                    // bis irgendwann die Rueckwaertsaufloesung einen Namen
-                    // nachtrug - oder eben nie.
+                    // A host name entered in the target list is expected to
+                    // appear in the table, not just the address it resolved
+                    // to. For a single target, ping is often the only method
+                    // that runs; without this line the "Device" column would
+                    // show the address until a reverse lookup supplied a name,
+                    // or never.
                     HostName = string.IsNullOrWhiteSpace(origin?.HostName) ? null : origin!.HostName,
 
                     GroupDescription = origin?.Scope.Scope.GroupDescription,
                     Domain = string.IsNullOrWhiteSpace(origin?.Scope.Scope.Domain) ? null : origin!.Scope.Scope.Domain,
                     Details = details,
 
-                    // Die Rest-TTL liegt in jeder Antwort. Sie ist der einzige
-                    // Hinweis auf das Betriebssystem, den man bekommt, ohne ein
-                    // weiteres Paket zu senden.
+                    // Every reply carries the remaining TTL. It is the only
+                    // hint at the operating system available without sending
+                    // another packet.
                     Ttl = result.TTL
                 });
             }
@@ -120,8 +120,8 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             ping.ProgressUpdated += OnProgress;
             ping.Ping_Task_Finished += OnFinished;
 
-            // Das Modul verwaltet seinen Abbruch selbst und kennt nur
-            // StopScan(). Die Registrierung bruecktdas auf den Token der Engine.
+            // The module manages its own cancellation and only offers
+            // StopScan(). The registration bridges that to the engine's token.
             using CancellationTokenRegistration registration = cancellationToken.Register(ping.StopScan);
 
             try

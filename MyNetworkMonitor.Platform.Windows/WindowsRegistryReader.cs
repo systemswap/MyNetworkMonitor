@@ -3,7 +3,7 @@ using MyNetworkMonitor.Core.Services;
 
 namespace MyNetworkMonitor.Platform.Windows
 {
-    /// <summary>Windows-Implementierung von <see cref="IRegistryReader"/> (Microsoft.Win32.Registry).</summary>
+    /// <summary>Windows implementation of <see cref="IRegistryReader"/> (Microsoft.Win32.Registry).</summary>
     public sealed class WindowsRegistryReader : IRegistryReader
     {
         public bool KeyExists(RegistryHiveKind hive, string subKeyPath)

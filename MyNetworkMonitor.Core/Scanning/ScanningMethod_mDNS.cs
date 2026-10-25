@@ -10,38 +10,49 @@ using System.Threading.Tasks;
 
 namespace MyNetworkMonitor
 {
+    /// <summary>
+    /// What the mDNS answers of one device reported.
+    /// </summary>
     public class MdnsDeviceInfo
     {
+        /// <summary>The service name of the last PTR record.</summary>
         public string Service { get; set; }
+
+        /// <summary>The device name from the TXT record "name", otherwise the PTR target.</summary>
         public string DeviceName { get; set; }
-        //public string Hostname { get; set; }
+
+        /// <summary>The first label of the PTR target, unless it starts with an underscore.</summary>
         public string TargetHost { get; set; } 
+
+        /// <summary>The IPv4 address of the device.</summary>
         public string IP { get; set; }
-        //public int? Port { get; set; }
+
+        /// <summary>The value of the TXT record "group", if present.</summary>
         public string Group { get; set; }
+
+        /// <summary>All TXT records as key and value.</summary>
         public Dictionary<string, string> TxtRecords { get; set; } = new();
 
+        /// <summary>Milliseconds from the start of the scan to the last answer of the device.</summary>
         public double LastResponse { get; set; }
 
         /// <summary>
-        /// Beschriftung und Wert werden durch einen Tabulator getrennt - wie bei
-        /// SNMPInfos und den erkannten Diensten. Die Ergebnistabelle stellt solche
-        /// Werte spaltenweise ausgerichtet dar, statt sie als Fliesstext zu zeigen.
+        /// Formats the information as lines of label and value, separated by a tab, as for
+        /// SNMPInfos and the detected services. The result table shows such values aligned in
+        /// columns instead of as running text.
         /// </summary>
+        /// <returns>The information as multi-line text.</returns>
         public string AsMultilineString()
         {
             var sb = new StringBuilder();
             sb.AppendLine($"ResponseTime:\t{Math.Round(LastResponse)}ms");
             sb.AppendLine($"Dienst:\t{Service}");
             sb.AppendLine($"Device:\t{DeviceName}");
-            //sb.AppendLine($"Hostname:\t{Hostname}");
             sb.AppendLine($"TargetHost:\t{TargetHost}");
             sb.AppendLine($"IP:\t{IP}");
-            //sb.AppendLine($"Port:\t{Port}");
             sb.AppendLine($"Group:\t{Group}");
 
-            // Der TXT-Schluessel gehoert zur Beschriftung, damit alle Werte in
-            // derselben zweiten Spalte stehen.
+            // The TXT key belongs to the label so that all values are in the same second column.
             foreach (var kv in TxtRecords)
                 sb.AppendLine($"TXT {kv.Key}:\t{kv.Value}");
 
@@ -51,12 +62,20 @@ namespace MyNetworkMonitor
 
 
 
+    /// <summary>
+    /// Finds devices by mDNS / DNS-SD (RFC 6762, RFC 6763): sends PTR queries for common services to
+    /// the multicast group and evaluates the answers.
+    /// </summary>
     public class ScanningMethod_mDNS
     {
 
+        /// <summary>Raised for every answer of a device, already during the listening window.</summary>
         public event Action<IPToScan> found_mDNS_Device;
 
+        /// <summary>Raised when the scan starts and finishes.</summary>
         public event Action<ScanStatus> mDNS_ScanStatus;
+
+        /// <summary>Reports progress as (remaining seconds, devices found, 0, status).</summary>
         public event Action<int, int, int, ScanStatus> ProgressUpdated;
 
   
@@ -69,6 +88,12 @@ namespace MyNetworkMonitor
         private readonly Dictionary<string, MdnsDeviceInfo> foundDevices = new();
 
 
+        /// <summary>
+        /// Returns the first IPv4 address of a network interface.
+        /// </summary>
+        /// <param name="interfaceName">The name or description of the interface.</param>
+        /// <returns>The first IPv4 unicast address of the interface.</returns>
+        /// <exception cref="Exception">The interface does not exist or has no IPv4 address.</exception>
         public IPAddress GetIPAddressFromInterfaceName(string interfaceName)
         {
             var interfaces = NetworkInterface.GetAllNetworkInterfaces();
@@ -83,7 +108,7 @@ namespace MyNetworkMonitor
                     {
                         if (unicast.Address.AddressFamily == AddressFamily.InterNetwork)
                         {
-                            return unicast.Address; // IPv4-Adresse
+                            return unicast.Address;
                         }
                     }
                 }
@@ -93,21 +118,25 @@ namespace MyNetworkMonitor
         }
 
 
+        /// <summary>
+        /// The service names queried by the scan.
+        /// </summary>
+        /// <returns>The DNS-SD service names, starting with the service enumeration (RFC 6763, section 9).</returns>
         public List<string> ListOf_mDNS_ServiceQueryStrings()
         {
             return new List<string>
             {
-                "_services._dns-sd._udp.local",   // Root – listet verfügbare Dienste
+                "_services._dns-sd._udp.local",   // Service enumeration: lists available services
 
-                "_http._tcp.local",               // Webserver
-                "_smb._tcp.local",                // Windows/SMB Dateifreigabe
-                "_ftp._tcp.local",                // FTP-Server
+                "_http._tcp.local",               // Web server
+                "_smb._tcp.local",                // SMB file sharing
+                "_ftp._tcp.local",                // FTP server
                 "_afpovertcp._tcp.local",         // Apple File Sharing (AFP)
-                "_nfs._tcp.local",                // NFS-Freigaben
+                "_nfs._tcp.local",                // NFS shares
 
-                "_workstation._tcp.local",        // Geräte-Hostname-Infos
-                "_ssh._tcp.local",                // SSH-fähige Geräte
-                "_telnet._tcp.local",             // Telnet-fähige Geräte
+                "_workstation._tcp.local",        // Device host name information
+                "_ssh._tcp.local",                // SSH-capable devices
+                "_telnet._tcp.local",             // Telnet-capable devices
                 "_rdp._tcp.local",                // Windows Remote Desktop
 
                 "_airplay._tcp.local",            // Apple AirPlay
@@ -115,136 +144,37 @@ namespace MyNetworkMonitor
 
                 "_ipp._tcp.local",                // IP Printing (AirPrint)
                 "_ipps._tcp.local",               // IP Printing (secure)
-                "_printer._tcp.local",            // Allgemeine Drucker
+                "_printer._tcp.local",            // Generic printers
 
                 "_hap._tcp.local",                // HomeKit Accessory
-                "_homekit._tcp.local",            // Alternative HomeKit
+                "_homekit._tcp.local",            // HomeKit (alternative name)
                 "_googlecast._tcp.local",         // Chromecast
 
                 "_mqtt._tcp.local",               // MQTT Broker
                 "_xbmc-jsonrpc-h._tcp.local",     // Kodi Media Center
 
-                "_esphomelib._tcp.local",         // ESPHome IoT Geräte
+                "_esphomelib._tcp.local",         // ESPHome IoT devices
                 "_ewelink._tcp.local",            // eWeLink Smart Devices
                 "_ewelink-wifi-smart-switch._tcp.local", // Sonoff etc.
 
                 "_mediaremotetv._tcp.local",      // Apple TV Remote
-                "_vnc._tcp.local",                // VNC-Zugriff
+                "_vnc._tcp.local",                // VNC access
                 "_vlc-http._tcp.local",           // VLC Media Server
                 "_mieleathome._dns-sd._udp.local",
             };
         }
 
 
-        //public async Task<List<MdnsDeviceInfo>> DiscoverAsync(string NetworkInterfaceName, int listenTimeMs = 30000)
-        //{
-        //    startTime = DateTime.UtcNow;
 
-        //    mDNS_ScanStatus?.Invoke(ScanStatus.running);
-
-        //    responded = 0;
-
-
-        //    string selectedInterfaceName = NetworkInterfaceName; // z. B. aus deinem Dropdown
-        //    IPAddress localIp = GetIPAddressFromInterfaceName(selectedInterfaceName);
-
-
-        //    using var udp = new UdpClient(AddressFamily.InterNetwork);
-        //    udp.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-        //    udp.ExclusiveAddressUse = false;
-        //    udp.Client.Bind(new IPEndPoint(localIp, MdnsPort));
-        //    udp.JoinMulticastGroup(IPAddress.Parse(MdnsMulticast), localIp);
-
-        //    // Aktive Anfrage senden
-        //    //byte[] query = CreateQuery("_services._dns-sd._udp.local");
-
-        //    foreach (var query in ListOf_mDNS_ServiceQueryStrings())
-        //    {
-        //        byte[] byte_query = CreateQuery(query);
-
-        //        try
-        //        {
-        //            await udp.SendAsync(byte_query, byte_query.Length, new IPEndPoint(IPAddress.Parse(MdnsMulticast), MdnsPort));
-        //        }
-        //        catch (Exception ex)
-        //        {
-        //            Debug.WriteLine("Fehler beim Senden der mDNS-Anfrage: " + ex.Message);
-        //            //throw; // Optional, oder Logging
-        //        }
-        //        await Task.Delay(100);
-        //    }           
-
-
-
-        //    // Timer initialisieren, der jede Sekunde das Event auslöst
-        //    Timer progressTimer = null;
-        //    int remainingTime = listenTimeMs;
-
-        //    progressTimer = new Timer(_ =>
-        //    {
-        //        // Der verbleibende Timer-Wert wird jede Sekunde heruntergezählt
-        //        remainingTime = (int)Math.Floor(((listenTimeMs - (DateTime.UtcNow - startTime).TotalMilliseconds) / 1000));
-
-
-        //        // Wenn die verbleibende Zeit noch größer als 0 ist, dann das Event mit dem Fortschritt aufrufen
-        //        if (remainingTime >= 0)
-        //        {
-        //            ProgressUpdated?.Invoke(remainingTime, foundDevices.Count, 0, ScanStatus.running);
-        //        }
-        //        else
-        //        {
-        //            // Timer stoppen, wenn die Zeit abgelaufen ist
-        //            progressTimer?.Change(Timeout.Infinite, Timeout.Infinite);
-        //        }
-        //    }, null, 0, 1000); // Intervall: 1000 ms = 1 Sekunde
-
-
-
-
-
-        //    var end = DateTime.UtcNow.AddMilliseconds(listenTimeMs);
-        //    while (DateTime.UtcNow < end)
-        //    {
-        //        if (udp.Available > 0)
-        //        {
-        //            var result = await udp.ReceiveAsync();
-        //            ParseResponse(result.Buffer, result.RemoteEndPoint.Address.ToString(), startTime);
-
-        //            ProgressUpdated?.Invoke(remainingTime, foundDevices.Count, 0, ScanStatus.running);
-        //        }
-        //        //else
-        //        //{
-        //        //    await Task.Delay(10);
-        //        //}
-        //    }
-
-
-        //    // Timer stoppen, wenn der Scan abgeschlossen ist
-        //    progressTimer?.Change(Timeout.Infinite, Timeout.Infinite);
-
-        //    foreach (var device in foundDevices.Values)
-        //    {
-        //        IPToScan ipToScan = new IPToScan();
-        //        ipToScan.UsedScanMethod = ScanMethod.mDNS;
-        //        ipToScan.IPorHostname = device.IP;
-        //        //ipToScan.mDNS_Hostname = device.Hostname;
-        //        ipToScan.mDNS_Service = device.Service;
-        //        ipToScan.mDNS_Group = device.Group;
-        //        ipToScan.mDNS_DeviceName = device.DeviceName;
-        //        //ipToScan.mDNS_Port = device.Port;
-        //        ipToScan.mDNS_TxtRecords = device.TxtRecords;
-        //        ipToScan.mDNS_toMultiLineString = device.AsMultilineString();
-
-        //        found_mDNS_Device?.Invoke(ipToScan);
-        //    }
-
-        //    mDNS_ScanStatus?.Invoke(ScanStatus.finished);
-
-        //    return new List<MdnsDeviceInfo>(foundDevices.Values);
-        //}
-
-
-
+        /// <summary>
+        /// Sends the service queries on one interface and listens for answers for the given time.
+        /// Devices are reported through <see cref="found_mDNS_Device"/> as soon as they answer.
+        /// </summary>
+        /// <param name="NetworkInterfaceName">The name or description of the interface that joins the multicast group.</param>
+        /// <param name="listenTimeMs">The listening window in milliseconds.</param>
+        /// <param name="cancellationToken">Cancels the scan.</param>
+        /// <returns>All devices that answered.</returns>
+        /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was cancelled.</exception>
         public async Task<List<MdnsDeviceInfo>> DiscoverAsync(
             string NetworkInterfaceName, int listenTimeMs = 30000, CancellationToken cancellationToken = default)
         {
@@ -253,30 +183,26 @@ namespace MyNetworkMonitor
             mDNS_ScanStatus?.Invoke(ScanStatus.running);
             responded = 0;
 
-            string selectedInterfaceName = NetworkInterfaceName; // z. B. aus deinem Dropdown
+            string selectedInterfaceName = NetworkInterfaceName;
             IPAddress localIp = GetIPAddressFromInterfaceName(selectedInterfaceName);
 
             using var udp = new UdpClient(AddressFamily.InterNetwork);
             udp.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             udp.ExclusiveAddressUse = false;
 
-            // An IPAddress.Any binden, nicht an localIp. Live nachgemessen
-            // (2026-08-10): ein Socket, der an eine bestimmte Unicast-Adresse
-            // gebunden ist, empfaengt unter Linux keine Multicast-Pakete - sie
-            // sind an 224.0.0.251 adressiert, nicht an die eigene Adresse, und
-            // der Kernel liefert sie dann gar nicht erst aus. Mit derselben
-            // Anfrage kamen an IPAddress.Any 16 Antworten, an der eigenen
-            // Adresse null - dieses Verfahren hat unter Linux vermutlich noch
-            // nie ein Geraet gefunden. Welches Interface beitritt, legt
-            // weiterhin JoinMulticastGroup ueber localIp fest, das ist der
-            // richtige Ort dafuer, nicht der Bind.
+            // Binds to IPAddress.Any, not to localIp: on Linux a socket bound to a specific unicast
+            // address receives no multicast packets. They are addressed to 224.0.0.251, not to the
+            // local address, and the kernel does not deliver them. With the same query, a socket
+            // bound to IPAddress.Any received 16 answers, one bound to the local address none.
+            // JoinMulticastGroup with localIp selects the interface that joins the group; that is
+            // the right place for it, not the bind. See docs/FEHLERGEDAECHTNIS.md, No. 5.
             udp.Client.Bind(new IPEndPoint(IPAddress.Any, MdnsPort));
             udp.JoinMulticastGroup(IPAddress.Parse(MdnsMulticast), localIp);
 
             using CancellationTokenSource windowCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             windowCts.CancelAfter(listenTimeMs);
 
-            // Timer initialisieren, der jede Sekunde das Event auslöst
+            // Timer that reports the remaining time every second.
             Timer progressTimer = null;
             int remainingTime = listenTimeMs;
 
@@ -291,7 +217,7 @@ namespace MyNetworkMonitor
                 {
                     progressTimer?.Change(Timeout.Infinite, Timeout.Infinite);
                 }
-            }, null, 0, 1000); // Intervall: 1000 ms = 1 Sekunde
+            }, null, 0, 1000); // Interval: 1000 ms
 
             void ReportDevice(string ip)
             {
@@ -311,11 +237,9 @@ namespace MyNetworkMonitor
                 found_mDNS_Device?.Invoke(ipToScan);
             }
 
-            // Start receiving before sending requests. Ersetzt die vorherige
-            // Busy-Wait-Schleife ohne Wartezeit zwischen den Pruefungen (band
-            // einen Kern voll, solange kein Paket anlag) durch echtes
-            // asynchrones Warten, und meldet ein Geraet sofort statt erst nach
-            // dem vollen Zeitfenster.
+            // Start receiving before sending the queries. The receive loop waits asynchronously; a
+            // polling loop without a delay would keep a CPU core busy while no packet is pending.
+            // Each device is reported at once instead of after the full listening window.
             var receiveTask = Task.Run(async () =>
             {
                 while (!windowCts.IsCancellationRequested)
@@ -332,7 +256,7 @@ namespace MyNetworkMonitor
                     }
                     catch (SocketException)
                     {
-                        // Ein einzelnes verworfenes Paket beendet das Zuhoeren nicht.
+                        // A single dropped packet does not end the listening.
                         continue;
                     }
 
@@ -344,10 +268,10 @@ namespace MyNetworkMonitor
                     }
                     catch (Exception ex)
                     {
-                        // Ein kaputtes/unerwartetes Paket darf das Zuhoeren nicht
-                        // lautlos beenden - frueher riss eine unbehandelte
-                        // IndexOutOfRangeException im Parser (ReadName) genau
-                        // das mit, ohne dass mDNS_ScanStatus je "finished" meldete.
+                        // A broken or unexpected packet must not end the listening silently; an
+                        // unhandled exception in the parser (such as an IndexOutOfRangeException in
+                        // ReadName) would stop the loop without mDNS_ScanStatus ever reporting
+                        // "finished".
                         Debug.WriteLine("Fehler beim Auswerten einer mDNS-Antwort: " + ex.Message);
                     }
 
@@ -374,7 +298,7 @@ namespace MyNetworkMonitor
 
                 try
                 {
-                    await Task.Delay(100, windowCts.Token);  // Optional: Slight delay to avoid flooding the network
+                    await Task.Delay(100, windowCts.Token);  // Short delay to avoid flooding the network
                 }
                 catch (OperationCanceledException)
                 {
@@ -385,11 +309,11 @@ namespace MyNetworkMonitor
             // Wait until the receiving task completes
             await receiveTask;
 
-            // Timer stoppen, wenn der Scan abgeschlossen ist
+            // Stop the timer once the scan is complete.
             progressTimer?.Change(Timeout.Infinite, Timeout.Infinite);
 
-            // Die Geraete sind schon waehrend des Laufs gemeldet worden (siehe
-            // ReportDevice oben) - hier nur noch das Ergebnis zurueckgeben.
+            // The devices have already been reported during the run (see ReportDevice above);
+            // only the result is returned here.
             mDNS_ScanStatus?.Invoke(ScanStatus.finished);
 
             cancellationToken.ThrowIfCancellationRequested();
@@ -442,11 +366,11 @@ namespace MyNetworkMonitor
                                 ptr += len;
                             }
 
-                            // Extrahiere den "group" aus TXT-Records
+                            // Take the "group" from the TXT records.
                             if (info.TxtRecords.TryGetValue("group", out var group))
                                 info.Group = group;
 
-                            // Extrahiere den Gerätenamen, falls vorhanden
+                            // Take the device name, if present.
                             if (info.TxtRecords.TryGetValue("name", out var deviceName))
                                 info.DeviceName = deviceName;
 
@@ -459,7 +383,7 @@ namespace MyNetworkMonitor
                             info.Service = name;
                             info.DeviceName ??= ptrName;
 
-                            // Extrahiere den ersten Teil des PTR-Namens als Zielhost
+                            // Use the first label of the PTR name as the target host.
                             if (!string.IsNullOrEmpty(ptrName))
                             {
                                 int dotIndex = ptrName.IndexOf('.');
@@ -467,7 +391,7 @@ namespace MyNetworkMonitor
                                 {
                                     string targetHostCandidate = ptrName.Substring(0, dotIndex);
 
-                                    // Wenn der TargetHost noch nicht gesetzt ist oder der Name nicht mit _ beginnt, dann setze ihn
+                                    // Set the target host if it is not set yet and the label does not start with "_".
                                     if (string.IsNullOrEmpty(info.TargetHost) && !targetHostCandidate.StartsWith("_"))
                                     {
                                         info.TargetHost = targetHostCandidate;
@@ -508,11 +432,10 @@ namespace MyNetworkMonitor
                 if (len == 0)
                     break;
 
-                if ((len & 0xC0) == 0xC0) // DNS Pointer Compression
+                if ((len & 0xC0) == 0xC0) // DNS name compression (RFC 1035, section 4.1.4)
                 {
-                    // Das zweite Zeigerbyte kann bei einem abgeschnittenen
-                    // Paket fehlen - ungeprueft gelesen warf das hier eine
-                    // IndexOutOfRangeException, die den ganzen Scan mitriss.
+                    // The second pointer byte can be missing in a truncated packet; read without
+                    // this check it throws an IndexOutOfRangeException that aborts the whole scan.
                     if (offset >= data.Length) break;
 
                     if (!jumped)
@@ -520,7 +443,7 @@ namespace MyNetworkMonitor
 
                     jumped = true;
                     offset = ((len & 0x3F) << 8) | data[offset];
-                    if (++jumps > 5) break;  // Verhindere zu tiefe Rekursion bei fehlerhafter Kompression
+                    if (++jumps > 5) break;  // Limits pointer chains in malformed compression
                     continue;
                 }
 
@@ -530,7 +453,7 @@ namespace MyNetworkMonitor
                 offset += len;
             }
 
-            // Wenn der Name komprimiert wurde, gehe zurück zum ursprünglichen Offset
+            // If the name was compressed, continue after the first pointer.
             if (!jumped)
                 return sb.ToString();
             else

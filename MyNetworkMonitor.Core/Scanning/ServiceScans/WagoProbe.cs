@@ -5,20 +5,20 @@ using static MyNetworkMonitor.ServiceScanData;
 namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 {
     /// <summary>
-    /// WAGO-Steuerungen ueber ihren Serviceport 6626 (WBC, das Protokoll ihres
-    /// Upload-Werkzeugs). Ein einziges Kommando fragt die Geraetekennung ab,
-    /// und die Antwort traegt alles im Klartext: Bestellnummer, Beschreibung,
-    /// Seriennummer, Hardware-Stand und die echte Firmware.
+    /// WAGO controllers via their service port 6626 (WBC, the protocol of the
+    /// vendor's upload tool). A single command reads the device
+    /// identification, and the answer carries everything in plain text: order
+    /// number, description, serial number, hardware revision and the actual
+    /// firmware.
     /// <para>
-    /// Anders als OPC UA, das nur die CODESYS-Laufzeit kennt, und anders als
-    /// BACnet oder SNMP, die am Geraet erst freigeschaltet werden muessen,
-    /// steht dieser Port bei laufender Steuerung ohne Zutun offen. Rein lesend.
+    /// Unlike OPC UA, which only knows the CODESYS runtime, and unlike BACnet
+    /// or SNMP, which must first be enabled on the device, this port is open
+    /// whenever the controller is running. Read-only.
     /// </para>
     /// <para>
-    /// Das Protokoll wurde aus einem Mitschnitt des WAGO-Upload-Werkzeugs
-    /// gewonnen - der eigentliche Code des Werkzeugs steckt in einer
-    /// proprietaeren nativen Bibliothek und gibt die Bytes nicht her. Anfrage
-    /// und Antwort sind gegen zwei Baureihen geprueft.
+    /// The protocol is derived from a capture of the vendor's upload tool;
+    /// the tool's own code is in a proprietary native library. Request and
+    /// answer are verified against two product series.
     /// </para>
     /// </summary>
     public sealed class WagoProbe : ServiceProbeBase
@@ -28,27 +28,27 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         public override IReadOnlyList<int> DefaultPorts => [6626];
 
         /// <summary>
-        /// Das Kommando 0x0108 ("Geraetekennung lesen") im WBC-Rahmen.
+        /// The command 0x0108 ("read device identification") in the WBC frame.
         /// <para>
-        /// Aufbau: die Kennung <c>88 12</c>, eine Vorgangsnummer, die die
-        /// Gegenstelle nur zurueckspiegelt, vier feste Bytes, acht Nullbytes,
-        /// die Laenge des Kommandoteils (2) und das Kommando selbst.
+        /// Layout: the identifier <c>88 12</c>, a transaction number that the
+        /// remote side only echoes, four fixed bytes, eight zero bytes, the
+        /// length of the command part (2) and the command itself.
         /// </para>
         /// </summary>
         public override byte[] Hello => new byte[]
             {
-                0x88, 0x12,             // WBC-Kennung
-                0x01, 0x00,             // Vorgangsnummer (wird gespiegelt)
-                0x01, 0x00, 0x01, 0x00, // fester Kopf
+                0x88, 0x12,             // WBC identifier
+                0x01, 0x00,             // transaction number (echoed)
+                0x01, 0x00, 0x01, 0x00, // fixed header
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x02, 0x00,             // Laenge des Kommandoteils
-                0x08, 0x01              // Kommando 0x0108
+                0x02, 0x00,             // length of the command part
+                0x08, 0x01              // command 0x0108
             };
 
         /// <summary>
-        /// Eine Antwort ist WAGO, wenn sie die WBC-Kennung traegt und die
-        /// Klartext-Kennung enthaelt. Beides zusammen faellt bei einem fremden
-        /// Dienst auf demselben Port nicht zufaellig an.
+        /// An answer is WAGO if it carries the WBC identifier and contains the
+        /// plain-text identification. A different service on the same port
+        /// does not produce both by chance.
         /// </summary>
         public override bool Identify(byte[] response)
         {
@@ -58,9 +58,9 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Verbinden, das Kommando schicken, die Kennung lesen und in Zeilen
-        /// fuer die Detailansicht zerlegen. Eigener Ablauf, weil die Antwort
-        /// nicht bei Ja/Nein bleibt, sondern die Felder tragen soll.
+        /// Connects, sends the command, reads the identification and splits it
+        /// into lines for the details view. Own procedure, because the result
+        /// goes beyond yes/no and carries the fields.
         /// </summary>
         public override async Task<PortResult> ProbeAsync(
             ProbeContext context, string address, int port, CancellationToken token)
@@ -86,7 +86,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                         return portResult;
                     }
 
-                    await connect;   // wirft die Verbindungsausnahme, falls es eine gab
+                    await connect;   // rethrows the connection exception, if any
                     portResult.Status = PortStatus.Open;
 
                     NetworkStream stream = client.GetStream();
@@ -132,9 +132,9 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                 }
                 catch (IOException ex)
                 {
-                    // Die Gegenseite hat die Verbindung waehrend des Lesens
-                    // geschlossen - ein Ergebnis dieses Ports, kein Fehler des
-                    // Laufs. Die Verbindung stand, also bleibt es bei "offen".
+                    // The remote side closed the connection while reading: a
+                    // result of this port, not an error of the run. The
+                    // connection was established, so the port stays "open".
                     log.AppendLine($"Verbindung wurde von der Gegenseite geschlossen: {ex.Message}");
                     portResult.PortLog = log.ToString();
                     return portResult;
@@ -146,8 +146,8 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Liest, bis die Klartext-Kennung vollstaendig da ist. Sie endet mit
-        /// dem letzten Semikolon; steht das im Puffer, ist nichts mehr zu holen.
+        /// Reads until the plain-text identification is complete. It ends with
+        /// the last semicolon; once that is in the buffer, nothing more follows.
         /// </summary>
         private static async Task<byte[]?> ReadResponseAsync(
             NetworkStream stream, int timeoutMs, CancellationToken token)
@@ -167,8 +167,8 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
                     collected.AddRange(buffer[..read]);
 
-                    // Sobald die Kennung samt abschliessendem Semikolon steht,
-                    // ist die Antwort komplett.
+                    // As soon as the identification including the final
+                    // semicolon is there, the answer is complete.
                     byte[] soFar = [.. collected];
                     int order = IndexOfAscii(soFar, "ORDER=");
                     if (order >= 0 && Array.LastIndexOf(soFar, (byte)';') > order) break;
@@ -178,23 +178,23 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             }
             catch (OperationCanceledException) when (!token.IsCancellationRequested)
             {
-                // Nur das Lesezeitlimit - was bis hierher kam, wird ausgewertet.
+                // Only the read timeout; what has arrived so far is evaluated.
             }
 
             return collected.Count > 0 ? [.. collected] : null;
         }
 
         /// <summary>
-        /// Macht aus der Semikolon-Liste die Zeilen fuer die Detailansicht. Der
-        /// Aufbau ist <c>SCHLUESSEL=Wert;SCHLUESSEL=Wert;</c> - dieselben Namen,
-        /// die auch das WAGO-Werkzeug liest.
+        /// Turns the semicolon list into the lines for the details view. The
+        /// layout is <c>KEY=value;KEY=value;</c>, with the same keys the
+        /// vendor's tool reads.
         /// </summary>
         private static string FormatIdentification(byte[] response)
         {
             int start = IndexOfAscii(response, "ORDER=");
             if (start < 0) return string.Empty;
 
-            // Ab "ORDER=" bis zum ersten nicht druckbaren Zeichen.
+            // From "ORDER=" to the first non-printable character.
             int end = start;
             while (end < response.Length && response[end] is >= 0x20 and <= 0x7E) end++;
 
@@ -211,9 +211,9 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                 if (value.Length > 0 && !fields.ContainsKey(key)) fields[key] = value;
             }
 
-            // In fester Reihenfolge und unter sprechenden Namen. "Firmware"
-            // steht bewusst so da: daran erkennt der OPC-UA-Nachlauf, dass die
-            // Firmware dieses Geraets bereits feststeht.
+            // In a fixed order and with descriptive labels. "Firmware" is
+            // deliberately named this way: the OPC UA follow-up uses it to see
+            // that the firmware of this device is already known.
             (string Key, string Label)[] wanted =
             [
                 ("ORDER", "Order number"),
@@ -233,7 +233,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             return lines.Count > 0 ? string.Join(Environment.NewLine, lines) : string.Empty;
         }
 
-        /// <summary>Die Stelle, an der die ASCII-Zeichenkette im Puffer beginnt, oder -1.</summary>
+        /// <summary>The position where the ASCII string starts in the buffer, or -1.</summary>
         private static int IndexOfAscii(byte[] haystack, string needle)
         {
             byte[] pattern = Encoding.ASCII.GetBytes(needle);

@@ -1,27 +1,24 @@
 namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 {
     /// <summary>
-    /// Alle vorhandenen Sonden. Eine neue hinzuzufuegen heisst: Datei anlegen
-    /// und hier eine Zeile eintragen - so wie ein neues Scan-Verfahren eine
-    /// Zeile in <c>ScanEngineFactory</c> bekommt.
+    /// All available probes. Adding one means creating its file and adding one
+    /// line here, just as a new scan method gets one line in
+    /// <c>ScanEngineFactory</c>.
     /// <para>
-    /// Waehrend des Umbaus ist die Liste noch unvollstaendig. Was hier fehlt,
-    /// laeuft weiter ueber den alten Schalter in
-    /// <c>ScanningMethod_Services</c>; darum <see cref="Has"/> statt der
-    /// Annahme, dass es zu jedem <c>ServiceType</c> eine Sonde gibt.
+    /// Callers use <see cref="Has"/> instead of assuming that every
+    /// <c>ServiceType</c> has a probe.
     /// </para>
     /// </summary>
     public static class ServiceProbes
     {
         /// <summary>
-        /// Angelegt wird je Lauf neu, nicht einmal fuer immer: eine Sonde darf
-        /// sich in <see cref="IServiceProbe.PrepareAsync"/> etwas merken - DHCP
-        /// tut es -, und zwei gleichzeitige Laeufe (oertlich und als Satellit)
-        /// duerfen sich dabei nicht ins Gehege kommen.
+        /// Probes are created anew for every run: a probe may keep state from
+        /// <see cref="IServiceProbe.PrepareAsync"/> (DHCP does), and two
+        /// simultaneous runs (local and as a satellite) must not interfere.
         /// </summary>
         private static readonly Dictionary<ServiceType, Func<IServiceProbe>> Factories = new()
         {
-            // Netzwerk-Dienste
+            // Network services
             [ServiceType.WebServices] = () => new WebServicesProbe(),
             [ServiceType.DNS_TCP] = () => new DnsTcpProbe(),
             [ServiceType.DNS_UDP] = () => new DnsUdpProbe(),
@@ -29,7 +26,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             [ServiceType.SSH] = () => new SshProbe(),
             [ServiceType.FTP] = () => new FtpProbe(),
 
-            // Remote-Desktop und Fernwartung
+            // Remote desktop and remote maintenance
             [ServiceType.RDP] = () => new RdpProbe(),
             [ServiceType.UltraVNC] = () => new UltraVncProbe(),
             [ServiceType.BigFixRemote] = () => new BigFixRemoteProbe(),
@@ -38,7 +35,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             [ServiceType.RustdeskServer] = () => new RustdeskServerProbe(),
             [ServiceType.RustdeskClient] = () => new RustdeskClientProbe(),
 
-            // Datenbanken
+            // Databases
             [ServiceType.MSSQLServer] = () => new MsSqlServerProbe(),
             [ServiceType.PostgreSQL] = () => new PostgreSqlProbe(),
             [ServiceType.MariaDB] = () => new MariaDbProbe(),
@@ -47,7 +44,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             [ServiceType.MongoDB] = () => new MongoDbProbe(),
             [ServiceType.InfluxDB2] = () => new InfluxDb2Probe(),
 
-            // Industrieprotokolle
+            // Industrial protocols
             [ServiceType.OPCUA] = () => new OpcUaProbe(),
             [ServiceType.ModBus] = () => new ModBusProbe(),
             [ServiceType.S7] = () => new S7Probe(),
@@ -57,39 +54,48 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         };
 
         /// <summary>
-        /// Exemplare fuer die reinen Angaben - Ports, Gruppe, Paket, Pruefung.
-        /// Die sind zustandslos, und die Dienstverwaltung fragt sie oft.
+        /// Instances for metadata only: ports, group, packet, answer check.
+        /// These are stateless, and the service manager queries them often.
         /// </summary>
         private static readonly Lazy<IReadOnlyList<IServiceProbe>> Shared =
             new(() => [.. Factories.Values.Select(create => create())]);
 
-        /// <summary>Es gibt eine Sonde fuer diesen Dienst.</summary>
+        /// <summary>Checks whether a probe exists for a service.</summary>
+        /// <param name="service">The service.</param>
+        /// <returns><c>true</c> if a probe exists.</returns>
         public static bool Has(ServiceType service) => Factories.ContainsKey(service);
 
-        /// <summary>Eine frische Sonde fuer einen Lauf.</summary>
+        /// <summary>Creates a fresh probe for a run.</summary>
+        /// <param name="service">The service.</param>
+        /// <returns>A new probe instance.</returns>
+        /// <exception cref="KeyNotFoundException">No probe exists for <paramref name="service"/>.</exception>
         public static IServiceProbe Create(ServiceType service) =>
             Factories.TryGetValue(service, out Func<IServiceProbe>? create)
                 ? create()
                 : throw new KeyNotFoundException($"Fuer {service} gibt es keine Sonde.");
 
-        /// <summary>Die Sonde fuer Angaben - nicht fuer einen Lauf, siehe <see cref="Create"/>.</summary>
+        /// <summary>The shared probe for metadata, not for a run; see <see cref="Create"/>.</summary>
+        /// <param name="service">The service.</param>
+        /// <returns>The shared, stateless probe instance.</returns>
+        /// <exception cref="KeyNotFoundException">No probe exists for <paramref name="service"/>.</exception>
         public static IServiceProbe For(ServiceType service) =>
             Shared.Value.FirstOrDefault(p => p.Service == service)
             ?? throw new KeyNotFoundException($"Fuer {service} gibt es keine Sonde.");
 
-        /// <summary>Alle Sonden, fuer Angaben.</summary>
+        /// <summary>All probes, for metadata.</summary>
         public static IReadOnlyList<IServiceProbe> All => Shared.Value;
 
         /// <summary>
-        /// Frische Sonden fuer die gewuenschten Dienste, in der Reihenfolge, in
-        /// der sie auch in der Dienstverwaltung stehen: erst nach Gruppe, dann
-        /// nach Name. Wer die Liste dort vor sich hat, sieht den Lauf in
-        /// derselben Ordnung durchgehen.
+        /// Fresh probes for the requested services, in the order of the service
+        /// manager: first by group, then by name. The run therefore proceeds in
+        /// the same order as the list shown there.
         /// <para>
-        /// Dienste ohne eigene Sonde werden uebergangen - waehrend des Umbaus
-        /// laufen sie noch ueber den alten Weg.
+        /// Services without a probe are skipped.
         /// </para>
         /// </summary>
+        /// <param name="wanted">The requested services; duplicates are ignored.</param>
+        /// <returns>New probe instances in scan order.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="wanted"/> is <c>null</c>.</exception>
         public static IReadOnlyList<IServiceProbe> InScanOrder(IEnumerable<ServiceType> wanted)
         {
             ArgumentNullException.ThrowIfNull(wanted);

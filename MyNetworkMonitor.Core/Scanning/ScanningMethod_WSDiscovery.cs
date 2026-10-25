@@ -11,23 +11,20 @@ using System.Xml.Linq;
 namespace MyNetworkMonitor
 {
     /// <summary>
-    /// WS-Discovery: fragt per Multicast "wer ist da?" und wertet aus, wer sich
-    /// meldet.
+    /// WS-Discovery: asks "who is there?" by multicast and evaluates who answers.
     /// <para>
-    /// <b>Warum das gebraucht wird:</b> alle uebrigen Verfahren finden nur, was
-    /// auf eine gezielte Anfrage antwortet. Ein Windows-Rechner mit
-    /// Standardfirewall antwortet nicht auf Ping, hat oft keinen PTR-Eintrag und
-    /// zeigt keine offenen Ports - er ist damit unsichtbar. Auf WS-Discovery
-    /// antwortet er, und Netzwerkdrucker und Scanner ebenso: es ist der
-    /// Mechanismus, ueber den Windows selbst seine Netzwerkumgebung fuellt.
+    /// <b>Why it is needed:</b> all other methods only find what answers a targeted request. A
+    /// Windows computer with the default firewall does not answer ping, often has no PTR record
+    /// and shows no open ports, so it stays invisible. It does answer WS-Discovery, and so do
+    /// network printers and scanners: it is the mechanism Windows itself uses to fill its network
+    /// view.
     /// </para>
     /// <para>
-    /// <b>Warum zwei Anfragen:</b> es gibt zwei Fassungen des Protokolls, die
-    /// verschiedene Namensraeume benutzen. Die aeltere von 2005 beantwortet
-    /// ONVIF-Technik, die neuere von 2009 beantworten Windows-Geraete und
-    /// Drucker. Wer nur eine sendet, findet die halbe Welt - genau das ist der
-    /// Unterschied zu <see cref="ScanningMethod_ONVIF_IPCam"/>, das dieselbe
-    /// Technik nutzt, aber gezielt nach Kameras fragt.
+    /// <b>Why two probes:</b> there are two versions of the protocol with different namespaces.
+    /// The 2005 version (namespace 2005/04) is answered by ONVIF devices, the OASIS WS-Discovery 1.1
+    /// version of 2009 by Windows devices and printers. Sending only one finds only half of the
+    /// devices. That is the difference to <see cref="ScanningMethod_ONVIF_IPCam"/>, which uses
+    /// the same technique but asks specifically for cameras.
     /// </para>
     /// </summary>
     public class ScanningMethod_WSDiscovery
@@ -35,17 +32,22 @@ namespace MyNetworkMonitor
         private const string MulticastAddress = "239.255.255.250";
         private const int DiscoveryPort = 3702;
 
-        /// <summary>Der Namensraum der Fassung von 2005 - ONVIF und aeltere Geraete.</summary>
+        /// <summary>The namespace of the 2005 version: ONVIF and older devices.</summary>
         private const string Discovery2005 = "http://schemas.xmlsoap.org/ws/2005/04/discovery";
 
-        /// <summary>Der Namensraum der Fassung von 2009 - Windows, Drucker, Scanner.</summary>
+        /// <summary>The namespace of the 2009 version: Windows, printers, scanners.</summary>
         private const string Discovery2009 = "http://docs.oasis-open.org/ws-dd/ns/discovery/2009/01";
 
         private const string Addressing2004 = "http://schemas.xmlsoap.org/ws/2004/08/addressing";
         private const string Addressing2005 = "http://www.w3.org/2005/08/addressing";
 
+        /// <summary>Reports progress as (probes sent, devices answered, 0, status).</summary>
         public event Action<int, int, int, ScanStatus>? ProgressUpdated;
+
+        /// <summary>Raised once for every address that answered.</summary>
         public event Action<WsDiscoveryResult>? WSDiscovery_DeviceFound;
+
+        /// <summary>Raised when the listening time has ended or the scan was stopped.</summary>
         public event Action<ScanStatus>? WSDiscovery_Scan_Finished;
 
         private int current;
@@ -54,12 +56,15 @@ namespace MyNetworkMonitor
 
         private CancellationTokenSource _cts = new();
 
+        /// <summary>
+        /// Cancels the running scan and reports <see cref="ScanStatus.stopped"/>.
+        /// </summary>
         public void StopScan()
         {
             if (_cts != null && !_cts.IsCancellationRequested)
             {
-                // Nur abbrechen, nicht ersetzen: die Schleifen lesen _cts ueber
-                // das Feld. Ein frisches CTS meldete ihnen wieder "laeuft".
+                // Only cancel, do not replace: the loops read _cts through the field, and a
+                // fresh source would report "running" to them again.
                 _cts.Cancel();
             }
 
@@ -82,23 +87,23 @@ namespace MyNetworkMonitor
         }
 
         /// <summary>
-        /// Sendet die Anfragen und hoert die angegebene Zeit auf Antworten.
+        /// Sends the probes and listens for answers for the given time.
         /// </summary>
         /// <param name="localAddress">
-        /// Die eigene IPv4-Adresse, an die der Empfangspunkt gebunden wird.
-        /// Ohne Bindung schickt Windows die Anfrage ueber die Karte mit der
-        /// niedrigsten Metrik - bei mehreren Netzkarten also womoeglich in das
-        /// falsche Netz.
+        /// The local IPv4 address the endpoint is bound to. Without the binding, Windows sends the
+        /// probe through the adapter with the lowest metric, so with several adapters possibly
+        /// into the wrong network.
         /// </param>
-        /// <param name="listenMs">Hoerdauer in Millisekunden.</param>
+        /// <param name="listenMs">Listening time in milliseconds.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="localAddress"/> is <see langword="null"/>.</exception>
         public async Task DiscoverAsync(IPAddress localAddress, int listenMs = 5000)
         {
             ArgumentNullException.ThrowIfNull(localAddress);
 
             StartNewScan();
 
-            // Jede Adresse zaehlt nur einmal, auch wenn ein Geraet auf beide
-            // Fassungen und auf jede der drei Anfragen antwortet.
+            // Each address counts only once, even if a device answers both versions and each of
+            // the three probes.
             HashSet<string> seen = new(StringComparer.OrdinalIgnoreCase);
 
             using UdpClient client = new(new IPEndPoint(localAddress, 0));
@@ -109,9 +114,8 @@ namespace MyNetworkMonitor
 
             try
             {
-                // Beide Fassungen, und jede dreimal: die Anfrage geht per UDP
-                // raus und darf verlorengehen. Drei Versuche sind das, was auch
-                // die Kamerasuche macht, und kosten unter einer Sekunde.
+                // Both versions, each three times: the probe is sent by UDP and may get lost.
+                // Three attempts, as in the camera search, cost less than a second.
                 foreach (string ns in new[] { Discovery2009, Discovery2005 })
                 {
                     for (int attempt = 0; attempt < 3; attempt++)
@@ -159,10 +163,9 @@ namespace MyNetworkMonitor
         }
 
         /// <summary>
-        /// Die Anfrage. Bewusst <b>ohne</b> <c>Types</c>-Element: damit gilt sie
-        /// jedem Geraet. Ein Typfilter waere genau das, was die Kamerasuche
-        /// macht - und er wuerde hier die gesuchten Rechner und Drucker
-        /// ausschliessen.
+        /// The probe. Deliberately <b>without</b> a <c>Types</c> element, so that it addresses
+        /// every device. A type filter is what the camera search uses, and here it would exclude
+        /// the computers and printers this scan looks for.
         /// </summary>
         private static string BuildProbe(string discoveryNamespace)
         {
@@ -187,14 +190,12 @@ namespace MyNetworkMonitor
         }
 
         /// <summary>
-        /// Liest aus der Antwort heraus, um was fuer ein Geraet es sich handelt.
+        /// Reads from the answer what kind of device it is.
         /// <para>
-        /// Ausgewertet wird <c>Types</c> - dort steht die Geraeteklasse - und
-        /// <c>XAddrs</c>, die Adresse der Verwaltungsschnittstelle. Der
-        /// Klarname steht in der Antwort <em>nicht</em> drin; ihn zu holen
-        /// erforderte eine zweite Abfrage an die XAddrs-Adresse. Der eigentliche
-        /// Gewinn ist ohnehin ein anderer: dass die Adresse ueberhaupt
-        /// geantwortet hat.
+        /// Evaluated are <c>Types</c>, which holds the device class, and <c>XAddrs</c>, the address
+        /// of the management interface. The friendly name is <em>not</em> in the answer; it would
+        /// take a second request to the XAddrs address. The main finding is a different one anyway:
+        /// that the address answered at all.
         /// </para>
         /// </summary>
         private static WsDiscoveryResult Parse(string soap, string address)
@@ -203,8 +204,8 @@ namespace MyNetworkMonitor
             {
                 XDocument document = XDocument.Parse(soap);
 
-                // Ohne Namensraumbindung suchen: es kommen beide Fassungen
-                // herein, und die Elementnamen sind in beiden dieselben.
+                // Search without namespace: answers of both versions arrive, and the element names
+                // are the same in both.
                 string? types = FindValue(document, "Types");
                 string? xaddrs = FindValue(document, "XAddrs");
                 string? scopes = FindValue(document, "Scopes");
@@ -218,8 +219,8 @@ namespace MyNetworkMonitor
             }
             catch (Exception)
             {
-                // Eine unverstaendliche Antwort ist trotzdem eine Antwort: die
-                // Adresse lebt, und genau das ist der Fund.
+                // An unreadable answer is still an answer: the address is alive, and that is the
+                // finding.
                 return new WsDiscoveryResult
                 {
                     Address = address,
@@ -234,9 +235,9 @@ namespace MyNetworkMonitor
                 ?.Value?.Trim();
 
         /// <summary>
-        /// Setzt die Zeilen zusammen, die spaeter in der Detailansicht stehen.
-        /// Die Geraeteklasse wird uebersetzt: <c>pub:Computer</c> sagt einem
-        /// Netzwerker etwas, dem Rest der Welt nicht.
+        /// Builds the lines shown in the detail view. The device class is translated separately
+        /// (<see cref="DescribeTypes"/>): <c>pub:Computer</c> means something to a network
+        /// specialist, but not to everyone else.
         /// </summary>
         private static string BuildInfoText(string? types, string? xaddrs, string? scopes)
         {
@@ -245,17 +246,15 @@ namespace MyNetworkMonitor
             if (!string.IsNullOrWhiteSpace(types)) lines.Add($"Types: {types}");
             if (!string.IsNullOrWhiteSpace(xaddrs)) lines.Add($"Address: {xaddrs}");
 
-            // Die Bereichsangaben enthalten bei Windows-Rechnern haeufig den
-            // Domaenen- oder Arbeitsgruppennamen.
+            // On Windows computers the scopes often contain the domain or workgroup name.
             if (!string.IsNullOrWhiteSpace(scopes)) lines.Add($"Scopes: {scopes}");
 
             return lines.Count > 0 ? string.Join(Environment.NewLine, lines) : "Replied.";
         }
 
         /// <summary>
-        /// Uebersetzt die Typangaben in Klartext. Die Praefixe sind frei
-        /// waehlbar, darum wird auf den lokalen Namen geprueft und nicht auf
-        /// die ganze Zeichenkette.
+        /// Translates the types into plain text. The prefixes are freely chosen, so the check is
+        /// on the local name, not on the whole string.
         /// </summary>
         private static string? DescribeTypes(string? types)
         {
@@ -289,26 +288,25 @@ namespace MyNetworkMonitor
     }
 
     /// <summary>
-    /// Was eine WS-Discovery-Antwort ueber ihren Absender verraet.
+    /// What a WS-Discovery answer reveals about its sender.
     /// <para>
-    /// Bewusst ein eigener Typ statt eines weiteren Feldes an
-    /// <see cref="IPToScan"/>: die alte Struktur traegt bereits vierzig Felder,
-    /// von denen jedes Verfahren drei fuellt. Ein Verfahren, das ganz neu
-    /// dazukommt, muss diesen Weg nicht auch noch gehen.
+    /// Deliberately a separate type instead of further fields on <see cref="IPToScan"/>: that
+    /// structure already carries about forty fields, of which each method fills three. A new
+    /// method does not need to extend it further.
     /// </para>
     /// </summary>
     public sealed class WsDiscoveryResult
     {
-        /// <summary>Die Adresse, von der die Antwort kam.</summary>
+        /// <summary>The address the answer came from.</summary>
         public required string Address { get; init; }
 
         /// <summary>
-        /// Die Geraeteklasse in Klartext - "Windows computer", "printer" -
-        /// oder <c>null</c>, wenn die Typangabe nichts Bekanntes enthielt.
+        /// The device class in plain text, such as "Windows computer" or "printer", or
+        /// <c>null</c> if the types contained nothing known.
         /// </summary>
         public string? Kind { get; init; }
 
-        /// <summary>Die vollstaendigen Angaben fuer die Detailansicht.</summary>
+        /// <summary>The complete information for the detail view.</summary>
         public string Info { get; init; } = string.Empty;
     }
 }

@@ -11,29 +11,33 @@ using System.Threading.Tasks;
 using MyNetworkMonitor.Core.Services;
 namespace MyNetworkMonitor
 {
+    /// <summary>
+    /// Resolves MAC addresses by ARP request and reads the ARP table of the system.
+    /// </summary>
     public class ScanningMethod_ARP
     {
         private readonly IArpProvider _arp;
 
         /// <summary>
-        /// <paramref name="routingProvider"/> wird nicht mehr ausgewertet: die
-        /// Vorauswahl der Ziele richtet sich nach den Netzen der aktiven
-        /// Adapter, nicht nach der Routing-Tabelle. Der Parameter bleibt, damit
-        /// bestehende Aufrufe unveraendert uebersetzen.
+        /// Creates the ARP scanner.
         /// </summary>
+        /// <param name="arpProvider">The platform ARP access; <see langword="null"/> uses <see cref="PlatformServices.Arp"/>.</param>
+        /// <param name="routingProvider">
+        /// Not evaluated: the targets are preselected by the networks of the active adapters, not by
+        /// the routing table. The parameter keeps existing callers compiling.
+        /// </param>
         public ScanningMethod_ARP(IArpProvider? arpProvider = null, IRoutingProvider? routingProvider = null)
         {
-            // Ohne Injection kommen die vom Startprojekt registrierten
-            // Plattform-Provider zum Einsatz – die Scan-Logik bleibt unveraendert.
+            // Without injection, the platform providers registered by the start-up project are used;
+            // the scan logic is the same either way.
             _arp = arpProvider ?? PlatformServices.Arp;
         }
         
         
         
         /// <summary>
-        /// Wie viele Aufloesungen gleichzeitig laufen duerfen. Unter Linux
-        /// startet jede einen eigenen Prozess (siehe oben) - der Wert ist
-        /// darum niedriger als das Semaphor bei den reinen In-Prozess-Verfahren.
+        /// Maximum number of concurrent resolutions. On Linux each one starts its own child
+        /// processes, so the value is lower than the limit of the purely in-process methods.
         /// </summary>
         private const int MaxConcurrentResolutions = 32;
 
@@ -41,28 +45,22 @@ namespace MyNetworkMonitor
         private int responded = 0;
         private int total = 0;
 
-        private CancellationTokenSource _cts = new CancellationTokenSource(); // 🔹 Ermöglicht das Abbrechen
+        private CancellationTokenSource _cts = new CancellationTokenSource(); // Allows the scan to be cancelled.
 
-        //int currentValue = Interlocked.Increment(ref current);
-        //Task.Run(() => ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running));
-
-        //int respondedValue = Interlocked.Increment(ref responded);
-        //Task.Run(() => ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running));
-
-        //Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished));
-
+        /// <summary>
+        /// Cancels the running scan and reports <see cref="ScanStatus.stopped"/>.
+        /// </summary>
         public void StopScan()
         {
             if (_cts != null && !_cts.IsCancellationRequested)
             {
-                _cts.Cancel(); // 🔹 Scan abbrechen
-                // Hier NICHT aufraeumen und ersetzen: die Schleifen lesen _cts ueber
-                // das Feld. Ein frisches CTS an dieser Stelle meldet ihnen wieder
-                // "nicht abgebrochen", und der Lauf geht weiter, statt zu enden.
-                // Das Zuruecksetzen erledigt StartNewScan beim naechsten Lauf.
+                _cts.Cancel();
+                // Do NOT dispose and replace the source here: the loops read _cts through the
+                // field. A fresh source at this point would report "not cancelled" to them and
+                // the run would continue instead of ending. StartNewScan resets it for the next run.
             }
 
-            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped); // 🔹 UI auf 0 setzen
+            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped); // Resets the progress display.
         }
 
         private void StartNewScan()
@@ -77,7 +75,7 @@ namespace MyNetworkMonitor
             }
             _cts = new CancellationTokenSource();
 
-            // 🔹 Zähler zurücksetzen
+            // Reset the counters.
             current = 0;
             responded = 0;
             total = 0;
@@ -89,20 +87,32 @@ namespace MyNetworkMonitor
 
         SupportMethods support = new SupportMethods();
 
+        /// <summary>Reports progress as (processed, responded, total, status).</summary>
         public event Action<int, int, int, ScanStatus> ProgressUpdated;
+
+        /// <summary>Raised for every entry of the ARP table read by <see cref="ARP_A"/>.</summary>
         public event EventHandler<ScanTask_Finished_EventArgs>? ARP_A_newDevice;
+
+        /// <summary>Raised when the ARP request for one target has finished.</summary>
         public event EventHandler<ScanTask_Finished_EventArgs> ARP_Request_Task_Finished;
+
+        /// <summary>Raised when all ARP requests of a run have finished.</summary>
         public event Action<ScanStatus> ARP_Request_Finished;
 
 
         
 
 
+        /// <summary>
+        /// Sends an ARP request to every target in a locally attached network and reports MAC
+        /// address and vendor of each answering device.
+        /// </summary>
+        /// <param name="ipsToRefresh">The targets; addresses outside the local networks are skipped.</param>
         public async Task SendARPRequestAsync(List<IPToScan> ipsToRefresh)
         {
             StartNewScan();
 
-            if (_cts.Token.IsCancellationRequested) return; // 🔹 Sofort abbrechen
+            if (_cts.Token.IsCancellationRequested) return;
             
             current = 0;
             responded = 0;
@@ -117,24 +127,20 @@ namespace MyNetworkMonitor
             catch (TaskCanceledException)
             {
                 Debug.WriteLine("Task für GetIPsInSameVLANAsync wurde abgebrochen.");
-                return; // Beende die Methode sauber
+                return;
             }
 
-            // Frueher wurde bei hoechstens einem Treffer die ganze Liste
-            // wiederhergestellt. Das hob die Beschraenkung genau dann auf,
-            // wenn sie am meisten gebracht haette: wenn nichts davon lokal
-            // erreichbar ist. Ein leeres Ergebnis ist hier eine Antwort.
+            // An empty or single-entry result is used as is and does not fall back to the full
+            // list: restoring the list would lift the restriction exactly when it matters most,
+            // when none of the targets is reachable locally. An empty result is an answer.
             total = filtered.Count;
             ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running);
 
             try
             {
-                // Ohne Grenze liefen bei einem /24 bis zu 254 Aufloesungen
-                // gleichzeitig los - unter Linux bedeutet jede davon einen
-                // eigenen "ping"- und "ip neigh"-Kindprozess (siehe
-                // LinuxArpProvider), also potenziell 500+ Prozesse auf einmal.
-                // Derselbe Fehler wie beim Ping-Scan, nur mit Prozessen statt
-                // Threads als knappe Ressource.
+                // Limited: without a limit a /24 starts up to 254 resolutions at once. On Linux each
+                // one runs its own "ping" and "ip neigh" child process (see LinuxArpProvider), which
+                // means 500+ processes at a time. The ping scan has the same limit for threads.
                 ParallelOptions options = new()
                 {
                     MaxDegreeOfParallelism = MaxConcurrentResolutions,
@@ -144,7 +150,7 @@ namespace MyNetworkMonitor
                 await Parallel.ForEachAsync(filtered.Where(ip => !string.IsNullOrEmpty(ip.IPorHostname)), options,
                     async (ip, token) =>
                     {
-                        token.ThrowIfCancellationRequested(); // 🔹 Sofort abbrechen, wenn gefordert
+                        token.ThrowIfCancellationRequested();
                         await ArpRequestTask(ip);
                     });
             }
@@ -154,7 +160,7 @@ namespace MyNetworkMonitor
             }
             finally
             {
-                // 🔹 Sicherstellen, dass der Scan als beendet gemeldet wird
+                // Always report the scan as finished.
                 ARP_Request_Finished?.Invoke(ScanStatus.finished);
             }
         }
@@ -162,7 +168,7 @@ namespace MyNetworkMonitor
 
         private async Task ArpRequestTask(IPToScan ipToScan)
         {
-            _cts.Token.ThrowIfCancellationRequested(); // 🔹 Falls abgebrochen, sofort raus
+            _cts.Token.ThrowIfCancellationRequested();
 
             if (_cts.Token.IsCancellationRequested) return;
 
@@ -170,8 +176,8 @@ namespace MyNetworkMonitor
 
             string? mac = await _arp.ResolveMacAsync(ipAddress, _cts.Token);
 
-            // Erst hochzaehlen, wenn die Anfrage beantwortet oder abgelaufen
-            // ist - beim Versenden stuende der Balken viel zu frueh am Ende.
+            // Count only once the request has been answered or has timed out; counting on
+            // sending would fill the progress bar far too early.
             int currentValue = Interlocked.Increment(ref current);
             ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
 
@@ -276,6 +282,10 @@ namespace MyNetworkMonitor
             }
         }
 
+        /// <summary>
+        /// Flushes the ARP cache of the system.
+        /// </summary>
+        /// <returns><see langword="true"/> if the cache was flushed.</returns>
         public bool DeleteARPCache()
         {
             return _arp.FlushArpCache();
@@ -299,29 +309,31 @@ namespace MyNetworkMonitor
 
 
         /// <summary>
-        /// Grenzt die Zielliste auf das ein, was ARP ueberhaupt beantworten
-        /// kann.
+        /// Restricts the target list to the addresses ARP can answer at all.
         /// <para>
-        /// Eine ARP-Anfrage bleibt im eigenen Netzsegment: sie geht als
-        /// Broadcast raus, und nur wer daran haengt, hoert sie. Alles hinter
-        /// einem Router kann per Definition nicht antworten - jede solche
-        /// Anfrage ist reine Wartezeit bis zum Timeout. Massgeblich ist
-        /// deshalb, wo ein <em>aktiver</em> Adapter steht und welche Maske er
-        /// traegt, nicht, wohin die Routing-Tabelle zeigt.
+        /// An ARP request stays in the local network segment: it is sent as a broadcast and only
+        /// hosts attached to that segment receive it. Nothing behind a router can answer, so every
+        /// such request only waits for the timeout. What counts is therefore where an
+        /// <em>active</em> adapter is and which mask it carries, not where the routing table points.
         /// </para>
         /// </summary>
+        /// <param name="ipsToRefresh">The targets to filter.</param>
+        /// <returns>
+        /// The targets in a network of an active adapter or already present in the ARP table; all
+        /// targets if neither an adapter nor a table entry is known.
+        /// </returns>
         public async Task<List<IPToScan>> GetIPsInSameVLANAsync(List<IPToScan> ipsToRefresh)
         {
             List<LocalSubnet> subnets = GetLocalSubnets();
 
-            // Dazu, was ohnehin schon aufgeloest ist: ein Eintrag in der
-            // Tabelle beweist, dass die Adresse erreichbar war.
+            // Plus what is already resolved: an entry in the table proves that the address was
+            // reachable.
             HashSet<string> knownIps = new(await GetLocalArpTableAsync(), StringComparer.OrdinalIgnoreCase);
 
             if (subnets.Count == 0 && knownIps.Count == 0)
             {
-                // Kein aktiver IPv4-Adapter und keine Tabelle - dann ist gar
-                // nichts bekannt, und lieber alles versuchen als nichts.
+                // No active IPv4 adapter and no table: nothing is known, so try everything rather
+                // than nothing.
                 return ipsToRefresh;
             }
 
@@ -332,7 +344,7 @@ namespace MyNetworkMonitor
             return reachable;
         }
 
-        /// <summary>Ein Netz, an dem ein aktiver Adapter dieses Rechners haengt.</summary>
+        /// <summary>A network an active adapter of this computer is attached to.</summary>
         private sealed record LocalSubnet(byte[] Address, byte[] Mask)
         {
             public bool Contains(byte[] candidate)
@@ -347,9 +359,8 @@ namespace MyNetworkMonitor
         }
 
         /// <summary>
-        /// Die IPv4-Netze aller betriebsbereiten Adapter. Loopback und Tunnel
-        /// bleiben draussen - dort gibt es niemanden, den man per Broadcast
-        /// fragen koennte.
+        /// The IPv4 networks of all operational adapters. Loopback and tunnel adapters are
+        /// excluded; there is no one to reach by broadcast there.
         /// </summary>
         private static List<LocalSubnet> GetLocalSubnets()
         {
@@ -369,8 +380,8 @@ namespace MyNetworkMonitor
                 {
                     if (address.Address.AddressFamily != AddressFamily.InterNetwork) continue;
 
-                    // Ohne Maske laesst sich das Netz nicht bestimmen; ein
-                    // geratenes /24 waere genau der Fehler, der hier weg soll.
+                    // Without a mask the network cannot be determined; a guessed /24 would
+                    // reintroduce the error this filter prevents.
                     IPAddress? mask = address.IPv4Mask;
                     if (mask == null || mask.Equals(IPAddress.Any)) continue;
 
@@ -387,9 +398,8 @@ namespace MyNetworkMonitor
 
             if (knownIps.Contains(address)) return true;
 
-            // ARP gibt es nur ueber IPv4. Hostnamen und IPv6-Adressen gehoeren
-            // anderen Verfahren - hier wuerden sie beim Parsen fliegen und den
-            // ganzen Lauf mitnehmen.
+            // ARP exists only for IPv4. Host names and IPv6 addresses belong to other methods;
+            // parsing them here would throw and abort the whole run.
             if (!IPAddress.TryParse(address, out IPAddress? parsed)
                 || parsed.AddressFamily != AddressFamily.InterNetwork)
             {

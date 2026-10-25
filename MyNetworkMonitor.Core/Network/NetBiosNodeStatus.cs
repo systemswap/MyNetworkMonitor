@@ -34,7 +34,10 @@ namespace MyNetworkMonitor.Core.Network
     /// response, after RFC 1002, sections 4.2.17 (NODE STATUS REQUEST) and 4.2.18 (NODE STATUS RESPONSE), with the name
     /// encoding of RFC 1001, section 14.1.
     /// </summary>
-    /// <remarks>Pure functions without network access; every length and offset of the response is checked against the data.</remarks>
+    /// <remarks>
+    /// Pure functions without network access; every length and offset of the response is checked against the data.
+    /// See docs/FEHLERGEDAECHTNIS.md, No. 15.
+    /// </remarks>
     public static class NetBiosNodeStatus
     {
         /// <summary>UDP port of the NetBIOS name service.</summary>

@@ -4,77 +4,82 @@ using System.Net.NetworkInformation;
 namespace MyNetworkMonitor.Core.Network
 {
     /// <summary>
-    /// Eine ausgewertete IP-Adresse. Anders als unter IPv4 ist eine IPv6-Adresse
-    /// selbst schon ein Datensatz: Praefix, Gueltigkeitsbereich, Herkunft des
-    /// Interface-Identifiers und teilweise sogar die MAC oder eine eingebettete
-    /// IPv4-Adresse lassen sich allein aus den Bits ableiten.
+    /// An analyzed IP address. Unlike under IPv4, an IPv6 address is itself
+    /// already a record: prefix, scope, origin of the interface identifier and
+    /// sometimes even the MAC or an embedded IPv4 address can be derived from
+    /// the bits alone.
     /// <para>
-    /// Erzeugt wird der Datensatz ueber <see cref="IpAddressAnalyzer.Analyze"/>.
-    /// Alles, was <b>nicht</b> aus der Adresse selbst folgt - Lebensdauern,
-    /// Zustand, Herkunft laut Betriebssystem - sitzt bewusst nicht hier, sondern
-    /// am Geraet, weil es von der Beobachtung abhaengt und nicht von der Adresse.
+    /// The record is created via <see cref="IpAddressAnalyzer.Analyze"/>.
+    /// Everything that does <b>not</b> follow from the address itself -
+    /// lifetimes, state, origin as reported by the operating system - is
+    /// deliberately kept on the device, not here, because it depends on
+    /// observation rather than on the address.
     /// </para>
     /// </summary>
     public sealed class IpAddressInfo
     {
+        /// <summary>The parsed address.</summary>
         public required IPAddress Address { get; init; }
 
+        /// <summary>The address family.</summary>
         public required IpFamily Family { get; init; }
 
+        /// <summary>The scope of the address.</summary>
         public required IpAddressScope Scope { get; init; }
 
+        /// <summary>The special form, if any.</summary>
         public IpAddressSpecial Special { get; init; } = IpAddressSpecial.None;
 
+        /// <summary>The origin of the interface identifier; not applicable for IPv4.</summary>
         public InterfaceIdKind InterfaceIdKind { get; init; } = InterfaceIdKind.Unknown;
 
         /// <summary>
-        /// Zone- bzw. Scope-ID einer Link-Local-Adresse (der Teil hinter dem %).
-        /// Ohne sie ist eine fe80-Adresse nicht ansprechbar, darum muss sie
-        /// ueberall dort mitgefuehrt werden, wo Adressen als Text durchgereicht
-        /// werden. <c>null</c>, wenn keine angegeben war.
+        /// Zone or scope ID of a link-local address (the part after the %).
+        /// Without it, an fe80 address cannot be addressed, so it must be carried
+        /// wherever addresses are passed on as text. <c>null</c> if none was
+        /// given.
         /// </summary>
         public long? ZoneId { get; init; }
 
         /// <summary>
-        /// Die aus einem EUI-64-Interface-Identifier zurueckgerechnete MAC.
-        /// Nur gesetzt, wenn <see cref="InterfaceIdKind"/> gleich
-        /// <see cref="InterfaceIdKind.Eui64"/> ist. Damit ist der Hersteller
-        /// auch dann bestimmbar, wenn das Geraet nicht im selben Segment liegt.
+        /// The MAC recovered from an EUI-64 interface identifier. Set only if
+        /// <see cref="InterfaceIdKind"/> is <see cref="InterfaceIdKind.Eui64"/>.
+        /// This allows determining the vendor even if the device is not on the
+        /// same segment.
         /// </summary>
         public PhysicalAddress? DerivedMac { get; init; }
 
         /// <summary>
-        /// Die in der Adresse enthaltene IPv4-Adresse bei 6to4, ISATAP, NAT64,
-        /// Teredo oder IPv4-mapped. Erlaubt den Abgleich mit der IPv4-Sicht.
+        /// The IPv4 address contained in the address for 6to4, ISATAP, NAT64,
+        /// Teredo or IPv4-mapped. Allows matching against the IPv4 view.
         /// </summary>
         public IPAddress? EmbeddedIPv4 { get; init; }
 
         /// <summary>
-        /// Kanonische Schreibweise nach RFC 5952 (klein, laengste Nullfolge
-        /// zusammengefasst), mit angehaengter Zone, falls vorhanden. Diese Form
-        /// ist zu speichern und zu vergleichen - nicht die Eingabe des Nutzers,
-        /// denn dieselbe Adresse laesst sich auf viele Arten schreiben.
+        /// Canonical notation per RFC 5952 (lower case, longest run of zeros
+        /// compressed), with the zone appended if present. This form is the one
+        /// to store and compare - not the text as entered, because the same
+        /// address can be written in many ways.
         /// </summary>
         public required string Canonical { get; init; }
 
         /// <summary>
-        /// 16 Byte in Netzwerkreihenfolge, fuer stabile Sortierung. IPv4 wird
-        /// dabei als IPv4-mapped eingeordnet, damit v4 und v6 in einer Spalte
-        /// nebeneinander sortierbar bleiben.
+        /// 16 bytes in network byte order, for stable sorting. IPv4 is sorted as
+        /// IPv4-mapped so that v4 and v6 can be sorted side by side in one column.
         /// </summary>
         public required byte[] SortKey { get; init; }
 
         /// <summary>
-        /// Weltweit erreichbar - und damit ohne NAT direkt aus dem Internet
-        /// ansprechbar. Grundlage fuer den Befund "Port global offen".
+        /// Reachable worldwide - and therefore directly addressable from the
+        /// internet without NAT. Basis for the finding "port open globally".
         /// </summary>
         public bool IsGloballyRoutable => Scope == IpAddressScope.Global;
 
         /// <summary>
-        /// Die Adresse taugt nicht als dauerhafte Kennung eines Geraetes -
-        /// entweder weil sie sich regelmaessig aendert oder weil sie nur im
-        /// Segment gilt. Verhindert, dass ein Geraet mit Privacy Extensions
-        /// als mehrere Geraete gezaehlt wird.
+        /// The address is not suitable as a permanent identifier of a device -
+        /// either because it changes regularly or because it is valid only on
+        /// the segment. Prevents a device with privacy extensions from being
+        /// counted as several devices.
         /// </summary>
         public bool IsUnstableIdentity =>
             InterfaceIdKind == InterfaceIdKind.Random || Scope == IpAddressScope.LinkLocal;

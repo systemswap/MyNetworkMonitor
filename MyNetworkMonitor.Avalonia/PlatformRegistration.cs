@@ -7,23 +7,22 @@ using MyNetworkMonitor.Core.Services;
 namespace MyNetworkMonitor.Avalonia;
 
 /// <summary>
-/// Traegt die plattformabhaengigen Umsetzungen in
-/// <see cref="PlatformServices"/> ein.
+/// Registers the platform-specific implementations in
+/// <see cref="PlatformServices"/>.
 /// <para>
-/// Steht seit dem Satellitendienst hier und nicht mehr in
-/// <c>App.OnFrameworkInitializationCompleted</c>: der Dienst laeuft ohne
-/// Avalonia, und ohne diese Registrierung schlagen bei ihm ARP-Anfrage und
-/// Routing fehl - also genau die Verfahren, wegen derer es den Satelliten
-/// ueberhaupt gibt.
+/// Lives outside <c>App.OnFrameworkInitializationCompleted</c> because the
+/// satellite service runs without Avalonia; without this registration, ARP
+/// requests and routing fail there, which are exactly the methods the
+/// satellite exists for.
 /// </para>
 /// </summary>
 public static class PlatformRegistration
 {
+    /// <summary>Registers the providers for the platform this build targets.</summary>
     public static void RegisterAll()
     {
-        // Wichtig: unter Windows muessen die Windows-Provider registriert
-        // werden - mit den Linux-Providern schlagen ARP-Request und Routing
-        // dort fehl.
+        // Windows builds must register the Windows providers: with the Linux
+        // providers, ARP requests and routing fail there.
 #if WINDOWS
         PlatformServices.RegisterArp(new WindowsArpProvider());
         PlatformServices.RegisterRouting(new WindowsRoutingProvider());

@@ -2,64 +2,61 @@ using static MyNetworkMonitor.ServiceScanData;
 
 namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 {
-    /// <summary>Ein Befund: was an einem Ziel fuer einen Dienst herauskam.</summary>
-    /// <param name="Address">Das gepruefte Ziel.</param>
-    /// <param name="Result">Die Portergebnisse dieses einen Dienstes.</param>
+    /// <summary>A finding: the result of one service on one target.</summary>
+    /// <param name="Address">The checked target.</param>
+    /// <param name="Result">The port results of this one service.</param>
     public sealed record ServiceFinding(string Address, ServiceResult Result);
 
-    /// <summary>Der Stand eines Laufs, wie ihn die Anzeige braucht.</summary>
-    /// <param name="Current">Abgeschickte Pruefungen (Dienst mal Ziel).</param>
-    /// <param name="Responded">Davon die, an denen etwas offen war.</param>
-    /// <param name="Total">Alle Pruefungen des Laufs.</param>
-    /// <param name="Service">Der Dienst, der gerade an der Reihe ist.</param>
-    /// <param name="Step">Der wievielte Dienst.</param>
-    /// <param name="StepCount">Von wie vielen.</param>
+    /// <summary>The progress of a run, as the display needs it.</summary>
+    /// <param name="Current">Checks started (services times targets).</param>
+    /// <param name="Responded">Of these, the checks that found something open.</param>
+    /// <param name="Total">All checks of the run.</param>
+    /// <param name="Service">The service currently being checked.</param>
+    /// <param name="Step">The position of this service in the run, starting at 1.</param>
+    /// <param name="StepCount">The number of services in the run.</param>
     public sealed record ServiceScanProgress(
         int Current, int Responded, int Total, string Service, int Step, int StepCount);
 
     /// <summary>
-    /// Fuehrt die Diensterkennung aus: <b>ein Dienst nach dem anderen</b>, und
-    /// innerhalb eines Dienstes alle Ziele nebenlaeufig.
+    /// Runs service detection: <b>one service after the other</b>, and within
+    /// a service all targets concurrently.
     /// <para>
-    /// Vorher war es andersherum - 30 Ziele gleichzeitig, jedes fuer sich
-    /// durch alle Dienste. Zaehlen liessen sich damit nur Ziele: welcher
-    /// Dienst gerade laeuft, gab es im Ablauf gar nicht, weil zu jedem
-    /// Zeitpunkt 30 verschiedene liefen. Herum gedreht ist die Frage
-    /// beantwortbar - "SSH, der 11. von 24" -, und ein langsamer Dienst
-    /// versteckt sich nicht mehr hinter den schnellen.
+    /// This order makes the progress answerable ("SSH, 11 of 24"), and a slow
+    /// service does not hide behind the fast ones. Running each target
+    /// through all services instead would leave no single "current service"
+    /// to report.
     /// </para>
     /// <para>
-    /// Die Drosseln sind dieselben wie vorher: 30 Ziele nebeneinander, je
-    /// Ziel bis zu 50 Ports. Der Umbau soll den Fortschritt ehrlich machen,
-    /// nicht die Last im Netz verschieben.
+    /// Throttling: 30 targets in parallel, up to 50 ports per target.
     /// </para>
     /// </summary>
     public sealed class ServiceScanRunner
     {
-        /// <summary>Ziele nebeneinander - vorher <c>MaxParallelIPs</c>.</summary>
+        /// <summary>Targets checked in parallel.</summary>
         private const int MaxParallelTargets = 30;
 
-        /// <summary>Ports je Ziel nebeneinander.</summary>
+        /// <summary>Ports per target checked in parallel.</summary>
         private const int MaxParallelPorts = 50;
 
         private int _current;
         private int _responded;
 
+        /// <summary>The conditions for all probes of the run.</summary>
         public ProbeContext Context { get; init; } = new();
 
         /// <summary>
-        /// Die Dienste, bei denen aktiv nachgefragt werden darf - eingeschaltet
-        /// in der Dienstverwaltung, Vorgabe ist leer.
+        /// The services that may be actively queried, enabled in the service
+        /// manager; empty by default.
         /// <para>
-        /// Je Dienst und nicht fuer den ganzen Lauf, weil die Frage nur bei
-        /// einzelnen Protokollen ueberhaupt etwas veraendert. Was das bei
-        /// SECS/GEM bedeutet, steht bei <see cref="ProbeContext.ActiveInquiry"/>.
+        /// Per service and not for the whole run, because the request changes
+        /// anything only for a few protocols. What it means for SECS/GEM is
+        /// described at <see cref="ProbeContext.ActiveInquiry"/>.
         /// </para>
         /// </summary>
         public IReadOnlySet<ServiceType> ActiveInquiryServices { get; init; } =
             new HashSet<ServiceType>();
 
-        /// <summary>Der Kontext fuer eine Sonde - mit ihrer eigenen Erlaubnis zum Nachfragen.</summary>
+        /// <summary>The context for one probe, with its own permission for active inquiry.</summary>
         private ProbeContext ContextFor(IServiceProbe probe) =>
             ActiveInquiryServices.Contains(probe.Service)
                 ? new ProbeContext
@@ -70,20 +67,26 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                 }
                 : Context;
 
-        /// <summary>Ein Ziel ist fuer einen Dienst fertig geprueft.</summary>
+        /// <summary>Raised when one target has been checked for one service.</summary>
         public event Action<ServiceFinding>? Found;
 
+        /// <summary>Raised whenever the progress of the run changes.</summary>
         public event Action<ServiceScanProgress>? ProgressUpdated;
 
         /// <summary>
-        /// Prueft die gewaehlten Dienste an den gewaehlten Zielen.
+        /// Checks the selected services on the selected targets.
         /// </summary>
+        /// <param name="targets">The addresses to check.</param>
+        /// <param name="services">The services to check; services without a probe are skipped.</param>
         /// <param name="portsByService">
-        /// Die Ports je Dienst aus der Dienstverwaltung. Fehlt ein Dienst
-        /// darin, gelten die Vorgaben seiner Sonde; steht dort eine
-        /// <em>leere</em> Liste, wird er nicht geprueft - das ist dann eine
-        /// Entscheidung des Nutzers und kein fehlender Eintrag.
+        /// The ports per service from the service manager. If a service is
+        /// missing, the defaults of its probe apply; an <em>empty</em> list
+        /// means the service is not checked, which is a deliberate setting
+        /// and not a missing entry.
         /// </param>
+        /// <param name="token">Cancels the run.</param>
+        /// <exception cref="ArgumentNullException">An argument is <c>null</c>.</exception>
+        /// <exception cref="OperationCanceledException">The run was cancelled.</exception>
         public async Task RunAsync(
             IReadOnlyList<string> targets,
             IReadOnlyList<ServiceType> services,
@@ -113,8 +116,8 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                 List<int> ports = PortsFor(probe, portsByService);
                 if (ports.Count == 0)
                 {
-                    // Nichts zu pruefen, die Ziele gelten trotzdem als
-                    // abgearbeitet - sonst bliebe der Balken stehen.
+                    // Nothing to check; the targets still count as done,
+                    // otherwise the progress bar would stall.
                     Interlocked.Add(ref _current, targets.Count);
                     Report(probe, step, probes.Count, total);
                     continue;
@@ -126,16 +129,15 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                 }
                 catch (Exception) when (!token.IsCancellationRequested)
                 {
-                    // Misslingt die Vorbereitung eines Dienstes, wird eben
-                    // dieser Dienst nichts finden - die uebrigen 23 gehen das
-                    // nichts an.
+                    // If the preparation of a service fails, that service
+                    // finds nothing; the other services are not affected.
                 }
 
                 await RunProbeAsync(probe, targets, ports, step, probes.Count, total, token);
             }
         }
 
-        /// <summary>Ein Dienst ueber alle Ziele.</summary>
+        /// <summary>Runs one service over all targets.</summary>
         private async Task RunProbeAsync(
             IServiceProbe probe, IReadOnlyList<string> targets, List<int> ports,
             int step, int stepCount, int total, CancellationToken token)
@@ -146,12 +148,12 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             {
                 await targetSlots.WaitAsync(token);
 
-                // Gezaehlt wird die abgeschickte Pruefung, nicht die fertige -
-                // dieselbe Regel wie in den uebrigen Verfahren. Stiegen beide
-                // Zahlen im selben Augenblick, saehe man nie, dass Ziele
-                // unterwegs sind; an der Diensterkennung haengt jedes Ziel
-                // lange in Zeitueberschreitungen, und genau diese Wartezeit
-                // soll am Abstand der beiden Zahlen ablesbar sein.
+                // The started check is counted, not the finished one; the same
+                // rule as in the other scan methods. If both numbers rose at
+                // the same moment, targets in progress would never be visible;
+                // in service detection every target spends a long time in
+                // timeouts, and that waiting time should show as the gap
+                // between the two numbers.
                 Interlocked.Increment(ref _current);
                 Report(probe, step, stepCount, total);
 
@@ -165,20 +167,18 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                 }
                 catch (OperationCanceledException)
                 {
-                    // Abbruch ist kein Fehlschlag dieses Ziels.
+                    // Cancellation is not a failure of this target.
                 }
                 catch (Exception) when (!token.IsCancellationRequested)
                 {
-                    // Ein einzelnes Ziel darf den Lauf nicht beenden.
+                    // A single target must not end the run.
                     //
-                    // Der Ablauf geht Dienst fuer Dienst: eine Ausnahme, die
-                    // bis hierher steigt, riss frueher die ganze Schleife mit,
-                    // und jeder Dienst, der noch an der Reihe gewesen waere,
-                    // wurde nie geprueft. Genau so ist ein Lauf nach dem
-                    // zehnten von 24 Diensten geendet - eine Gegenstelle hatte
-                    // die Verbindung zugeschlagen (IOException). Gemeldet wurde
-                    // er trotzdem als beendet, und es sah aus, als kenne die
-                    // Erkennung die Haelfte der Dienste nicht mehr.
+                    // The run goes service by service: an exception rising to
+                    // this point would abort the whole loop, and every service
+                    // still to come would never be checked. A remote side that
+                    // closes the connection (IOException) is enough for that;
+                    // the run is still reported as finished, and it looks as if
+                    // detection no longer knew half of the services.
                 }
                 finally
                 {
@@ -190,7 +190,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             await Task.WhenAll(runs);
         }
 
-        /// <summary>Ein Dienst an einem Ziel, ueber alle seine Ports.</summary>
+        /// <summary>Checks one service on one target, over all its ports.</summary>
         private async Task<ServiceResult> ProbeTargetAsync(
             IServiceProbe probe, string address, List<int> ports, CancellationToken token)
         {
@@ -210,12 +210,12 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                 }
                 catch (OperationCanceledException)
                 {
-                    // siehe oben
+                    // see above
                 }
                 catch (Exception) when (!token.IsCancellationRequested)
                 {
-                    // Und ein einzelner Port darf weder das Ziel noch den Lauf
-                    // beenden - siehe die Anmerkung eine Ebene hoeher.
+                    // A single port must end neither the target nor the run;
+                    // see the note one level up.
                 }
                 finally
                 {
@@ -229,8 +229,8 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Die Ports dieses Dienstes. Ohne Eintrag in der Verwaltung gelten
-        /// die Vorgaben der Sonde - siehe Anmerkung an <see cref="RunAsync"/>.
+        /// The ports of this service. Without an entry in the service manager,
+        /// the defaults of the probe apply; see the note at <see cref="RunAsync"/>.
         /// </summary>
         private static List<int> PortsFor(
             IServiceProbe probe, IReadOnlyDictionary<ServiceType, List<int>> portsByService) =>
@@ -239,8 +239,8 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                 : [.. probe.DefaultPorts];
 
         /// <summary>
-        /// Massstab wie in der Tabelle: offen oder erkannter Dienst ist ein
-        /// Fund, alles Uebrige - zu, gefiltert, keine Antwort - nicht.
+        /// Same criterion as in the table: open or a detected service is a
+        /// finding; everything else (closed, filtered, no response) is not.
         /// </summary>
         private static bool HasOpenPort(ServiceResult result)
         {

@@ -7,27 +7,28 @@ using System.Text.Json.Serialization;
 namespace MyNetworkMonitor.Core.SatelliteLink
 {
     /// <summary>
-    /// Liest und schreibt Nachrichten auf einem Datenstrom.
+    /// Reads and writes messages on a stream.
     /// <para>
-    /// Rahmen: 4 Byte Laenge (big-endian), dann die Nutzlast. Das oberste Bit
-    /// der Laenge sagt, ob gepackt wurde - deshalb bleiben 31 Bit fuer die
-    /// Groesse, weit mehr als die Obergrenze unten braucht.
+    /// Frame: 4-byte length (big-endian), followed by the payload. The top bit
+    /// of the length indicates whether the payload is gzip-compressed, which
+    /// leaves 31 bits for the size, far more than the limit below needs.
     /// </para>
     /// <para>
-    /// Warum ueberhaupt eine Laengenangabe: TCP kennt keine Nachrichten,
-    /// sondern nur einen Strom von Bytes. Ohne Rahmen kaeme beim Lesen mal ein
-    /// halbes und mal anderthalb JSON-Dokumente an.
+    /// Why a length prefix: TCP has no messages, only a stream of bytes.
+    /// Without framing, a read could return half a JSON document or one and a
+    /// half.
     /// </para>
     /// </summary>
+    /// <param name="stream">The connected stream (TCP or named pipe).</param>
     public sealed class MessageChannel(Stream stream)
     {
-        /// <summary>Ab dieser Groesse wird gepackt. Darunter kostet es mehr, als es bringt.</summary>
+        /// <summary>Payloads of at least this size are compressed. Below it, compression costs more than it saves.</summary>
         private const int CompressAbove = 4 * 1024;
 
         /// <summary>
-        /// Obergrenze je Nachricht. Schuetzt vor einer kaputten oder
-        /// boesartigen Laengenangabe, die sonst den Speicher raeumen wuerde.
-        /// 32 MiB reichen fuer ein vollstaendiges Ergebnis mit Reserve.
+        /// Upper limit per message. Protects against a corrupt or malicious
+        /// length prefix that would otherwise exhaust memory. 32 MiB holds a
+        /// complete result with room to spare.
         /// </summary>
         public const int MaxMessageBytes = 32 * 1024 * 1024;
 
@@ -40,11 +41,16 @@ namespace MyNetworkMonitor.Core.SatelliteLink
 
         private readonly Stream _stream = stream ?? throw new ArgumentNullException(nameof(stream));
 
-        // Schreiben wird gebuendelt: zwei Seiten koennen gleichzeitig senden
-        // wollen (etwa ein Ping waehrend eines Ergebnisses), und ineinander
-        // geschachtelte Rahmen waeren nicht mehr zu entwirren.
+        // Writes are serialized: two senders may write at the same time (for
+        // example a ping during a result), and interleaved frames could not be
+        // separated again.
         private readonly SemaphoreSlim _writeLock = new(1, 1);
 
+        /// <summary>Serializes a message, compresses it if worthwhile, and writes it as one frame.</summary>
+        /// <param name="message">The message to send.</param>
+        /// <param name="token">Cancels the write.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="message"/> is null.</exception>
+        /// <exception cref="InvalidOperationException">The payload exceeds <see cref="MaxMessageBytes"/>.</exception>
         public async Task SendAsync(SatelliteMessage message, CancellationToken token)
         {
             ArgumentNullException.ThrowIfNull(message);
@@ -86,9 +92,12 @@ namespace MyNetworkMonitor.Core.SatelliteLink
         }
 
         /// <summary>
-        /// Liest die naechste Nachricht. Gibt <c>null</c> zurueck, wenn die
-        /// Gegenstelle sauber aufgelegt hat.
+        /// Reads the next message.
         /// </summary>
+        /// <param name="token">Cancels the read.</param>
+        /// <returns>The message, or <c>null</c> if the peer closed the connection cleanly between two messages.</returns>
+        /// <exception cref="InvalidDataException">The announced length is out of range.</exception>
+        /// <exception cref="EndOfStreamException">The connection closed in the middle of a message.</exception>
         public async Task<SatelliteMessage?> ReceiveAsync(CancellationToken token)
         {
             byte[] header = new byte[4];
@@ -123,9 +132,8 @@ namespace MyNetworkMonitor.Core.SatelliteLink
         }
 
         /// <summary>
-        /// Fuellt den Puffer ganz. Ein einzelnes Read liefert unter Umstaenden
-        /// weniger, als angefordert wurde - das ist bei TCP der Normalfall und
-        /// nicht der Fehlerfall.
+        /// Fills the buffer completely. A single Read may return less than
+        /// requested; with TCP that is the normal case, not an error.
         /// </summary>
         private async Task<bool> ReadExactlyAsync(byte[] buffer, CancellationToken token)
         {
@@ -139,7 +147,8 @@ namespace MyNetworkMonitor.Core.SatelliteLink
             return true;
         }
 
-        /// <summary>Ein neuer, zufaelliger Bezeichner fuer einen Auftrag.</summary>
+        /// <summary>Creates a new random identifier for a job.</summary>
+        /// <returns>A 12-character hexadecimal identifier.</returns>
         public static string NewJobId() => Guid.NewGuid().ToString("N")[..12];
     }
 }

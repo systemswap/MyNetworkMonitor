@@ -10,57 +10,58 @@ using Lextm.SharpSnmpLib;
 namespace MyNetworkMonitor
 {
     /// <summary>
-    /// Fragt einen Switch, welche MAC-Adresse an welchem seiner Ports haengt -
-    /// und in welchem VLAN dieser Port liegt.
+    /// Asks a switch which MAC address is attached to which of its ports, and in which VLAN that
+    /// port is.
     /// <para>
-    /// <b>Warum ueber SNMP und nicht ueber LLDP-Mithoeren:</b> wer LLDP-Frames
-    /// am eigenen Adapter mithoert, erfaehrt genau eines - woran der eigene
-    /// Rechner haengt. Zudem braucht das Raw-Sockets, also npcap unter Windows
-    /// und <c>CAP_NET_RAW</c> unter Linux. Der Switch dagegen fuehrt die
-    /// Zuordnung fuer <em>alle</em> seine Ports ohnehin und gibt sie ueber
-    /// SNMP heraus. Das ist mehr Auskunft ohne jede Installation.
+    /// <b>Why SNMP and not listening for LLDP:</b> listening for LLDP frames on the local adapter
+    /// reveals exactly one thing, where the local computer is attached. It also needs raw sockets,
+    /// that is npcap on Windows and <c>CAP_NET_RAW</c> on Linux. The switch keeps the mapping for
+    /// <em>all</em> its ports anyway and provides it by SNMP: more information without any
+    /// installation.
     /// </para>
     /// <para>
-    /// <b>Der Weg durch die Tabellen</b> - vier Abfragen, die ineinandergreifen:
-    /// die Weiterleitungstabelle (dot1dTpFdb) nennt je MAC eine Bridge-Portnummer;
-    /// dot1dBasePortIfIndex uebersetzt die in einen Schnittstellenindex;
-    /// ifName gibt dazu den sprechenden Namen wie "GigabitEthernet1/0/12"; und
-    /// dot1qPvid nennt das VLAN des Ports. Erst die Kette ergibt einen Satz,
-    /// den ein Mensch lesen kann.
+    /// <b>The path through the tables</b>, four queries that build on each other: the forwarding
+    /// table (dot1dTpFdb, RFC 4188) gives a bridge port number per MAC; dot1dBasePortIfIndex
+    /// translates it into an interface index; ifName (RFC 2863) adds the readable name such as
+    /// "GigabitEthernet1/0/12"; and dot1qPvid (RFC 4363) gives the VLAN of the port. Only the
+    /// whole chain yields a human-readable result.
     /// </para>
     /// </summary>
     public class ScanningMethod_SwitchPorts
     {
-        // --- Bridge-MIB: welche MAC an welchem Bridge-Port ---------------------
+        // --- BRIDGE-MIB: which MAC on which bridge port -------------------------
 
-        /// <summary>dot1dTpFdbPort - Wert ist die Bridge-Portnummer, der OID-Rest die MAC.</summary>
+        /// <summary>dot1dTpFdbPort: the value is the bridge port number, the rest of the OID the MAC.</summary>
         private const string FdbPort = "1.3.6.1.2.1.17.4.3.1.2";
 
-        /// <summary>dot1dBasePortIfIndex - Bridge-Port zu Schnittstellenindex.</summary>
+        /// <summary>dot1dBasePortIfIndex: bridge port to interface index.</summary>
         private const string BasePortIfIndex = "1.3.6.1.2.1.17.1.4.1.2";
 
-        // --- Schnittstellennamen ----------------------------------------------
+        // --- Interface names ---------------------------------------------------
 
-        /// <summary>ifName - der kurze Name, "Gi1/0/12".</summary>
+        /// <summary>ifName: the short name, such as "Gi1/0/12".</summary>
         private const string IfName = "1.3.6.1.2.1.31.1.1.1.1";
 
-        /// <summary>ifDescr - der lange Name, falls ifName fehlt.</summary>
+        /// <summary>ifDescr: the long name, used if ifName is missing.</summary>
         private const string IfDescr = "1.3.6.1.2.1.2.2.1.2";
 
         // --- VLAN --------------------------------------------------------------
 
-        /// <summary>dot1qPvid - das VLAN, in dem ein Bridge-Port liegt.</summary>
+        /// <summary>dot1qPvid: the VLAN of a bridge port.</summary>
         private const string PortVlan = "1.3.6.1.2.1.17.7.1.4.5.1.1";
 
-        // --- Der Switch selbst -------------------------------------------------
+        // --- The switch itself -------------------------------------------------
 
-        /// <summary>sysName - wie der Switch sich nennt.</summary>
+        /// <summary>sysName: the name of the switch.</summary>
         private const string SysName = "1.3.6.1.2.1.1.5.0";
 
-        /// <summary>lldpLocSysName - der Name aus der LLDP-Sicht, als zweite Quelle.</summary>
+        /// <summary>lldpLocSysName (LLDP-MIB, IEEE 802.1AB): the LLDP system name, as a second source.</summary>
         private const string LldpLocSysName = "1.0.8802.1.1.2.1.3.3.0";
 
+        /// <summary>Reports progress as (switches queried, switches with entries, total, status).</summary>
         public event Action<int, int, int, ScanStatus>? ProgressUpdated;
+
+        /// <summary>Raised for every MAC address found on a switch port.</summary>
         public event Action<SwitchPortResult>? SwitchPortFound;
 
         private int current;
@@ -69,11 +70,15 @@ namespace MyNetworkMonitor
 
         private CancellationTokenSource _cts = new();
 
-        /// <summary>Die Gemeinschaftskennung, mit der gefragt wird.</summary>
+        /// <summary>The SNMP community used for the queries.</summary>
         public string Community { get; set; } = "public";
 
+        /// <summary>The time limit per SNMP request, in milliseconds.</summary>
         public int TimeoutMs { get; set; } = 2000;
 
+        /// <summary>
+        /// Cancels the running scan and reports <see cref="ScanStatus.stopped"/>.
+        /// </summary>
         public void StopScan()
         {
             if (_cts != null && !_cts.IsCancellationRequested) _cts.Cancel();
@@ -97,9 +102,11 @@ namespace MyNetworkMonitor
         }
 
         /// <summary>
-        /// Fragt die genannten Switches ab. Als Switch gilt hier schlicht jede
-        /// Adresse, die man ihm nennt - meist die Gateways der Bereiche.
+        /// Queries the given switches. Every address passed in counts as a switch; usually these
+        /// are the gateways of the scopes.
         /// </summary>
+        /// <param name="switches">The addresses of the switches.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="switches"/> is <see langword="null"/>.</exception>
         public async Task ScanAsync(IReadOnlyList<string> switches)
         {
             ArgumentNullException.ThrowIfNull(switches);
@@ -113,9 +120,8 @@ namespace MyNetworkMonitor
             {
                 if (_cts.Token.IsCancellationRequested) break;
 
-                // SNMP-Abfragen der Bibliothek sind blockierend. Ein Walk ueber
-                // eine grosse Weiterleitungstabelle dauert; auf dem
-                // Oberflaechenfaden waere das ein eingefrorenes Fenster.
+                // The SNMP calls of the library block. A walk over a large forwarding table takes
+                // time; on the UI thread that would freeze the window.
                 List<SwitchPortResult> results =
                     await Task.Run(() => QuerySwitch(switchAddress), _cts.Token);
 
@@ -136,9 +142,9 @@ namespace MyNetworkMonitor
         }
 
         /// <summary>
-        /// Holt die vier Tabellen und setzt sie zusammen. Faellt eine aus, wird
-        /// das Ergebnis duenner, aber nicht falsch - fehlt etwa der
-        /// Schnittstellenname, steht dort die Bridge-Portnummer.
+        /// Reads the four tables and combines them. If one is missing, the result has less detail
+        /// but is not wrong; without the interface name, for example, the bridge port number is
+        /// shown.
         /// </summary>
         private List<SwitchPortResult> QuerySwitch(string switchAddress)
         {
@@ -149,9 +155,8 @@ namespace MyNetworkMonitor
                 Dictionary<string, string>? fdb =
                     SnmpHelper.Walk(switchAddress, VersionCode.V2, Community, FdbPort, TimeoutMs);
 
-                // Kein Eintrag heisst: entweder kein Switch, oder die
-                // Gemeinschaftskennung stimmt nicht. Beides ist kein Fehler,
-                // ueber den man stolpern sollte - es gibt schlicht nichts.
+                // No entry means either no switch or a wrong community. Neither is an error; there
+                // is simply nothing to report.
                 if (fdb is null || fdb.Count == 0) return results;
 
                 Dictionary<string, string> bridgeToIf =
@@ -189,8 +194,8 @@ namespace MyNetworkMonitor
                         SwitchAddress = switchAddress,
                         SwitchName = switchName,
 
-                        // Ohne sprechenden Namen bleibt die Portnummer - die
-                        // ist immer noch besser als gar keine Angabe.
+                        // Without a readable name the port number remains, which is still better
+                        // than no information.
                         Port = portName ?? $"Bridge port {bridgePort}",
                         Vlan = vlan
                     });
@@ -198,8 +203,8 @@ namespace MyNetworkMonitor
             }
             catch (Exception)
             {
-                // Ein Geraet, das nicht antwortet oder kein Switch ist, darf den
-                // Lauf ueber die uebrigen nicht abbrechen.
+                // A device that does not answer or is no switch must not abort the run over the
+                // others.
             }
 
             return results;
@@ -217,8 +222,8 @@ namespace MyNetworkMonitor
         }
 
         /// <summary>
-        /// Sucht in einer gewalkten Tabelle den Wert zu einem Index. Die
-        /// Schluessel sind volle OIDs, der Index haengt hinten dran.
+        /// Looks up the value for an index in a walked table. The keys are full OIDs with the
+        /// index appended.
         /// </summary>
         private static string? Lookup(Dictionary<string, string> table, string baseOid, string index)
         {
@@ -237,12 +242,11 @@ namespace MyNetworkMonitor
         }
 
         /// <summary>
-        /// Zieht die MAC-Adresse aus dem OID-Rest.
+        /// Extracts the MAC address from the rest of the OID.
         /// <para>
-        /// Der Kniff der Bridge-MIB: die Zeile ist nach der MAC indiziert, die
-        /// steht also nicht im Wert, sondern im Schluessel - als sechs
-        /// Dezimalzahlen hinter der Tabellen-OID. Aus
-        /// <c>…17.4.3.1.2.0.26.75.12.34.56</c> wird <c>00-1A-4B-0C-22-38</c>.
+        /// The BRIDGE-MIB table is indexed by the MAC, so the MAC is not in the value but in the
+        /// key, as six decimal numbers after the table OID:
+        /// <c>…17.4.3.1.2.0.26.75.12.34.56</c> becomes <c>00-1A-4B-0C-22-38</c>.
         /// </para>
         /// </summary>
         private static string? MacFromOid(string oid, string baseOid)
@@ -254,8 +258,8 @@ namespace MyNetworkMonitor
 
             string[] parts = trimmed[prefix.Length..].Split('.', StringSplitOptions.RemoveEmptyEntries);
 
-            // Bei manchen Switches steht die VLAN-Nummer vor der MAC. Genommen
-            // werden darum die letzten sechs Zahlen, nicht die ersten.
+            // Some switches put the VLAN number before the MAC, so the last six numbers are
+            // taken, not the first.
             if (parts.Length < 6) return null;
 
             string[] macParts = parts[^6..];
@@ -273,21 +277,25 @@ namespace MyNetworkMonitor
         }
     }
 
-    /// <summary>Wo eine MAC-Adresse am Netz haengt.</summary>
+    /// <summary>Where a MAC address is attached to the network.</summary>
     public sealed class SwitchPortResult
     {
-        /// <summary>Die MAC in der Schreibweise <c>00-1A-4B-0C-22-38</c>.</summary>
+        /// <summary>The MAC in the notation <c>00-1A-4B-0C-22-38</c>.</summary>
         public required string Mac { get; init; }
 
+        /// <summary>The address of the switch that was queried.</summary>
         public required string SwitchAddress { get; init; }
+
+        /// <summary>The name of the switch, or its address if it reports no name.</summary>
         public required string SwitchName { get; init; }
 
-        /// <summary>Der Port, sprechend benannt oder als Bridge-Portnummer.</summary>
+        /// <summary>The port, with its readable name or as a bridge port number.</summary>
         public required string Port { get; init; }
 
-        /// <summary>Das VLAN des Ports, falls der Switch es herausgibt.</summary>
+        /// <summary>The VLAN of the port, if the switch provides it.</summary>
         public string? Vlan { get; init; }
 
+        /// <summary>The MAC as <see cref="PhysicalAddress"/>, or <see langword="null"/> if it cannot be parsed.</summary>
         public PhysicalAddress? ParsedMac =>
             PhysicalAddress.TryParse(Mac, out PhysicalAddress? parsed) ? parsed : null;
     }

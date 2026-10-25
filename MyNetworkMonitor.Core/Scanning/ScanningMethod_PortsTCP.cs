@@ -11,19 +11,24 @@ using System.Net;
 
 namespace MyNetworkMonitor
 {
+    /// <summary>
+    /// Checks TCP ports of the targets by connection attempt.
+    /// </summary>
     public class ScanningMethod_PortsTCP
     {
+        /// <summary>Creates the TCP port scanner.</summary>
         public ScanningMethod_PortsTCP() { }
 
+        /// <summary>Raised when all ports of one target have been checked.</summary>
         public event EventHandler<ScanTask_Finished_EventArgs>? TcpPortScan_Task_Finished;
+
+        /// <summary>Raised when the scan has finished or was stopped.</summary>
         public event Action<ScanStatus>? TcpPortScan_Finished;
 
         /// <summary>
-        /// Fortschritt waehrend des Laufs: geprueft, offen gefunden, gesamt -
-        /// ueber alle Ziele und Ports. Ohne das stand die Anzeige still,
-        /// solange ein Ziel lief; bei der eingestellten Auswahl faellt das nicht
-        /// auf, bei allen 65535 Ports sitzt sie minutenlang fest, weil ein Ziel
-        /// erst ganz am Ende gemeldet wird.
+        /// Progress during the run as (checked, found open, total), across all targets and ports.
+        /// A target is reported only at its very end; without this event the display stands still
+        /// while a target runs, which with all 65535 ports means minutes.
         /// </summary>
         public event Action<int, int, int>? ProgressUpdated;
 
@@ -32,34 +37,42 @@ namespace MyNetworkMonitor
         private int _total;
 
         /// <summary>
-        /// Wie oft der Fortschritt hoechstens gemeldet wird - jede geprueften
-        /// so viele Ports einmal. Fein genug, dass sich die Anzeige spuerbar
-        /// bewegt, grob genug, dass nicht jeder einzelne Port den
-        /// Oberflaechen-Thread erreicht.
+        /// Progress is reported once per this many checked ports: fine enough for the display to
+        /// move noticeably, coarse enough that not every single port reaches the UI thread.
         /// </summary>
         private const int ProgressStep = 100;
 
         private CancellationTokenSource _cts = new CancellationTokenSource();
+        /// <summary>
+        /// The cancellation token of the scan; setting it links the scan to an external token.
+        /// </summary>
         public CancellationToken CancelPortScan
         {
             get => _cts.Token;
             set => _cts = CancellationTokenSource.CreateLinkedTokenSource(value);
         }
 
+        /// <summary>
+        /// Checks the given TCP ports on every target and reports each target when done.
+        /// </summary>
+        /// <param name="IPs">The targets; each entry must be an IPv4 address.</param>
+        /// <param name="Ports">The ports to check.</param>
+        /// <param name="TimeOut">The time limit per connection attempt.</param>
         public async Task ScanTCPPortsAsync(List<IPToScan> IPs, List<int> Ports, TimeSpan TimeOut)
         {
-            // Frischer Token je Scan, damit nach einem vorherigen StopScan wieder
-            // sauber gescannt werden kann.
+            // A fresh token per scan, so that a scan works again after a previous StopScan.
             _cts = new CancellationTokenSource();
 
-            //await _ScanTCPPortsAsync(IPs, new PortCollection().TCPPorts, TimeOut);
             await _ScanTCPPortsAsync(IPs, Ports, TimeOut);
         }
 
+        /// <summary>
+        /// Cancels the running scan and reports <see cref="ScanStatus.stopped"/>.
+        /// </summary>
         public void StopScan()
         {
-            // Der interne Token wird von den Scan-Tasks geprueft (siehe
-            // ScanTCPPorts_Task) - Cancel beendet den laufenden Scan.
+            // The scan tasks check the internal token (see ScanTCPPorts_Task); Cancel ends the
+            // running scan.
             if (_cts != null && !_cts.IsCancellationRequested)
             {
                 _cts.Cancel();
@@ -68,14 +81,10 @@ namespace MyNetworkMonitor
         }
 
         /// <summary>
-        /// Wie viele Portpruefungen insgesamt gleichzeitig laufen duerfen - ueber
-        /// alle Ziel-IPs und Ports hinweg. Vorher gab es hier keine Grenze:
-        /// jede IP startete im 20ms-Abstand, und je IP liefen wiederum alle
-        /// Ports im 20ms-Abstand los. Bei "alle 65535 Ports" auf mehreren
-        /// Zielen gleichzeitig waren so leicht mehrere tausend offene Sockets
-        /// gleichzeitig unterwegs - derselbe Fehler wie beim Ping-Scan, nur
-        /// ohne dessen Wiederholungen und darum weniger dramatisch, aber
-        /// unnoetig und unbegrenzt.
+        /// How many port checks may run at the same time in total, across all target addresses
+        /// and ports. Without a limit the targets start 20 ms apart and their ports follow at short
+        /// intervals; with all 65535 ports on several targets that easily means several thousand
+        /// open sockets at once. The ping scan is limited for the same reason.
         /// </summary>
         private const int MaxConcurrentPortScans = 128;
 
@@ -84,8 +93,7 @@ namespace MyNetworkMonitor
             using SemaphoreSlim gate = new(MaxConcurrentPortScans);
             var tasks = new List<Task>();
 
-            // Ausgangspunkt fuer die Fortschrittsanzeige: alle Portpruefungen
-            // ueber alle gueltigen Ziele.
+            // Basis for the progress display: all port checks across all valid targets.
             int validIps = IPs.Count(ip => !string.IsNullOrEmpty(ip.IPorHostname));
             _checked = 0;
             _open = 0;
@@ -94,13 +102,12 @@ namespace MyNetworkMonitor
             foreach (var ip in IPs.Where(ip => !string.IsNullOrEmpty(ip.IPorHostname)))
             {
                 tasks.Add(ScanTCPPorts_Task(ip, TCP_Ports, TimeOut, gate));
-                await Task.Delay(20); // 20ms Verzögerung zwischen den IP-Scans
+                await Task.Delay(20); // 20 ms between the targets
             }
 
             await Task.WhenAll(tasks);
 
-            // Zum Abschluss der Vollstand, falls die letzte Meldung vor dem
-            // Erreichen der naechsten Stufe lag.
+            // Report the final count, in case the last report came before the next step.
             ProgressUpdated?.Invoke(Volatile.Read(ref _checked), Volatile.Read(ref _open), _total);
 
             TcpPortScan_Finished?.Invoke(ScanStatus.finished);
@@ -150,6 +157,16 @@ namespace MyNetworkMonitor
             TcpPortScan_Task_Finished?.Invoke(this, new ScanTask_Finished_EventArgs { ipToScan = ipToScan });
         }
 
+        /// <summary>
+        /// Checks one TCP port by connection attempt.
+        /// </summary>
+        /// <param name="IP">The IPv4 address of the target.</param>
+        /// <param name="Port">The port.</param>
+        /// <param name="timeout">The time limit for the connection attempt.</param>
+        /// <returns>
+        /// The result: open on a completed connection, denied on a refused connection, blocked on
+        /// access denied, otherwise not reachable.
+        /// </returns>
         public async Task<PortScanResult> ScanTCP_Port_via_Socket_Async(string IP, int Port, TimeSpan timeout)
         {
             var scanResult = new PortScanResult { IP = IP, Port = Port };
@@ -194,7 +211,7 @@ namespace MyNetworkMonitor
             return scanResult;
         }
 
-        /// <summary>Reicht den Semaphor-Platz nach der Pruefung zuverlaessig weiter, auch bei einer Ausnahme.</summary>
+        /// <summary>Releases the semaphore slot after the check in every case, also on an exception.</summary>
         private async Task<PortScanResult> ScanPortGatedAsync(string ip, int port, TimeSpan timeout, SemaphoreSlim gate)
         {
             try
@@ -203,8 +220,8 @@ namespace MyNetworkMonitor
 
                 if (result.PortState == PortScanState.PortIsOpen) Interlocked.Increment(ref _open);
 
-                // Nur alle paar hundert Ports melden, nicht bei jedem einzelnen -
-                // sonst erreichen 65535 Meldungen je Ziel den Oberflaechen-Thread.
+                // Report only every ProgressStep ports, not for every single one; otherwise 65535
+                // reports per target reach the UI thread.
                 int done = Interlocked.Increment(ref _checked);
                 if (done % ProgressStep == 0)
                 {
@@ -220,18 +237,36 @@ namespace MyNetworkMonitor
         }
     }
 
+    /// <summary>
+    /// The result of a TCP port check.
+    /// </summary>
     public enum PortScanState
     {
+        /// <summary>The connection was established.</summary>
         PortIsOpen,
+
+        /// <summary>The connection attempt failed with "access denied", typically because of a firewall.</summary>
         FirewallBlockedPort,
+
+        /// <summary>The target refused the connection.</summary>
         TargetDeniedAccessToPort,
+
+        /// <summary>No answer within the time limit, or another error.</summary>
         TargetNotReachable
     }
 
+    /// <summary>
+    /// The result of checking one port on one target.
+    /// </summary>
     public class PortScanResult
     {
+        /// <summary>The address of the target.</summary>
         public string IP { get; set; }
+
+        /// <summary>The state found.</summary>
         public PortScanState PortState { get; set; }
+
+        /// <summary>The port.</summary>
         public int? Port { get; set; }
     }
 }

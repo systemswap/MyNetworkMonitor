@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace MyNetworkMonitor.Avalonia.Platform.Linux
 {
-    /// <summary>Kleiner Helfer, der ein Kommandozeilenwerkzeug ausführt und stdout liefert.</summary>
+    /// <summary>Runs a command-line tool and returns its standard output.</summary>
     internal static class ProcessRunner
     {
         public static async Task<string> RunAsync(string fileName, string arguments, CancellationToken cancellationToken = default)
@@ -23,7 +23,8 @@ namespace MyNetworkMonitor.Avalonia.Platform.Linux
 
             try
             {
-                // Read stderr at the same time: it is redirected, and a full pipe buffer would block the tool forever
+                // Reads stderr at the same time: it is redirected, and a full pipe buffer would block the tool forever.
+                // See docs/FEHLERGEDAECHTNIS.md, No. 17.
                 Task<string> errors = process.StandardError.ReadToEndAsync(cancellationToken);
                 string output = await process.StandardOutput.ReadToEndAsync().WaitAsync(cancellationToken).ConfigureAwait(false);
                 await errors.ConfigureAwait(false);
@@ -32,11 +33,11 @@ namespace MyNetworkMonitor.Avalonia.Platform.Linux
             }
             catch (OperationCanceledException)
             {
-                // Ohne das hier liefe der Prozess (ping, ip neigh, ...) im
-                // Hintergrund weiter, bis er von selbst endet - bei einem
-                // abgebrochenen Scan ueber viele Ziele blieben so Dutzende
-                // verwaiste Prozesse zurueck, statt dass "Stop" wirklich stoppt.
-                try { process.Kill(entireProcessTree: true); } catch (InvalidOperationException) { /* bereits beendet */ }
+                // Without this, the process (ping, ip neigh, ...) keeps running in
+                // the background until it ends on its own; a cancelled scan over
+                // many targets would leave dozens of orphaned processes behind
+                // instead of "Stop" actually stopping.
+                try { process.Kill(entireProcessTree: true); } catch (InvalidOperationException) { /* already exited */ }
                 throw;
             }
         }

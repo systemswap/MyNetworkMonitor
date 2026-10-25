@@ -7,44 +7,49 @@ using CommunityToolkit.Mvvm.Input;
 namespace MyNetworkMonitor.Core.ViewModels
 {
     /// <summary>
-    /// Ein Diensteintrag: ob nach ihm gesucht wird und auf welchen Ports.
+    /// A service entry: whether it is searched for and on which ports.
     /// <para>
-    /// <see cref="DetectionPacket"/> und die Antwortmuster werden mitgefuehrt,
-    /// aber <b>nur angezeigt</b>. Sie sind das Herz der Erkennung - ein Byte
-    /// daran geaendert, und ein Dienst wird nicht mehr gefunden, ohne dass die
-    /// Ursache erkennbar waere.
+    /// <see cref="DetectionPacket"/> and the response patterns are carried
+    /// along but <b>only displayed</b>. They are the core of the detection;
+    /// changing a single byte can make a service undetectable without any
+    /// visible cause.
     /// </para>
     /// </summary>
     public partial class ServiceEntry : ObservableObject
     {
+        /// <summary>The service is searched for.</summary>
         [ObservableProperty] private bool _toScan;
 
         /// <summary>
-        /// Aktiv nachfragen - nur dort sichtbar, wo es ueberhaupt etwas
-        /// bedeutet. Was es bedeutet, steht bei <c>ProbeContext.ActiveInquiry</c>:
-        /// die Frage veraendert den Zustand der Gegenstelle, darum entscheidet
-        /// sie der Betreiber und nicht die Sonde.
+        /// Active inquiry; shown only where it has an effect. Its meaning is
+        /// described at <c>ProbeContext.ActiveInquiry</c>: the inquiry changes
+        /// the state of the remote side, so the operator decides, not the probe.
         /// </summary>
         [ObservableProperty] private bool _activeInquiry;
+        /// <summary>The ports to probe, separated by commas.</summary>
         [ObservableProperty] private string _ports = string.Empty;
 
+        /// <summary>The service name (key in <c>services.xml</c>).</summary>
         public required string Name { get; init; }
+        /// <summary>The service group the entry belongs to.</summary>
         public string Group { get; init; } = string.Empty;
 
-        /// <summary>Nur zur Ansicht - siehe Klassenkommentar.</summary>
+        /// <summary>Read-only; see the class remarks.</summary>
         public string DetectionPacket { get; init; } = string.Empty;
 
+        /// <summary>Text an answer must contain; read-only, see the class remarks.</summary>
         public string ResponseContains { get; init; } = string.Empty;
 
+        /// <summary>The entry has a detection packet.</summary>
         public bool HasDetectionPacket => !string.IsNullOrWhiteSpace(DetectionPacket);
 
         /// <summary>
-        /// Ob dieser Dienst eine aktive Nachfrage kennt. Nur SECS/GEM hat eine:
-        /// bei allen anderen waere das Kaestchen ein Schalter ohne Wirkung.
+        /// Whether this service supports an active inquiry. Only SECS/GEM does;
+        /// for all others the check box would have no effect.
         /// </summary>
         public bool SupportsActiveInquiry => Name == nameof(ServiceType.SecsGem);
 
-        /// <summary>Die Ports als Zahlen - fuer die Anzeige der Anzahl.</summary>
+        /// <summary>Number of valid ports in <see cref="Ports"/>, for display.</summary>
         public int PortCount =>
             Ports.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                  .Count(part => int.TryParse(part, out int port) && port is > 0 and <= 65535);
@@ -55,13 +60,13 @@ namespace MyNetworkMonitor.Core.ViewModels
     }
 
     /// <summary>
-    /// Welcher Dienst auf welchen Ports gesucht wird.
+    /// Which service is searched for on which ports.
     /// <para>
-    /// Die Liste entsteht wie bisher: <see cref="ScanningMethod_Services"/>
-    /// legt jeden Diensttyp mit seinen Standardports an und liest
-    /// <c>services.xml</c> nur als Ueberlagerung darueber. Die Datei muss also
-    /// nicht vorhanden sein, und ein neu hinzugekommener Diensttyp taucht von
-    /// selbst auf, statt zu fehlen.
+    /// The list is built by <see cref="ScanningMethod_Services"/>: it creates
+    /// every service type with its default ports and reads
+    /// <c>services.xml</c> only as an overlay. The file therefore need not
+    /// exist, and a service type added to the program appears automatically
+    /// instead of missing.
     /// </para>
     /// </summary>
     public partial class ServiceEditorViewModel : ObservableObject
@@ -69,34 +74,41 @@ namespace MyNetworkMonitor.Core.ViewModels
         private string _xmlPath = string.Empty;
         private bool _loading;
 
-        /// <summary>Alle Dienste, unabhaengig vom Suchfeld.</summary>
+        /// <summary>All services, regardless of the search field.</summary>
         public ObservableCollection<ServiceEntry> All { get; } = [];
 
-        /// <summary>Was das Suchfeld durchlaesst.</summary>
+        /// <summary>The services that pass the search field.</summary>
         public ObservableCollection<ServiceEntry> Visible { get; } = [];
 
+        /// <summary>The selected service.</summary>
         [ObservableProperty] private ServiceEntry? _selected;
+        /// <summary>The status line text.</summary>
         [ObservableProperty] private string _status = string.Empty;
+        /// <summary>Searches name, group and ports.</summary>
         [ObservableProperty] private string _filter = string.Empty;
 
-        /// <summary>Nur die Dienste zeigen, nach denen tatsaechlich gesucht wird.</summary>
+        /// <summary>Shows only the services that are actually searched for.</summary>
         [ObservableProperty] private bool _onlySelected;
 
         partial void OnFilterChanged(string value) => ApplyFilter();
         partial void OnOnlySelectedChanged(bool value) => ApplyFilter();
 
+        /// <summary>Number of services that are searched for.</summary>
         public int SelectedCount => All.Count(s => s.ToScan);
+        /// <summary>Number of services in the list.</summary>
         public int TotalCount => All.Count;
 
         /// <summary>
-        /// Ist nichts angehakt, sucht der Scan nach allen Diensten - so
-        /// verhaelt sich das Modul seit jeher. Das gehoert gesagt, sonst wirkt
-        /// eine leere Auswahl wie "nichts wird geprueft".
+        /// If nothing is checked, the scan searches for all services. The UI
+        /// states this; otherwise an empty selection would read as "nothing is
+        /// checked".
         /// </summary>
         public bool ScansEverything => SelectedCount == 0;
 
-        // ------------------------------------------------------------- Laden
+        // ------------------------------------------------------------ Loading
 
+        /// <summary>Loads the services: built-in service types overlaid with the file.</summary>
+        /// <param name="xmlPath">The <c>services.xml</c> file; also the target for later saves.</param>
         public void Load(string xmlPath)
         {
             _xmlPath = xmlPath;
@@ -107,8 +119,8 @@ namespace MyNetworkMonitor.Core.ViewModels
                 foreach (ServiceEntry entry in All) entry.PropertyChanged -= OnEntryChanged;
                 All.Clear();
 
-                // Das Modul baut die Tabelle samt Standardports und legt die
-                // XML als Ueberlagerung darueber - genau wie beim Scan.
+                // The module builds the table with default ports and overlays
+                // the XML, exactly as during a scan.
                 ScanningMethod_Services module = new(xmlPath);
 
                 foreach (DataRow row in module.Services.Rows)
@@ -145,7 +157,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             NotifyCounts();
         }
 
-        // --------------------------------------------------------- Speichern
+        // ------------------------------------------------------------- Saving
 
         private static readonly TimeSpan SaveDelay = TimeSpan.FromMilliseconds(600);
 
@@ -159,8 +171,8 @@ namespace MyNetworkMonitor.Core.ViewModels
 
             NotifyCounts();
 
-            // "Nur ausgewaehlte" blendet Zeilen aus, sobald man sie abwaehlt -
-            // die Liste muss also mitgehen.
+            // "Only selected" hides rows as soon as they are unchecked, so the
+            // list has to follow.
             if (OnlySelected && e.PropertyName == nameof(ServiceEntry.ToScan)) ApplyFilter();
 
             Save();
@@ -173,6 +185,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             OnPropertyChanged(nameof(ScansEverything));
         }
 
+        /// <summary>Captures the current state and writes it after a short delay.</summary>
         public void Save()
         {
             if (_loading || string.IsNullOrEmpty(_xmlPath)) return;
@@ -184,6 +197,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             _saveTimer.Change(SaveDelay, Timeout.InfiniteTimeSpan);
         }
 
+        /// <summary>Writes pending changes immediately, e.g. before closing.</summary>
         public void SaveNow()
         {
             if (_loading || string.IsNullOrEmpty(_xmlPath) || !_dirty) return;
@@ -194,9 +208,9 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Baut die Tabelle im bisherigen Format. Erkennungspaket und
-        /// Antwortmuster werden unveraendert durchgereicht - sie werden hier
-        /// nur mitgeschrieben, nie erzeugt.
+        /// Builds the table in the <c>services.xml</c> format. Detection packet
+        /// and response pattern are passed through unchanged; they are only
+        /// written here, never generated.
         /// </summary>
         private DataTable BuildTable()
         {
@@ -237,23 +251,24 @@ namespace MyNetworkMonitor.Core.ViewModels
             }
         }
 
-        // ----------------------------------------------------------- Befehle
+        // ----------------------------------------------------------- Commands
 
-        /// <summary>Wirkt auf die sichtbaren Zeilen - wie beim Portfilter.</summary>
+        /// <summary>Checks all visible rows, as in the port editor.</summary>
         [RelayCommand]
         private void SelectAll() => SetAll(true);
 
+        /// <summary>Unchecks all visible rows.</summary>
         [RelayCommand]
         private void SelectNone() => SetAll(false);
 
         private void SetAll(bool value)
         {
-            // Ueber eine Kopie laufen: das Abwaehlen kann die sichtbare Liste
-            // umbauen, waehrend wir noch darin sind.
+            // Iterate over a copy: unchecking can rebuild the visible list
+            // while it is being iterated.
             foreach (ServiceEntry entry in Visible.ToList()) entry.ToScan = value;
         }
 
-        // ------------------------------------------------------------ Filter
+        // ------------------------------------------------------------- Filter
 
         private void ApplyFilter()
         {

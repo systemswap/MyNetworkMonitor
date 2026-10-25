@@ -3,36 +3,39 @@ using System.Text;
 
 namespace MyNetworkMonitor.Core.Services
 {
-    /// <summary>Wie ein Aktualisierungsversuch der MAC-Herstellerliste ausgegangen ist.</summary>
+    /// <summary>The outcome of an attempt to update the MAC vendor list.</summary>
     public sealed record MacVendorUpdateResult
     {
+        /// <summary>Whether the list was replaced.</summary>
         public required bool Success { get; init; }
+        /// <summary>Number of entries written.</summary>
         public int EntryCount { get; init; }
+        /// <summary>Why the update failed; null on success.</summary>
         public string? Error { get; init; }
     }
 
     /// <summary>
-    /// Baut <c>mac_vendors.csv</c> aus Wiresharks manuf-Datei neu auf.
+    /// Rebuilds <c>mac_vendors.csv</c> from Wireshark's manuf file.
     /// <para>
-    /// Die mitgelieferte Liste kennt nur MA-L (die klassischen 24-Bit-OUI-Bloecke).
-    /// IEEE vergibt seit einigen Jahren zusaetzlich MA-M (28 Bit) und MA-S (36 Bit)
-    /// an Hersteller, die keinen ganzen /24-Block brauchen - gerade viele kleinere
-    /// IoT-Hersteller. Ohne diese beiden Bloecke bleibt genau deren Ausruestung
-    /// "Unknown". Wiresharks manuf-Datei fasst alle drei Bloecke in einer Quelle
-    /// zusammen (taeglich aus der IEEE-Registrierung neu gebaut) - eine Datei statt
-    /// dreier getrennter IEEE-CSVs mit je eigenem Format.
+    /// The bundled list contains only MA-L (the classic 24-bit OUI blocks).
+    /// IEEE additionally assigns MA-M (28 bits) and MA-S (36 bits) to vendors
+    /// that do not need a whole /24 block - notably many smaller IoT vendors.
+    /// Without these two blocks, exactly their equipment stays "Unknown".
+    /// Wireshark's manuf file combines all three blocks in one source (rebuilt
+    /// daily from the IEEE registry) - one file instead of three separate IEEE
+    /// CSV files with their own formats.
     /// </para>
     /// <para>
-    /// <b>Warum das bestehende Nachschlagen unveraendert bleibt.</b>
-    /// <c>SupportMethods.GetVendorFromMac</c> prueft nur, ob die Ziel-MAC mit
-    /// dem gespeicherten Praefix als Zeichenkette beginnt - kein Wissen um Bitlaengen
-    /// noetig. MA-M- und MA-S-Praefixe aus der manuf-Datei stehen dort byte-aligned
-    /// mit nachfolgenden Nullen und einem <c>/28</c> bzw. <c>/36</c>-Zusatz, etwa
-    /// <c>00:55:DA:00/28</c> fuer einen 28-Bit-Block. Nur das signifikante Halbbyte
-    /// zu behalten (hier: <c>00:55:DA:0</c>, ohne Doppelpunkt danach) macht daraus
-    /// wieder einen einfachen String-Praefix, auf den <c>StartsWith</c> exakt so
-    /// funktioniert wie bei den bisherigen 24-Bit-Eintraegen - deshalb kein einziger
-    /// Aufrufer musste angefasst werden, nur die Datei wird reichhaltiger.
+    /// <b>Why the existing lookup needs no change.</b>
+    /// <c>SupportMethods.GetVendorFromMac</c> only checks whether the target MAC
+    /// starts with the stored prefix as a string - no knowledge of bit lengths
+    /// needed. MA-M and MA-S prefixes in the manuf file are byte-aligned with
+    /// trailing zeros and a <c>/28</c> or <c>/36</c> suffix, for example
+    /// <c>00:55:DA:00/28</c> for a 28-bit block. Keeping only the significant
+    /// nibbles (here: <c>00:55:DA:0</c>, without a trailing colon) turns this
+    /// into a plain string prefix on which <c>StartsWith</c> works exactly as on
+    /// the 24-bit entries - so no caller needs to know about block sizes; only
+    /// the file becomes richer.
     /// </para>
     /// </summary>
     public static class MacVendorUpdater
@@ -42,11 +45,15 @@ namespace MyNetworkMonitor.Core.Services
         private static readonly TimeSpan DownloadTimeout = TimeSpan.FromSeconds(90);
 
         /// <summary>
-        /// Laedt die aktuelle manuf-Datei und ersetzt die Ziel-CSV. Schreibt zuerst
-        /// in eine temporaere Datei und tauscht erst danach um - ein Abbruch mitten
-        /// im Schreiben darf nie eine halbe, kaputte Liste hinterlassen, an der jede
-        /// naechste Herstellersuche scheitert.
+        /// Downloads the current manuf file and replaces the target CSV. Writes to
+        /// a temporary file first and swaps afterwards - an abort in the middle of
+        /// writing must never leave a half-written, broken list on which every
+        /// subsequent vendor lookup fails.
         /// </summary>
+        /// <param name="targetCsvPath">The CSV file to replace.</param>
+        /// <param name="cancellationToken">Cancels the download.</param>
+        /// <returns>Success and entry count, or the reason for the failure.</returns>
+        /// <exception cref="ArgumentException"><paramref name="targetCsvPath"/> is null, empty or whitespace.</exception>
         public static async Task<MacVendorUpdateResult> UpdateAsync(
             string targetCsvPath, CancellationToken cancellationToken = default)
         {
@@ -100,16 +107,16 @@ namespace MyNetworkMonitor.Core.Services
         }
 
         /// <summary>
-        /// Wandelt die manuf-Zeilen in CSV-Zeilen im bestehenden Schema um.
-        /// Kommentare (<c>#</c>) und Leerzeilen fallen heraus; jede uebrige Zeile
-        /// hat genau drei Tab-getrennte Felder: Praefix, Kurzname, Langname.
+        /// Converts the manuf lines into CSV lines in the existing schema.
+        /// Comments (<c>#</c>) and blank lines are dropped; every remaining line
+        /// has tab-separated fields: prefix, short name and optionally long name.
         /// </summary>
         private static List<string> Parse(string manuf)
         {
             List<string> rows = [];
 
-            // Literales "/" statt des Datumstrennzeichens der laufenden Kultur -
-            // sonst haette ein deutsches System hier Punkte geschrieben.
+            // Literal "/" instead of the current culture's date separator -
+            // otherwise a German system would write dots here.
             string today = DateTime.Now.ToString("yyyy/MM/dd", CultureInfo.InvariantCulture);
 
             foreach (string rawLine in manuf.Split('\n'))
@@ -140,10 +147,10 @@ namespace MyNetworkMonitor.Core.Services
         }
 
         /// <summary>
-        /// Liest ein manuf-Praefixfeld wie <c>00:55:DA:00/28</c> oder das schlichte
-        /// <c>00:00:0C</c> (kein Zusatz heisst 24 Bit) und kuerzt es auf genau die
-        /// Hex-Ziffern, die die angegebene Bitlaenge hergibt - siehe Klassenkommentar
-        /// dazu, warum das die Zeichenketten-Suche unveraendert laesst.
+        /// Reads a manuf prefix field such as <c>00:55:DA:00/28</c> or the plain
+        /// <c>00:00:0C</c> (no suffix means 24 bits) and truncates it to exactly
+        /// the hex digits the given bit length covers - see the class remarks on
+        /// why this leaves the string lookup unchanged.
         /// </summary>
         private static (string Prefix, int Bits)? ParsePrefix(string field)
         {
@@ -175,7 +182,7 @@ namespace MyNetworkMonitor.Core.Services
             return (grouped.ToString(), bits);
         }
 
-        /// <summary>Quotet ein Feld, wenn es Komma oder Anführungszeichen enthält.</summary>
+        /// <summary>Quotes a field if it contains a comma or a quotation mark.</summary>
         private static string CsvField(string value) =>
             value.Contains(',') || value.Contains('"')
                 ? "\"" + value.Replace("\"", "\"\"") + "\""

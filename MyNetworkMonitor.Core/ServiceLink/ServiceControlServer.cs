@@ -6,14 +6,14 @@ using MyNetworkMonitor.Core.Services;
 namespace MyNetworkMonitor.Core.ServiceLink
 {
     /// <summary>
-    /// Die Seite des Dienstes: nimmt Verbindungen der Oberflaeche auf einer
-    /// benannten Pipe an und beantwortet sie.
+    /// The service side: accepts connections from the user interface on a
+    /// named pipe and answers them.
     /// <para>
-    /// Eine Pipe und kein Port auf localhost: es gibt keinen Port zu vergeben,
-    /// nichts, was mit einer anderen Anwendung kollidiert, und keine
-    /// Firewall-Regel. Die Zugriffsrechte regelt das Betriebssystem - unter
-    /// Windows ueber die Zugriffsliste der Pipe, unter Linux ueber die Rechte
-    /// der Socketdatei.
+    /// A pipe rather than a port on localhost: there is no port to assign,
+    /// nothing that collides with another application, and no firewall rule.
+    /// The operating system controls access - on Windows through the access
+    /// control list of the pipe, on Linux through the permissions of the
+    /// socket file.
     /// </para>
     /// </summary>
     public sealed class ServiceControlServer : IAsyncDisposable
@@ -24,20 +24,23 @@ namespace MyNetworkMonitor.Core.ServiceLink
         private CancellationTokenSource? _cts;
         private Task? _loop;
 
-        /// <param name="snapshot">Liefert den aktuellen Zustand.</param>
+        /// <summary>Creates the server.</summary>
+        /// <param name="snapshot">Returns the current state.</param>
         /// <param name="command">
-        /// Fuehrt einen Befehl aus und gibt Klartext zurueck. Bekommt eine der
-        /// Konstanten aus <see cref="ServiceMessageType"/>.
+        /// Executes a command and returns plain text. Receives one of the
+        /// constants in <see cref="ServiceMessageType"/>.
         /// </param>
+        /// <exception cref="ArgumentNullException"><paramref name="snapshot"/> or <paramref name="command"/> is <c>null</c>.</exception>
         public ServiceControlServer(Func<ServiceSnapshot> snapshot, Func<string, string> command)
         {
             _snapshot = snapshot ?? throw new ArgumentNullException(nameof(snapshot));
             _command = command ?? throw new ArgumentNullException(nameof(command));
         }
 
-        /// <summary>Meldet, was schiefging - fuer das Protokoll des Dienstes.</summary>
+        /// <summary>Reports what went wrong, for the service log.</summary>
         public event EventHandler<string>? Failed;
 
+        /// <summary>Starts accepting connections; a running accept loop is stopped first.</summary>
         public void Start()
         {
             Stop();
@@ -46,15 +49,16 @@ namespace MyNetworkMonitor.Core.ServiceLink
             _loop = Task.Run(() => AcceptLoopAsync(_cts.Token));
         }
 
+        /// <summary>Stops accepting connections.</summary>
         public void Stop()
         {
             try { _cts?.Cancel(); } catch { }
         }
 
         /// <summary>
-        /// Immer nur eine Verbindung zur Zeit, dafuer beliebig oft
-        /// hintereinander. Mehr braucht es nicht: es sitzt hoechstens ein
-        /// Fenster davor, und wer ein zweites oeffnet, wartet einen Wimpernschlag.
+        /// Serves one connection at a time, any number of times in a row. That
+        /// is sufficient: at most one window is attached, and a second window
+        /// waits only a moment.
         /// </summary>
         private async Task AcceptLoopAsync(CancellationToken token)
         {
@@ -77,8 +81,8 @@ namespace MyNetworkMonitor.Core.ServiceLink
                 {
                     Failed?.Invoke(this, $"The control pipe failed: {ex.Message}");
 
-                    // Kurz durchatmen, sonst dreht die Schleife bei einem
-                    // dauerhaften Fehler mit voller Kraft.
+                    // Pause briefly; otherwise a persistent error would make
+                    // the loop spin at full speed.
                     try { await Task.Delay(TimeSpan.FromSeconds(5), token); }
                     catch (OperationCanceledException) { return; }
                 }
@@ -118,8 +122,8 @@ namespace MyNetworkMonitor.Core.ServiceLink
                         break;
 
                     default:
-                        // Unbekanntes wird beantwortet statt verschluckt - sonst
-                        // wartet die Gegenseite auf etwas, das nie kommt.
+                        // Unknown requests are answered instead of ignored -
+                        // otherwise the peer waits for a reply that never comes.
                         await channel.SendAsync(new SatelliteMessage
                         {
                             Type = ServiceMessageType.Done,
@@ -130,6 +134,7 @@ namespace MyNetworkMonitor.Core.ServiceLink
             }
         }
 
+        /// <summary>Stops the server and waits for the accept loop to end.</summary>
         public async ValueTask DisposeAsync()
         {
             Stop();

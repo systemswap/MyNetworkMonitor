@@ -6,114 +6,115 @@ using MyNetworkMonitor.Core.Network;
 namespace MyNetworkMonitor.Core.ViewModels
 {
     /// <summary>
-    /// Der Filter ueber der Ergebnistabelle. Alle Bedingungen sind
-    /// und-verknuepft - was gesetzt ist, muss zutreffen; was leer ist, filtert
-    /// nicht.
+    /// The filter above the result table. All conditions are combined with
+    /// AND: whatever is set must match; whatever is empty does not filter.
     /// <para>
-    /// Enthaelt jede Bedingung der bisherigen Filterzeile und zusaetzlich
-    /// Dienst und Port. Bewusst ohne Bezug zur Oberflaeche, damit sich die
-    /// Logik pruefen laesst, ohne ein Fenster zu oeffnen.
+    /// Covers free-text search, column filters, services, ports, scopes,
+    /// address family, state and feature switches. Deliberately independent
+    /// of the UI so the logic can be tested without opening a window.
     /// </para>
     /// </summary>
     public partial class DeviceFilter : ObservableObject
     {
-        // --- Freie Suche (die beiden Felder der bisherigen Zeile) -----------
+        // --- Free-text search (two fields) -----------------------------------
         [ObservableProperty] private string _text1 = string.Empty;
         [ObservableProperty] private string _text2 = string.Empty;
 
-        // --- Spaltenfilter --------------------------------------------------
+        // --- Column filters --------------------------------------------------
         [ObservableProperty] private string _ip = string.Empty;
         [ObservableProperty] private string _hostName = string.Empty;
         [ObservableProperty] private string _internalName = string.Empty;
         [ObservableProperty] private string _mac = string.Empty;
         [ObservableProperty] private string _vendor = string.Empty;
 
-        // --- Dienste und Ports ----------------------------------------------
+        // --- Services and ports ----------------------------------------------
 
         /// <summary>
-        /// Freie Porteingabe: einzeln, per Komma oder als Bereich.
+        /// Free port input: single ports, comma-separated or as a range.
         /// </summary>
         [ObservableProperty] private string _ports = string.Empty;
 
         /// <summary>
-        /// Ausgewaehlte Dienstnamen. Leer heisst: nicht nach Dienst filtern.
-        /// Ein Geraet passt, wenn <b>einer</b> der gewaehlten Dienste zutrifft -
-        /// oder-verknuepft, weil man sonst nie etwas faende.
+        /// Selected service names. Empty means: do not filter by service.
+        /// A device matches if <b>any</b> of the selected services applies;
+        /// combined with OR, because AND would hardly ever match anything.
         /// </summary>
         public HashSet<string> Services { get; } = new(StringComparer.OrdinalIgnoreCase);
 
-        /// <summary>Nur Dienste beruecksichtigen, die tatsaechlich laufen.</summary>
+        /// <summary>Only consider services that are actually running.</summary>
         [ObservableProperty] private bool _onlyRunningServices;
 
-        // --- Herkunftsbereiche ------------------------------------------------
+        // --- Source scopes ---------------------------------------------------
 
         /// <summary>
-        /// Ausgewaehlte Scan-Bereiche, ueber <see cref="Device.GroupDescription"/>.
-        /// Leer heisst: nicht nach Bereich filtern.
+        /// Selected scan scopes, matched against <see cref="Device.GroupDescription"/>.
+        /// Empty means: do not filter by scope.
         /// <para>
-        /// Wie bei den Diensten oder-verknuepft: ein Geraet stammt aus genau
-        /// einem Bereich, und-verknuepft waere die Auswahl darum ab dem zweiten
-        /// Haken immer leer.
+        /// Combined with OR, as with services: a device comes from exactly one
+        /// scope, so with AND the result would be empty from the second check
+        /// mark on.
         /// </para>
         /// </summary>
         public HashSet<string> Scopes { get; } = new(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
-        /// Der Schluessel, unter dem ein Geraet ohne Bereichsangabe gefuehrt
-        /// wird. Es gibt sie - aus der ARP-Tabelle oder einer Rundfrage kann ein
-        /// Geraet kommen, das in keinem der eingegebenen Bereiche liegt -, und
-        /// ohne eigenen Eintrag waeren sie die einzigen, die sich nicht filtern
-        /// lassen.
+        /// The key for devices without a scope. Such devices exist (the ARP
+        /// table or a broadcast query can return a device outside every entered
+        /// scope), and without their own entry they would be the only ones that
+        /// cannot be filtered.
         /// </summary>
         public const string NoScopeKey = "(no range)";
 
-        // --- Adressfamilie ----------------------------------------------------
+        // --- Address family ----------------------------------------------------
         [ObservableProperty] private bool _showIPv4 = true;
         [ObservableProperty] private bool _showIPv6 = true;
 
         /// <summary>
-        /// Nur Geraete, die eine globale IPv6-Adresse haben. Zusammen mit dem
-        /// Portfilter ergibt das die Frage, die IPv6 erst interessant macht:
-        /// was ist ohne NAT von aussen erreichbar?
+        /// Only devices with a global IPv6 address. Combined with the port
+        /// filter this answers the question that makes IPv6 relevant: what is
+        /// reachable from outside without NAT?
         /// </summary>
         [ObservableProperty] private bool _onlyGloballyReachable;
 
-        // --- Zustand ----------------------------------------------------------
+        // --- State -------------------------------------------------------------
         [ObservableProperty] private bool _onlyOnline;
 
         /// <summary>
-        /// Nur Geraete mit einer Doppelbelegung. Der Schalter, den man drueckt,
-        /// wenn die Statuszeile meldet, dass es welche gibt - bei mehreren
-        /// hundert Zeilen sind sie sonst nicht zu finden.
+        /// Only devices with an address conflict. Used when the status bar
+        /// reports conflicts; among several hundred rows they are otherwise
+        /// hard to find.
         /// </summary>
         [ObservableProperty] private bool _onlyConflicts;
 
-        // --- Merkmalsschalter der bisherigen Zeile -----------------------------
+        // --- Feature switches --------------------------------------------------
         [ObservableProperty] private bool _isCamera;
         [ObservableProperty] private bool _hasSsdp;
         [ObservableProperty] private bool _hasSmb;
         [ObservableProperty] private bool _hasSnmp;
         [ObservableProperty] private bool _hasNetBios;
 
-        /// <summary>Wird ausgeloest, sobald sich irgendeine Bedingung aendert.</summary>
+        /// <summary>Raised whenever any condition changes.</summary>
         public event Action? Changed;
 
+        /// <summary>Creates an empty filter that raises <see cref="Changed"/> on every property change.</summary>
         public DeviceFilter()
         {
             PropertyChanged += (_, _) => Changed?.Invoke();
         }
 
-        /// <summary>Nach einer Aenderung an <see cref="Services"/> aufrufen.</summary>
+        /// <summary>Call after changing <see cref="Services"/>.</summary>
         public void NotifyServicesChanged() => Changed?.Invoke();
 
-        /// <summary>Nach einer Aenderung an <see cref="Scopes"/> aufrufen.</summary>
+        /// <summary>Call after changing <see cref="Scopes"/>.</summary>
         public void NotifyScopesChanged() => Changed?.Invoke();
 
-        /// <summary>Unter welchem Schluessel ein Geraet im Bereichsfilter gefuehrt wird.</summary>
+        /// <summary>Returns the key under which a device appears in the scope filter.</summary>
+        /// <param name="device">The device.</param>
+        /// <returns>The device's <see cref="Device.GroupDescription"/>, or <see cref="NoScopeKey"/> if it has none.</returns>
         public static string ScopeKeyOf(Device device) =>
             string.IsNullOrWhiteSpace(device.GroupDescription) ? NoScopeKey : device.GroupDescription;
 
-        /// <summary>Es ist nichts gesetzt - alle Geraete sind sichtbar.</summary>
+        /// <summary>Nothing is set; all devices are visible.</summary>
         public bool IsEmpty =>
             string.IsNullOrWhiteSpace(Text1) && string.IsNullOrWhiteSpace(Text2) &&
             string.IsNullOrWhiteSpace(Ip) && string.IsNullOrWhiteSpace(HostName) &&
@@ -123,6 +124,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             !OnlyGloballyReachable && ShowIPv4 && ShowIPv6 &&
             !IsCamera && !HasSsdp && !HasSmb && !HasSnmp && !HasNetBios;
 
+        /// <summary>Clears all conditions and raises <see cref="Changed"/> once.</summary>
         public void Reset()
         {
             Text1 = Text2 = Ip = HostName = InternalName = Mac = Vendor = Ports = string.Empty;
@@ -134,8 +136,12 @@ namespace MyNetworkMonitor.Core.ViewModels
             Changed?.Invoke();
         }
 
-        // ------------------------------------------------------------- Pruefung
+        // --------------------------------------------------------------- Matching
 
+        /// <summary>Checks a device against all set conditions.</summary>
+        /// <param name="device">The device to check.</param>
+        /// <returns><see langword="true"/> if the device passes the filter.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="device"/> is <see langword="null"/>.</exception>
         public bool Matches(Device device)
         {
             ArgumentNullException.ThrowIfNull(device);
@@ -163,10 +169,9 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Ein Geraet faellt nur heraus, wenn <b>keine</b> seiner Adressen zu
-        /// einer sichtbaren Familie gehoert. Ein Dual-Stack-Geraet bleibt
-        /// darum sichtbar, solange eine der beiden Familien eingeschaltet ist -
-        /// alles andere waere ueberraschend.
+        /// A device is excluded only if <b>none</b> of its addresses belongs to
+        /// a visible family. A dual-stack device therefore stays visible as
+        /// long as either family is enabled.
         /// </summary>
         private bool MatchesFamily(Device device)
         {
@@ -176,7 +181,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             return ShowIPv4 ? device.Ipv4Addresses.Any() : device.Ipv6Addresses.Any();
         }
 
-        /// <summary>Sucht ueber alles, was in der Tabelle steht.</summary>
+        /// <summary>Searches everything shown in the table.</summary>
         private static bool MatchesFreeText(Device device, string needle)
         {
             if (string.IsNullOrWhiteSpace(needle)) return true;
@@ -198,9 +203,8 @@ namespace MyNetworkMonitor.Core.ViewModels
             if (device.Addresses.Any(a => a.Info.Canonical.Contains(n, StringComparison.OrdinalIgnoreCase)))
                 return true;
 
-            // Auch der Namensdienst zaehlt zur Suche: wer einen Alias oder
-            // eine im DNS eingetragene Adresse eingibt, sucht das Geraet
-            // dahinter.
+            // DNS data is searched too: an alias or an address registered in
+            // DNS identifies the device behind it.
             if (device.Aliases.Any(a => a.Contains(n, StringComparison.OrdinalIgnoreCase)) ||
                 device.LookupAddresses.Any(a => a.Contains(n, StringComparison.OrdinalIgnoreCase)))
             {
@@ -214,9 +218,9 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Adressfilter mit Platzhalter. <c>192.0.2.*</c> trifft das ganze
-        /// Subnetz, <c>2001:db8:*</c> alles aus diesem Praefix. Ohne Stern wird
-        /// als Teilzeichenfolge gesucht - so wie bisher.
+        /// Address filter with wildcard. <c>192.0.2.*</c> matches the whole
+        /// subnet, <c>2001:db8:*</c> everything in that prefix. Without an
+        /// asterisk the pattern is matched as a substring.
         /// </summary>
         private static bool MatchesAddress(Device device, string pattern)
         {
@@ -237,8 +241,9 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Stammt das Geraet aus einem der angehakten Bereiche? Ohne Auswahl
-        /// gilt jedes - sonst waere die Tabelle leer, bis man etwas anhakt.
+        /// Whether the device comes from one of the checked scopes. Without a
+        /// selection every device matches; otherwise the table would stay empty
+        /// until something is checked.
         /// </summary>
         private bool MatchesScope(Device device) =>
             Scopes.Count == 0 || Scopes.Contains(ScopeKeyOf(device));
@@ -255,8 +260,8 @@ namespace MyNetworkMonitor.Core.ViewModels
         {
             if (Services.Count == 0)
             {
-                // Ohne Dienstauswahl wirkt "nur laufende" trotzdem: dann muss
-                // wenigstens ein laufender Dienst vorhanden sein.
+                // Without a service selection "running only" still applies: at
+                // least one running service must be present.
                 return !OnlyRunningServices || device.Services.Any(s => s.IsRunning);
             }
 
@@ -264,10 +269,10 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Wonach ueberhaupt gefiltert wird: nur antwortende Dienste. Ein
-        /// geschlossener Port ist das Ergebnis eines Versuchs, kein Merkmal des
-        /// Geraets - wer nach "SSH" filtert, meint die Geraete mit offenem SSH,
-        /// nicht alle, an denen danach gefragt wurde.
+        /// The services that are filtered on: only those that answered. A
+        /// closed port is the result of a probe, not a property of the device;
+        /// filtering for "SSH" means devices with open SSH, not every device
+        /// that was probed for it.
         /// </summary>
         private IEnumerable<DeviceServiceResult> Candidates(Device device) =>
             OnlyRunningServices
@@ -285,7 +290,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             return true;
         }
 
-        // -------------------------------------------------------------- Helfer
+        // ---------------------------------------------------------------- Helpers
 
         private static bool HasDetail(Device device, string key) =>
             device.Details.ContainsKey(key);

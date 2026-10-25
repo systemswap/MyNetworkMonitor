@@ -1,15 +1,15 @@
 namespace MyNetworkMonitor.Core.Services
 {
     /// <summary>
-    /// Plattformabhängiger Zugriff auf die Routing-Tabelle hinter einer neutralen
-    /// Schnittstelle. Die Windows-Implementierung nutzt "route print"; eine spätere
-    /// Linux-Implementierung kann z.B. "ip route" verwenden.
+    /// Platform-specific access to the routing table behind a neutral
+    /// interface. The Windows implementation uses "route print"; the Linux
+    /// implementation uses "ip route".
     /// </summary>
     public interface IRoutingProvider
     {
         /// <summary>
-        /// Liefert die Netzwerk-/Ziel-IPv4-Adressen aus der Routing-Tabelle
-        /// (Einträge mit einer 255er-Netzmaske).
+        /// Returns the network/destination IPv4 addresses from the routing table
+        /// (entries whose netmask starts with 255).
         /// </summary>
         Task<IReadOnlyList<string>> GetRouteNetworkIpsAsync(CancellationToken cancellationToken = default);
     }

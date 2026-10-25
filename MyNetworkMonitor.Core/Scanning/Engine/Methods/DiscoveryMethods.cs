@@ -4,8 +4,8 @@ using MyNetworkMonitor.Core.Services;
 namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 {
     /// <summary>
-    /// ARP-Request an jedes Ziel. Unter IPv6 gibt es kein ARP - dort
-    /// uebernimmt Neighbor Discovery, das als eigenes Verfahren kommt.
+    /// ARP request to every target. IPv6 has no ARP; there, neighbor
+    /// discovery takes its place, covered by the IPv6 methods.
     /// </summary>
     public sealed class ArpRequestScanMethod : LegacyScanMethod
     {
@@ -36,8 +36,9 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         }
 
         /// <summary>
-        /// ARP ist plattformabhaengig und braucht die Registrierung des
-        /// Startprojekts. Ohne sie wird das Verfahren gemeldet statt zu werfen.
+        /// ARP is platform-specific and requires the provider registered by the
+        /// startup project. Without it, the method is reported as blocked
+        /// instead of throwing.
         /// </summary>
         internal const string ArpProviderMissing =
             "No ARP provider registered. This platform is not supported yet.";
@@ -68,9 +69,9 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
     }
 
     /// <summary>
-    /// Liest die ARP-Tabelle des Betriebssystems aus. Findet auch Geraete, die
-    /// selbst nicht antworten, solange jemand anders mit ihnen gesprochen hat.
-    /// Das IPv6-Gegenstueck ist der Neighbor Cache.
+    /// Reads the operating system's ARP table. Also finds devices that do not
+    /// answer themselves, as long as the local machine has exchanged data with
+    /// them. The IPv6 counterpart is the neighbor cache.
     /// </summary>
     public sealed class ArpCacheScanMethod : LegacyScanMethod
     {
@@ -87,8 +88,8 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         public override ScanPhase Phase => ScanPhase.Discovery;
         public override FamilySupport Families => FamilySupport.IPv4;
 
-        // Liest die Tabelle des eigenen Rechners aus - was darin steht,
-        // bestimmt das Betriebssystem, nicht eine Zielliste.
+        // Reads the local machine's table; its content is determined by the
+        // operating system, not by a target list.
         public override bool EnumeratesTargets => false;
 
         public override ScanMethodAvailability CheckAvailability(ScanContext context) =>
@@ -104,16 +105,15 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 
             void OnProgress(int c, int r, int t, ScanStatus s) => context.ReportProgress(c, r, t);
 
-            // Nur melden, was auch zur Auswahl gehoert.
+            // Only entries that belong to the selection are reported.
             //
-            // Frueher wurde die ganze Tabelle gemeldet - mit der Begruendung,
-            // dass gerade die Geraete ausserhalb des Bereichs interessant
-            // seien. In der Praxis ueberrascht das: wer einen einzelnen
-            // Rechner nachsieht und alle Bereiche abwaehlt, bekam den halben
-            // Adapterbereich in die Tabelle und musste annehmen, es sei doch
-            // alles gescannt worden. Gescannt war nichts davon - die
-            // Eintraege stammen aus dem Zwischenspeicher des eigenen
-            // Betriebssystems -, aber das sieht man der Tabelle nicht an.
+            // Reporting the whole table, although devices outside the scope
+            // may be of interest, is surprising in practice: checking a single
+            // machine with all scopes deselected would put half the interface
+            // subnet into the table and suggest that everything had been
+            // scanned. None of it was scanned (the entries come from the
+            // operating system's own cache), but the table does not show
+            // that.
             void OnFound(object? _, ScanTask_Finished_EventArgs e)
             {
                 if (targets.Find(e.ipToScan?.IPorHostname) is null) return;

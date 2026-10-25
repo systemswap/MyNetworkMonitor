@@ -10,8 +10,8 @@ using MyNetworkMonitor.Core.Services;
 namespace MyNetworkMonitor.Platform.Windows
 {
     /// <summary>
-    /// Windows-Implementierung von <see cref="IRoutingProvider"/>.
-    /// Kapselt den plattformspezifischen Aufruf von "route print".
+    /// Windows implementation of <see cref="IRoutingProvider"/>.
+    /// Encapsulates the platform-specific call to "route print".
     /// </summary>
     public sealed class WindowsRoutingProvider : IRoutingProvider
     {

@@ -5,89 +5,90 @@ using static MyNetworkMonitor.ServiceScanData;
 namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 {
     /// <summary>
-    /// Der Normalfall: eine Verbindung aufbauen, das Hello-Paket schicken -
-    /// sofern es eines gibt -, die Antwort lesen und pruefen. 18 der 24
-    /// Dienste brauchen nichts anderes; im alten Schalter
-    /// <c>ScanServicePortAsync</c> standen dafuer 21 Zweige, die Zeichen fuer
-    /// Zeichen dasselbe taten.
+    /// The common case: connect, send the hello packet if there is one, read
+    /// the answer and check it. Most services need nothing else.
     /// <para>
-    /// Der Rumpf ist <c>ScanningMethod_Services.ScanPortAsync</c>, woertlich
-    /// uebernommen - einschliesslich der Reihenfolge der Zustaende, die die
-    /// Ergebnisliste auswertet: <c>Filtered</c> bei Zeitueberschreitung,
-    /// <c>Closed</c> bei abgelehnter Verbindung, <c>Open</c> sobald die
-    /// Verbindung steht, und <c>IsRunning</c> erst, wenn die Antwort zum
-    /// Protokoll passt. Ein offener Port ohne passende Antwort bleibt
-    /// <c>Open</c> und traegt spaeter nicht den Namen dieses Dienstes.
+    /// The order of states is what the result list evaluates:
+    /// <c>Filtered</c> on timeout, <c>Closed</c> when the connection is
+    /// refused, <c>Open</c> as soon as the connection is established, and
+    /// <c>IsRunning</c> only when the answer matches the protocol. An open
+    /// port without a matching answer stays <c>Open</c> and is not labelled
+    /// with the name of this service. See docs/FEHLERGEDAECHTNIS.md, No. 2.
     /// </para>
     /// </summary>
     public abstract class ServiceProbeBase : IServiceProbe
     {
+        /// <inheritdoc/>
         public abstract ServiceType Service { get; }
+
+        /// <inheritdoc/>
         public abstract string Group { get; }
+
+        /// <inheritdoc/>
         public abstract IReadOnlyList<int> DefaultPorts { get; }
 
         /// <summary>
-        /// Beide bewusst ohne Vorgabe: ein Dienst ohne Hello-Paket und ohne
-        /// Antwortpruefung ist keiner, den man erkennen kann. Wer eine neue
-        /// Sonde anlegt, soll beim Uebersetzen darauf stossen und nicht erst
-        /// daran, dass im Netz nichts gefunden wird.
+        /// <see cref="Hello"/> and <see cref="Identify"/> are deliberately
+        /// abstract: a service without a hello packet and an answer check
+        /// cannot be detected. A new probe fails at compile time rather than
+        /// by finding nothing in the network.
         /// </summary>
         public abstract byte[] Hello { get; }
 
         /// <inheritdoc cref="Hello"/>
         public abstract bool Identify(byte[] response);
 
-        /// <summary>Der Normalfall hat nichts vorzubereiten.</summary>
+        /// <summary>The common case has nothing to prepare.</summary>
         public virtual Task PrepareAsync(ProbeContext context, IReadOnlyList<string> targets, CancellationToken token) =>
             Task.CompletedTask;
 
         /// <summary>
-        /// Der Satz, der im Protokoll steht, wenn eine Sonde nichts weiter ueber
-        /// das Geraet zu sagen hat. Oeffentlich, weil die Detailansicht ihn
-        /// erkennen muss: er ist der Beleg einer geglueckten Erkennung, aber
-        /// keine Auskunft, und hat unter "MORE DETAILS" nichts verloren.
+        /// The log text written when a probe has nothing more to say about the
+        /// device. Public because the details view must recognise it: it
+        /// confirms a successful detection but carries no information and
+        /// does not belong under "MORE DETAILS".
         /// </summary>
         public const string ProtocolMatched = "Antwort passt zum erwarteten Protokoll.";
 
         /// <summary>
-        /// Was die erste Antwort ueber das Geraet verraet - Version, Software,
-        /// Sicherheitslage. <c>null</c>, wenn sie nichts hergibt.
+        /// What the first answer reveals about the device: version, software,
+        /// security posture. <c>null</c> if it reveals nothing.
         /// <para>
-        /// Der Puffer wird ohnehin gelesen, auch bei Diensten ohne Hello-Paket;
-        /// bisher pruefte <see cref="Identify"/> nur ja/nein und der Rest fiel
-        /// weg. Ein SSH-Server nennt in derselben Zeile, an der er erkannt wird,
-        /// seine Software samt Version - das ist der Unterschied zwischen "SSH
-        /// laeuft" und "OpenSSH 8.9p1 auf Ubuntu".
+        /// The buffer is read anyway, also for services without a hello packet,
+        /// while <see cref="Identify"/> only answers yes or no. An SSH server
+        /// names its software and version in the same line by which it is
+        /// detected; that is the difference between "SSH is running" and
+        /// "OpenSSH 8.9p1 on Ubuntu".
         /// </para>
         /// <para>
-        /// Ausdruecklich <b>keine</b> zweite Verbindung und kein Anmeldeversuch:
-        /// ausgewertet wird allein, was die Gegenseite von sich aus geschickt
-        /// hat. Die Erkennungspakete bleiben davon unberuehrt.
+        /// Explicitly <b>no</b> second connection and no login attempt: only
+        /// what the remote side sent on its own is evaluated. The detection
+        /// packets are not affected.
         /// </para>
         /// </summary>
         protected virtual string? Describe(byte[] response) => null;
 
         /// <summary>
-        /// Die Nachfrage auf der <em>bereits stehenden</em> Verbindung, nachdem
-        /// der Dienst erkannt ist. Fuer Protokolle, deren Auskunft nicht in der
-        /// Begruessung steht, sondern einen zweiten Zug braucht - FTP nennt sein
-        /// Betriebssystem erst auf <c>SYST</c>, VNC seine Anmeldeverfahren erst
-        /// nach dem Versionsaustausch.
+        /// The follow-up request on the <em>already established</em> connection,
+        /// after the service has been detected. For protocols whose information
+        /// is not in the greeting but needs a second exchange: FTP names its
+        /// operating system only on <c>SYST</c>, VNC its security types only
+        /// after the version exchange.
         /// <para>
-        /// Es bleibt bei der einen Verbindung, die ohnehin schon steht, und bei
-        /// Fragen, die jeder Client vor der Anmeldung stellt. Was hier
-        /// zurueckkommt, wird an das Ergebnis von <see cref="Describe"/>
-        /// angehaengt.
+        /// It stays with the one connection that already exists and with
+        /// requests every client sends before logging in. The result is
+        /// appended to the result of <see cref="Describe"/>.
         /// </para>
         /// <para>
-        /// Fehler sind hier kein Fehler des Laufs: bricht die Nachfrage ab,
-        /// bleibt der Befund stehen, den die erste Antwort schon getragen hat.
+        /// Errors here are not errors of the run: if the follow-up fails, the
+        /// finding from the first answer stands.
         /// </para>
         /// </summary>
         protected virtual Task<string?> InterrogateAsync(
             NetworkStream stream, byte[] firstResponse, ProbeContext context, CancellationToken token) =>
             Task.FromResult<string?>(null);
 
+        /// <inheritdoc/>
         public virtual async Task<PortResult> ProbeAsync(
             ProbeContext context, string address, int port, CancellationToken token)
         {
@@ -114,15 +115,15 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                         return portResult;
                     }
 
-                    await connectTask; // wirft die eigentliche Verbindungsausnahme, falls es eine gab
+                    await connectTask; // rethrows the actual connection exception, if any
 
                     portResult.Status = PortStatus.Open;
 
-                    // Ein einziger Stream fuer Schreiben und Lesen - TcpClient.GetStream()
-                    // liefert zwar bei jedem Aufruf dieselbe zugrundeliegende Verbindung,
-                    // aber ihn zwischendurch zu entsorgen (etwa nur um den Schreibteil zu
-                    // umklammern) schliesst den Socket mit - der zweite Aufruf traf dann
-                    // auf "operation not allowed on non-connected sockets" statt zu lesen.
+                    // One stream for writing and reading. TcpClient.GetStream() returns
+                    // the same underlying connection on every call, but disposing it in
+                    // between (for example to scope only the write) also closes the
+                    // socket; the second call then fails with "operation not allowed on
+                    // non-connected sockets" instead of reading.
                     NetworkStream stream = client.GetStream();
 
                     if (detectionPacket.Length > 0)
@@ -130,8 +131,8 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                         await stream.WriteAsync(detectionPacket, 0, detectionPacket.Length, token);
                     }
 
-                    // Immer lesen, auch ohne eigene Nutzlast - Begruessungsprotokolle
-                    // wie FTP, MySQL und MariaDB schicken ihre Kennung unaufgefordert.
+                    // Always read, even without a payload: greeting protocols such as
+                    // FTP, MySQL and MariaDB send their identification unprompted.
                     var buffer = new byte[4096];
 
                     using var readCts = CancellationTokenSource.CreateLinkedTokenSource(token);
@@ -149,18 +150,18 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                             {
                                 portResult.Status = PortStatus.IsRunning;
 
-                                // Erst lesen, was die Antwort selbst hergibt,
-                                // dann - nur wo eine Sonde es braucht - auf
-                                // derselben Verbindung nachfragen.
+                                // First evaluate what the answer itself reveals,
+                                // then, only where a probe needs it, ask on
+                                // the same connection.
                                 string? description = Describe(response);
 
                                 try
                                 {
-                                    // Eigenes Zeitbudget statt des Restes von
-                                    // readCts: dessen Uhr laeuft seit vor der
-                                    // ersten Antwort, und ein Server, der sich
-                                    // mit der Begruessung Zeit gelassen hat,
-                                    // haette fuer die Nachfrage keine mehr.
+                                    // A separate time budget instead of the rest of
+                                    // readCts: that clock started before the first
+                                    // answer, and a server that was slow with its
+                                    // greeting would have no time left for the
+                                    // follow-up.
                                     using CancellationTokenSource askCts =
                                         CancellationTokenSource.CreateLinkedTokenSource(token);
                                     askCts.CancelAfter(context.TimeoutMs);
@@ -176,10 +177,10 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                                 }
                                 catch (Exception) when (!token.IsCancellationRequested)
                                 {
-                                    // Zeitlimit, abgewiesene Nachfrage, geschlossene
-                                    // Verbindung: der Dienst ist erkannt, nur die
-                                    // Zusatzauskunft entfaellt. Kein Grund, den
-                                    // Befund des Ports zu verwerfen.
+                                    // Timeout, rejected request, closed connection:
+                                    // the service is detected, only the additional
+                                    // information is missing. No reason to discard
+                                    // the result of the port.
                                 }
 
                                 logBuilder.AppendLine(
@@ -197,10 +198,9 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                     }
                     catch (OperationCanceledException) when (!token.IsCancellationRequested)
                     {
-                        // Nur das Zeitlimit der Antwort ist abgelaufen. Ein
-                        // Abbruch des ganzen Laufs gehoert dagegen nach oben
-                        // durchgereicht und nicht als "dauerte zu lange"
-                        // protokolliert.
+                        // Only the answer timeout has expired. Cancellation of
+                        // the whole run, in contrast, is passed up and not
+                        // logged as "took too long".
                         logBuilder.AppendLine("Antwort vom Server dauerte zu lange.");
                     }
 
@@ -225,16 +225,15 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                 }
                 catch (IOException ex)
                 {
-                    // Die Gegenseite hat die Verbindung waehrend des Lesens
-                    // zugeschlagen ("connection reset by peer"). Das ist ein
-                    // Ergebnis dieses einen Ports und kein Fehler des Laufs:
-                    // die Verbindung stand, also bleibt es bei "offen", nur
-                    // ohne verwertbare Antwort.
+                    // The remote side closed the connection while reading
+                    // ("connection reset by peer"). That is a result of this
+                    // one port and not an error of the run: the connection was
+                    // established, so the port stays "open", just without a
+                    // usable answer.
                     //
-                    // Ungefangen kam die Ausnahme frueher bis in den Ablauf
-                    // hinauf und beendete den ganzen Dienstelauf - alles, was
-                    // nach dem betroffenen Dienst an der Reihe gewesen waere,
-                    // wurde nie geprueft.
+                    // Uncaught, the exception would propagate up to the run and
+                    // end the whole service scan; every service after the
+                    // affected one would never be checked.
                     logBuilder.AppendLine($"Verbindung wurde von der Gegenseite geschlossen: {ex.Message}");
 
                     portResult.PortLog = logBuilder.ToString();
@@ -247,12 +246,12 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Liest eine Protobuf-Varint-Zahl ab <paramref name="offset"/> bis zum
-        /// Ende von <paramref name="data"/>.
+        /// Reads a Protocol Buffers varint from <paramref name="offset"/> to the
+        /// end of <paramref name="data"/>.
         /// <para>
-        /// Streng: die Zahl muss genau am Ende aufhoeren. Ein abgeschnittenes oder
-        /// ueberlanges Feld gilt als kein Treffer - sonst wuerde beliebiges
-        /// Rauschen als gueltige Zahl durchgehen.
+        /// Strict: the number must end exactly at the end of the data. A
+        /// truncated or overlong field is not a match; otherwise arbitrary
+        /// noise would pass as a valid number.
         /// </para>
         /// </summary>
         protected static bool TryReadVarint(byte[] data, int offset, out int value)
@@ -267,7 +266,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                 value |= (data[i] & 0x7F) << shift;
                 shift += 7;
 
-                // Letztes Byte der Zahl: das Fortsetzungsbit fehlt.
+                // Last byte of the number: the continuation bit is clear.
                 if ((data[i] & 0x80) == 0) return i == data.Length - 1;
             }
 
@@ -275,38 +274,38 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Liest den Versionstext aus der Begruessung eines Servers der
-        /// MySQL-Familie. <c>null</c>, wenn die Antwort keine solche Begruessung ist.
+        /// Reads the version text from the greeting of a MySQL-family server.
+        /// <c>null</c> if the answer is not such a greeting.
         /// <para>
-        /// Aufbau des Pakets (HandshakeV10, gleich bei MySQL und MariaDB):
-        /// 3 Byte Nutzlastlaenge (little-endian), 1 Byte Sequenznummer - bei der
-        /// Begruessung immer 0 -, dann die Nutzlast: 1 Byte Protokollversion (10),
-        /// der Versionstext mit abschliessender Null, 4 Byte Verbindungsnummer,
-        /// 8 Byte des Zufallswerts fuer die Anmeldung, 1 Fuellbyte 0.
+        /// Packet layout (Protocol::HandshakeV10, identical for MySQL and
+        /// MariaDB): 3 bytes payload length (little-endian), 1 byte sequence
+        /// number (always 0 for the greeting), then the payload: 1 byte protocol
+        /// version (10), the version text with terminating zero, 4 bytes
+        /// connection ID, 8 bytes of the authentication nonce, 1 filler byte 0.
         /// </para>
         /// <para>
-        /// Geprueft wird das Geruest, nicht der Inhalt: Laengen sind keine
-        /// Konstanten. Fest sind allein Sequenznummer, Protokollversion, das
-        /// Fuellbyte an der Stelle, die sich aus der Textlaenge ergibt, und dass
-        /// der Text druckbar und mit Null abgeschlossen ist. Das alles zugleich
-        /// faellt bei einem fremden Dienst auf demselben Port nicht zufaellig an.
+        /// The structure is checked, not the content: lengths are not
+        /// constants. Fixed are only the sequence number, the protocol version,
+        /// the filler byte at the position given by the text length, and a
+        /// printable, zero-terminated text. A different service on the same port
+        /// does not meet all of these by chance.
         /// </para>
         /// </summary>
         protected static string? ReadMySqlServerVersion(byte[] response)
         {
-            // Laenger meldet sich kein Server; die Grenze faengt einen Puffer ab,
-            // in dem zufaellig lange keine Null steht.
+            // No server reports a longer version; the limit rejects a buffer
+            // that happens to contain no zero for a long stretch.
             const int MaxVersionLength = 64;
 
             if (response.Length < 5) return null;
-            if (response[3] != 0x00) return null;   // Sequenznummer der Begruessung
-            if (response[4] != 0x0A) return null;   // Protokollversion 10
+            if (response[3] != 0x00) return null;   // sequence number of the greeting
+            if (response[4] != 0x0A) return null;   // protocol version 10
 
             int payloadLength = response[0] | response[1] << 8 | response[2] << 16;
 
-            // Kuerzer als das Pflichtgeruest kann eine Begruessung nicht sein:
-            // Protokollversion, ein Zeichen Version samt Null, Verbindungsnummer,
-            // Zufallswert, Fuellbyte.
+            // A greeting cannot be shorter than its mandatory fields: protocol
+            // version, one version character plus zero, connection ID, nonce,
+            // filler byte.
             if (payloadLength < 1 + 2 + 4 + 8 + 1) return null;
 
             int end = Array.IndexOf(response, (byte)0x00, 5);
@@ -317,9 +316,9 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                 if (response[i] < 0x20 || response[i] > 0x7E) return null;
             }
 
-            // Das Fuellbyte hinter Verbindungsnummer und Zufallswert. Steht es
-            // noch nicht im gelesenen Stueck, ist der Rest der Nutzlast unterwegs -
-            // dann gilt das Geruest, das bis hierher gestimmt hat.
+            // The filler byte after connection ID and nonce. If it is not yet in
+            // the bytes read, the rest of the payload is still in transit; the
+            // structure checked so far is then accepted.
             int filler = end + 1 + 4 + 8;
             if (filler < response.Length && response[filler] != 0x00) return null;
 
@@ -327,14 +326,13 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Die Auskunft eines Servers der MySQL-Familie, wie sie in der
-        /// Detailansicht steht. Geteilt von beiden Sonden, weil beide dieselbe
-        /// Begruessung vor sich haben und sich nur darin unterscheiden, welche
-        /// von ihnen sie anerkennt.
+        /// The information of a MySQL-family server as shown in the details
+        /// view. Shared by both probes, because both see the same greeting and
+        /// differ only in which of them accepts it.
         /// <para>
-        /// MariaDB ab 10.0 stellt der echten Version das Scheinpraefix "5.5.5-"
-        /// voran. Angezeigt wird die echte Version; das Praefix ist ein Kniff
-        /// fuer alte Clients und keine Auskunft ueber den Server.
+        /// MariaDB 10.0 and later prefixes the real version with the fake
+        /// "5.5.5-". The real version is shown; the prefix is a workaround for
+        /// old clients and says nothing about the server.
         /// </para>
         /// </summary>
         protected static string? MySqlDetails(byte[] response)
@@ -343,16 +341,16 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
             if (version is null)
             {
-                // Kein Handshake, aber vielleicht das Fehlerpaket, mit dem ein
-                // Server die Verbindung abweist - es nennt den Grund im
-                // Klartext, und der ist selbst eine Auskunft ("Host ... is not
+                // No handshake, but possibly the error packet with which a
+                // server rejects the connection. It states the reason in plain
+                // text, which is information in itself ("Host ... is not
                 // allowed to connect").
                 if (response.Length < 7 || response[3] != 0x00 || response[4] != 0xFF) return null;
 
-                // Aufbau des Fehlerpakets hinter der 0xFF: zwei Byte Fehlernummer,
-                // ab Protokoll 4.1 dann ein '#' mit fuenf Zeichen Zustandscode,
-                // und erst danach der Text. Wird die Nummer nicht uebersprungen,
-                // steht ihr unteres Byte als Buchstabe vor der Meldung.
+                // Layout of the ERR packet after 0xFF: two bytes error code, with
+                // protocol 4.1 a '#' and a five-character SQL state, and only then
+                // the text. Without skipping the code, its low byte would appear
+                // as a character in front of the message.
                 int at = 5;
 
                 int code = response[at] | response[at + 1] << 8;
@@ -363,8 +361,8 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
                 string message = Printable(Encoding.ASCII.GetString(response, at, response.Length - at));
 
-                // Die Nummer gehoert dazu: 1130 heisst "Host nicht zugelassen",
-                // 1045 "Anmeldung abgelehnt" - zwei sehr verschiedene Lagen.
+                // The code is part of the information: 1130 means "host not
+                // allowed", 1045 "access denied", two very different situations.
                 return message.Length > 0 ? $"Rejected ({code}): {message}" : null;
             }
 
@@ -374,9 +372,9 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Schickt eine Textzeile und liest die Antwort - der Ablauf jedes
-        /// zeilenweisen Protokolls (FTP, SMTP, POP3). Leerer Text, wenn nichts
-        /// zurueckkommt.
+        /// Sends a text line and reads the answer, the exchange of every
+        /// line-based protocol (FTP, SMTP, POP3). Empty text if nothing comes
+        /// back.
         /// </summary>
         protected static async Task<string> AskLineAsync(
             NetworkStream stream, string command, CancellationToken token)
@@ -388,9 +386,8 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Liest, was gerade anliegt, und gibt es als Text zurueck. Bricht das
-        /// Zeitlimit dazwischen, gilt das bereits Gelesene - eine halbe Antwort
-        /// ist mehr als keine.
+        /// Reads what is currently available and returns it as text. Empty text
+        /// on timeout or error.
         /// </summary>
         protected static async Task<string> ReadTextAsync(NetworkStream stream, CancellationToken token)
         {
@@ -408,10 +405,9 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Die erste Zeile eines Textes, ohne Zeilenende und ohne Steuerzeichen.
-        /// Was ein Server als Begruessung schickt, ist Text fuer Menschen - aber
-        /// nichts hindert ihn daran, Bytes mitzuschicken, die in einer
-        /// Oberflaeche nichts zu suchen haben.
+        /// The first line of a text, without line ending and control characters.
+        /// A server greeting is text for humans, but nothing prevents a server
+        /// from sending bytes that do not belong in a user interface.
         /// </summary>
         protected static string FirstLine(string text)
         {
@@ -424,9 +420,9 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Nur druckbare Zeichen, auf eine Zeilenlaenge begrenzt. Schutz gegen
-        /// Rohbytes und gegen einen Server, der auf eine harmlose Frage mit
-        /// Kilobytes antwortet.
+        /// Only printable characters, limited to one line length. Protects
+        /// against raw bytes and against a server that answers a harmless
+        /// request with kilobytes.
         /// </summary>
         protected static string Printable(string text, int maxLength = 200)
         {

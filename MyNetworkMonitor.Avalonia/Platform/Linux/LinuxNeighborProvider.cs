@@ -10,14 +10,15 @@ using MyNetworkMonitor.Core.Services;
 namespace MyNetworkMonitor.Avalonia.Platform.Linux
 {
     /// <summary>
-    /// Liest die Nachbarschaftstabelle ueber <c>ip neigh</c>. Das Werkzeug
-    /// gehoert zu <c>iproute2</c> und ist auf jeder Linux-Installation
-    /// vorhanden - es muss nichts nachinstalliert werden.
+    /// Reads the neighbor table with <c>ip neigh</c>. The tool belongs to
+    /// <c>iproute2</c>, which practically every Linux installation includes;
+    /// the startup check (<see cref="SystemRequirements"/>) reports it if it is
+    /// missing.
     /// <para>
-    /// Die Ausgabe ist nicht uebersetzt: <c>ip</c> gibt die Zustandsnamen
-    /// (<c>REACHABLE</c>, <c>STALE</c> …) unabhaengig von der Spracheinstellung
-    /// in Grossbuchstaben aus. Anders als bei <c>netsh</c> unter Windows ist
-    /// eine Textauswertung hier also unbedenklich.
+    /// The output is not localized: <c>ip</c> prints the state names
+    /// (<c>REACHABLE</c>, <c>STALE</c> …) in upper case regardless of the
+    /// language setting. Unlike <c>netsh</c> on Windows, parsing the text is
+    /// therefore safe here.
     /// </para>
     /// </summary>
     public sealed class LinuxNeighborProvider : INeighborProvider
@@ -27,18 +28,18 @@ namespace MyNetworkMonitor.Avalonia.Platform.Linux
             string output;
             try
             {
-                // Ohne -6/-4 kommen beide Familien in einem Durchgang.
+                // Without -6/-4, both address families arrive in one pass.
                 output = await ProcessRunner.RunAsync("ip", "neigh show", cancellationToken).ConfigureAwait(false);
             }
             catch (Exception)
             {
-                // Kein iproute2 vorhanden oder der Aufruf scheitert: leere
-                // Tabelle statt Ausnahme - das Verfahren meldet dann selbst,
-                // dass es nichts gefunden hat.
+                // iproute2 missing or the call fails: an empty table instead of
+                // an exception; the scan method then reports by itself that it
+                // found nothing.
                 return [];
             }
 
-            // Adaptername -> Index. Einmal aufgebaut statt je Zeile gesucht.
+            // Adapter name -> index. Built once instead of searched per line.
             Dictionary<string, int> indexByName = BuildInterfaceIndex();
 
             var entries = new List<NeighborEntry>();
@@ -53,15 +54,14 @@ namespace MyNetworkMonitor.Avalonia.Platform.Linux
         }
 
         /// <summary>
-        /// Eine Zeile von <c>ip neigh</c>. Beispiele:
+        /// Parses one line of <c>ip neigh</c>. Examples:
         /// <code>
         /// fe80::1 dev eth0 lladdr aa:bb:cc:dd:ee:ff router REACHABLE
-        /// 192.168.1.5 dev eth0 lladdr aa:bb:cc:dd:ee:ff STALE
+        /// 192.0.2.5 dev eth0 lladdr aa:bb:cc:dd:ee:ff STALE
         /// fe80::99 dev eth0  FAILED
         /// </code>
-        /// Der Zustand steht immer am Ende, die uebrigen Angaben stehen als
-        /// Schluessel-Wert-Paare davor - darum wird nach Schluesselwort gesucht
-        /// und nicht nach Position gezaehlt.
+        /// The state is always last; the other fields precede it as key-value
+        /// pairs, so values are looked up by keyword rather than by position.
         /// </summary>
         private static NeighborEntry? ParseLine(string line, IReadOnlyDictionary<string, int> indexByName)
         {
@@ -76,16 +76,16 @@ namespace MyNetworkMonitor.Avalonia.Platform.Linux
             PhysicalAddress? mac = null;
             if (macText is not null)
             {
-                // PhysicalAddress.Parse mag Doppelpunkte nicht, Bindestriche
-                // schon. Grossbuchstaben sind dort ebenfalls Pflicht.
+                // PhysicalAddress.Parse rejects colons but accepts hyphens.
+                // It also requires upper case.
                 if (PhysicalAddress.TryParse(macText.Replace(':', '-').ToUpperInvariant(), out PhysicalAddress? parsed))
                 {
                     mac = parsed;
                 }
             }
 
-            // Link-Local ohne Zone ist nicht ansprechbar - der Adapter steht in
-            // derselben Zeile, also gleich anhaengen.
+            // A link-local address without a zone cannot be reached; the adapter
+            // is on the same line, so the zone is attached right away.
             int interfaceIndex = 0;
             if (deviceName is not null && indexByName.TryGetValue(deviceName, out int found))
             {
@@ -109,7 +109,7 @@ namespace MyNetworkMonitor.Avalonia.Platform.Linux
             };
         }
 
-        /// <summary>Der Wert hinter einem Schluesselwort, sofern vorhanden.</summary>
+        /// <summary>The value following a keyword, if present.</summary>
         private static string? ValueAfter(string[] parts, string keyword)
         {
             int index = Array.IndexOf(parts, keyword);
@@ -124,9 +124,9 @@ namespace MyNetworkMonitor.Avalonia.Platform.Linux
             "PROBE" => NeighborState.Probe,
             "PERMANENT" => NeighborState.Permanent,
 
-            // NOARP steht an Schnittstellen ohne Adressaufloesung, etwa an
-            // Punkt-zu-Punkt-Verbindungen. Der Eintrag gilt, er wird nur nie
-            // nachgeprueft - fuer uns dasselbe wie PERMANENT.
+            // NOARP appears on interfaces without address resolution, such as
+            // point-to-point links. The entry is valid but never re-verified,
+            // which is treated the same as PERMANENT.
             "NOARP" => NeighborState.Permanent,
 
             "INCOMPLETE" => NeighborState.Incomplete,
@@ -151,11 +151,11 @@ namespace MyNetworkMonitor.Avalonia.Platform.Linux
 
                         map[nic.Name] = index;
                     }
-                    catch (NetworkInformationException) { /* Adapter ohne die jeweilige Familie */ }
-                    catch (PlatformNotSupportedException) { /* dito */ }
+                    catch (NetworkInformationException) { /* adapter without that address family */ }
+                    catch (PlatformNotSupportedException) { /* same */ }
                 }
             }
-            catch (NetworkInformationException) { /* keine Adapterliste - dann eben ohne Index */ }
+            catch (NetworkInformationException) { /* no adapter list: continue without indexes */ }
 
             return map;
         }

@@ -17,10 +17,8 @@
     <ApplicationIcon>Resources\NetworkScanner.ico</ApplicationIcon>
 
     <!--
-      Anwendungsversion. Wird bei jeder Veroeffentlichung (Push) in der letzten
-      Stelle hochgezaehlt. Das Hauptfenster zeigt sie im Titel an.
-      Setzt die Zaehlung des bisherigen WPF-Projekts fort (dort zuletzt 4.6.3.12),
-      damit die veroeffentlichten Versionen aufsteigend bleiben.
+      Application version. The last component is incremented with every
+      release; the main window shows it in its title.
     -->
     <Version>7.3.0.21</Version>
     <AssemblyVersion>7.3.0.21</AssemblyVersion>
@@ -47,25 +45,25 @@
   <ItemGroup Condition="'$(MnmWindowsBuild)' == 'true'">
     <ProjectReference Include="..\MyNetworkMonitor.Platform.Windows\MyNetworkMonitor.Platform.Windows.csproj" />
     <!--
-      Damit sich dieselbe Anwendung im Satellitenbetrieb als Windows-Dienst
-      betreiben laesst. Das Paket bringt die Anbindung an die
-      Dienstverwaltung mit; ohne sie wuerde der Prozess nach einer halben
-      Minute abgeschossen, weil er sich nie als gestartet meldet.
+      Lets the same application run as a Windows service in satellite mode.
+      The package provides the connection to the Service Control Manager;
+      without it the process is killed after about 30 seconds because it
+      never reports itself as started.
     -->
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.0" />
   </ItemGroup>
 
   <!--
-    Dateien, die zur Laufzeit aus dem Ausgabeverzeichnis gelesen werden:
-    die MAC-Hersteller-Liste (SupportMethods) und die 3d-force-graph-Bibliothek,
-    die TopologyGraph.EnsureLocalLibrary in den Graph-Ordner kopiert.
+    Files read from the output directory at run time: the MAC vendor list
+    (SupportMethods) and the 3d-force-graph library, which
+    TopologyGraph.EnsureLocalLibrary copies into the graph folder.
   -->
   <ItemGroup>
     <!--
-      Die beiden grossen Dateien liegen im gemeinsamen Ordner ..\Assets, damit sie
-      nicht je UI-Projekt doppelt im Repository stehen. Link setzt den Pfad im
-      Ausgabeverzeichnis, den die Laufzeit erwartet.
+      Both large files live in the shared ..\Assets folder so that they are not
+      duplicated per UI project. Link sets the path in the output directory
+      that the runtime expects.
     -->
     <None Include="..\Assets\MacVendors\mac_vendors.csv" Link="MacVendors\mac_vendors.csv"
           CopyToOutputDirectory="PreserveNewest" />
@@ -73,7 +71,7 @@
           CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
-  <!-- In die Assembly eingebettete Bilder (avares://) -->
+  <!-- Images embedded in the assembly (avares://) -->
   <ItemGroup>
     <AvaloniaResource Include="Images\DevDonationCuted.jpg" />
     <AvaloniaResource Include="Images\PayPal.png" />

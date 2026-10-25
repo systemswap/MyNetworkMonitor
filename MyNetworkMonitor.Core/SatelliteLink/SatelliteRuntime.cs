@@ -8,16 +8,16 @@ using MyNetworkMonitor.Core.ViewModels;
 namespace MyNetworkMonitor.Core.SatelliteLink
 {
     /// <summary>
-    /// Der Satellit ohne Fenster - das, was der Dienst ausfuehrt.
+    /// The satellite without a window: what the service runs.
     /// <para>
-    /// Er baut dieselbe Maschinerie auf wie die Oberflaeche (Engine, Bestand,
-    /// <see cref="ShellViewModel"/>) und benutzt deren Auftragsausfuehrung. Das
-    /// ist Absicht: ein zweiter, eigener Weg zum Scannen waere eine zweite
-    /// Wirklichkeit, und ein Befund am Satelliten kaeme anders zustande als
-    /// derselbe Befund von Hand. Was fehlt, ist nur die Anzeige.
+    /// It builds the same machinery as the user interface (engine, device
+    /// store, <see cref="ShellViewModel"/>) and uses its job execution. This is
+    /// deliberate: a separate scanning path would be a second truth, and a
+    /// finding on the satellite would come about differently from the same
+    /// finding produced by hand. Only the display is missing.
     /// </para>
     /// <para>
-    /// Siehe SATELLIT.md, Abschnitt 9.
+    /// See SATELLIT.md, section 9.
     /// </para>
     /// </summary>
     public sealed class SatelliteRuntime : IDisposable
@@ -28,8 +28,9 @@ namespace MyNetworkMonitor.Core.SatelliteLink
 
         private ShellViewModel? _shell;
 
-        /// <param name="appVersion">Die eigene Version, wie die Gegenstelle sie sehen soll.</param>
-        /// <param name="serviceXmlPath">Die Dienstdefinitionen fuer die Diensterkennung.</param>
+        /// <summary>Creates the runtime; nothing starts before <see cref="Start"/>.</summary>
+        /// <param name="appVersion">The own version, as the peer should see it.</param>
+        /// <param name="serviceXmlPath">Path of the service definitions for service detection.</param>
         public SatelliteRuntime(string appVersion, string serviceXmlPath)
         {
             _appVersion = appVersion ?? string.Empty;
@@ -37,12 +38,13 @@ namespace MyNetworkMonitor.Core.SatelliteLink
             _logPath = Path.Combine(AppPaths.MachineFolder, "satellite.log");
         }
 
-        /// <summary>Baut alles auf und verbindet sich zu allen Empfaengern.</summary>
+        /// <summary>Builds everything and connects to all main scanners.</summary>
         public void Start()
         {
             AppPaths.EnsureMachineFolder();
 
-            // No user or machine name in the log (logs without personal data)
+            // No user or machine name in the log (logs contain no personal data).
+            // See docs/FEHLERGEDAECHTNIS.md, No. 13.
             Log($"Satellite starting, version {_appVersion}.");
 
             DeviceStore store = new();
@@ -54,8 +56,8 @@ namespace MyNetworkMonitor.Core.SatelliteLink
 
             satellites.SetAppVersion(_appVersion);
 
-            // Der Dienst hat kein Dokumente-Verzeichnis, aus dem etwas zu
-            // uebernehmen waere - der leere Pfad ueberspringt die Uebernahme.
+            // The service has no Documents folder to import settings from;
+            // the empty path skips the import.
             satellites.Load(string.Empty);
 
             foreach (MainScanner host in satellites.Hosts)
@@ -66,11 +68,10 @@ namespace MyNetworkMonitor.Core.SatelliteLink
                 };
             }
 
-            // Die Steuerpipe zuerst, und in jedem Fall: gerade wenn noch kein
-            // Empfaenger eingetragen ist, will das Fenster nachsehen koennen,
-            // warum nichts passiert. Ginge sie erst nach der Pruefung unten
-            // auf, waere der Dienst genau dann stumm, wenn man ihn am
-            // dringendsten befragen moechte.
+            // The control pipe first, and always: especially when no main
+            // scanner is configured yet, the window needs to see why nothing
+            // happens. Opened only after the check below, the service would be
+            // silent exactly when querying it matters most.
             StartControlPipe(satellites);
 
             if (satellites.Hosts.Count == 0)
@@ -85,10 +86,10 @@ namespace MyNetworkMonitor.Core.SatelliteLink
         }
 
         /// <summary>
-        /// Macht die Steuerpipe auf, ueber die die Oberflaeche zusieht.
+        /// Opens the control pipe through which the user interface watches.
         /// <para>
-        /// Ohne sie waere der Dienst eine Blackbox: er arbeitet, aber niemand
-        /// sieht fuer wen und wie weit - man muesste im Protokoll nachlesen.
+        /// Without it the service would be a black box: it works, but nobody
+        /// sees for whom and how far; the only source would be the log.
         /// </para>
         /// </summary>
         private void StartControlPipe(SatelliteEditorViewModel satellites)
@@ -140,7 +141,7 @@ namespace MyNetworkMonitor.Core.SatelliteLink
 
         private ServiceControlServer? _pipe;
 
-        /// <summary>Legt alle Verbindungen ab.</summary>
+        /// <summary>Closes the control pipe and all connections.</summary>
         public void Stop()
         {
             _pipe?.Stop();
@@ -149,10 +150,10 @@ namespace MyNetworkMonitor.Core.SatelliteLink
         }
 
         /// <summary>
-        /// Schreibt eine Zeile in das Protokoll neben den Daten. Ein Dienst hat
-        /// keine Konsole, an der jemand mitliest - ohne Datei waere jeder
-        /// Fehler unsichtbar.
+        /// Writes a line to the log next to the data. A service has no console
+        /// that anyone reads; without a file, every error would be invisible.
         /// </summary>
+        /// <param name="text">The line to write, without personal data.</param>
         public void Log(string text)
         {
             try
@@ -161,10 +162,11 @@ namespace MyNetworkMonitor.Core.SatelliteLink
             }
             catch (Exception)
             {
-                // Protokollieren darf nie selbst zum Problem werden.
+                // Logging must never become a problem of its own.
             }
         }
 
+        /// <summary>Same as <see cref="Stop"/>.</summary>
         public void Dispose() => Stop();
     }
 }

@@ -5,19 +5,19 @@ using MyNetworkMonitor.Core.Network;
 namespace MyNetworkMonitor.Core.Model
 {
     /// <summary>
-    /// Haelt die Geraeteliste und ordnet eingehende Sichtungen dem richtigen
-    /// Geraet zu. Der Kern des neuen Modells.
+    /// Holds the device list and assigns incoming observations to the right
+    /// device. The core of the device model.
     /// <para>
-    /// Unter IPv4 genuegte die Adresse als Schluessel. Unter IPv6 nicht mehr:
-    /// ein Geraet hat mehrere Adressen, von denen manche taeglich wechseln.
-    /// Darum wird ueber eine Kaskade zugeordnet - DUID vor MAC vor Adresse vor
-    /// Hostname - und Geraete werden nachtraeglich zusammengefuehrt, sobald
-    /// sich herausstellt, dass zwei Eintraege dasselbe Geraet sind.
+    /// An address alone is not a sufficient key: under IPv6 a device has
+    /// several addresses, some of which change daily. Assignment therefore
+    /// follows a cascade - DUID before MAC before address before host name -
+    /// and devices are merged afterwards as soon as two entries turn out to
+    /// be the same device.
     /// </para>
     /// <para>
-    /// Nicht threadsicher. Aufrufe sind ueber den UI-Dispatcher oder eine
-    /// eigene Sperre zu serialisieren - so, wie es die Scan-Module heute schon
-    /// mit der Ergebnisliste halten.
+    /// <see cref="Observe"/>, <see cref="LoadFrom"/>, <see cref="MergeFrom"/>
+    /// and <see cref="Clear"/> take <see cref="SyncRoot"/>; code that reads
+    /// the list while a run is in progress must hold it as well.
     /// </para>
     /// </summary>
     public sealed class DeviceStore
@@ -29,60 +29,64 @@ namespace MyNetworkMonitor.Core.Model
         private readonly Dictionary<string, Device> _byHostName = new(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
-        /// Adresse auf Geraet - und zwar auf <em>alle</em> Geraete, die sie
-        /// tragen. Die uebrigen Register kommen mit einem Wert aus, dieses
-        /// nicht: eine doppelt vergebene IP ist der Befund, auf den es hier
-        /// ankommt, und mit einem einwertigen Register waere das zweite Geraet
-        /// beim Indizieren stillschweigend verlorengegangen.
+        /// Address to device - to <em>all</em> devices carrying it. The other
+        /// indexes get by with one value, this one does not: a duplicate IP is
+        /// the finding that matters here, and a single-valued index would
+        /// silently lose the second device during indexing.
         /// </summary>
         private readonly Dictionary<string, List<Device>> _byAddress = new(StringComparer.OrdinalIgnoreCase);
 
+        /// <summary>The devices, read-only.</summary>
         public ReadOnlyObservableCollection<Device> Devices { get; }
 
         /// <summary>
-        /// Die Sperre, unter der der Bestand veraendert wird. Wer waehrend
-        /// eines Laufs liest - die Ergebnistabelle tut das, damit sie sich
-        /// fuellt, statt am Ende auf einen Schlag zu erscheinen - muss sie
-        /// ebenfalls halten. Sonst liest die Oberflaeche eine Liste, die ein
-        /// Scan-Thread gerade veraendert.
+        /// The lock under which the inventory is changed. Code that reads
+        /// during a run - the result table does, so that it fills up
+        /// progressively instead of appearing all at once at the end - must
+        /// hold it too. Otherwise the user interface reads a list that a scan
+        /// thread is modifying.
         /// </summary>
         public Lock SyncRoot { get; } = new();
 
         /// <summary>
-        /// Die Anzeigemeldungen der Geraete unterdruecken.
+        /// Suppresses the display notifications of the devices.
         /// <para>
-        /// Waehrend eines Laufs melden die Scan-Module aus beliebigen Aufgaben.
-        /// Solange die Tabelle die betroffene Zeile bereits zeigt, liefe die
-        /// Bindung damit aus einem Hintergrund-Thread - die Oberflaeche darf
-        /// aber nur vom eigenen Thread aus angefasst werden. Wer das setzt,
-        /// uebernimmt es, <see cref="Device.NotifyDisplayChanged"/> selbst und
-        /// am richtigen Ort nachzuholen.
+        /// During a run the scan modules report from arbitrary tasks. While the
+        /// table already shows the affected row, the binding would then run on
+        /// a background thread - but the user interface may only be touched
+        /// from its own thread. Whoever sets this takes over calling
+        /// <see cref="Device.NotifyDisplayChanged"/> later, on the right thread.
         /// </para>
         /// </summary>
         public bool DeferDisplayNotifications { get; set; }
 
+        /// <summary>Creates an empty store.</summary>
         public DeviceStore()
         {
             Devices = new ReadOnlyObservableCollection<Device>(_devices);
         }
 
-        /// <summary>Wird nach jeder Zuordnung ausgeloest - auch wenn nur ergaenzt wurde.</summary>
+        /// <summary>Raised after every assignment - even if information was only added.</summary>
         public event Action<Device>? DeviceChanged;
 
-        /// <summary>Ein neues Geraet ist aufgetaucht.</summary>
+        /// <summary>Raised when a new device has appeared.</summary>
         public event Action<Device>? DeviceAdded;
 
         /// <summary>
-        /// Zwei Eintraege haben sich als dasselbe Geraet erwiesen. Das zweite
-        /// Argument ist der aufgeloeste Eintrag und ab dann nicht mehr gueltig.
+        /// Raised when two entries have turned out to be the same device. The
+        /// second argument is the dissolved entry and is no longer valid
+        /// afterwards.
         /// </summary>
         public event Action<Device, Device>? DevicesMerged;
 
         /// <summary>
-        /// Nimmt eine Sichtung auf und liefert das Geraet, zu dem sie gehoert.
-        /// Legt es an, wenn es neu ist, und fuehrt bestehende Eintraege
-        /// zusammen, wenn die Sichtung sie verbindet.
+        /// Records an observation and returns the device it belongs to. Creates
+        /// the device if it is new, and merges existing entries if the
+        /// observation connects them.
         /// </summary>
+        /// <param name="observation">The observation to record.</param>
+        /// <returns>The device the observation was assigned to.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="observation"/> is <c>null</c>.</exception>
         public Device Observe(DeviceObservation observation)
         {
             ArgumentNullException.ThrowIfNull(observation);
@@ -94,10 +98,10 @@ namespace MyNetworkMonitor.Core.Model
             {
                 List<Device> candidates = FindCandidates(observation);
 
-                // Was der Sichtung widerspricht, wird nicht zusammengefuehrt,
-                // sondern bleibt als eigenes Geraet stehen. Genau daran haengt
-                // die Doppelbelegung: zwei Netzkarten mit derselben IP sind
-                // zwei Geraete, kein Eintrag mit zwei Namen.
+                // Whatever contradicts the observation is not merged but stays
+                // a device of its own. Duplicate detection depends on exactly
+                // this: two network cards with the same IP are two devices, not
+                // one entry with two names.
                 if (candidates.Count > 0)
                 {
                     candidates = [.. candidates.Where(c => !ContradictsObservation(c, observation))];
@@ -115,14 +119,14 @@ namespace MyNetworkMonitor.Core.Model
                 }
                 else
                 {
-                    // Der Eintrag mit der staerksten Identitaet bleibt bestehen,
-                    // die uebrigen gehen in ihm auf.
+                    // The entry with the strongest identity remains; the others
+                    // are merged into it.
                     device = candidates.OrderBy(d => (int)d.IdentityKey).First();
 
-                    // Auch untereinander muessen die Kandidaten zusammenpassen.
-                    // Traegt die Sichtung nur eine Adresse, kann sie auf zwei
-                    // Geraete mit verschiedenen MACs passen - die beiden aber
-                    // deshalb zu verschmelzen, waere gerade der Fehler.
+                    // The candidates must also be compatible with each other.
+                    // If the observation carries only an address, it can match
+                    // two devices with different MACs - merging those two would
+                    // be exactly the mistake to avoid.
                     foreach (Device other in candidates.Where(c => !ReferenceEquals(c, device)))
                     {
                         if (Contradicts(device, other)) continue;
@@ -135,9 +139,8 @@ namespace MyNetworkMonitor.Core.Model
                 Reindex(device);
             }
 
-            // Die Anzeigeeigenschaften sind berechnet und haengen an Adressen
-            // und Diensten - deren Aenderungen bemerkt die Bindung nicht von
-            // allein.
+            // The display properties are computed and depend on addresses and
+            // services - the binding does not notice their changes on its own.
             if (!DeferDisplayNotifications) device.NotifyDisplayChanged();
 
             if (isNew) DeviceAdded?.Invoke(device);
@@ -146,7 +149,7 @@ namespace MyNetworkMonitor.Core.Model
             return device;
         }
 
-        /// <summary>Leert die Liste samt aller Zuordnungen.</summary>
+        /// <summary>Clears the list and all indexes.</summary>
         public void Clear()
         {
             lock (SyncRoot)
@@ -160,15 +163,15 @@ namespace MyNetworkMonitor.Core.Model
         }
 
         /// <summary>
-        /// Ersetzt den Bestand durch gespeicherte Geraete und baut die Register
-        /// neu auf.
+        /// Replaces the inventory with stored devices and rebuilds the indexes.
         /// <para>
-        /// Bewusst nicht ueber <see cref="Observe"/>: die Geraete sind bereits
-        /// zusammengefuehrt. Sie noch einmal durch die Identitaetskaskade zu
-        /// schicken, wuerde genau die Doppelbelegungen wieder verschmelzen, die
-        /// beim letzten Lauf gefunden wurden.
+        /// Deliberately not through <see cref="Observe"/>: the devices are
+        /// already merged. Sending them through the identity cascade again
+        /// would merge exactly the duplicate assignments found in the last run.
         /// </para>
         /// </summary>
+        /// <param name="devices">The stored devices.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="devices"/> is <c>null</c>.</exception>
         public void LoadFrom(IEnumerable<Device> devices)
         {
             ArgumentNullException.ThrowIfNull(devices);
@@ -186,25 +189,26 @@ namespace MyNetworkMonitor.Core.Model
         }
 
         /// <summary>
-        /// Mischt Geraete in den Bestand, die woanders gefunden wurden - das
-        /// Ergebnis eines Satelliten.
+        /// Merges devices found elsewhere into the inventory - the result of a
+        /// satellite.
         /// <para>
-        /// Wie <see cref="LoadFrom"/> bewusst <b>nicht</b> ueber
-        /// <see cref="Observe"/>: die Geraete sind bereits zusammengefuehrt,
-        /// und die Identitaetskaskade wuerde genau die Doppelbelegungen wieder
-        /// verschmelzen, die der Satellit gefunden hat.
+        /// Like <see cref="LoadFrom"/>, deliberately <b>not</b> through
+        /// <see cref="Observe"/>: the devices are already merged, and the
+        /// identity cascade would merge exactly the duplicate assignments the
+        /// satellite found.
         /// </para>
         /// <para>
-        /// Anders als <see cref="LoadFrom"/> wird der vorhandene Bestand nicht
-        /// geleert: der Satellit kennt nur sein Segment, alles andere bleibt
-        /// stehen. Und auch das schon bekannte Geraet wird nicht ersetzt,
-        /// sondern ergaenzt - ein Satellitenlauf bringt immer nur mit, was
-        /// <em>dieser</em> Auftrag gefunden hat. Wer nur die Namen nachholt,
-        /// schickt ein Geraet ohne Dienste zurueck; ersetzt man damit den
-        /// Eintrag, waeren die Dienstbefunde des vorherigen Laufs weg.
+        /// Unlike <see cref="LoadFrom"/>, the existing inventory is not cleared:
+        /// the satellite knows only its segment, everything else stays. A known
+        /// device is not replaced either but supplemented - a satellite run
+        /// only brings back what <em>this</em> job found. A job that only
+        /// refreshes names returns a device without services; replacing the
+        /// entry with it would discard the service findings of the previous run.
         /// </para>
         /// </summary>
-        /// <returns>Wie viele Geraete aufgenommen wurden.</returns>
+        /// <param name="devices">The devices from the satellite.</param>
+        /// <returns>The number of devices taken over.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="devices"/> is <c>null</c>.</exception>
         public int MergeFrom(IEnumerable<Device> devices)
         {
             ArgumentNullException.ThrowIfNull(devices);
@@ -235,10 +239,10 @@ namespace MyNetworkMonitor.Core.Model
                 }
             }
 
-            // Die Anzeigeeigenschaften haengen an Adressen und Diensten - deren
-            // Aenderungen bemerkt die Bindung nicht von allein. Ohne das bliebe
-            // die Zeile stehen, wie sie war, obwohl der Satellit gerade etwas
-            // dazugelegt hat.
+            // The display properties depend on addresses and services - the
+            // binding does not notice their changes on its own. Without this
+            // the row would stay unchanged although the satellite has just
+            // added something.
             if (!DeferDisplayNotifications)
             {
                 foreach (Device device in touched) device.NotifyDisplayChanged();
@@ -248,14 +252,14 @@ namespace MyNetworkMonitor.Core.Model
         }
 
         /// <summary>
-        /// Das vorhandene Geraet, in das die Meldung gehoert - oder
-        /// <c>null</c>, wenn sie ein neues Geraet beschreibt.
+        /// The existing device the report belongs to - or <c>null</c> if it
+        /// describes a new device.
         /// <para>
-        /// Gesucht wird ueber dieselbe Kaskade wie bei einer Sichtung: erst die
-        /// harten Kennungen, dann die Adressen. Was der Meldung widerspricht -
-        /// andere MAC, andere DUID - kommt nicht in Frage; unter einer doppelt
-        /// vergebenen Adresse haengen zwei Geraete, und in das falsche zu
-        /// schreiben waere schlimmer, als ein drittes anzulegen.
+        /// The search uses the same cascade as for an observation: first the
+        /// hard identifiers, then the addresses. Whatever contradicts the
+        /// report - different MAC, different DUID - is ruled out; a duplicate
+        /// address has two devices behind it, and writing into the wrong one
+        /// would be worse than creating a third.
         /// </para>
         /// </summary>
         private Device? FindExisting(Device incoming)
@@ -286,11 +290,10 @@ namespace MyNetworkMonitor.Core.Model
         }
 
         /// <summary>
-        /// Traegt ein, was der Satellit gemeldet hat. Wie
-        /// <see cref="Apply(Device, DeviceObservation)"/> gilt: eine Angabe
-        /// ueberschreibt die alte, eine fehlende loescht nichts. Der Satellit
-        /// hat frisch nachgesehen, aber eben nur nach dem, wonach der Auftrag
-        /// gefragt hat.
+        /// Records what the satellite reported. As with
+        /// <see cref="Apply(Device, DeviceObservation)"/>: a value overwrites
+        /// the old one, a missing value deletes nothing. The satellite has
+        /// checked freshly, but only for what the job asked for.
         /// </summary>
         private static void Absorb(Device target, Device incoming)
         {
@@ -328,13 +331,12 @@ namespace MyNetworkMonitor.Core.Model
             if (!string.IsNullOrWhiteSpace(incoming.NetBiosName)) target.NetBiosName = incoming.NetBiosName;
             if (!string.IsNullOrWhiteSpace(incoming.GroupDescription)) target.GroupDescription = incoming.GroupDescription;
 
-            // Der selbst vergebene Name gehoert dem Nutzer hier und wird von
-            // einem fremden Bestand nicht angetastet - nur nachgetragen, wo
-            // noch keiner steht.
+            // The internal name belongs to this installation and is not changed
+            // by a foreign inventory - it is only filled in where none exists.
             if (string.IsNullOrWhiteSpace(target.InternalName)) target.InternalName = incoming.InternalName;
 
-            // Der Lookup wird als Ganzes uebernommen, nicht ergaenzt: er
-            // beschreibt den Stand im DNS zum Zeitpunkt der Abfrage.
+            // The lookup is taken over as a whole, not supplemented: it
+            // describes the DNS state at the time of the query.
             if (incoming.WasLookedUp)
             {
                 target.WasLookedUp = true;
@@ -389,23 +391,26 @@ namespace MyNetworkMonitor.Core.Model
             if (incoming.LastSeen > target.LastSeen) target.LastSeen = incoming.LastSeen;
         }
 
-        /// <summary>Sucht ein Geraet zu einer Adresse. Fuer Nachscans einzelner Ziele.</summary>
+        /// <summary>Finds a device by address. For rescans of individual targets.</summary>
+        /// <param name="address">The address to look up.</param>
+        /// <returns>The first device carrying the address, or <c>null</c>.</returns>
         public Device? FindByAddress(IpAddressInfo address) =>
             _byAddress.GetValueOrDefault(address.Canonical)?.FirstOrDefault();
 
         /// <summary>
-        /// Alle Geraete, die diese Adresse tragen. Mehr als eines heisst, dass
-        /// die Adresse doppelt vergeben ist.
+        /// All devices carrying this address. More than one means the address
+        /// is assigned twice.
         /// </summary>
+        /// <param name="address">The address to look up.</param>
+        /// <returns>The devices carrying the address; empty if none.</returns>
         public IReadOnlyList<Device> FindAllByAddress(IpAddressInfo address) =>
             _byAddress.GetValueOrDefault(address.Canonical) ?? (IReadOnlyList<Device>)[];
 
-        // ------------------------------------------------------- Zuordnung
+        // --------------------------------------------------------- Assignment
 
         /// <summary>
-        /// Sucht alle bestehenden Eintraege, auf die die Sichtung passt.
-        /// Mehr als einer bedeutet, dass die Sichtung sie verbindet - dann
-        /// werden sie zusammengefuehrt.
+        /// Finds all existing entries the observation matches. More than one
+        /// means the observation connects them - they are then merged.
         /// </summary>
         private List<Device> FindCandidates(DeviceObservation o)
         {
@@ -422,28 +427,28 @@ namespace MyNetworkMonitor.Core.Model
             if (o.Mac is not null)
                 Add(_byMac.GetValueOrDefault(MacKey(o.Mac)));
 
-            // Eine EUI-64-Adresse traegt die MAC in sich. Damit laesst sich ein
-            // ueber IPv6 gefundenes Geraet demselben Eintrag zuordnen wie das
-            // ueber ARP gefundene - ohne dass jemand beides zugleich gesehen hat.
+            // An EUI-64 address contains the MAC (RFC 4291, appendix A). A
+            // device found over IPv6 can thus be assigned to the same entry as
+            // the one found over ARP - without both being seen at the same time.
             if (o.Address?.DerivedMac is { } derived)
                 Add(_byMac.GetValueOrDefault(MacKey(derived)));
 
-            // Die weiche MAC darf zuordnen: meldet SNMP die Basis-MAC eines
-            // Geraets, das schon ueber einen anderen Anschluss bekannt ist,
-            // gehoert die Sichtung dorthin. Verhindern darf sie nichts - dafuer
-            // sorgt ContradictsObservation, das sie nicht ansieht.
+            // The soft MAC may establish a match: if SNMP reports the base MAC
+            // of a device already known through another interface, the
+            // observation belongs there. It must not prevent anything -
+            // ContradictsObservation ensures this by ignoring it.
             if (o.SoftMac is not null)
                 Add(_byMac.GetValueOrDefault(MacKey(o.SoftMac)));
 
-            // Traegt die Adresse mehr als ein Geraet, kommen alle in Betracht -
-            // welches davon gemeint ist, entscheidet erst die MAC-Pruefung.
+            // If the address belongs to more than one device, all of them are
+            // candidates - the MAC check decides which one is meant.
             if (o.Address is not null && _byAddress.TryGetValue(o.Address.Canonical, out List<Device>? holders))
             {
                 foreach (Device holder in holders) Add(holder);
             }
 
-            // Hostnamen sind schwach: mehrere Geraete koennen denselben Namen
-            // melden. Nur heranziehen, wenn sonst nichts passt.
+            // Host names are weak: several devices can report the same name.
+            // Used only if nothing else matches.
             if (found.Count == 0 && !string.IsNullOrWhiteSpace(o.HostName))
                 Add(_byHostName.GetValueOrDefault(o.HostName));
 
@@ -451,20 +456,19 @@ namespace MyNetworkMonitor.Core.Model
         }
 
         /// <summary>
-        /// Die Sichtung kann nicht zu diesem Geraet gehoeren, weil beide eine
-        /// harte Kennung tragen und die sich unterscheidet.
+        /// The observation cannot belong to this device, because both carry a
+        /// hard identifier and these differ.
         /// <para>
-        /// Nur DUID und MAC zaehlen als hart. Ein abweichender Hostname
-        /// bedeutet nichts - Geraete haben mehrere Namen. Eine fehlende Angabe
-        /// auf einer der beiden Seiten widerspricht ebenfalls nicht; sie sagt
-        /// nur, dass niemand nachgesehen hat.
+        /// Only DUID and MAC count as hard. A different host name means
+        /// nothing - devices have several names. A missing value on either side
+        /// does not contradict either; it only means nobody checked.
         /// </para>
         /// <para>
-        /// <see cref="DeviceObservation.SoftMac"/> bleibt ebenfalls aussen vor.
-        /// SNMP liest die MAC jedes Anschlusses (ifPhysAddress) - auch die von
-        /// Anschluessen, die gar nicht an diesem Netz haengen. Genommen als
-        /// harte Kennung, widersprach so eine MAC der per ARP gesehenen, und
-        /// dasselbe Geraet stand zweimal in der Liste.
+        /// <see cref="DeviceObservation.SoftMac"/> is ignored as well. SNMP
+        /// reads the MAC of every interface (ifPhysAddress, RFC 2863) - including
+        /// interfaces not connected to this network. Used as a hard identifier,
+        /// such a MAC would contradict the one seen through ARP, and the same
+        /// device would appear twice in the list.
         /// </para>
         /// </summary>
         private static bool ContradictsObservation(Device device, DeviceObservation o)
@@ -475,15 +479,14 @@ namespace MyNetworkMonitor.Core.Model
                 return true;
             }
 
-            // Die aus EUI-64 zurueckgerechnete MAC bleibt hier aussen vor: sie
-            // ist geraten, und ein geratener Wert darf keine Zuordnung
-            // verhindern.
+            // The MAC derived from EUI-64 is ignored here: it is inferred, and
+            // an inferred value must not prevent a match.
             return device.Mac is not null && o.Mac is not null && !device.Mac.Equals(o.Mac);
         }
 
         /// <summary>
-        /// Zwei Eintraege koennen nicht dasselbe Geraet sein. Gleiche Regel wie
-        /// bei <see cref="ContradictsObservation"/>.
+        /// Two entries cannot be the same device. Same rule as in
+        /// <see cref="ContradictsObservation"/>.
         /// </summary>
         private static bool Contradicts(Device a, Device b)
         {
@@ -496,13 +499,13 @@ namespace MyNetworkMonitor.Core.Model
             return a.Mac is not null && b.Mac is not null && !a.Mac.Equals(b.Mac);
         }
 
-        /// <summary>Traegt die Angaben der Sichtung am Geraet ein.</summary>
+        /// <summary>Writes the information of the observation to the device.</summary>
         private void Apply(Device device, DeviceObservation o)
         {
-            // Waehrend eines Laufs kommt die Sichtung aus einem Scan-Thread.
-            // Jede der folgenden Zuweisungen wuerde von dort aus melden, und
-            // eine gebundene Zeile verarbeitete das auf dem fremden Thread.
-            // Das Nachholen uebernimmt die Liste in NotifyDisplayChanged.
+            // During a run the observation comes from a scan thread. Each of
+            // the following assignments would raise a notification from there,
+            // and a bound row would process it on the foreign thread. The list
+            // catches up later in NotifyDisplayChanged.
             if (DeferDisplayNotifications) device.IsQuiet = true;
 
             if (o.Timestamp > device.LastSeen) device.LastSeen = o.Timestamp;
@@ -512,15 +515,14 @@ namespace MyNetworkMonitor.Core.Model
 
             if (!string.IsNullOrWhiteSpace(o.Duid)) device.Duid = o.Duid;
 
-            // Eine unmittelbar beobachtete MAC ist verlaesslicher als eine aus
-            // EUI-64 zurueckgerechnete oder eine von SNMP genannte - darum nur
-            // ergaenzen, nicht ueberschreiben.
+            // A directly observed MAC is more reliable than one derived from
+            // EUI-64 or reported by SNMP - the latter two therefore only fill
+            // in, never overwrite.
             //
-            // Die weiche MAC fuellt nur eine Luecke: ein Geraet, das allein
-            // ueber SNMP gefunden wurde - hinter einem Router etwa, wo ARP
-            // nicht hinkommt -, stuende sonst ohne MAC da. Ueberschriebe sie
-            // die per ARP gesehene, waere derselbe Schaden angerichtet wie
-            // vorher, nur andersherum.
+            // The soft MAC only fills a gap: a device found solely through SNMP
+            // - behind a router, for example, where ARP does not reach - would
+            // otherwise have no MAC. If it overwrote the MAC seen through ARP,
+            // it would split the device just the same, only the other way round.
             if (o.Mac is not null) device.Mac = o.Mac;
             else if (device.Mac is null && o.Address?.DerivedMac is { } derived) device.Mac = derived;
             else if (device.Mac is null && o.SoftMac is not null) device.Mac = o.SoftMac;
@@ -531,10 +533,9 @@ namespace MyNetworkMonitor.Core.Model
             if (!string.IsNullOrWhiteSpace(o.NetBiosName)) device.NetBiosName = o.NetBiosName;
             if (!string.IsNullOrWhiteSpace(o.GroupDescription)) device.GroupDescription = o.GroupDescription;
 
-            // Der Lookup wird als Ganzes uebernommen, nicht ergaenzt: er
-            // beschreibt den Stand im DNS zum Zeitpunkt der Abfrage. Alte
-            // Adressen dazuzumischen wuerde genau den Befund verwischen, um den
-            // es geht.
+            // The lookup is taken over as a whole, not supplemented: it
+            // describes the DNS state at the time of the query. Mixing in old
+            // addresses would blur exactly the finding that matters.
             if (o.LookupAddresses is not null)
             {
                 device.WasLookedUp = true;
@@ -558,9 +559,9 @@ namespace MyNetworkMonitor.Core.Model
                 }
             }
 
-            // Eine gemessene TTL ersetzt die vorherige, eine fehlende loescht
-            // nichts: nur der Ping fuellt das Feld, jede andere Sichtung traegt
-            // dort eine 0 und wuerde die Messung sonst wieder ausradieren.
+            // A measured TTL replaces the previous one, a missing one deletes
+            // nothing: only the ping fills the field, every other observation
+            // carries a 0 there and would otherwise erase the measurement.
             if (o.Ttl > 0) device.Ttl = o.Ttl;
 
             if (!string.IsNullOrWhiteSpace(o.SwitchName)) device.SwitchName = o.SwitchName;
@@ -578,30 +579,29 @@ namespace MyNetworkMonitor.Core.Model
         }
 
         /// <summary>
-        /// Traegt Dienstbefunde ein. Ein Verfahren prueft immer nur eine
-        /// Adressfamilie, darum wird je Seite gesetzt und die andere nicht
-        /// angetastet - sonst wuerde der IPv4-Lauf den IPv6-Befund loeschen
-        /// und die Gegenueberstellung ginge verloren.
+        /// Records service findings. A method always checks only one address
+        /// family, so each side is set separately and the other left untouched -
+        /// otherwise the IPv4 run would delete the IPv6 finding and the
+        /// comparison would be lost.
         /// <para>
-        /// Zusammengefasst wird nach Dienst <b>und</b> Ports. Ein Dienst wird
-        /// gegen mehrere Ports geprueft - "WebServices" etwa gegen 80, 443,
-        /// 8080 und weitere - und liefert je Port einen eigenen Befund. Wuerde
-        /// allein der Name den Ausschlag geben, landeten alle neun Befunde auf
-        /// einem Eintrag und der zuletzt eingetroffene ueberschriebe den Rest:
-        /// eine Webseite auf Port 80 verschwaende, weil Port 8443 danach
-        /// nicht geantwortet hat.
+        /// Findings are combined by service <b>and</b> ports. A service is
+        /// checked against several ports - "WebServices", for example, against
+        /// 80, 443, 8080 and others - and yields a separate finding per port.
+        /// If the name alone decided, all nine findings would end up in one
+        /// entry and the last one to arrive would overwrite the rest: a web
+        /// page on port 80 would disappear because port 8443 did not answer
+        /// afterwards.
         /// </para>
         /// </summary>
         private static void ApplyServices(Device device, DeviceObservation o)
         {
             foreach (DeviceServiceResult incoming in o.Services!)
             {
-                // Ein Port, den ein Verfahren namentlich erkannt hat, braucht
-                // daneben keine Zeile "TCP {Port}" - das ist dieselbe Tuer,
-                // einmal mit Namen. In welcher Reihenfolge die Befunde
-                // eintreffen, ist nicht festgelegt, darum beide Richtungen:
-                // der Platzhalter weicht dem Namen, und wo schon ein Name
-                // steht, kommt kein Platzhalter mehr dazu.
+                // A port identified by name needs no additional "TCP {Port}"
+                // row - it is the same port, once with a name. The order in
+                // which findings arrive is not fixed, so both directions are
+                // handled: the placeholder gives way to the name, and where a
+                // name already exists, no placeholder is added.
                 if (IsOpenPortPlaceholder(incoming))
                 {
                     if (device.Services.Any(s => !IsOpenPortPlaceholder(s) && s.IsRunning && Covers(s, incoming)))
@@ -627,22 +627,22 @@ namespace MyNetworkMonitor.Core.Model
         }
 
         /// <summary>
-        /// Derselbe Befund: gleicher Dienst an genau denselben Ports. Erst das
-        /// macht aus dem IPv4- und dem IPv6-Lauf eine Zeile und laesst zugleich
-        /// die einzelnen Ports desselben Dienstes nebeneinander bestehen.
-        /// </summary>
-        /// <summary>
-        /// Ein offener Port ohne erkannten Dienst - "TCP 3306", "UDP 5353".
-        /// Angelegt wird er von den Verfahren, deren Sonde zwar eine
-        /// Verbindung bekam, aber keine passende Antwort.
+        /// An open port without a detected service - "TCP 3306", "UDP 5353".
+        /// Created by the methods whose probe got a connection but no matching
+        /// answer.
         /// </summary>
         private static bool IsOpenPortPlaceholder(DeviceServiceResult s) =>
             string.Equals(s.Category, "Open ports", StringComparison.OrdinalIgnoreCase);
 
-        /// <summary>Der benannte Befund deckt den Port des Platzhalters ab.</summary>
+        /// <summary>The named finding covers the port of the placeholder.</summary>
         private static bool Covers(DeviceServiceResult named, DeviceServiceResult placeholder) =>
             placeholder.Ports.Count == 1 && named.Ports.Contains(placeholder.Ports[0]);
 
+        /// <summary>
+        /// The same finding: same service on exactly the same ports. This
+        /// combines the IPv4 and IPv6 runs into one row while keeping the
+        /// individual ports of the same service separate.
+        /// </summary>
         private static bool IsSameFinding(DeviceServiceResult a, DeviceServiceResult b) =>
             string.Equals(a.ServiceName, b.ServiceName, StringComparison.OrdinalIgnoreCase) &&
             a.Ports.Count == b.Ports.Count &&
@@ -679,9 +679,9 @@ namespace MyNetworkMonitor.Core.Model
         }
 
         /// <summary>
-        /// Fuehrt <paramref name="other"/> in <paramref name="target"/> zusammen
-        /// und entfernt es aus der Liste. Bestehende Angaben am Ziel bleiben
-        /// stehen; der aufgeloeste Eintrag fuellt nur Luecken.
+        /// Merges <paramref name="other"/> into <paramref name="target"/> and
+        /// removes it from the list. Existing values of the target remain; the
+        /// dissolved entry only fills gaps.
         /// </summary>
         private void MergeInto(Device target, Device other)
         {
@@ -747,7 +747,7 @@ namespace MyNetworkMonitor.Core.Model
             DevicesMerged?.Invoke(target, other);
         }
 
-        // -------------------------------------------------------- Register
+        // ------------------------------------------------------------ Indexes
 
         private void Reindex(Device device)
         {
@@ -766,13 +766,13 @@ namespace MyNetworkMonitor.Core.Model
         }
 
         /// <summary>
-        /// Haengt alle Eintraege, die auf <paramref name="from"/> zeigen, auf
-        /// <paramref name="to"/> um - statt sie zu entfernen.
+        /// Repoints all index entries that point to <paramref name="from"/> to
+        /// <paramref name="to"/> - instead of removing them.
         /// <para>
-        /// Ein Geraet kann unter mehreren Schluesseln bekannt sein: zwei MACs
-        /// bei WLAN und Kabel, mehrere Hostnamen, viele Adressen. Wuerden die
-        /// Schluessel des aufgeloesten Eintrags geloescht, laege dieselbe
-        /// Sichtung spaeter wieder als neues Geraet vor.
+        /// A device can be known under several keys: two MACs for Wi-Fi and
+        /// cable, several host names, many addresses. If the keys of the
+        /// dissolved entry were deleted, the same observation would later turn
+        /// up as a new device again.
         /// </para>
         /// </summary>
         private void RepointIndexes(Device from, Device to)
@@ -791,9 +791,9 @@ namespace MyNetworkMonitor.Core.Model
                 }
             }
 
-            // Im Adressregister steht der aufgeloeste Eintrag moeglicherweise
-            // neben einem weiteren Halter derselben Adresse - er wird darum
-            // ersetzt, nicht die ganze Liste.
+            // In the address index the dissolved entry may sit next to another
+            // holder of the same address - so only that entry is replaced, not
+            // the whole list.
             foreach (List<Device> holders in _byAddress.Values)
             {
                 for (int i = holders.Count - 1; i >= 0; i--)
@@ -807,8 +807,8 @@ namespace MyNetworkMonitor.Core.Model
         }
 
         /// <summary>
-        /// Einheitlicher Schluessel fuer eine MAC. <see cref="PhysicalAddress"/>
-        /// als Schluessel taugt nicht - es vergleicht nach Referenz.
+        /// Uniform key for a MAC: the hexadecimal string of its bytes, so that
+        /// every index compares MAC addresses the same way.
         /// </summary>
         private static string MacKey(PhysicalAddress mac) =>
             Convert.ToHexString(mac.GetAddressBytes());

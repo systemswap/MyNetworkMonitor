@@ -21,14 +21,14 @@ using MyNetworkMonitor.Core.ViewModels;
 namespace MyNetworkMonitor.Avalonia.Views;
 
 /// <summary>
-/// Die neue Oberflaeche. Haelt bewusst wenig Logik: alles Fachliche sitzt im
-/// <see cref="ShellViewModel"/> in Core, hier steht nur, was an Avalonia
-/// gebunden ist.
+/// The main window. Deliberately holds little logic: everything domain-related
+/// lives in <see cref="ShellViewModel"/> in Core; this class contains only what
+/// is tied to Avalonia.
 /// <para>
-/// Zwei Dinge werden im Code aufgebaut statt im XAML, weil sie sich nicht
-/// sinnvoll deklarieren lassen: die Verfahren-Schublade, deren vier Spalten
-/// aus einer nach Stufe gefilterten Liste entstehen, und die Dienstauswahl im
-/// Filter, die aus den tatsaechlichen Funden waechst.
+/// Two things are built in code instead of XAML because they cannot be
+/// declared sensibly: the method drawer, whose four columns come from a list
+/// filtered by stage, and the service selection in the filter, which grows
+/// from the actual findings.
 /// </para>
 /// </summary>
 public partial class ShellView : Window
@@ -38,17 +38,18 @@ public partial class ShellView : Window
     private readonly DeviceStore _store;
 
     /// <summary>
-    /// Erst wahr, wenn der Konstruktor durch ist.
+    /// True only once the constructor has finished.
     /// <para>
-    /// Notwendig, weil Avalonia beim Laden des XAML bereits Ereignisse
-    /// ausloest: <c>SelectionChanged</c> der Umfangsauswahl und
-    /// <c>IsCheckedChanged</c> des vorausgewaehlten Rail-Eintrags feuern,
-    /// bevor <see cref="_shell"/> existiert. Ohne diese Sperre stirbt das
-    /// Fenster beim Oeffnen an einer NullReferenceException.
+    /// Required because Avalonia already raises events while loading the XAML:
+    /// <c>SelectionChanged</c> of the scope selection and
+    /// <c>IsCheckedChanged</c> of the preselected rail entry fire before
+    /// <see cref="_shell"/> exists. Without this guard the window dies with a
+    /// NullReferenceException when it opens.
     /// </para>
     /// </summary>
     private bool _ready;
 
+    /// <summary>Creates the window, loads settings and lists, and starts the satellite link.</summary>
     public ShellView()
     {
         InitializeComponent();
@@ -59,18 +60,18 @@ public partial class ShellView : Window
 
         _shell = new ShellViewModel(_engine, _store)
         {
-            // Fuer Rueckfragen waehrend eines Laufs - etwa wenn der Satellit
-            // eines Bereichs nicht verbunden ist.
+            // For questions during a run, for example when the satellite of a
+            // range is not connected.
             Dialogs = new AvaloniaDialogService()
         };
 
         DataContext = _shell;
 
-        // System check once the window is open: in the background, and only shown when something needs attention
+        // System check once the window is open: in the background, and only shown when something needs attention.
         Opened += async (_, _) => await ShowSystemCheckIfNeededAsync();
 
-        // Die gespeicherten Einstellungen zuerst - Zeitlimit und Portschalter
-        // gehen in die Verfuegbarkeitspruefung der Verfahren ein.
+        // The stored settings first: timeout and port switches feed into the
+        // availability check of the methods.
         _shell.AttachSettings(SettingsFolder());
 
         LoadScopes();
@@ -78,8 +79,8 @@ public partial class ShellView : Window
         _shell.PortEditor.Load(System.IO.Path.Combine(SettingsFolder(), "portsToScan.xml"));
         _shell.ServiceEditor.Load(ServiceXmlPath());
 
-        // Erst jetzt sind die Dienstdefinitionen da, aus denen die Auswahl
-        // "welche Dienste werden zusammengefasst" besteht.
+        // Only now are the service definitions available that make up the
+        // selection "which services are grouped".
         _shell.BuildGroupableServices();
 
         BuildMethodDrawer();
@@ -88,43 +89,42 @@ public partial class ShellView : Window
         _shell.Devices.AvailableScopes.CollectionChanged += (_, _) => BuildScopeFacets();
         _shell.Devices.Filter.Changed += UpdateServiceFilterLabel;
 
-        // Die eigene Eingabe aendert die Zielzahl genauso wie ein Haken -
-        // die Fusszeile der Auswahl muss beides mitbekommen.
+        // The custom input changes the target count just like a checkmark;
+        // the footer of the selection must reflect both.
         _shell.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(ShellViewModel.CustomTargets)) UpdateScopeFooter();
         };
 
-        // Die Auswahl misst sich beim Oeffnen an ihrem Inhalt - die Bereiche
-        // koennen sich zwischen zwei Klicks geaendert haben.
+        // The selection sizes itself to its content when opened; the ranges
+        // may have changed between two clicks.
         if (bt_Scopes.Flyout is FlyoutBase scopeFlyout)
         {
             scopeFlyout.Opened += (_, _) =>
             {
                 BuildScopeRows();
 
-                // Auch die Adapterliste: ein VPN-Adapter oder ein Dock kommt
-                // und geht, und eine Liste vom Programmstart waere dann falsch.
+                // The adapter list too: a VPN adapter or a dock comes and goes,
+                // and a list from program start would then be wrong.
                 _shell.RefreshCustomTargetAdapters();
             };
         }
 
-        // Die Version gehoert in den Titel: die letzte Stelle wird bei jeder
-        // Veroeffentlichung hochgezaehlt, und bei einer Rueckfrage ist das die
-        // erste Angabe, nach der gefragt wird. Vierstellig, wie sie in der
-        // csproj steht.
+        // The version belongs in the title: the last component is incremented
+        // with every release, and it is the first thing asked for in a support
+        // request. Four components, as in the csproj.
         Title = $"My Network Monitor  v{OwnVersion()}";
 
-        // Beim Ausprobieren mit zwei Instanzen muss man sie auseinanderhalten
-        // koennen - der Name des Zustandsordners steht dafuer im Titel.
+        // When trying things out with two instances they must be told apart;
+        // the name of the state folder is shown in the title for that.
         if (AppPaths.HasOwnState)
         {
             string root = System.IO.Path.GetDirectoryName(SettingsFolder()) ?? string.Empty;
             Title += $" - {System.IO.Path.GetFileName(root)}";
         }
 
-        // Die Adapterliste fuer die eigene Eingabe. Wird beim Oeffnen der
-        // Auswahl neu gelesen - ein VPN oder ein Dock kommt und geht.
+        // The adapter list for the custom input. Read again whenever the
+        // selection opens, because a VPN or a dock comes and goes.
         _shell.RefreshCustomTargetAdapters();
 
         BuildServiceFacets();
@@ -137,37 +137,36 @@ public partial class ShellView : Window
         _ready = true;
     }
 
-    // Kein eigenes InitializeComponent: die vom XAML-Compiler erzeugte Fassung
-    // weist zugleich die benannten Steuerelemente zu. Eine handgeschriebene
-    // Variante mit AvaloniaXamlLoader.Load laedt zwar das XAML, laesst die
-    // Felder aber null - der Zugriff darauf scheitert dann beim Oeffnen.
+    // No custom InitializeComponent: the version generated by the XAML compiler
+    // also assigns the named controls. A handwritten variant with
+    // AvaloniaXamlLoader.Load loads the XAML but leaves the fields null, and
+    // accessing them then fails when the window opens.
 
     /// <summary>
-    /// Alle heute vorhandenen Verfahren. Die Liste selbst steht seit dem
-    /// Satellitendienst in Core (<see cref="ScanEngineFactory"/>) - der Dienst
-    /// laeuft ohne Fenster und braucht dieselben Verfahren.
+    /// All available methods. The list itself lives in Core
+    /// (<see cref="ScanEngineFactory"/>) because the satellite service runs
+    /// without a window and needs the same methods.
     /// </summary>
     private static void RegisterMethods(ScanEngine engine) =>
         ScanEngineFactory.RegisterAllMethods(engine, ServiceXmlPath());
 
     /// <summary>
-    /// Dieselbe Datei, die das bisherige Fenster benutzt - eigene Portlisten
-    /// und Dienstauswahl gelten damit in beiden Oberflaechen. Die Datei muss
-    /// nicht vorhanden sein; das Modul legt jeden Dienst mit Standardports an
-    /// und liest sie nur als Ueberlagerung darueber.
+    /// The service definitions file in the settings folder. The file need not
+    /// exist; the module creates every service with its default ports and reads
+    /// the file only as an overlay.
     /// </summary>
     private static string ServiceXmlPath() =>
         System.IO.Path.Combine(SettingsFolder(), "services.xml");
 
     /// <summary>
-    /// Derselbe Ordner, den das bisherige Fenster benutzt - damit beide
-    /// Oberflaechen waehrend des Umbaus denselben Bestand sehen.
+    /// The settings folder: <c>Documents/MyNetworkMonitor/Settings</c>, or the
+    /// instance's own folder given with <c>--state</c>.
     /// </summary>
     private static string SettingsFolder()
     {
-        // Eine zweite Instanz zum Ausprobieren bekommt ueber --state ihren
-        // eigenen Ordner - sonst schrieben beide in dieselben Dateien und
-        // loeschten sich gegenseitig die Bereiche und den letzten Lauf.
+        // A second instance for trying things out gets its own folder through
+        // --state; otherwise both would write to the same files and delete each
+        // other's ranges and last run.
         if (AppPaths.OwnSettingsFolder is { } own) return own;
 
         string documents = System.Runtime.InteropServices.RuntimeInformation
@@ -178,36 +177,27 @@ public partial class ShellView : Window
         return System.IO.Path.Combine(documents, "MyNetworkMonitor", "Settings");
     }
 
-    // ------------------------------------------------------------- Bereiche
+    // ------------------------------------------------------- Satellite mode
 
-    /// <summary>
-    /// Uebernimmt die gespeicherten Bereiche. Dieselbe Datei, die das bisherige
-    /// Fenster liest - beide Oberflaechen arbeiten waehrend des Umbaus auf
-    /// demselben Bestand. Laden und Speichern liegen im
-    /// <see cref="ScopeEditorViewModel"/>, damit sie sich nicht auseinander
-    /// entwickeln.
-    /// </summary>
-    // ------------------------------------------------------- Satellitenbetrieb
-
-    /// <summary>Die eigene Version, wie sie die Gegenstelle sehen soll.</summary>
+    /// <summary>The own version, as the peer should see it.</summary>
     private static string OwnVersion() =>
         System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version?.ToString() ?? string.Empty;
 
     /// <summary>
-    /// Haengt Lauscher und Verbinder ein. Beides haengt an einer Einstellung -
-    /// wer den Satellitenbetrieb nicht will, merkt nichts davon.
+    /// Attaches listener and connector. Both depend on a setting; with
+    /// satellite mode unused, nothing of it is noticeable.
     /// </summary>
     private void StartSatelliteLink()
     {
-        // Die Ereignisse treffen auf Hintergrund-Threads ein, die Liste haengt
-        // aber an der Anzeige.
+        // The events arrive on background threads, but the list is bound to
+        // the display.
         _shell.SatelliteEditor.Post = action => global::Avalonia.Threading.Dispatcher.UIThread.Post(action);
 
         _shell.SatelliteEditor.SetAppVersion(OwnVersion());
         _shell.SatelliteEditor.RefreshFirewall();
 
-        // Erst den Dienst befragen: laeuft er, gehoert ihm die Verbindung nach
-        // draussen, und dieses Fenster verbindet sich nicht selbst.
+        // Queries the service first: if it runs, the outgoing connection
+        // belongs to it, and this window does not connect itself.
         _shell.SatelliteEditor.RefreshService();
 
         if (_shell.Settings.SatelliteListenEnabled)
@@ -230,22 +220,22 @@ public partial class ShellView : Window
     private void bt_FirewallRemove_Click(object? sender, RoutedEventArgs e) =>
         _shell.SatelliteEditor.RemoveFirewallRule();
 
-    /// <summary>Liest Name, Domaene und Adressen dieser Anlage neu.</summary>
+    /// <summary>Reads name, domain and addresses of this machine again.</summary>
     private void bt_HostInfoRefresh_Click(object? sender, RoutedEventArgs e) =>
         _shell.SatelliteEditor.RefreshHostInfo();
 
     /// <summary>
-    /// Uebernimmt einen Port aus der Firewall-Auswahl als Lauschport. Die Liste
-    /// ist damit eine Auswahl und nicht nur eine Auskunft: wer keine Rechte hat,
-    /// eine Regel anzulegen, sucht sich hier einen Port, der ohnehin offen ist.
+    /// Takes a port from the firewall selection as the listening port. The list
+    /// is thus a selection and not just information: without the right to
+    /// create a rule, a port that is already open can be picked here.
     /// </summary>
     private void cb_AllowedPorts_SelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         if (!_ready || sender is not ComboBox list || list.SelectedItem is not string entry) return;
 
-        // Die Zeile sieht aus wie "TCP 5900-5904  (only for ...)". Genommen
-        // wird die erste Zahl - bei einem Bereich der Anfang, denn irgendeiner
-        // muss es sein, und der erste ist der naheliegende.
+        // The line looks like "TCP 5900-5904  (only for ...)". The first number
+        // is taken; for a range that is its start, because one of them has to
+        // be chosen and the first is the obvious one.
         string digits = new([.. entry.SkipWhile(c => !char.IsDigit(c)).TakeWhile(char.IsDigit)]);
 
         if (int.TryParse(digits, out int port) && port is > 0 and <= 65535)
@@ -254,12 +244,12 @@ public partial class ShellView : Window
         }
     }
 
-    // ---------------------------------------------------- Empfaenger (Hosts)
+    // ---------------------------------------------------- Receivers (hosts)
 
     private void bt_SatelliteConnect_Click(object? sender, RoutedEventArgs e)
     {
-        // Der Knopf setzt den Schalter mit: wer hier verbindet, will es auch
-        // beim naechsten Start.
+        // The button also sets the switch: connecting here means connecting on
+        // the next start as well.
         _shell.Settings.SatelliteModeEnabled = true;
 
         _shell.SatelliteEditor.ConnectAllHosts();
@@ -271,16 +261,22 @@ public partial class ShellView : Window
         _shell.SatelliteEditor.DisconnectAllHosts();
     }
 
+    // ---------------------------------------------------------------- Ranges
+
+    /// <summary>
+    /// Loads the satellites and the stored ranges, then starts the satellite
+    /// link. Loading and saving of the ranges live in
+    /// <see cref="ScopeEditorViewModel"/> so that they do not drift apart.
+    /// </summary>
     private void LoadScopes()
     {
-        // Die Satelliten zuerst: die Bereichsmaske bietet ihre Namen zur
-        // Auswahl an, und eine Auswahl, die beim Laden des Bereichs noch leer
-        // ist, verwirft dessen gespeicherten Wert.
+        // The satellites first: the range form offers their names for
+        // selection, and a selection that is still empty when the range loads
+        // discards its stored value.
         _shell.SatelliteEditor.Load(SettingsFolder());
 
-        // Bis zur Hostliste gab es genau einen Hauptscanner als Einstellung.
-        // Wer den gesetzt hatte, findet ihn als ersten Eintrag wieder, statt
-        // ihn neu eintippen zu muessen.
+        // Settings without a host list store exactly one main scanner. If it is
+        // set, it becomes the first entry instead of having to be typed in again.
         if (_shell.SatelliteEditor.Hosts.Count == 0 &&
             !string.IsNullOrWhiteSpace(_shell.Settings.MainScannerHost))
         {
@@ -296,16 +292,16 @@ public partial class ShellView : Window
 
         _shell.ScopeEditor.Load(System.IO.Path.Combine(SettingsFolder(), "ipGroups.xml"));
 
-        // Bereiche zeigten frueher auf den Namen des Satelliten. Einmalig auf
-        // die Kennung umschreiben - danach ueberlebt die Zuordnung jede
-        // Umbenennung. Was sich nicht zuordnen laesst, bleibt stehen und wird
-        // beim Lauf als "nicht verbunden" gemeldet.
+        // Ranges in older settings refer to the satellite by name. They are
+        // rewritten once to the identifier; afterwards the assignment survives
+        // every renaming. What cannot be matched stays as it is and is reported
+        // as "not connected" during the run.
         _shell.MigrateScannedByToIds();
 
         _shell.RefreshAvailability();
 
-        // Erst jetzt: der Lauscher gibt nur frei, wer in der geladenen Liste
-        // steht - vorher waere jeder Satellit "unbekannt".
+        // Only now: the listener approves only satellites in the loaded list;
+        // before loading, every satellite would be "unknown".
         StartSatelliteLink();
     }
 
@@ -319,24 +315,24 @@ public partial class ShellView : Window
     }
 
     /// <summary>
-    /// Baut die Zeilen der Bereichsauswahl auf.
+    /// Builds the rows of the range selection.
     /// <para>
-    /// Von Hand statt ueber ein DataGrid, und das ist hier der Kern der Sache:
-    /// ein Grid mit Auto-Spalten misst sich an seinem Inhalt, ein DataGrid
-    /// nicht. Letzteres nimmt den angebotenen Platz und scrollt intern, wenn
-    /// er nicht reicht - das umgebende Menue erfaehrt dadurch nie, dass es zu
-    /// schmal ist, und man sieht eine abgeschnittene Tabelle mit
-    /// Bildlaufbalken. Mit dem Grid waechst der Rahmen von selbst mit.
+    /// By hand instead of with a DataGrid, which is the core of the matter: a
+    /// Grid with Auto columns sizes itself to its content, a DataGrid does not.
+    /// The latter takes the space offered and scrolls internally when it is not
+    /// enough, so the surrounding menu never learns that it is too narrow, and
+    /// the result is a truncated table with scroll bars. With the Grid, the
+    /// border grows along by itself.
     /// </para>
     /// <para>
-    /// Wird bei jedem Oeffnen neu gebaut: die Bereiche koennen sich
-    /// zwischendurch geaendert haben, und es sind eine Handvoll Zeilen.
+    /// Rebuilt on every opening: the ranges may have changed in the meantime,
+    /// and there are only a handful of rows.
     /// </para>
     /// </summary>
     private void BuildScopeRows()
     {
-        // Nicht ueber das Fenster hinaus. Als Bindung ginge das nicht - das
-        // Popup hat einen eigenen Namensraum, in dem #ShellRoot nicht auflöst.
+        // Not beyond the window. A binding cannot do this: the popup has its
+        // own name scope in which #ShellRoot does not resolve.
         bd_ScopeFlyout.MaxWidth = Math.Max(620, Bounds.Width - 120);
 
         grd_Scopes.Children.Clear();
@@ -414,8 +410,8 @@ public partial class ShellView : Window
             grd_Scopes.Children.Add(control);
         }
 
-        // Eine Zelle bindet gegen den Bereich, statt den Text zu kopieren -
-        // eine Umbenennung in der Verwaltung schlaegt so sofort durch.
+        // A cell binds to the range instead of copying the text, so a renaming
+        // in the range management shows immediately.
         static TextBlock Cell(ScanScope scope, string property, double size,
                               FontWeight weight, IBrush brush, bool mono)
         {
@@ -456,8 +452,8 @@ public partial class ShellView : Window
     }
 
     /// <summary>
-    /// Rechnet die Fusszeile der Bereichsauswahl mit: Ziele und geschaetzte
-    /// Dauer, damit vor dem Start sichtbar ist, worauf man sich einlaesst.
+    /// Updates the footer of the range selection: targets and estimated
+    /// duration, so that the size of the run is visible before starting.
     /// </summary>
     private void UpdateScopeFooter()
     {
@@ -473,20 +469,20 @@ public partial class ShellView : Window
             $"{_shell.SelectedScopeCount} ranges · {prefix}{targets} targets · est. {duration}";
     }
 
-    // -------------------------------------------------- Verfahren-Schublade
+    // -------------------------------------------------------- Method drawer
 
     /// <summary>
-    /// Baut die vier Spalten auf. Die IPv6-Spalte bleibt vorerst leer - dort
-    /// erscheinen die Verfahren, sobald sie gebaut sind; bis dahin steht ein
-    /// Hinweis statt einer leeren Flaeche.
+    /// Builds the four columns. The IPv6 column lists the IPv6-only methods;
+    /// while there are none, it shows a hint (<see cref="UpdateIpv6Hint"/>)
+    /// instead of an empty area.
     /// </summary>
     private void BuildMethodDrawer()
     {
         Fill(ic_Discovery, _shell.Methods.Where(m => m.Phase == ScanPhase.Discovery));
 
-        // Der Quervergleich sitzt mitten in der Liste, direkt hinter der
-        // Rueckwaertsaufloesung: er gehoert thematisch zwischen die beiden
-        // DNS-Verfahren und nicht unter alle Verfahren der Spalte.
+        // The cross-check sits in the middle of the list, right after the
+        // reverse lookup: thematically it belongs between the two DNS methods,
+        // not below all methods of the column.
         Fill(ic_Identification, _shell.Methods.Where(m => m.Phase == ScanPhase.Identification),
              after: "dns.reverse", extra: BuildDnsCrossCheckBox());
 
@@ -500,8 +496,8 @@ public partial class ShellView : Window
 
             foreach (ScanMethodChoice choice in methods)
             {
-                // Eingerueckte Verfahren stehen als Variante unter dem Verfahren
-                // darueber - derselbe Einzug wie beim DNS-Quervergleich.
+                // Indented methods are variants of the method above, with the
+                // same indent as the DNS cross-check.
                 double left = choice.Indented ? 14 : 0;
 
                 CheckBox box = new()
@@ -521,10 +517,10 @@ public partial class ShellView : Window
                 box.Bind(IsEnabledProperty,
                     new global::Avalonia.Data.Binding(nameof(ScanMethodChoice.IsEnabled)) { Source = choice });
 
-                // Der Tooltip erklaert das Verfahren in ganzen Saetzen. Als
-                // blosser Text laeuft er auf eine Zeile hinaus, die breiter ist
-                // als der Bildschirm - darum ein umbrechender TextBlock mit
-                // fester Hoechstbreite statt der Zeichenkette selbst.
+                // The tooltip explains the method in full sentences. As plain
+                // text it would end up as one line wider than the screen, hence
+                // a wrapping TextBlock with a fixed maximum width instead of the
+                // string itself.
                 TextBlock hint = new()
                 {
                     FontSize = 11,
@@ -537,15 +533,13 @@ public partial class ShellView : Window
 
                 ToolTip.SetTip(box, hint);
 
-                // Ausgegraute Verfahren zeigen sonst gar nichts an - gerade
-                // dort will man aber wissen, warum.
+                // Otherwise disabled methods show nothing at all, although that
+                // is exactly where the reason matters.
                 ToolTip.SetShowOnDisabled(box, true);
 
-                // Gesendet / geantwortet / gesamt, je Verfahren und stehend.
-                // Die bisherige Anwendung hat diese drei Zahlen fuer alle
-                // Verfahren nebeneinander gezeigt; daran ist nach dem Lauf
-                // abzulesen, welches wie viel gebracht hat - der Kommandobalken
-                // allein zeigt immer nur das gerade laufende.
+                // Sent / answered / total, per method and persistent. After the
+                // run these numbers show how much each method yielded; the
+                // command bar alone only ever shows the running one.
                 TextBlock counts = new()
                 {
                     FontSize = 9.5,
@@ -580,9 +574,9 @@ public partial class ShellView : Window
     }
 
     /// <summary>
-    /// Das Kaestchen des DNS-Quervergleichs. Kein eigenes Verfahren, sondern
-    /// eine Unterfunktion des Namensscans - eingerueckt, damit man das sieht,
-    /// und gesperrt, solange keines der beiden DNS-Verfahren angehakt ist.
+    /// The checkbox of the DNS cross-check. Not a method of its own but a
+    /// sub-function of the name scan: indented to make that visible, and
+    /// disabled while neither of the two DNS methods is checked.
     /// </summary>
     private CheckBox BuildDnsCrossCheckBox()
     {
@@ -644,10 +638,9 @@ public partial class ShellView : Window
     }
 
     /// <summary>
-    /// Haelt die Mehrfachauswahl der Gerätetabelle im Ansichtsmodell nach.
-    /// <c>SelectedItem</c> kennt nur die zuletzt angeklickte Zeile; das
-    /// erneute Scannen soll aber alle markierten treffen, so wie es die
-    /// alte Oberflaeche ueber <c>SelectedCells</c> getan hat.
+    /// Mirrors the multiple selection of the device table into the view model.
+    /// <c>SelectedItem</c> knows only the last clicked row, but rescanning
+    /// must cover all selected rows.
     /// </summary>
     private void dg_Devices_SelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
@@ -659,20 +652,20 @@ public partial class ShellView : Window
         }
     }
 
-    // ----------------------------------------------------- Dienstauswahl
+    // ---------------------------------------------------- Service selection
 
     /// <summary>
-    /// Die Dienstauswahl im Filter entsteht aus den tatsaechlich gefundenen
-    /// Diensten - mit Trefferzahl, damit man sieht, ob sich das Filtern lohnt.
+    /// The service selection in the filter is built from the services actually
+    /// found, with hit counts, so that it is visible whether filtering pays off.
     /// </summary>
     private void BuildServiceFacets()
     {
         List<Control> rows = [];
 
-        // Die Liste kommt nach Kategorie geordnet. Wechselt sie, steht sie als
-        // Zwischenueberschrift darueber und die Dienste ruecken darunter ein -
-        // sonst sieht die Reihenfolge zufaellig aus, weil die Kategorie sonst
-        // nirgends auftaucht.
+        // The list arrives sorted by category. Where the category changes, it
+        // appears as a subheading and the services below are indented;
+        // otherwise the order looks random, because the category appears
+        // nowhere else.
         string? lastCategory = null;
 
         foreach (ServiceFacet facet in _shell.Devices.AvailableServices)
@@ -687,19 +680,19 @@ public partial class ShellView : Window
                     FontSize = 9.5,
                     FontWeight = FontWeight.SemiBold,
                     Foreground = new SolidColorBrush(Color.Parse("#7E979C")),
-                    // Ueber der ersten Ueberschrift weniger Luft als ueber den
-                    // folgenden - oben schliesst das Menue schon ab.
+                    // Less space above the first heading than above the
+                    // following ones: the menu edge already closes it off.
                     Margin = new global::Avalonia.Thickness(10, lastCategory is null ? 4 : 8, 10, 2)
                 });
 
                 lastCategory = category;
             }
 
-            // Eine Zahl je Zeile statt zweier nebeneinander:
-            //   alle erkannt   -> "32 running"
-            //   keiner erkannt -> "32 open"     (offene Ports ohne Protokoll)
-            //   gemischt       -> "32, 8 running"
-            // Vorher stand dort "32  (32 running)" - dieselbe Zahl zweimal.
+            // One number per row instead of two side by side:
+            //   all detected  -> "32 running"
+            //   none detected -> "32 open"     (open ports without a protocol)
+            //   mixed         -> "32, 8 running"
+            // Not "32  (32 running)", which would show the same number twice.
             string zahlen =
                 facet.RunningCount == 0 ? $"{facet.DeviceCount} open"
                 : facet.RunningCount == facet.DeviceCount ? $"{facet.DeviceCount} running"
@@ -709,10 +702,10 @@ public partial class ShellView : Window
             {
                 IsChecked = _shell.Devices.Filter.Services.Contains(facet.Name),
                 FontSize = 10.5,
-                // Eingerueckt unter ihrer Ueberschrift.
+                // Indented below its heading.
                 Margin = new global::Avalonia.Thickness(22, 2, 10, 2),
-                // Ueber die ganze Menuebreite, damit die Zahlen rechts
-                // untereinander stehen statt am Namen zu kleben.
+                // Across the whole menu width, so that the numbers on the right
+                // line up instead of sticking to the name.
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 HorizontalContentAlignment = HorizontalAlignment.Stretch,
                 Content = new Grid
@@ -774,9 +767,9 @@ public partial class ShellView : Window
     }
 
     /// <summary>
-    /// Die Bereichsauswahl, gebaut wie die Dienstauswahl. Angezeigt wird je
-    /// Bereich, wie viele Geraete daraus stammen und wie viele davon gerade
-    /// antworten - daran sieht man, ob sich das Filtern ueberhaupt lohnt.
+    /// The range selection, built like the service selection. Each range shows
+    /// how many devices come from it and how many of them currently answer,
+    /// which tells whether filtering pays off at all.
     /// </summary>
     private void BuildScopeFacets()
     {
@@ -841,15 +834,11 @@ public partial class ShellView : Window
         ic_ScopeFacets.ItemsSource = rows;
     }
 
-    // Nicht "ScopesNone": so heisst bereits das Zuruecksetzen der
-    // Umfangs-Auswahl im Kommandobalken. Zwei verschiedene Dinge - was
-    // gescannt wird und wonach gefiltert wird - duerfen nicht denselben
-    // Namen tragen.
     /// <summary>
-    /// Fuellt das Untermenue der Portsuche mit den Diensten. Ein Dienst je
-    /// Eintrag - die Suche laeuft ueber 65 536 Ports und dauert; sie fuer alle
-    /// Dienste auf einmal anzubieten waere ein Klick, nach dem man eine
-    /// Viertelstunde wartet.
+    /// Fills the submenu of the port search with the services. One service per
+    /// entry: the search runs over 65,536 ports and takes time; offering it for
+    /// all services at once would be a click followed by a quarter of an hour
+    /// of waiting.
     /// </summary>
     private void BuildFindServicePortMenu()
     {
@@ -872,6 +861,9 @@ public partial class ShellView : Window
         mi_FindServicePort.ItemsSource = entries;
     }
 
+    // Not "ScopesNone": that name already belongs to resetting the scope
+    // selection in the command bar. Two different things (what is scanned and
+    // what is filtered by) must not share a name.
     private void bt_RangeFilterNone_Click(object? sender, RoutedEventArgs e)
     {
         _shell.Devices.Filter.Scopes.Clear();
@@ -898,23 +890,23 @@ public partial class ShellView : Window
     // ------------------------------------------------------------ Rail
 
     /// <summary>
-    /// Wechselt die Ansicht. Was noch nicht gebaut ist, sagt das offen -
-    /// statt eine leere Flaeche zu zeigen, die wie ein Fehler aussieht.
+    /// Switches the view. A view that is not available yet says so openly
+    /// instead of showing an empty area that looks like an error.
     /// </summary>
     private void Nav_Checked(object? sender, RoutedEventArgs e)
     {
         if (!_ready) return;
 
-        // Avalonia kennt kein Checked-Ereignis, nur IsCheckedChanged - das
-        // meldet auch das Abwaehlen des vorherigen Eintrags.
+        // Avalonia has no Checked event, only IsCheckedChanged, which also
+        // reports the deselection of the previous entry.
         if (sender is not RadioButton button || button.IsChecked != true) return;
         if (button.Tag is not string tag) return;
         if (!Enum.TryParse(tag, out ShellSection section)) return;
 
         _shell.Section = section;
 
-        // Jede gebaute Ansicht bekommt hier ihre Zeile; der Platzhalter faengt
-        // auf, was noch fehlt, und sagt das auch.
+        // Every available view has its line here; the placeholder catches
+        // whatever is still missing and says so.
         view_Devices.IsVisible = section == ShellSection.Devices;
         view_Scopes.IsVisible = section == ShellSection.Scopes;
         view_Ports.IsVisible = section == ShellSection.Ports;
@@ -924,46 +916,46 @@ public partial class ShellView : Window
         view_Network.IsVisible = section == ShellSection.Network;
         view_Findings.IsVisible = section == ShellSection.Findings;
 
-        // Die Webansicht wird erst hier eingehaengt, und erst beim ersten Mal.
-        // Vor dem Sichtbarschalten, damit sie beim Aufschlagen schon steht -
-        // aber eben nur, wenn der Nutzer die Topologie ueberhaupt aufruft.
+        // The web view is attached only here, and only the first time. Before
+        // making the view visible so that it is ready when shown, but only if
+        // the topology is opened at all.
         if (section == ShellSection.Topology) PrepareTopologyView();
 
         view_Topology.IsVisible = section == ShellSection.Topology;
 
-        // Beim Aufschlagen neu pruefen: die Adapterregel liest den Zustand des
-        // Rechners, und der aendert sich auch ohne Scan.
+        // Re-evaluated when shown: the adapter rule reads the state of the
+        // machine, which changes even without a scan.
         if (section == ShellSection.Findings) _shell.FindingsView.Refresh();
 
-        // Adapter kommen und gehen - ein VPN-Client, ein Dock, ein Stick.
-        // Beim Aufschlagen der Ansicht neu lesen ist billiger als der
-        // Versuch, das mitzubekommen.
+        // Adapters come and go: a VPN client, a dock, a USB adapter. Reading
+        // them again when the view is shown is cheaper than trying to track
+        // the changes.
         if (section == ShellSection.Network) _shell.NetworkView.Refresh();
 
-        // Die Satellitenliste beim Aufschlagen auf die Auswahl bringen, die im
-        // Ansichtsmodell steht.
+        // Brings the satellite list in line with the selection held in the view
+        // model when the view is shown.
         //
-        // Noetig, weil eine Auswahl, die gesetzt wird, bevor das DataGrid
-        // seine Zeilen hat, nur halb ankommt. Der erste Satellit wird beim
-        // Laden der Liste angewaehlt, also lange vor dem ersten Aufschlagen
-        // dieser Ansicht. Gemessen sah es danach so aus:
+        // Required because a selection set before the DataGrid has its rows
+        // arrives only halfway. The first satellite is selected when the list
+        // loads, long before this view is first shown. Measured, the state
+        // then is:
         //
         //     SelectedItem = TestSat-A      SelectedIndex = -1
         //
-        // Die Bindung hat den Wert also hineingetragen, eine Zeile dazu gab es
-        // zu dem Zeitpunkt aber nicht - links war nichts markiert, waehrend
-        // rechts schon seine Daten standen. Denselben Wert noch einmal
-        // zuzuweisen hilft nicht, das Eigenschaftensystem verwirft eine
-        // Zuweisung ohne Aenderung; ueber den Index ebenso, denn der landet
-        // wieder bei demselben Element. Erst leeren und neu setzen laesst die
-        // Tabelle die Zeile suchen, jetzt, wo es sie gibt.
+        // The binding has carried the value in, but no row existed for it at
+        // that time: nothing is highlighted on the left while its data already
+        // shows on the right. Assigning the same value again does not help,
+        // because the property system discards an assignment without a change;
+        // the same applies to the index, which leads back to the same item.
+        // Only clearing and setting again makes the table look for the row,
+        // now that it exists.
         //
-        // Nur bei Index -1, also nur im widerspruechlichen Zustand: hat der
-        // Nutzer selbst gewaehlt, bleibt seine Auswahl unangetastet.
+        // Only at index -1, i.e. only in the inconsistent state: a selection
+        // made by hand stays untouched.
         //
-        // Mit Vorrang "Loaded" und nicht schlicht ueber den Dispatcher: die
-        // Ansicht wurde in dieser Zeile erst sichtbar geschaltet, ihre Zeilen
-        // entstehen im naechsten Layoutlauf.
+        // With priority "Loaded" and not simply through the dispatcher: the
+        // view has just been made visible, and its rows are created in the
+        // next layout pass.
         if (section == ShellSection.Satellites)
         {
             global::Avalonia.Threading.Dispatcher.UIThread.Post(() =>
@@ -975,8 +967,8 @@ public partial class ShellView : Window
                     dg_Satellites.SelectedItem = chosen;
                 }
 
-                // Der Fokus dazu: so laesst sich die Liste sofort mit den
-                // Pfeiltasten bedienen, ohne erst hineinzuklicken.
+                // Focus as well, so that the list can be operated with the
+                // arrow keys right away without clicking into it first.
                 dg_Satellites.Focus();
             },
             global::Avalonia.Threading.DispatcherPriority.Loaded);
@@ -1002,32 +994,30 @@ public partial class ShellView : Window
     }
 
     /// <summary>
-    /// Welcher Unterbau der eingebetteten Webansicht auf diesem System zur
-    /// Verfuegung steht.
+    /// Which engine for the embedded web view is available on this system.
     /// </summary>
     private enum WebEngine
     {
-        /// <summary>Kein Unterbau vorhanden - es bleibt nur der Browser.</summary>
+        /// <summary>No engine available; only the browser remains.</summary>
         None,
 
-        /// <summary>Der Normalfall: Windows WebView2 oder Linux mit WPE WebKit.</summary>
+        /// <summary>The normal case: WebView2 on Windows, or WPE WebKit on Linux.</summary>
         Native,
 
-        /// <summary>Linux ohne WPE, aber mit WebKitGTK - eingebettet ueber den Ersatzweg.</summary>
+        /// <summary>Linux without WPE but with WebKitGTK, embedded through the fallback path.</summary>
         WebKitGtk
     }
 
     /// <summary>
-    /// Die nativen Bibliotheken, die die eingebettete Ansicht unter Linux
-    /// braucht.
+    /// The native libraries the embedded view needs on Linux.
     /// <para>
-    /// Der Linux-Unterbau von <c>NativeWebView</c> ist nicht WebKitGTK, sondern
-    /// <b>WPE WebKit</b> - die Namen stehen als P/Invoke-Ziele in
-    /// <c>Avalonia.Controls.WebView.dll</c>. Debian 13 hat die Pakete, aber
-    /// installiert sie nicht von sich aus; fehlen sie, scheitert der Ladevorgang
-    /// im nativen Teil und nimmt den Prozess mit, statt eine Ausnahme zu werfen,
-    /// die sich abfangen liesse. Darum wird vorher geprueft statt hinterher
-    /// aufgefangen.
+    /// The Linux engine of <c>NativeWebView</c> is not WebKitGTK but
+    /// <b>WPE WebKit</b>; the names appear as P/Invoke targets in
+    /// <c>Avalonia.Controls.WebView.dll</c>. Debian 13 has the packages but
+    /// does not install them by default; if they are missing, loading fails in
+    /// the native part and takes down the process instead of throwing a
+    /// catchable exception. Hence the check beforehand instead of catching
+    /// afterwards.
     /// </para>
     /// </summary>
     private static readonly string[] WpeLibraries =
@@ -1037,7 +1027,7 @@ public partial class ShellView : Window
         "libWPEBackend-fdo-1.0.so.1"
     ];
 
-    /// <summary>Die GTK-Webengine, der dokumentierte Ersatzweg unter Linux.</summary>
+    /// <summary>The GTK web engine, the documented fallback on Linux.</summary>
     private static readonly string[] WebKitGtkLibraries =
     [
         "libwebkit2gtk-4.1.so.0",
@@ -1045,9 +1035,9 @@ public partial class ShellView : Window
     ];
 
     /// <summary>
-    /// Ordnet jeder Bibliothek aus <see cref="WpeLibraries"/> das apt-Paket zu,
-    /// das sie mitbringt - nur so laesst sich der Hinweistext auf das
-    /// beschraenken, was tatsaechlich fehlt.
+    /// Maps every library of <see cref="WpeLibraries"/> to the apt package that
+    /// provides it; only then can the hint be limited to what is actually
+    /// missing.
     /// </summary>
     private static readonly IReadOnlyDictionary<string, string> WpePackageBySoName =
         new Dictionary<string, string>
@@ -1058,18 +1048,18 @@ public partial class ShellView : Window
         };
 
     /// <summary>
-    /// Die apt-Pakete fuer die WPE-Bibliotheken, die auf diesem System fehlen.
-    /// Leer, wenn WPE vollstaendig vorhanden ist.
+    /// The apt packages for the WPE libraries missing on this system.
+    /// Empty if WPE is complete.
     /// </summary>
     private static IEnumerable<string> MissingWpePackages() =>
         WpeLibraries.Where(lib => !IsLibraryPresent(lib)).Select(lib => WpePackageBySoName[lib]);
 
     /// <summary>
-    /// Was in der Statuszeile steht, wenn der Graph im Browser geoeffnet wurde.
-    /// Nennt die Ursache und die Abhilfe beim Namen - "geht nicht" allein hilft
-    /// niemandem weiter. Listet nur die Pakete, die auf diesem System
-    /// tatsaechlich fehlen, statt pauschal alle drei - und nennt den echten
-    /// Grund, wenn WPE zwar da, das Embedding aber absichtlich aus ist.
+    /// The status line text when the graph has been opened in the browser.
+    /// Names cause and remedy, because "does not work" alone helps nobody.
+    /// Lists only the packages actually missing on this system instead of all
+    /// three, and names the real reason when WPE is present but embedding is
+    /// deliberately disabled.
     /// </summary>
     private static string NoEmbeddedViewHint()
     {
@@ -1079,7 +1069,7 @@ public partial class ShellView : Window
                    "it loads the page but never paints it (Avalonia.Controls.WebView issue, not a missing package).";
         }
 
-        // Fedora does not package WPE WebKit (packages.fedoraproject.org, checked 25.10.2026): no command to offer there
+        // Fedora does not package WPE WebKit (see packages.fedoraproject.org): no command to offer there.
         return "Opened in your browser: this system has no embedded web engine. " +
                "To get the view back inside the window, install WPE WebKit - on Debian and " +
                "Ubuntu that is: sudo apt install " + string.Join(' ', MissingWpePackages()) +
@@ -1087,31 +1077,30 @@ public partial class ShellView : Window
     }
 
     /// <summary>
-    /// Unter Linux abgeschaltet, obwohl die Erkennung und das Control fertig
-    /// dastehen. Getestet mit vollstaendig installiertem WPE (alle drei
-    /// Bibliotheken vorhanden, Prozesse starten, Seite laedt laut
-    /// <c>NavigationCompleted</c> erfolgreich, JavaScript und WebGL laufen) -
-    /// im Fenster bleibt es trotzdem leer. Es ist also nicht die Erkennung
-    /// oder das Nachladen, sondern die Bruecke zwischen WPEs Offscreen-Puffer
-    /// und Avalonias Compositor in <c>Avalonia.Controls.WebView</c> 12.0.1,
-    /// die auf diesem Weg nichts zeichnet. Ein kaputtes Embedding, das Erfolg
-    /// meldet, ist schlimmer als gar keins - deshalb bleibt es auf
-    /// <see cref="WebEngine.None"/> und damit beim Systembrowser, bis eine
-    /// neuere Paketversion das Zeichnen tatsaechlich zustande bringt.
+    /// Disabled on Linux although detection and control are in place. Tested
+    /// with WPE fully installed (all three libraries present, processes start,
+    /// the page loads successfully according to <c>NavigationCompleted</c>,
+    /// JavaScript and WebGL run), the window still stays empty. So it is not
+    /// detection or loading but the bridge between the WPE offscreen buffer
+    /// and the Avalonia compositor in <c>Avalonia.Controls.WebView</c> 12.0.1
+    /// that paints nothing on this path. A broken embedding that reports
+    /// success is worse than none, so Linux stays at
+    /// <see cref="WebEngine.None"/> and thus with the system browser until a
+    /// newer package version actually paints.
     /// </summary>
     private const bool EmbeddedWebViewEnabledOnLinux = false;
 
     /// <summary>
-    /// Bestimmt, womit die eingebettete Ansicht arbeiten kann.
+    /// Determines which engine the embedded view can use.
     /// <para>
-    /// Geprueft wird durch Laden der Bibliothek und nicht durch einen Versuch,
-    /// das Control zu erzeugen: der Fehlversuch beendet den Prozess, und ein
-    /// <c>try</c> darum herum hilft dagegen nicht.
+    /// Checked by loading the library, not by trying to create the control:
+    /// the failed attempt ends the process, and a <c>try</c> around it does
+    /// not help.
     /// </para>
     /// </summary>
     private static WebEngine AvailableWebEngine()
     {
-        // Windows und macOS bringen ihre Engine mit.
+        // Windows and macOS ship their engine.
         if (!OperatingSystem.IsLinux()) return WebEngine.Native;
 
         if (!EmbeddedWebViewEnabledOnLinux) return WebEngine.None;
@@ -1123,43 +1112,34 @@ public partial class ShellView : Window
     }
 
     /// <summary>
-    /// Der Unterbau, den die Webansicht auf diesem System bekommt. Einmal
-    /// beim Erzeugen bestimmt.
+    /// The engine the web view uses on this system. Determined once, in
+    /// <see cref="PrepareTopologyView"/>.
     /// </summary>
     private WebEngine _webEngine = WebEngine.Native;
 
-    /// <summary>
-    /// Bereitet die Topologie-Ansicht vor, <b>bevor</b> sie zum ersten Mal
-    /// sichtbar wird.
-    /// <para>
-    /// Das ist der Kern der Sache: <c>NativeWebView</c> erzeugt seinen nativen
-    /// Unterbau, sobald das Control in den sichtbaren Baum kommt - also
-    /// bereits beim Umschalten auf den Abschnitt, nicht erst beim Zeichnen.
-    /// Scheitert das unter Linux mangels WPE, bricht der Wechsel mittendrin ab
-    /// und die vorherige Ansicht bleibt stehen. Genau dieses Bild.
-    /// </para>
-    /// <para>
-    /// Darum wird das Control hier entweder auf den GTK-Ersatzweg gestellt
-    /// oder ganz aus dem Baum genommen - was nicht da ist, kann sich auch
-    /// nicht aufbauen.
-    /// </para>
-    /// </summary>
-    /// <summary>Die eingebettete Webansicht - erst vorhanden, wenn sie gebraucht wird.</summary>
+    /// <summary>The embedded web view; exists only once it is needed.</summary>
     private NativeWebView? _webTopology;
 
     private bool _topologyPrepared;
 
     /// <summary>
-    /// Haengt die Webansicht ein - beim ersten Aufschlagen der Topologie und
-    /// nicht frueher.
+    /// Attaches the web view when the topology is first shown, not earlier,
+    /// and <b>before</b> it becomes visible.
     /// <para>
-    /// <b>Warum so spaet:</b> die Anwendung darf beim Start nicht davon
-    /// abhaengen, dass eine Webengine vorhanden und heil ist. Ein Fehlschlag
-    /// unter Linux ist ein nativer Absturz, kein Fehler, den man abfangen kann.
-    /// Passiert er beim Erzeugen des Hauptfensters, verschwindet die ganze
-    /// Anwendung - und niemand kommt darauf, dass es an der Topologie lag, die
-    /// man gar nicht geoeffnet hat. Passiert er hier, hat der Nutzer gerade auf
-    /// "Topology" geklickt, und der Zusammenhang ist offensichtlich.
+    /// <c>NativeWebView</c> creates its native engine as soon as the control
+    /// enters the visual tree, i.e. already when switching to the section, not
+    /// only when drawing. If that fails on Linux for lack of WPE, the switch
+    /// aborts halfway and the previous view stays on screen. The control is
+    /// therefore either set to the GTK fallback here or not added to the tree
+    /// at all; what is not there cannot initialize.
+    /// </para>
+    /// <para>
+    /// <b>Why so late:</b> the application must not depend at start on a web
+    /// engine being present and intact. A failure on Linux is a native crash,
+    /// not a catchable error. If it happened while creating the main window,
+    /// the whole application would disappear, and nobody would suspect the
+    /// topology view that was never opened. Happening here, "Topology" has
+    /// just been clicked, and the connection is obvious.
     /// </para>
     /// </summary>
     private void PrepareTopologyView()
@@ -1171,10 +1151,10 @@ public partial class ShellView : Window
 
         if (_webEngine == WebEngine.None)
         {
-            // Kein Unterbau: gar nicht erst erzeugen. An seine Stelle kommt,
-            // was fehlt und wie es zu beheben ist - oder, falls WPE zwar da
-            // ist aber absichtlich abgeschaltet, dass es an Avalonia liegt
-            // und nicht an einer fehlenden Bibliothek.
+            // No engine: the control is not created at all. In its place comes
+            // what is missing and how to fix it, or, if WPE is present but
+            // deliberately disabled, that the cause is Avalonia and not a
+            // missing library.
             bool linuxEmbeddingDisabled = OperatingSystem.IsLinux() && !EmbeddedWebViewEnabledOnLinux
                                           && WpeLibraries.All(IsLibraryPresent);
 
@@ -1202,28 +1182,28 @@ public partial class ShellView : Window
 
         _webTopology = new NativeWebView();
 
-        // Ohne WPE, aber mit GTK: der dokumentierte Ersatzweg. Der Haken muss
-        // stehen, bevor das Control seinen Unterbau erzeugt - also jetzt.
+        // Without WPE but with GTK: the documented fallback. The handler must
+        // be in place before the control creates its engine, i.e. now.
         if (_webEngine == WebEngine.WebKitGtk) PreferWebKitGtk(_webTopology);
 
         host_Topology.Children.Add(_webTopology);
     }
 
     /// <summary>
-    /// Ob eine native Bibliothek auf diesem System vorhanden ist.
+    /// Whether a native library is present on this system.
     /// <para>
-    /// <b>Bewusst ohne sie zu laden.</b> Die naheliegende Fassung -
-    /// <c>NativeLibrary.TryLoad</c> und anschliessend <c>Free</c> - ist genau
-    /// hier gefaehrlich: <c>Free</c> ist ein <c>dlclose</c>, und WebKit, GTK und
-    /// WPE vertragen das nicht. Sie registrieren GObject-Typen, halten
-    /// threadlokalen Zustand und haengen sich in <c>atexit</c>; werden sie
-    /// wieder entladen, bleiben Zeiger auf Code stehen, den es nicht mehr gibt,
-    /// und der Prozess stirbt - ohne Ausnahme, die sich abfangen liesse.
+    /// <b>Deliberately without loading it.</b> The obvious approach,
+    /// <c>NativeLibrary.TryLoad</c> followed by <c>Free</c>, is dangerous
+    /// exactly here: <c>Free</c> is a <c>dlclose</c>, and WebKit, GTK and WPE
+    /// do not tolerate that. They register GObject types, hold thread-local
+    /// state and hook into <c>atexit</c>; once unloaded, pointers to code that
+    /// no longer exists remain, and the process dies without a catchable
+    /// exception.
     /// </para>
     /// <para>
-    /// Gesucht wird darum im Verzeichnis, so wie es auch der dynamische Linker
-    /// tut: erst der Zwischenspeicher von <c>ldconfig</c>, dann die ueblichen
-    /// Pfade als Rueckfall.
+    /// The search therefore looks at the file system, as the dynamic linker
+    /// does: first the <c>ldconfig</c> cache, then the usual paths as a
+    /// fallback.
     /// </para>
     /// </summary>
     private static bool IsLibraryPresent(string soname)
@@ -1245,8 +1225,8 @@ public partial class ShellView : Window
     }
 
     /// <summary>
-    /// Die Namen aller dem Linker bekannten Bibliotheken. Einmal gelesen, denn
-    /// dafuer laeuft ein fremder Prozess.
+    /// The names of all libraries known to the linker. Read once, because it
+    /// takes an external process.
     /// </summary>
     private static readonly Lazy<HashSet<string>> LdConfigCache = new(() =>
     {
@@ -1269,7 +1249,7 @@ public partial class ShellView : Window
             string output = process.StandardOutput.ReadToEnd();
             process.WaitForExit(3000);
 
-            // Zeilenformat: "\tlibfoo.so.1 (libc6,x86-64) => /usr/lib/libfoo.so.1"
+            // Line format: "\tlibfoo.so.1 (libc6,x86-64) => /usr/lib/libfoo.so.1"
             foreach (string line in output.Split('\n'))
             {
                 string trimmed = line.Trim();
@@ -1280,22 +1260,21 @@ public partial class ShellView : Window
         }
         catch (Exception)
         {
-            // Kein ldconfig erreichbar - dann entscheidet die Suche im
-            // Verzeichnis allein.
+            // No ldconfig available: the directory search alone decides.
         }
 
         return names;
     });
 
     /// <summary>
-    /// Schaltet die Ansicht auf den GTK-Unterbau um.
+    /// Switches the view to the GTK engine.
     /// <para>
-    /// Der Schalter kommt ueber <c>EnvironmentRequested</c>: das Ereignis wird
-    /// gerufen, waehrend die Ansicht ihren Unterbau aufbaut, und die
-    /// Ereignisdaten sind je Plattform andere. Unter Linux sind es
-    /// <c>LinuxWpeWebViewEnvironmentRequestedEventArgs</c> - nur dort gibt es
-    /// <c>PreferWebKitGtkInstead</c>, darum die Pruefung auf den Typ statt auf
-    /// das Betriebssystem.
+    /// The switch is set through <c>EnvironmentRequested</c>: the event is
+    /// raised while the view builds its engine, and the event data differ per
+    /// platform. On Linux they are
+    /// <c>LinuxWpeWebViewEnvironmentRequestedEventArgs</c>; only there does
+    /// <c>PreferWebKitGtkInstead</c> exist, hence the check for the type rather
+    /// than the operating system.
     /// </para>
     /// </summary>
     private static void PreferWebKitGtk(NativeWebView view)
@@ -1310,20 +1289,19 @@ public partial class ShellView : Window
     }
 
     /// <summary>
-    /// Zeichnet die Topologie aus dem aktuellen Bestand.
+    /// Draws the topology from the current devices.
     /// <para>
-    /// Bewusst auf Knopfdruck und nicht beim Aufschlagen der Ansicht: der
-    /// Graph wird als Datei geschrieben und ueber einen lokalen Webserver
-    /// geladen, und das bei jedem Klick in der Leiste zu tun waere
-    /// verschwenderisch.
+    /// Deliberately on button press and not when the view is shown: the graph
+    /// is written as a file and loaded through a local web server, and doing
+    /// that on every click in the rail would be wasteful.
     /// </para>
     /// </summary>
     private async void bt_DrawTopology_Click(object? sender, RoutedEventArgs e)
     {
         List<Device> devices;
 
-        // Unter der Sperre nur kopieren. Das Schreiben der Seite dauert, und
-        // solange duerfte kein Scan den Bestand veraendern.
+        // Only copies under the lock. Writing the page takes time, and no scan
+        // may change the devices for that long.
         lock (_store.SyncRoot)
         {
             devices = [.. _store.Devices];
@@ -1335,18 +1313,17 @@ public partial class ShellView : Window
             return;
         }
 
-        // Welche Sicht gezeichnet wird, entscheidet allein der Schalter - der
-        // Weg dorthin ist ab hier ein anderer, damit die Netzansicht von der
-        // Dienstansicht nichts mitbekommt.
+        // The switch alone decides which view is drawn; from here on the paths
+        // differ, so that the network view is not affected by the service view.
         bool services = rb_TopologyService.IsChecked == true;
 
         try
         {
             tb_TopologyHint.Text = $"Drawing {devices.Count} devices...";
 
-            // Der Unterbau steht seit dem Erzeugen des Fensters fest - er wird
-            // hier nur noch benutzt. Ihn jetzt erst zu bestimmen waere zu
-            // spaet: die Ansicht ist beim Umschalten laengst aufgebaut worden.
+            // The engine was determined in PrepareTopologyView and is only used
+            // here. Determining it now would be too late: the view was built
+            // when switching to the section.
             bool embedded = _webTopology is not null;
 
             IWebViewHost host = embedded
@@ -1373,23 +1350,21 @@ public partial class ShellView : Window
         }
         catch (Exception ex)
         {
-            // Die Webansicht faellt je nach System unterschiedlich aus - ein
-            // Fehler darf die Oberflaeche nicht mitnehmen.
+            // The web view behaves differently depending on the system; an
+            // error must not take the user interface down with it.
             tb_TopologyHint.Text = $"Could not draw: {ex.Message}";
         }
     }
 
     /// <summary>
-    /// Das Spendenfenster. Es hing bisher am alten Fenster; mit dessen
-    /// Wegfall braucht es einen eigenen Aufruf, sonst waere es nicht mehr
-    /// erreichbar.
+    /// The donation window, if open.
     /// </summary>
     private PayPalDonationView? _donationWindow;
 
     private void bt_Donate_Click(object? sender, RoutedEventArgs e)
     {
-        // Ein bereits offenes Fenster nur nach vorn holen, nicht doppelt
-        // erzeugen.
+        // An already open window is only brought to the front, not created
+        // twice.
         if (_donationWindow is not null)
         {
             _donationWindow.Activate();
@@ -1402,9 +1377,9 @@ public partial class ShellView : Window
     }
 
     /// <summary>
-    /// Beim Schliessen den vorgemerkten Stand der Bereiche sofort schreiben -
-    /// der Zeitgeber der verzoegerten Speicherung wuerde sonst nie mehr feuern
-    /// und die letzte Aenderung waere verloren.
+    /// Writes pending changes of the ranges immediately on closing; the timer
+    /// of the delayed save would otherwise never fire again, and the last
+    /// change would be lost.
     /// </summary>
     protected override void OnClosing(global::Avalonia.Controls.WindowClosingEventArgs e)
     {
@@ -1412,27 +1387,26 @@ public partial class ShellView : Window
         _shell.PortEditor.SaveNow();
         _shell.ServiceEditor.SaveNow();
 
-        // Die Satelliten schreiben bei jeder Aenderung sofort - kein
-        // Zeitgeber, keine Verzoegerung, weil die Liste kurz ist. Der Aufruf
-        // hier ist der Gurt fuer den Fall, dass doch etwas offen blieb.
+        // The satellites are written immediately on every change, without a
+        // timer or delay, because the list is short. The call here is a safety
+        // net in case something is still pending.
         _shell.SatelliteEditor.Save();
         _shell.SatelliteEditor.SaveHosts();
 
-        // Verbindungen sauber schliessen, damit die Gegenstellen sofort
-        // merken, dass hier Schluss ist, statt in eine Zeitgrenze zu laufen.
-        // Der Dienst ist davon nicht betroffen - er laeuft weiter, und genau
-        // dafuer gibt es ihn.
+        // Closes connections cleanly so that the peers notice right away
+        // instead of running into a timeout. The service is not affected: it
+        // keeps running, which is exactly what it exists for.
         _shell.SatelliteEditor.StopListening();
         _shell.SatelliteEditor.DisconnectAllHosts();
 
-        // Der Bestand zuletzt: er ist der groesste Brocken, und wenn dabei
-        // etwas schiefgeht, sind die Einstellungen wenigstens schon sicher.
+        // The devices last: they are the largest part, and if something goes
+        // wrong there, the settings are at least already safe.
         _shell.SaveLastScanResultNow();
 
         base.OnClosing(e);
     }
 
-    // ------------------------------------------------------ Einstellungen
+    // ------------------------------------------------------------ Settings
 
     private void bt_OpenSettingsFolder_Click(object? sender, RoutedEventArgs e) =>
         OpenFolder(_shell.SettingsFolder);
@@ -1453,7 +1427,7 @@ public partial class ShellView : Window
         }
         catch (Exception)
         {
-            // The check is a help, not a condition for using the program
+            // The check is a help, not a condition for using the program.
         }
     }
 
@@ -1461,11 +1435,11 @@ public partial class ShellView : Window
         OpenFolder(_shell.ApplicationFolder);
 
     /// <summary>
-    /// Oeffnet einen Ordner im Dateimanager des Systems.
+    /// Opens a folder in the file manager of the system.
     /// <para>
-    /// <c>UseShellExecute</c> ist der plattformneutrale Weg: Windows nimmt den
-    /// Explorer, Linux den eingestellten Dateimanager ueber xdg-open, macOS den
-    /// Finder. Ein fest verdrahtetes <c>explorer.exe</c> waere unter Linux tot.
+    /// <c>UseShellExecute</c> is the platform-neutral way: Windows uses
+    /// Explorer, Linux the configured file manager through xdg-open, macOS the
+    /// Finder. A hard-wired <c>explorer.exe</c> would not work on Linux.
     /// </para>
     /// </summary>
     private void OpenFolder(string path)
@@ -1478,8 +1452,8 @@ public partial class ShellView : Window
                 return;
             }
 
-            // Der Einstellungsordner entsteht erst beim ersten Speichern - ihn
-            // hier anzulegen ist freundlicher als die Meldung, dass es ihn nicht gibt.
+            // The settings folder is created only on the first save; creating it
+            // here is friendlier than a message that it does not exist.
             System.IO.Directory.CreateDirectory(path);
 
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
@@ -1533,7 +1507,7 @@ public partial class ShellView : Window
             _shell.StatusText = $"Export failed: {ex.Message}";
         }
 
-        // Semikolon und Zeilenumbrueche wuerden die Spalten zerreissen.
+        // Semicolons and line breaks would break the columns apart.
         static string Csv(string? value) =>
             (value ?? string.Empty).Replace(';', ',').Replace('\r', ' ').Replace('\n', ' ');
     }

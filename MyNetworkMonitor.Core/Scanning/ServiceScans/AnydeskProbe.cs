@@ -2,8 +2,8 @@ using System.Text;
 namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 {
     /// <summary>
-    /// AnyDesk. Nennt sich in der Antwort im Klartext - der einzige Dienst
-    /// hier, dessen Erkennung eine Zeichenfolge und kein Bytemuster ist.
+    /// AnyDesk. Names itself in plain text in its answer, which makes it the
+    /// only service here that is detected by a string rather than a byte pattern.
     /// </summary>
     public sealed class AnydeskProbe : ServiceProbeBase
     {
@@ -11,7 +11,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         public override string Group => ServiceGroups.Remote;
         public override IReadOnlyList<int> DefaultPorts => [7070];
 
-        /// <summary>Woertlich aus dem alten Schalter uebernommen - kein Byte veraendert.</summary>
+        /// <summary>A TLS ClientHello; AnyDesk answers with its own handshake.</summary>
         public override byte[] Hello => new byte[]
             {
                 0x16, 0x03, 0x01, 0x00, 0xb7, 0x01, 0x00, 0x00, 0xb3, 0x03, 0x03, 0xf9, 0x37, 0x7f, 0xaa, 0xd3,
@@ -28,13 +28,12 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                 0x03, 0x03, 0x03, 0x01, 0x03, 0x02, 0x04, 0x02, 0x05, 0x02, 0x06, 0x02
             };
 
-        /// <summary>Woertlich aus der alten Antwortpruefung uebernommen - keine Bedingung veraendert.</summary>
+        /// <summary>Matches when the answer contains the text "anydesk client", case-insensitive.</summary>
         public override bool Identify(byte[] response)
         {
             ServiceType service = Service;
             bool serviceMatched = false;
 
-            // ?? AnyDesk
             if (service == ServiceType.Anydesk)
             {
                 string tada2 = Encoding.ASCII.GetString(response);

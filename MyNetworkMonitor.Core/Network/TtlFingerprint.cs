@@ -1,27 +1,27 @@
 namespace MyNetworkMonitor.Core.Network
 {
     /// <summary>
-    /// Schaetzt aus der Rest-TTL einer Ping-Antwort das Betriebssystem des
-    /// Ziels.
+    /// Estimates the operating system of the target from the remaining TTL of a
+    /// ping reply.
     /// <para>
-    /// Der Trick dahinter: jedes Betriebssystem setzt beim Absenden eine
-    /// typische Anfangs-TTL, und jeder Router auf dem Rueckweg zieht genau eins
-    /// ab. Aufgerundet auf den naechsten ueblichen Startwert steht also die
-    /// Herkunft im Paket - und die Zahl der Zwischenstationen gleich mit.
+    /// The idea: every operating system sets a typical initial TTL when
+    /// sending, and every router on the way back subtracts exactly one. Rounded
+    /// up to the next common initial value, the packet thus reveals its origin -
+    /// and the number of hops along with it.
     /// </para>
     /// <para>
-    /// Bewusst als <b>Vermutung</b> benannt und nicht als Feststellung. Die
-    /// Anfangs-TTL laesst sich verstellen, und ein Ziel hinter einem NAT-Gateway
-    /// kann eine fremde tragen. Fuer die Frage "was steht da ueberhaupt
-    /// herum" reicht es trotzdem, und es kostet kein einziges Paket extra.
+    /// Deliberately labeled as a <b>guess</b> and not as a determination. The
+    /// initial TTL can be changed, and a target behind a NAT gateway can carry
+    /// a different one. For the question "what is out there at all" it is still
+    /// sufficient, and it costs not a single extra packet.
     /// </para>
     /// </summary>
     public static class TtlFingerprint
     {
         /// <summary>
-        /// Die ueblichen Anfangswerte. 64 deckt Linux, macOS, Android und die
-        /// allermeisten eingebetteten Geraete ab; 128 ist Windows; 255 nutzen
-        /// Netzwerkgeraete und einige aeltere Unix-Systeme.
+        /// The common initial values. 64 covers Linux, macOS, Android and the vast
+        /// majority of embedded devices; 128 is Windows; 255 is used by network
+        /// devices and some older Unix systems.
         /// </summary>
         private static readonly (int Initial, string Guess)[] Known =
         [
@@ -31,21 +31,21 @@ namespace MyNetworkMonitor.Core.Network
         ];
 
         /// <summary>
-        /// Wie weit die Rest-TTL hoechstens unter dem Startwert liegen darf,
-        /// damit der Startwert noch als der richtige gilt.
+        /// How far the remaining TTL may at most lie below the initial value for
+        /// that initial value to still count as the right one.
         /// <para>
-        /// 32 Zwischenstationen sind im lokalen Netz, um das es hier geht,
-        /// masslos viel - eine groessere Spanne wuerde aber anfangen, 128er in
-        /// den 255er-Topf zu ziehen und damit jeden Windows-Rechner hinter
-        /// genug Routern zum Switch zu erklaeren.
+        /// 32 hops are excessive on the local network this is about - but a
+        /// larger span would start pulling 128 into the 255 bucket and thus
+        /// declare every Windows machine behind enough routers a switch.
         /// </para>
         /// </summary>
         private const int MaxHops = 32;
 
         /// <summary>
-        /// Das vermutete Betriebssystem, oder <c>null</c>, wenn die TTL zu
-        /// keinem der bekannten Startwerte passt.
+        /// The guessed operating system, or <c>null</c> if the TTL matches none
+        /// of the known initial values.
         /// </summary>
+        /// <param name="ttl">The remaining TTL of the reply.</param>
         public static string? Guess(int ttl)
         {
             if (ttl <= 0) return null;
@@ -59,10 +59,11 @@ namespace MyNetworkMonitor.Core.Network
         }
 
         /// <summary>
-        /// Die Zahl der Zwischenstationen auf dem Rueckweg, oder <c>null</c>,
-        /// wenn der Startwert nicht zu bestimmen ist. Null Stationen heisst:
-        /// das Ziel liegt im selben Segment.
+        /// The number of hops on the way back, or <c>null</c> if the initial value
+        /// cannot be determined. Zero hops means the target is on the same
+        /// segment.
         /// </summary>
+        /// <param name="ttl">The remaining TTL of the reply.</param>
         public static int? Hops(int ttl)
         {
             if (ttl <= 0) return null;
@@ -76,10 +77,11 @@ namespace MyNetworkMonitor.Core.Network
         }
 
         /// <summary>
-        /// Die fertige Zeile fuer die Detailansicht, etwa
-        /// <c>"Windows (TTL 128, same segment)"</c>. <c>null</c>, wenn nichts
-        /// gemessen wurde - dann soll auch keine Zeile erscheinen.
+        /// The finished line for the detail view, for example
+        /// <c>"Windows (TTL 128, same segment)"</c>. <c>null</c> if nothing was
+        /// measured - then no line is shown either.
         /// </summary>
+        /// <param name="ttl">The remaining TTL of the reply.</param>
         public static string? Describe(int ttl)
         {
             string? guess = Guess(ttl);

@@ -5,67 +5,80 @@ using MyNetworkMonitor.Core.Model;
 namespace MyNetworkMonitor.Core.SatelliteLink
 {
     /// <summary>
-    /// Ein Scan-Auftrag als Text.
+    /// A scan job as text.
     /// <para>
-    /// Bewusst eine Zeile statt eines serialisierten Einstellungsbaums: so muss
-    /// nicht jede Option einzeln uebertragen und ueber Versionen hinweg
-    /// gepflegt werden, der Auftrag steht lesbar im Protokoll, und was der
-    /// Auftrag nicht nennt, bleibt beim Satelliten auf seiner Vorgabe.
+    /// Deliberately one line instead of a serialized settings tree: no option
+    /// has to be transferred and maintained across versions individually, the
+    /// job is readable in the log, and whatever the job does not mention stays
+    /// at the satellite's default.
     /// </para>
     /// <para>
-    /// Form:
+    /// Format:
     /// <code>
-    /// scan ranges=10.0.0.1-10.0.0.254;192.168.1.0/24 methods=ping,arp
+    /// scan ranges=10.0.0.1-10.0.0.254;198.51.100.0/24 methods=ping,arp
     ///      tcp=22,80,443 udp=161 timeout=2500 dns=10.0.0.1 gateway=10.0.0.1
     ///      group=IDF2
     /// </code>
-    /// Pflicht sind nur <c>scan</c> und <c>ranges</c>. Mehrere Bereiche werden
-    /// mit Semikolon getrennt, Listen innerhalb eines Feldes mit Komma.
+    /// Only <c>scan</c> and <c>ranges</c> are required. Several ranges are
+    /// separated by semicolons, lists within a field by commas.
     /// </para>
     /// </summary>
     public sealed class JobRequest
     {
-        /// <summary>Die zu scannenden Bereiche.</summary>
+        /// <summary>The ranges to scan.</summary>
         public List<ScanScope> Scopes { get; } = [];
 
-        /// <summary>Kennungen der Verfahren. Leer heisst: die Vorgabe des Satelliten.</summary>
+        /// <summary>Identifiers of the scan methods. Empty means the satellite's default.</summary>
         public List<string> MethodIds { get; } = [];
 
         /// <summary>
-        /// Die Verfahren, die nur abfragen sollen, was schon gefunden wurde.
+        /// The methods that only query what has already been found.
         /// <para>
-        /// Muss mit uebertragen werden, sonst arbeitet der Satellit anders als
-        /// derselbe Lauf oertlich: Portscan, Diensterkennung, NetBIOS und SMB
-        /// gingen dort ueber <em>alle</em> Adressen des Bereichs statt nur ueber
-        /// die gefundenen Geraete. Bei 128 Adressen und 83 Geraeten sind das 45
-        /// Ziele, an denen jeder Port ins Zeitlimit laeuft - der teuerste Teil
-        /// eines Laufs, fuer nichts.
+        /// Must be transferred, otherwise the satellite works differently from
+        /// the same run done locally: port scan, service detection, NetBIOS and
+        /// SMB would cover <em>all</em> addresses of the range instead of only
+        /// the devices found. With 128 addresses and 83 devices, that is 45
+        /// targets where every port runs into the timeout, the most expensive
+        /// part of a run, for nothing.
         /// </para>
         /// </summary>
         public List<string> OnlyKnownFor { get; } = [];
 
         /// <summary>
-        /// Ob der DNS-Quervergleich nur die Geraete prueft, die im Lauf
-        /// geantwortet haben. <c>null</c> heisst: der Auftrag sagt nichts dazu,
-        /// es bleibt bei der Vorgabe des Satelliten.
+        /// Whether the DNS cross-check only checks devices that answered in this
+        /// run. <c>null</c> means the job does not say, so the satellite's
+        /// default applies.
         /// </summary>
         public bool? CrossCheckOnlyKnown { get; private set; }
 
+        /// <summary>TCP ports to scan. Empty means the satellite's default.</summary>
         public List<int> TcpPorts { get; } = [];
+
+        /// <summary>UDP ports to scan. Empty means the satellite's default.</summary>
         public List<int> UdpPorts { get; } = [];
 
-        /// <summary>Zeitlimit je Port in Millisekunden, wenn genannt.</summary>
+        /// <summary>Timeout per port in milliseconds, if specified.</summary>
         public int? TimeoutMs { get; private set; }
 
-        /// <summary>Wenn der Auftrag nicht gelesen werden konnte - Klartext.</summary>
+        /// <summary>Plain-text reason if the job could not be read; otherwise <c>null</c>.</summary>
         public string? Problem { get; private set; }
 
+        /// <summary>True if the job was read without problems and names at least one range.</summary>
         public bool IsValid => Problem is null && Scopes.Count > 0;
 
         /// <summary>
-        /// Setzt einen Auftragstext aus Bereichen und Einstellungen zusammen -
-        /// die Gegenrichtung zu <see cref="Parse"/>.
+        /// Builds a job text from ranges and settings; the inverse of
+        /// <see cref="Parse"/>.
         /// </summary>
+        /// <param name="scopes">The ranges; adapter scopes are skipped. DNS, gateway and group are taken from the first scope that has them.</param>
+        /// <param name="methodIds">Scan method identifiers, or <c>null</c> for the satellite's default.</param>
+        /// <param name="tcpPorts">TCP ports, or <c>null</c> for the satellite's default.</param>
+        /// <param name="udpPorts">UDP ports, or <c>null</c> for the satellite's default.</param>
+        /// <param name="timeoutMs">Timeout per port in milliseconds, or <c>null</c>.</param>
+        /// <param name="onlyKnownFor">Methods that only query devices already found.</param>
+        /// <param name="crossCheckOnlyKnown">Scope of the DNS cross-check, or <c>null</c> for the satellite's default.</param>
+        /// <returns>The job as one line of text.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="scopes"/> is null.</exception>
         public static string Format(
             IEnumerable<ScanScope> scopes,
             IEnumerable<string>? methodIds = null,
@@ -100,9 +113,9 @@ namespace MyNetworkMonitor.Core.SatelliteLink
                         ranges.Add($"{scope.Prefix}/{scope.PrefixLength}");
                         break;
 
-                    // Der Adapter-Bereich ergibt beim Satelliten keinen Sinn -
-                    // er hat seine eigenen Adapter. Uebertragen wird, was sich
-                    // als Adressbereich ausdruecken laesst.
+                    // An adapter scope makes no sense on the satellite, which
+                    // has adapters of its own. Only what can be expressed as an
+                    // address range is transferred.
                     default:
                         break;
                 }
@@ -123,16 +136,16 @@ namespace MyNetworkMonitor.Core.SatelliteLink
             List<int> udp = [.. udpPorts ?? []];
             if (udp.Count > 0) parts.Add("udp=" + string.Join(',', udp));
 
-            // Nur die, die in diesem Auftrag ueberhaupt vorkommen - eine Liste
-            // von Verfahren, die gar nicht laufen, sagt nichts und macht den
-            // Auftragstext im Protokoll nur laenger.
+            // Only those that occur in this job at all: a list of methods that
+            // do not run says nothing and only lengthens the job text in the
+            // log.
             List<string> known = [.. (onlyKnownFor ?? [])
                 .Where(id => methods.Count == 0 || methods.Contains(id, StringComparer.OrdinalIgnoreCase))];
 
             if (known.Count > 0) parts.Add("known=" + string.Join(',', known));
 
-            // Nur wenn abgeschaltet: die Vorgabe ist "an", und was der Auftrag
-            // nicht nennt, bleibt beim Satelliten auf seiner Vorgabe.
+            // Only when switched off: the default is "on", and whatever the job
+            // does not mention stays at the satellite's default.
             if (crossCheckOnlyKnown is false) parts.Add("crosscheck=all");
 
             if (timeoutMs is > 0) parts.Add("timeout=" + timeoutMs.Value.ToString(CultureInfo.InvariantCulture));
@@ -144,10 +157,12 @@ namespace MyNetworkMonitor.Core.SatelliteLink
         }
 
         /// <summary>
-        /// Liest einen Auftragstext. Ein unverstaendlicher Auftrag ergibt ein
-        /// Ergebnis mit <see cref="Problem"/> statt einer Ausnahme: der Satellit
-        /// soll den Grund zurueckmelden koennen, nicht abstuerzen.
+        /// Reads a job text. An unintelligible job yields a result with
+        /// <see cref="Problem"/> set instead of an exception: the satellite must
+        /// be able to report the reason back, not crash.
         /// </summary>
+        /// <param name="text">The job text, as produced by <see cref="Format"/>.</param>
+        /// <returns>The parsed job; check <see cref="IsValid"/>.</returns>
         public static JobRequest Parse(string text)
         {
             JobRequest job = new();
@@ -189,9 +204,8 @@ namespace MyNetworkMonitor.Core.SatelliteLink
                     case "methods": job.MethodIds.AddRange(SplitList(value)); break;
                     case "known": job.OnlyKnownFor.AddRange(SplitList(value)); break;
 
-                    // "all" heisst: auch die alten Zeilen der Tabelle pruefen.
-                    // Alles andere heisst: nur, was in diesem Lauf geantwortet
-                    // hat.
+                    // "all" means: also check the older rows of the table.
+                    // Anything else means: only what answered in this run.
                     case "crosscheck":
                         job.CrossCheckOnlyKnown = !value.Equals("all", StringComparison.OrdinalIgnoreCase);
                         break;
@@ -210,10 +224,9 @@ namespace MyNetworkMonitor.Core.SatelliteLink
                         break;
 
                     default:
-                        // Unbekannte Felder werden uebergangen statt abgelehnt:
-                        // ein neuerer Hauptscanner darf mehr schicken, als
-                        // dieser Satellit versteht, ohne dass der Auftrag
-                        // scheitert.
+                        // Unknown fields are skipped rather than rejected: a
+                        // newer main scanner may send more than this satellite
+                        // understands without the job failing.
                         break;
                 }
             }
@@ -241,8 +254,8 @@ namespace MyNetworkMonitor.Core.SatelliteLink
         }
 
         /// <summary>
-        /// Ein einzelner Bereich: "a-b" als IPv4-Spanne, "adresse/laenge" als
-        /// IPv6-Praefix, alles andere als einzelnes Ziel.
+        /// A single range: "a-b" as an IPv4 span, "address/length" as a prefix
+        /// (IPv6, or IPv4 converted to a span), anything else as a single target.
         /// </summary>
         private static ScanScope? ParseRange(string part, string dns, string gateway, string group)
         {
@@ -284,8 +297,8 @@ namespace MyNetworkMonitor.Core.SatelliteLink
                     return scope;
                 }
 
-                // IPv4 mit Praefixlaenge: in erste und letzte Adresse umrechnen,
-                // weil der Bereichstyp genau so arbeitet.
+                // IPv4 with prefix length: converted to first and last address,
+                // because that is how the range type works.
                 if (length is < 0 or > 32) return null;
 
                 byte[] bytes = address.GetAddressBytes();
@@ -295,7 +308,7 @@ namespace MyNetworkMonitor.Core.SatelliteLink
                 uint start = raw & mask;
                 uint end = start | ~mask;
 
-                // Netz- und Rundrufadresse auslassen, sofern das Netz Platz dafuer hat.
+                // Skips network and broadcast address if the network is large enough.
                 if (length <= 30) { start++; end--; }
 
                 scope.Kind = ScanScopeKind.IPv4Range;

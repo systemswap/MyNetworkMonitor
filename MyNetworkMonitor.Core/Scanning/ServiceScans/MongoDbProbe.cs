@@ -1,7 +1,7 @@
 using System.Text;
 namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 {
-    /// <summary>MongoDB. Gefragt wird mit einer Wire-Protocol-Anfrage.</summary>
+    /// <summary>MongoDB. Asks with a wire protocol request.</summary>
     public sealed class MongoDbProbe : ServiceProbeBase
     {
         public override ServiceType Service => ServiceType.MongoDB;
@@ -10,7 +10,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
         /// <summary>
         /// OP_QUERY on <c>admin.$cmd</c> with <c>{ ismaster: 1, helloOk: true }</c>; the optional client metadata (program,
-        /// driver, operating system) is left out.
+        /// driver, operating system) is left out. See docs/FEHLERGEDAECHTNIS.md, No. 14.
         /// </summary>
         public override byte[] Hello => new byte[]
             {
@@ -21,7 +21,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                 0x6B, 0x00, 0x01, 0x00
             };
 
-        /// <summary>Woertlich aus der alten Antwortpruefung uebernommen - keine Bedingung veraendert.</summary>
+        /// <summary>Matches the reply header and the fields <c>helloOk</c> and <c>topologyVersion</c>.</summary>
         public override bool Identify(byte[] response)
         {
             ServiceType service = Service;
@@ -30,8 +30,8 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
             if (service == ServiceType.MongoDB)
             {
-                // Typischer MongoDB-Header in der Antwort
-                byte[] bjsonHeader = { 0x49, 0x01, 0x00, 0x00 };  // BJSON format beginnt so
+                // Typical MongoDB header in the answer
+                byte[] bjsonHeader = { 0x49, 0x01, 0x00, 0x00 };  // start of the expected reply
 
                 bool bjsonHeaderMatched = response.Take(4).SequenceEqual(bjsonHeader);
                 bool str_ContainsHelloOK = str_serviceResponse.ToLower().Contains("hellook");
@@ -47,15 +47,14 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Wertet die Antwort auf <c>isMaster</c> aus - die Frage, die das
-        /// Erkennungspaket ohnehin stellt und die jeder Server vor jeder
-        /// Anmeldung beantwortet, weil ein Client daraus erst lernt, wohin er
-        /// schreiben darf.
+        /// Evaluates the answer to <c>isMaster</c>, the request the detection
+        /// packet sends anyway and that every server answers before any login,
+        /// because a client learns from it where it may write.
         /// <para>
-        /// Eine Fassungsnummer steht nicht darin; <c>buildInfo</c> traegt sie,
-        /// verlangt aber je nach Einstellung eine Anmeldung. Was hier steht, ist
-        /// <c>maxWireVersion</c> - die Nummer des Protokollstandes, und die ist
-        /// fest an die Serverreihe gekoppelt.
+        /// The answer contains no version number; <c>buildInfo</c> does, but
+        /// may require a login depending on the configuration. What it does
+        /// contain is <c>maxWireVersion</c>, the wire protocol revision, which
+        /// is tied to the server release line.
         /// </para>
         /// </summary>
         protected override string? Describe(byte[] response)
@@ -71,8 +70,8 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                     : $"Wire protocol: {wire}");
             }
 
-            // Ein Satz mit "isdbgrid" kennzeichnet den Verteiler vor einem
-            // verteilten Bestand, keinen Server mit eigenen Daten.
+            // A message "isdbgrid" identifies the router in front of a sharded
+            // cluster, not a server with its own data.
             string role = ReadStringField(response, "msg") == "isdbgrid"
                 ? "mongos router"
                 : RoleOf(response);
@@ -82,8 +81,8 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             string replicaSet = ReadStringField(response, "setName");
             if (replicaSet.Length > 0) lines.Add($"Replica set: {replicaSet}");
 
-            // Wie der Server sich selbst nennt. Steht oft ein Name drin, den
-            // das DNS nicht kennt - der interne Name innerhalb des Verbunds.
+            // How the server names itself. Often a name unknown to DNS: the
+            // internal name within the replica set.
             string me = ReadStringField(response, "me");
             if (me.Length > 0) lines.Add($"Reports itself as: {me}");
 
@@ -91,9 +90,9 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Die Rolle im Verbund. Der Name des Feldes wechselte mit Fassung 5.0
-        /// von <c>ismaster</c> auf <c>isWritablePrimary</c>; beide werden
-        /// gelesen, weil beide Fassungen im Feld stehen.
+        /// The role in the replica set. MongoDB 5.0 renamed the field from
+        /// <c>ismaster</c> to <c>isWritablePrimary</c>; both are read, because
+        /// servers of both kinds are in use.
         /// </summary>
         private static string RoleOf(byte[] response)
         {
@@ -107,10 +106,10 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Die Serverreihe zu einem Protokollstand. Die Zuordnung ist von
-        /// MongoDB festgelegt und aendert sich rueckwirkend nicht - ein Server
-        /// mit Stand 21 ist ein 7.0er. Unbekannt heisst hier "neuer als das,
-        /// was zur Bauzeit bekannt war"; dann steht nur die Nummer da.
+        /// The server release for a wire protocol revision. The mapping is
+        /// defined by MongoDB and does not change retroactively: a server with
+        /// revision 21 is a 7.0. Unknown here means "newer than known at build
+        /// time"; then only the number is shown.
         /// </summary>
         private static string ReleaseOf(int wireVersion) => wireVersion switch
         {
@@ -127,10 +126,10 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         };
 
         /// <summary>
-        /// Sucht ein Feld in der BSON-Antwort und liefert die Stelle, an der
-        /// sein Wert beginnt, sowie den Typ davor. BSON reiht Felder als
-        /// <c>&lt;Typ&gt;&lt;Name&gt;\0&lt;Wert&gt;</c>; gesucht wird der Name
-        /// samt der Null dahinter, damit "me" nicht in "message" trifft.
+        /// Finds a field in the BSON answer and returns the position where its
+        /// value starts, plus the type before it. BSON lists fields as
+        /// <c>&lt;type&gt;&lt;name&gt;\0&lt;value&gt;</c>; the search includes the
+        /// zero after the name, so that "me" does not match inside "message".
         /// </summary>
         private static bool TryFindField(byte[] data, string name, out int valueStart, out byte type)
         {
@@ -150,7 +149,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
                 if (!match) continue;
 
-                // Das Byte vor dem Namen ist die Typkennung des Feldes.
+                // The byte before the name is the type of the field.
                 type = data[i - 1];
                 valueStart = i + pattern.Length;
 
@@ -160,7 +159,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             return false;
         }
 
-        /// <summary>Ein 32-Bit-Feld (Typ 0x10), little-endian.</summary>
+        /// <summary>A 32-bit integer field (type 0x10), little-endian.</summary>
         private static bool TryReadInt32Field(byte[] data, string name, out int value)
         {
             value = 0;
@@ -173,7 +172,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             return true;
         }
 
-        /// <summary>Ein Wahrheitsfeld (Typ 0x08). <c>null</c>, wenn es fehlt.</summary>
+        /// <summary>A Boolean field (type 0x08). <c>null</c> if it is missing.</summary>
         private static bool? ReadBoolField(byte[] data, string name)
         {
             if (!TryFindField(data, name, out int start, out byte type)) return null;
@@ -183,8 +182,8 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Ein Zeichenkettenfeld (Typ 0x02). Aufbau: vier Byte Laenge
-        /// einschliesslich der abschliessenden Null, dann der Text.
+        /// A string field (type 0x02). Layout: four bytes length including the
+        /// terminating zero, then the text.
         /// </summary>
         private static string ReadStringField(byte[] data, string name)
         {
@@ -193,8 +192,8 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
             int length = data[start] | data[start + 1] << 8 | data[start + 2] << 16 | data[start + 3] << 24;
 
-            // Die Laenge zaehlt die Null mit; unglaubwuerdige Werte werden
-            // verworfen, statt blind in den Puffer zu greifen.
+            // The length includes the zero; implausible values are rejected
+            // instead of reading blindly into the buffer.
             if (length is < 2 or > 256) return string.Empty;
             if (start + 4 + length > data.Length) return string.Empty;
 

@@ -3,8 +3,8 @@ using MyNetworkMonitor.Core.Services;
 namespace MyNetworkMonitor.Avalonia.Platform.Linux
 {
     /// <summary>
-    /// Linux-Implementierung von <see cref="IRegistryReader"/>. Unter Linux gibt es
-    /// keine Windows-Registry – daher existiert kein Schlüssel/Wert.
+    /// Linux implementation of <see cref="IRegistryReader"/>. Linux has no Windows
+    /// registry, so no key or value ever exists.
     /// </summary>
     public sealed class LinuxRegistryReader : IRegistryReader
     {

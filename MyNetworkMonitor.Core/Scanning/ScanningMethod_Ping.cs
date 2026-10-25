@@ -15,12 +15,21 @@ using System.Threading.Tasks;
 
 namespace MyNetworkMonitor
 {
+    /// <summary>
+    /// Pings the targets (ICMP echo) with up to three attempts and increasing timeouts.
+    /// </summary>
     public class ScanningMethods_Ping
     {
+        /// <summary>Creates the ping scanner.</summary>
         public ScanningMethods_Ping() { }
 
+        /// <summary>Reports progress as (sent, responded, total, status).</summary>
         public event Action<int, int, int, ScanStatus> ProgressUpdated;
+
+        /// <summary>Raised for every answering target, and with "show unused" also for silent ones.</summary>
         public event EventHandler<ScanTask_Finished_EventArgs>? Ping_Task_Finished;
+
+        /// <summary>Raised when all pings of a run have finished.</summary>
         public event Action<ScanStatus>? PingFinished;
 
 
@@ -28,27 +37,23 @@ namespace MyNetworkMonitor
         private readonly byte[] buffer = Encoding.ASCII.GetBytes("nothing less than the world domination pinky, nothing less!");
 
         /// <summary>
-        /// Wie viele Ziele gleichzeitig in der eigentlichen Ping-Wartezeit
-        /// stecken duerfen. Ohne diese Grenze liefen alle 254 Ziele eines /24
-        /// nahezu gleichzeitig los, und jedes stumme Ziel haengt bis zu drei
-        /// Versuche lang mit steigendem Zeitlimit fest (2,5s/5s/7,5s) - das
-        /// bringt den Thread-Pool ins Schwitzen und starb dabei nebenbei den
-        /// 400ms-Aktualisierungstimer der Ergebnistabelle: sie zieht dann erst
-        /// nach, wenn die Flut abgeebbt ist, und wirkt, als fuelle sie sich
-        /// erst am Ende. Der Wert orientiert sich an der Grenze, die die
-        /// IPv6-Verfahren fuer denselben Zweck schon benutzen.
+        /// How many targets may be in the actual ping wait at the same time. Without this limit
+        /// all 254 targets of a /24 start almost at once, and every silent target is stuck for up
+        /// to three attempts with increasing timeouts (2.5 s / 5 s / 7.5 s). That overloads the
+        /// thread pool and starves the 400 ms refresh timer of the result table, which then
+        /// catches up only after the flood has passed and seems to fill only at the end. The
+        /// value matches the limit the IPv6 methods use for the same purpose.
         /// </summary>
         private const int MaxConcurrentPings = 64;
 
         private readonly SemaphoreSlim _gate = new(MaxConcurrentPings);
 
         /// <summary>
-        /// Ob sich die eigene Nutzlast verschicken laesst. Unter Linux
-        /// erzwingt jede Nutzlast, die vom Standard abweicht, einen Rohsocket
-        /// - ohne <c>CAP_NET_RAW</c>/root schlaegt <em>jeder</em> Ping fehl,
-        /// statt nur "keine Antwort" zu melden. Einmal je Lauf gemessen statt
-        /// vermutet (Ping gegen sich selbst), damit nicht 254 Ziele denselben
-        /// Fehlschlag dreimal wiederholen, bevor der Ausweg greift.
+        /// Whether the custom payload can be sent. On Linux any payload other than the default
+        /// requires a raw socket; without <c>CAP_NET_RAW</c>/root <em>every</em> ping fails instead
+        /// of reporting "no answer". Measured once per run (a ping to the local host) instead of
+        /// assumed, so that 254 targets do not repeat the same failure three times before the
+        /// fallback applies.
         /// </summary>
         private bool? _customPayloadSupported;
 
@@ -56,28 +61,22 @@ namespace MyNetworkMonitor
         private int responded = 0;
         private int total = 0;
 
-        private CancellationTokenSource _cts = new CancellationTokenSource(); // 🔹 Ermöglicht das Abbrechen
+        private CancellationTokenSource _cts = new CancellationTokenSource(); // Allows the scan to be cancelled.
 
-        //int currentValue = Interlocked.Increment(ref current);
-        //Task.Run(() => ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running));
-
-        //int respondedValue = Interlocked.Increment(ref responded);
-        //Task.Run(() => ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running));
-
-        //Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished));
-
+        /// <summary>
+        /// Cancels the running scan and reports <see cref="ScanStatus.stopped"/>.
+        /// </summary>
         public void StopScan()
         {
             if (_cts != null && !_cts.IsCancellationRequested)
             {
-                _cts.Cancel(); // 🔹 Scan abbrechen
-                // Hier NICHT aufraeumen und ersetzen: die Schleifen lesen _cts ueber
-                // das Feld. Ein frisches CTS an dieser Stelle meldet ihnen wieder
-                // "nicht abgebrochen", und der Lauf geht weiter, statt zu enden.
-                // Das Zuruecksetzen erledigt StartNewScan beim naechsten Lauf.
+                _cts.Cancel();
+                // Do NOT dispose and replace the source here: the loops read _cts through the
+                // field. A fresh source at this point would report "not cancelled" to them and
+                // the run would continue instead of ending. StartNewScan resets it for the next run.
             }
            
-            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped); // 🔹 UI auf 0 setzen
+            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped); // Resets the progress display.
         }
 
         private void StartNewScan()
@@ -92,7 +91,7 @@ namespace MyNetworkMonitor
             }
             _cts = new CancellationTokenSource();
 
-            // 🔹 Zähler zurücksetzen
+            // Reset the counters.
             current = 0;
             responded = 0;
             total = 0;
@@ -102,9 +101,14 @@ namespace MyNetworkMonitor
 
 
 
+        /// <summary>
+        /// Pings every target that is a valid IP address, with its own timeout.
+        /// </summary>
+        /// <param name="IPsToRefresh">The targets.</param>
+        /// <param name="ShowUnused"><see langword="true"/> to report silent targets as well.</param>
         public async Task PingIPsAsync(List<IPToScan> IPsToRefresh, bool ShowUnused = false)
         {
-            StartNewScan(); // `_cts` wird hier zurückgesetzt
+            StartNewScan(); // Resets _cts.
 
             current = 0;
             responded = 0;
@@ -112,16 +116,15 @@ namespace MyNetworkMonitor
 
             ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running);
 
-            // Einmal je Lauf pruefen, nicht 254 Mal denselben Fehlschlag
-            // wiederholen: alle drei Versuche jedes einzelnen Ziels wuerden
-            // sonst an der fehlenden Berechtigung scheitern, bevor der Ausweg
-            // greift.
+            // Check once per run instead of repeating the same failure 254 times: otherwise all
+            // three attempts of every target would fail on the missing permission before the
+            // fallback applies.
             _customPayloadSupported = await CustomPayloadSupportedAsync();
 
             try
             {
                 var tasks = new List<Task>();
-                var ipListCopy = IPsToRefresh.ToList(); // 🔹 Erstelle eine Kopie der Liste
+                var ipListCopy = IPsToRefresh.ToList(); // Copy of the list
 
                 foreach (var ip in ipListCopy.Where(ip => !string.IsNullOrEmpty(ip.IPorHostname)))
                 {
@@ -147,7 +150,6 @@ namespace MyNetworkMonitor
             }
             finally
             {
-                //ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished);
                 PingFinished?.Invoke(ScanStatus.finished);
             }
         }
@@ -156,7 +158,7 @@ namespace MyNetworkMonitor
 
         private async Task PingTask(IPToScan ipToScan, int timeout, bool showUnused)
         {
-            if (_cts.Token.IsCancellationRequested) return; // 🔹 Falls Scan abgebrochen, sofort raus
+            if (_cts.Token.IsCancellationRequested) return;
 
             if (!new SupportMethods().Is_Valid_IP(ipToScan.IPorHostname)) 
             { 
@@ -164,21 +166,17 @@ namespace MyNetworkMonitor
             }
 
 
-            // Nicht mehr als MaxConcurrentPings gleichzeitig in der
-            // eigentlichen Wartezeit - sonst haengen bei einem /24 schnell
-            // 200+ stumme Ziele parallel fest, jedes bis zu drei Versuche
-            // lang, und der Thread-Pool kommt gegen die Anzeige-Aktualisierung
-            // nicht mehr an (siehe Kommentar an MaxConcurrentPings).
+            // No more than MaxConcurrentPings in the actual wait at a time; otherwise a /24 quickly
+            // has 200+ silent targets stuck in parallel, each for up to three attempts, and the
+            // thread pool can no longer keep up with the display refresh (see MaxConcurrentPings).
             await _gate.WaitAsync(_cts.Token);
 
             try
             {
-                // Gezaehlt wird die abgeschickte Anfrage, nicht die fertige
-                // Probe. Die Anzeige nennt drei Zahlen - gesendet, geantwortet,
-                // gesamt -, und darin ist "254 / 160 / 254" eine sinnvolle
-                // Aussage: alles raus, 160 Antworten da, auf den Rest wird noch
-                // gewartet. Nur mit zwei Zahlen waere daraus ein
-                // irrefuehrendes "fertig" geworden.
+                // Count the sent request, not the finished probe. The display shows three numbers,
+                // sent, responded and total, and "254 / 160 / 254" then means: everything sent,
+                // 160 answers received, the rest still pending. With only two numbers this would
+                // read as a misleading "finished".
                 int sentCount = Interlocked.Increment(ref current);
                 ProgressUpdated?.Invoke(sentCount, responded, total, ScanStatus.running);
 
@@ -186,15 +184,14 @@ namespace MyNetworkMonitor
                 PingReply reply = null;
                 bool success = false;
 
-                // Bis zu 3 Versuche mit steigenden Timeouts
+                // Up to three attempts with increasing timeouts.
                 for (int attempt = 1; attempt <= 3; attempt++)
                 {
-                    _cts.Token.ThrowIfCancellationRequested(); // 🔹 Falls gestoppt, sofort beenden
+                    _cts.Token.ThrowIfCancellationRequested();
 
-                    // Mit Token: ohne ihn laeuft die angefangene Probe bis zu
-                    // ihrem Timeout weiter, und beim dritten Versuch ist das
-                    // das Dreifache. Genau daran hing, dass "Stop" erst nach
-                    // vielen Sekunden wirkte.
+                    // With the token: without it a started probe runs until its timeout, which is
+                    // three times as long on the third attempt, and "Stop" takes many seconds to
+                    // take effect.
                     reply = _customPayloadSupported == true
                         ? await ping.SendPingAsync(
                             ipToScan.IPorHostname,
@@ -207,18 +204,18 @@ namespace MyNetworkMonitor
                     if (reply != null && reply.Status == IPStatus.Success)
                     {
                         success = true;
-                        break; // Erfolgreich, keine weiteren Versuche nötig
+                        break; // Answered; no further attempts needed.
                     }
 
                     if (attempt < 3)
                     {
                         try
                         {
-                            await Task.Delay(100, _cts.Token); // 🔹 Falls gestoppt, bricht es sofort ab
+                            await Task.Delay(100, _cts.Token); // Ends at once when stopped.
                         }
                         catch (TaskCanceledException)
                         {
-                            return; // 🔹 Falls Scan gestoppt, sofort raus
+                            return;
                         }
                     }
                 }
@@ -229,22 +226,20 @@ namespace MyNetworkMonitor
                 ipToScan.PingStatus = success;
                 ipToScan.UsedScanMethod = ScanMethod.Ping;
 
-                // Die Rest-TTL der Antwort. Sie liegt ohnehin im Paket - sie
-                // nicht zu lesen hiesse, eine Auskunft ueber das Betriebssystem
-                // wegzuwerfen, die nichts kostet. Auswertung in TtlFingerprint.
+                // The remaining TTL of the answer. It is in the packet anyway and hints at the
+                // operating system at no cost; TtlFingerprint evaluates it.
                 if (success) ipToScan.TTL = reply?.Options?.Ttl ?? 0;
 
-                // Nur eine echte Antwort zaehlt als Antwort. Mit "show unused"
-                // laeuft auch ein stummes Ziel bis hierher - es mitzuzaehlen
-                // machte aus der mittleren Zahl eine zweite Kopie der ersten
-                // und damit die ganze Anzeige wertlos.
+                // Only a real answer counts as a response. With "show unused" a silent target also
+                // gets here; counting it would make the middle number a copy of the first one and
+                // the whole display worthless.
                 if (success)
                 {
                     int responsedCount = Interlocked.Increment(ref responded);
                     ProgressUpdated?.Invoke(current, responsedCount, total, ScanStatus.running);
                 }
 
-                // Event auslösen
+                // Report the result.
                 Ping_Task_Finished?.Invoke(this, new ScanTask_Finished_EventArgs { ipToScan = ipToScan });
             }
             catch (OperationCanceledException)
@@ -262,12 +257,12 @@ namespace MyNetworkMonitor
         }
 
         /// <summary>
-        /// Ein Ping ohne eigene Nutzlast und ohne eigene <see cref="PingOptions"/>
-        /// - die einfachste Form, die unter Linux ohne <c>CAP_NET_RAW</c>/root
-        /// auskommt. Die einfachen Ueberladungen von <see cref="Ping.SendPingAsync"/>
-        /// kennen kein <see cref="CancellationToken"/>; das Rennen gegen
-        /// <see cref="Task.Delay(int, CancellationToken)"/> gleicht das aus, damit
-        /// "Stop" auch hier sofort wirkt statt erst nach dem vollen Zeitlimit.
+        /// A ping without a custom payload and without custom <see cref="PingOptions"/>, the
+        /// simplest form, which works on Linux without <c>CAP_NET_RAW</c>/root. The simple
+        /// overloads of <see cref="Ping.SendPingAsync(string, int)"/> take no
+        /// <see cref="CancellationToken"/>; racing against
+        /// <see cref="Task.Delay(int, CancellationToken)"/> makes "Stop" take effect at once here
+        /// too instead of after the full timeout.
         /// </summary>
         private static async Task<PingReply> SendPlainPingAsync(
             Ping ping, string hostNameOrAddress, int timeoutMs, CancellationToken cancellationToken)
@@ -282,16 +277,15 @@ namespace MyNetworkMonitor
         }
 
         /// <summary>
-        /// Prueft einmal, ob sich die eigene Nutzlast verschicken laesst - ein
-        /// schneller Ping gegen die eigene Loopback-Adresse statt einer Annahme.
+        /// Checks once whether the custom payload can be sent: a quick ping to the loopback
+        /// address instead of an assumption.
         /// <para>
-        /// Der Fehlertext war urspruenglich Pinky-und-der-Brain-Zitat und blieb
-        /// es auch als Grund fuer diese Pruefung: er sollte neugierige
-        /// Netzwerk-Admins beim Mitschneiden zum Schmunzeln bringen, nicht den
-        /// Scan lahmlegen. Also bleibt die Nutzlast, wo sie funktioniert - und
-        /// weicht nur dort einem einfachen Ping, wo sie es nicht tut.
+        /// The payload text is meant to amuse network administrators who capture the traffic, not
+        /// to break the scan. It is therefore used where it works and replaced by a plain ping only
+        /// where it does not.
         /// </para>
         /// </summary>
+        /// <returns><see langword="true"/> if a ping with the custom payload can be sent.</returns>
         private async Task<bool> CustomPayloadSupportedAsync()
         {
             try

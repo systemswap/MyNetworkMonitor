@@ -1,216 +1,243 @@
 using System.Text.Json.Serialization;
 
-// Der Namensraum heisst SatelliteLink und nicht Satellite: der Typ
-// Models.Satellite traegt diesen Namen, und ein gleichnamiger Namensraum
-// verdeckt ihn ueberall in Core.
+// The namespace is called SatelliteLink and not Satellite: the type
+// Models.Satellite has that name, and a namespace of the same name would
+// hide it everywhere in Core.
 namespace MyNetworkMonitor.Core.SatelliteLink
 {
-    /// <summary>Die Nachrichtenarten des Satellitenprotokolls. Siehe SATELLIT.md, Abschnitt 6.</summary>
+    /// <summary>The message types of the satellite protocol. See SATELLIT.md, section 6.</summary>
     public static class MessageType
     {
-        // Satellit -> Hauptscanner
+        // Satellite -> main scanner
+
+        /// <summary>First message of a connection: name, version, operating system, site.</summary>
         public const string Hello = "hello";
+
+        /// <summary>Progress of the running job.</summary>
         public const string Progress = "progress";
+
+        /// <summary>The job has been accepted and started.</summary>
         public const string Accepted = "accepted";
+
+        /// <summary>The job was refused because another job is running.</summary>
         public const string Busy = "busy";
+
+        /// <summary>The devices found by a job.</summary>
         public const string Result = "result";
+
+        /// <summary>The job was cancelled.</summary>
         public const string Cancelled = "cancelled";
+
+        /// <summary>An error with a plain-text message.</summary>
         public const string Error = "error";
+
+        /// <summary>Answer to <see cref="Ping"/>.</summary>
         public const string Pong = "pong";
 
-        // Hauptscanner -> Satellit
+        // Main scanner -> satellite
+
+        /// <summary>The satellite is approved; jobs may follow.</summary>
         public const string Welcome = "welcome";
+
+        /// <summary>The satellite is connected but waits for approval.</summary>
         public const string Pending = "pending";
+
+        /// <summary>A scan job; the job text is in <see cref="SatelliteMessage.Text"/>.</summary>
         public const string Job = "job";
+
+        /// <summary>Cancels a job.</summary>
         public const string Cancel = "cancel";
+
+        /// <summary>Acknowledges receipt of a <see cref="Result"/>.</summary>
         public const string ResultAck = "resultAck";
+
+        /// <summary>The main scanner listens on a new port from now on.</summary>
         public const string ListenPortChanged = "listenPortChanged";
+
+        /// <summary>Keep-alive check; both sides answer with <see cref="Pong"/>.</summary>
         public const string Ping = "ping";
     }
 
     /// <summary>
-    /// Eine Nachricht des Satellitenprotokolls.
+    /// A message of the satellite protocol.
     /// <para>
-    /// Bewusst <em>ein</em> Umschlag mit lauter freilassbaren Feldern statt
-    /// einer Klasse je Art: das erspart die Polymorphie beim Lesen und macht
-    /// einen Mitschnitt lesbar. Was zu einer Art gehoert, steht am jeweiligen
-    /// Feld.
+    /// Deliberately <em>one</em> envelope with optional fields instead of one
+    /// class per type: this avoids polymorphism when reading and keeps a
+    /// capture readable. Which type uses a field is noted at the field.
     /// </para>
     /// </summary>
     public sealed class SatelliteMessage
     {
-        /// <summary>Eine der Konstanten aus <see cref="MessageType"/>.</summary>
+        /// <summary>One of the constants of <see cref="MessageType"/>.</summary>
         public string Type { get; set; } = string.Empty;
 
         /// <summary>
-        /// Fassung des Protokolls. Starr: passt sie nicht, wird abgelehnt -
-        /// halb verstandene Auftraege sind schlimmer als eine klare Meldung.
+        /// Protocol version. Strict: a mismatch is rejected, because half
+        /// understood jobs are worse than a clear message.
         /// </summary>
         public int ProtocolVersion { get; set; }
 
-        // --- Begruessung -----------------------------------------------------
+        // --- Greeting --------------------------------------------------------
 
-        /// <summary>Der Name, den der Satellit sich selbst gibt.</summary>
+        /// <summary>The name the satellite gives itself.</summary>
         public string? Name { get; set; }
 
-        /// <summary>Anwendungsversion der Gegenstelle.</summary>
+        /// <summary>Application version of the peer.</summary>
         public string? AppVersion { get; set; }
 
-        /// <summary>Betriebssystem der Gegenstelle.</summary>
+        /// <summary>Operating system of the peer.</summary>
         public string? Os { get; set; }
 
         /// <summary>
-        /// Wo der Satellit steht: Rechnername, Domaene, Adressen und Netze.
+        /// Where the satellite is located: host name, domain, addresses and
+        /// networks.
         /// <para>
-        /// Wird bei <em>jeder</em> Anmeldung neu erhoben und mitgeschickt, nicht
-        /// nur beim ersten Mal. Nach einem Neustart, einem Adapterwechsel oder
-        /// einer neuen DHCP-Lease stehen drueben sonst weiter die alten
-        /// Adressen, und die Auswahl zeigte einen Bereich, den es nicht mehr
-        /// gibt.
+        /// Collected and sent anew with <em>every</em> login, not only the first
+        /// time. After a restart, an adapter change or a new DHCP lease, the
+        /// main scanner would otherwise keep the old addresses, and the
+        /// selection would show a range that no longer exists.
         /// </para>
         /// <para>
-        /// Ohne diese Angaben sieht man am Hauptscanner nur einen Namen und
-        /// muesste raten, ob dieser Satellit fuer einen Bereich der richtige
-        /// ist - genau das war der Anlass.
+        /// Without this information, the main scanner shows only a name, and
+        /// whether this satellite is the right one for a range would be guesswork.
         /// </para>
         /// </summary>
         public SitePayload? Site { get; set; }
 
-        // --- Auftrag und Lauf ------------------------------------------------
+        // --- Job and run -----------------------------------------------------
 
-        /// <summary>Kennung des Auftrags, auf den sich die Nachricht bezieht.</summary>
+        /// <summary>Identifier of the job the message refers to.</summary>
         public string? JobId { get; set; }
 
-        /// <summary>Wer abgebrochen hat - damit ein Auftrag nie unerklaert verschwindet.</summary>
+        /// <summary>Who cancelled, so that a job never disappears unexplained.</summary>
         public string? CancelledBy { get; set; }
 
-        /// <summary>Fortschritt: Verfahren, gesendet, geantwortet, gesamt.</summary>
+        /// <summary>Progress: method, sent, answered, total.</summary>
         public ProgressPayload? Progress { get; set; }
 
-        // --- Sonstiges -------------------------------------------------------
+        // --- Other -----------------------------------------------------------
 
         /// <summary>
-        /// Bei <see cref="MessageType.Job"/> der Auftragstext, bei
-        /// <see cref="MessageType.Error"/> die Meldung fuer den Nutzer.
+        /// For <see cref="MessageType.Job"/> the job text, for
+        /// <see cref="MessageType.Error"/> the message to display.
         /// </summary>
         public string? Text { get; set; }
 
         /// <summary>
-        /// Bei <see cref="MessageType.Result"/> der gefundene Bestand, im
-        /// selben Format wie <c>lastScanResult.json</c>.
+        /// For <see cref="MessageType.Result"/> the devices found, in the same
+        /// format as <c>lastScanResult.json</c>.
         /// </summary>
         public string? Devices { get; set; }
 
         /// <summary>
-        /// Bei <see cref="MessageType.Result"/>: der Auftrag wurde abgebrochen,
-        /// der Bestand ist der Stand bis dahin.
+        /// For <see cref="MessageType.Result"/>: the job was cancelled, and the
+        /// devices are those found up to that point.
         /// <para>
-        /// Ein abgebrochener Lauf hat nicht alles gesehen. Ohne diesen Merker
-        /// waere sein Ergebnis von einem vollstaendigen nicht zu
-        /// unterscheiden, und aus "hier stehen nur diese Geraete" wuerde ein
-        /// Schluss, den die Daten nicht hergeben. Aeltere Satelliten setzen
-        /// das Feld nicht - dann ist es <c>false</c>, und das ist richtig so:
-        /// sie schicken bei Abbruch ueberhaupt nichts.
+        /// A cancelled run has not seen everything. Without this flag its result
+        /// could not be told apart from a complete one, and "only these devices
+        /// are here" would become a conclusion the data does not support.
+        /// Satellites that do not know the field leave it <c>false</c>, which is
+        /// correct: they send nothing at all when cancelled.
         /// </para>
         /// </summary>
         public bool Partial { get; set; }
 
-        /// <summary>Neuer Port des Hauptscanners, fuer den naechsten Verbindungsaufbau.</summary>
+        /// <summary>New port of the main scanner, for the next connection attempt.</summary>
         public int? ListenPort { get; set; }
 
+        /// <summary>True if this is a <see cref="MessageType.Hello"/>.</summary>
         [JsonIgnore]
         public bool IsHello => Type == MessageType.Hello;
     }
 
     /// <summary>
-    /// Fortschritt eines laufenden Auftrags.
+    /// Progress of a running job.
     /// <para>
-    /// Traegt dieselben Angaben wie die oertliche Anzeige: welches Verfahren
-    /// laeuft, wie weit der Auftrag ist, was fertig und was offen ist - und
-    /// die drei Zahlen des laufenden Verfahrens. Ohne sie sieht man aus der
-    /// Ferne nur, <em>dass</em> der Satellit arbeitet; ob ein Verfahren noch
-    /// etwas bringt oder nur noch in Zeitueberschreitungen laeuft, steht
-    /// genau in diesen Zahlen.
+    /// Carries the same information as the local display: which method is
+    /// running, how far the job is, what is done and what is pending, plus the
+    /// three counters of the running method. Without them, a remote view shows
+    /// only <em>that</em> the satellite works; whether a method still yields
+    /// results or only runs into timeouts is exactly what these counters show.
     /// </para>
     /// </summary>
     public sealed class ProgressPayload
     {
         /// <summary>
-        /// 0 bis 100 - der Stand des <em>laufenden Verfahrens</em>, nicht der
-        /// des ganzen Auftrags.
+        /// 0 to 100: the progress of the <em>running method</em>, not of the
+        /// whole job.
         /// <para>
-        /// Vorher stand hier der Anteil fertiger Verfahren. Bei drei
-        /// Verfahren sprang die Zahl damit von 0 auf 33 auf 67 auf 100, und
-        /// zwischen den Spruengen stand sie minutenlang still - gerade
-        /// waehrend der langen Verfahren sah es aus, als haenge der Satellit.
-        /// Gefragt ist, wie weit das gerade laufende Verfahren ist: "Ping
-        /// 40 %".
+        /// Not the share of completed methods: with three methods, that number
+        /// jumps from 0 to 33 to 67 to 100 and stands still for minutes in
+        /// between, so during long methods the satellite looks hung. What
+        /// matters is how far the running method is: "Ping 40 %".
         /// </para>
         /// </summary>
         public int Percent { get; set; }
 
-        /// <summary>Das Verfahren, das gerade laeuft.</summary>
+        /// <summary>The method that is running.</summary>
         public string Current { get; set; } = string.Empty;
 
-        /// <summary>Das wievielte Verfahren des Auftrags gerade laeuft.</summary>
+        /// <summary>The position of the running method within the job.</summary>
         public int Step { get; set; }
 
-        /// <summary>Wie viele Verfahren der Auftrag umfasst.</summary>
+        /// <summary>How many methods the job comprises.</summary>
         public int Steps { get; set; }
 
-        /// <summary>Was schon fertig ist - wie <c>CompletedScansText</c> oertlich.</summary>
+        /// <summary>What is already done, like <c>CompletedScansText</c> locally.</summary>
         public string Done { get; set; } = string.Empty;
 
-        /// <summary>Was noch aussteht - wie <c>PendingScansText</c> oertlich.</summary>
+        /// <summary>What is still pending, like <c>PendingScansText</c> locally.</summary>
         public string Pending { get; set; } = string.Empty;
 
-        // --- Die drei Zahlen des laufenden Verfahrens ------------------------
+        // --- The three counters of the running method ------------------------
         //
-        // Dieselbe Bedeutung wie oertlich im Kommandobalken: abgeschickt,
-        // geantwortet, gesamt. Aeltere Satelliten kennen die Felder nicht und
-        // lassen sie auf 0 - die Anzeige blendet sie dann aus, statt drei
-        // Nullen zu zeigen.
+        // Same meaning as in the local command bar: sent, answered, total.
+        // Satellites that do not know the fields leave them at 0; the display
+        // then hides them instead of showing three zeros.
 
-        /// <summary>Abgeschickte Anfragen des laufenden Verfahrens.</summary>
+        /// <summary>Requests sent by the running method.</summary>
         public int Sent { get; set; }
 
-        /// <summary>Ziele, die darauf geantwortet haben.</summary>
+        /// <summary>Targets that answered.</summary>
         public int Answered { get; set; }
 
-        /// <summary>Ziele des laufenden Verfahrens insgesamt.</summary>
+        /// <summary>Total targets of the running method.</summary>
         public int Total { get; set; }
     }
 
     /// <summary>
-    /// Der Standort eines Satelliten, wie er ihn selbst meldet.
+    /// The location of a satellite, as it reports itself.
     /// <para>
-    /// Bewusst schlichte Zeichenketten und keine Adressobjekte: die Angaben
-    /// werden drueben nur angezeigt und verglichen, nie gerechnet. Was der
-    /// Satellit meldet, ist ausserdem eine Auskunft und keine Zusicherung -
-    /// der Hauptscanner scannt weiterhin die Bereiche, die <em>er</em>
-    /// zugewiesen hat, nicht die, die der Satellit nennt.
+    /// Deliberately plain strings and no address objects: the main scanner
+    /// only displays and compares the values, never computes with them. What
+    /// the satellite reports is information, not a guarantee: the main scanner
+    /// keeps scanning the ranges <em>it</em> assigned, not those the satellite
+    /// names.
     /// </para>
     /// </summary>
     public sealed class SitePayload
     {
+        /// <summary>Host name of the satellite.</summary>
         public string HostName { get; set; } = string.Empty;
 
+        /// <summary>DNS domain of the satellite, if any.</summary>
         public string Domain { get; set; } = string.Empty;
 
-        /// <summary>Alle brauchbaren IPv4-Adressen, durch Komma getrennt.</summary>
+        /// <summary>All usable IPv4 addresses, comma-separated.</summary>
         public string Ipv4 { get; set; } = string.Empty;
 
-        /// <summary>Alle brauchbaren IPv6-Adressen, durch Komma getrennt.</summary>
+        /// <summary>All usable IPv6 addresses, comma-separated.</summary>
         public string Ipv6 { get; set; } = string.Empty;
 
         /// <summary>
-        /// Das Netz, das den Satelliten am ehesten beschreibt, etwa
-        /// <c>192.0.2.0/24</c> - das des Adapters mit Standardgateway. Genau
-        /// dieses steht drueben in der Auswahl hinter dem Namen.
+        /// The network that best describes the satellite, for example
+        /// <c>192.0.2.0/24</c>: that of the adapter with the default gateway.
+        /// The main scanner shows exactly this one after the name in its
+        /// selection.
         /// </summary>
         public string PrimaryNetwork { get; set; } = string.Empty;
 
-        /// <summary>Alle Netze, durch Komma getrennt.</summary>
+        /// <summary>All networks, comma-separated.</summary>
         public string Networks { get; set; } = string.Empty;
     }
 }

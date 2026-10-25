@@ -1,18 +1,20 @@
 namespace MyNetworkMonitor.Core.Model
 {
     /// <summary>
-    /// Ordnet einen Dienst seiner Gruppe zu - dieselbe Gliederung, die das
-    /// <c>ServiceType</c>-Enum bereits durch seine Reihenfolge vorgibt.
+    /// Assigns a service to its group, following the same structure that the
+    /// order of the <c>ServiceType</c> enum already defines.
     /// <para>
-    /// Bewusst eine eigene Stelle: die Zuordnung wird nicht nur vom regulaeren
-    /// Dienstscan gebraucht, sondern auch von der Portsuche ueber alle Ports.
-    /// Stuende sie nur im Scan-Adapter, bekaeme derselbe Dienst je nach
-    /// Fundweg eine andere Kategorie - und stuende in der Detailansicht
-    /// zweimal untereinander.
+    /// Kept in one place on purpose: both the regular service scan and the
+    /// all-ports search need the assignment. If it lived only in the scan
+    /// adapter, the same service would get a different category depending on
+    /// how it was found and would appear twice in the detail view.
     /// </para>
     /// </summary>
     public static class ServiceCategories
     {
+        /// <summary>Returns the category name of a service.</summary>
+        /// <param name="service">The service to classify.</param>
+        /// <returns>"Network", "Remote", "Databases" or "Other".</returns>
         public static string Of(ServiceType service) => service switch
         {
             ServiceType.WebServices or ServiceType.DNS_TCP or ServiceType.DNS_UDP

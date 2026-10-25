@@ -4,29 +4,29 @@ using Newtonsoft.Json;
 namespace MyNetworkMonitor.Core.Services
 {
     /// <summary>
-    /// Zweite Sicht auf dieselben Daten: nicht wer mit wem im Netz liegt,
-    /// sondern wo ein Dienst ueberall laeuft.
+    /// A second view of the same data: not which devices share a network, but
+    /// where a service runs.
     /// <para>
-    /// Bewusst ein eigener Zweig neben <see cref="TopologyGraph"/> und nicht
-    /// eine Erweiterung davon. Die Netzansicht funktioniert; eine zweite
-    /// Gruppierung in dieselbe Erzeugung zu ziehen, haette beide Sichten
-    /// aneinander gebunden, ohne dass sie sich etwas zu sagen haetten.
+    /// Deliberately a separate branch next to <see cref="TopologyGraph"/> rather
+    /// than an extension of it. Pulling a second grouping into the same
+    /// generation would tie both views together although they have nothing in
+    /// common.
     /// </para>
     /// <para>
-    /// Gebaut ist es wie die Netzansicht: eine Wolke je Dienst, sternfoermig
-    /// um einen Knoten, mit dem Schild darueber. Anders ist nur, was in der
-    /// Mitte steht - dort haengt nicht das erste Geraet der Gruppe, sondern
-    /// der Dienst selbst.
+    /// Built like the network view: one cloud per service, arranged as a star
+    /// around one node, with the label above it. The only difference is what
+    /// sits in the middle - not the first device of the group, but the service
+    /// itself.
     /// </para>
     /// <para>
-    /// Die Versionen bekommen keine eigene Ebene. Als Zwischenknoten haben sie
-    /// den Stern in Buescheln zerlegt und die Wolke unkenntlich gemacht; im
-    /// Tooltip des Geraets stehen sie da, wo man sie sucht.
+    /// Versions get no level of their own. As intermediate nodes they break the
+    /// star into tufts and make the cloud unrecognizable; they appear in the
+    /// device tooltip, where they are expected.
     /// </para>
     /// <para>
-    /// Was keinen Dienst fuehrt, kommt nicht in den Graph. Es aufzunehmen waere
-    /// richtig und trotzdem unbrauchbar: die leeren Punkte sind die Mehrzahl
-    /// und verdecken das, was man sehen will.
+    /// Devices without a service are not included in the graph. Including them
+    /// would be correct but useless: the empty points are the majority and hide
+    /// what is meant to be seen.
     /// </para>
     /// </summary>
     public static class ServiceTopologyGraph
@@ -38,9 +38,9 @@ namespace MyNetworkMonitor.Core.Services
             "<script src=\"./libs/3d-force-graph.min.js\"></script>";
 
         /// <summary>
-        /// Ein Knoten im Dienstgraph. <c>kind</c> entscheidet ueber Groesse und
-        /// Beschriftung, <c>group</c> ueber die Farbe - und der Dienstname als
-        /// Gruppe heisst: eine Farbe je Dienst, ueber alle Netze hinweg.
+        /// A node in the service graph. <c>kind</c> determines size and label,
+        /// <c>group</c> the color - and the service name as group means one color
+        /// per service, across all networks.
         /// </summary>
         private sealed record Node(
             string id, string kind, string group, string label,
@@ -50,10 +50,12 @@ namespace MyNetworkMonitor.Core.Services
         private sealed record Link(string source, string target);
 
         /// <summary>
-        /// Baut den Dienstgraph. Genommen wird, was am Geraet als offen vermerkt
-        /// ist - dieselbe Quelle wie die Spalte "Running services", damit Graph
-        /// und Tabelle nicht auseinanderlaufen.
+        /// Builds the service graph. Uses what is recorded as open on the device -
+        /// the same source as the "Running services" column, so graph and table
+        /// do not diverge.
         /// </summary>
+        /// <param name="devices">The scanned devices.</param>
+        /// <returns>The graph as JSON with <c>nodes</c> and <c>links</c> for 3d-force-graph.</returns>
         public static string BuildGraphJson(IReadOnlyList<Model.Device> devices)
         {
             ArgumentNullException.ThrowIfNull(devices);
@@ -62,18 +64,18 @@ namespace MyNetworkMonitor.Core.Services
             List<Link> links = [];
             int nextId = 0;
 
-            // Die Netzadresse je Gruppe, einmal vorab. Sie ergibt sich aus
-            // allen Geraeten der Gruppe - auch aus denen ohne Dienst, die
-            // selbst nicht in den Graph kommen: fuer die Adresse des Netzes
-            // zaehlt jedes Mitglied.
+            // The network address per group, computed once up front. It derives
+            // from all devices of the group - including those without a service,
+            // which do not appear in the graph themselves: every member counts
+            // for the network address.
             Dictionary<string, string> networksByGroup = devices
                 .GroupBy(d => d.GroupDescription ?? string.Empty)
                 .ToDictionary(
                     g => g.Key,
                     g => NetworkOf([.. g.Select(d => d.PrimaryAddress?.Info.Canonical ?? string.Empty)]));
 
-            // Dienst → Geraete, die ihn fahren. Ein Geraet kann denselben
-            // Dienst ueber mehrere Ports melden; gezaehlt wird es einmal.
+            // Service to the devices running it. A device can report the same
+            // service on several ports; it is counted once.
             IEnumerable<IGrouping<string, (string Service, Model.Device Device, Model.DeviceServiceResult Result)>> byService =
                 devices
                     .SelectMany(d => d.OpenServices.Select(s => (Service: s.ServiceName, Device: d, Result: s)))
@@ -92,8 +94,8 @@ namespace MyNetworkMonitor.Core.Services
                     string groupKey = device.GroupDescription ?? string.Empty;
                     string network = networksByGroup.TryGetValue(groupKey, out string? net) ? net : string.Empty;
 
-                    // Die Befunde dieses Geraets zu genau diesem Dienst - ein
-                    // Geraet kann ihn ueber mehrere Ports melden.
+                    // The findings of this device for exactly this service - a
+                    // device can report it on several ports.
                     List<Model.DeviceServiceResult> results = [.. device.OpenServices.Where(s =>
                         string.Equals(s.ServiceName, service, StringComparison.OrdinalIgnoreCase))];
 
@@ -114,10 +116,10 @@ namespace MyNetworkMonitor.Core.Services
                     links.Add(new Link(serviceId, deviceId));
                 }
 
-                // Der Dienstknoten steht bewusst hinter seinen Geraeten in der
-                // Liste: die Kraftsimulation zieht den spaeter eingefuegten
-                // Knoten in die Mitte dessen, woran er haengt - genau dorthin,
-                // wo die Mitte der Wolke sein soll.
+                // The service node deliberately follows its devices in the list:
+                // the force simulation pulls the node inserted later into the
+                // center of what it is linked to - exactly where the center of
+                // the cloud belongs.
                 nodes.Add(new Node(
                     id: serviceId, kind: "service", group: service, label: service,
                     service: service,
@@ -131,9 +133,9 @@ namespace MyNetworkMonitor.Core.Services
         }
 
         /// <summary>
-        /// Die Versionen eines Dienstes. Steht im Protokoll ein
-        /// "... versions: a, b", sind das die Staende; sonst meldet der Dienst
-        /// keine, und es bleibt bei der Feststellung, dass er laeuft.
+        /// The versions of a service. If the log contains a
+        /// "... versions: a, b", those are the versions; otherwise the service
+        /// reports none, and only the fact that it runs remains.
         /// </summary>
         private static IReadOnlyList<string> VersionsOf(Model.DeviceServiceResult service)
         {
@@ -159,17 +161,17 @@ namespace MyNetworkMonitor.Core.Services
             return ports.Count == 0 ? string.Empty : string.Join(", ", ports);
         }
 
-        /// <summary>Netzadresse, ersatzweise die Beschreibung - eines von beidem gibt es immer.</summary>
+        /// <summary>Network address, or the description as fallback - one of them always exists.</summary>
         private static string NetworkLabel(string network, string groupDescription) =>
             network.Length > 0
                 ? (groupDescription.Length > 0 ? $"{network} ({groupDescription})" : network)
                 : (groupDescription.Length > 0 ? groupDescription : "not specified");
 
         /// <summary>
-        /// Die gemeinsame Netzadresse einer Gruppe, aus den Adressen ihrer
-        /// Mitglieder abgelesen. Dieselbe Ueberlegung wie in der Netzansicht,
-        /// nur hier schon in C#, weil das Netz beim Bauen des Graphs gebraucht
-        /// wird und nicht erst beim Zeichnen.
+        /// The common network address of a group, derived from the addresses of
+        /// its members. The same reasoning as in the network view, but done in C#
+        /// here because the network is needed when building the graph, not only
+        /// when drawing it.
         /// </summary>
         private static string NetworkOf(IReadOnlyList<string> addresses)
         {
@@ -191,8 +193,8 @@ namespace MyNetworkMonitor.Core.Services
                 return string.Empty;
             }
 
-            // IPv6: nur der gemeinsame Blockanfang, ohne eine Praefixlaenge zu
-            // behaupten - die abgekuerzte Schreibweise laesst sich nicht zaehlen.
+            // IPv6: only the common leading blocks, without claiming a prefix
+            // length - the abbreviated notation cannot be counted.
             string[] blocks = ips[0].Split(':');
             int shared = 0;
 
@@ -215,9 +217,12 @@ namespace MyNetworkMonitor.Core.Services
         }
 
         /// <summary>
-        /// Dieselbe Seite wie in der Netzansicht, mit dem Unterschied, dass die
-        /// Schilder ueber den Dienstwolken stehen statt ueber den Netzen.
+        /// The same page as in the network view, except that the labels sit
+        /// above the service clouds instead of above the networks.
         /// </summary>
+        /// <param name="graphJson">The graph from <see cref="BuildGraphJson"/>.</param>
+        /// <param name="useOnlineVersion">Load 3d-force-graph from the CDN instead of the bundled copy.</param>
+        /// <returns>The complete HTML page.</returns>
         public static string BuildHtml(string graphJson, bool useOnlineVersion)
         {
             string libraryTag = useOnlineVersion ? OnlineLibrary : LocalLibrary;
@@ -425,10 +430,14 @@ namespace MyNetworkMonitor.Core.Services
         }
 
         /// <summary>
-        /// Schreibt die Seite in den Graph-Ordner und liefert ihren Pfad. Der
-        /// Dateiname unterscheidet sich vom Netzgraph, damit beide Sichten
-        /// nebeneinander im Ordner liegen bleiben.
+        /// Writes the page into the graph folder and returns its path. The file
+        /// name differs from the network graph so both views can stay side by
+        /// side in the folder.
         /// </summary>
+        /// <param name="graphFolder">The target folder; created if missing.</param>
+        /// <param name="devices">The scanned devices.</param>
+        /// <param name="useOnlineVersion">Load 3d-force-graph from the CDN instead of the bundled copy.</param>
+        /// <returns>The full path of the written HTML file.</returns>
         public static string WriteHtmlFile(string graphFolder, IReadOnlyList<Model.Device> devices,
                                            bool useOnlineVersion)
         {

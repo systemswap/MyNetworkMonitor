@@ -1,18 +1,18 @@
 namespace MyNetworkMonitor.Core.Services
 {
     /// <summary>
-    /// Kapselt das Hosting einer eingebetteten Webansicht hinter einer neutralen
-    /// Schnittstelle. Die WPF-Implementierung nutzt WebView2; die spätere
-    /// Avalonia-Implementierung nutzt WebViewControl-Avalonia (CEF/Chromium).
-    /// Die Fensterlogik (HTML-Erzeugung, lokaler Server, Navigation) haengt nur
-    /// noch von diesem Interface ab.
+    /// Encapsulates hosting of an embedded web view behind a neutral interface.
+    /// The implementations use the system web engine (WebView2 on Windows,
+    /// WebKitGTK on Linux) or hand the page over to the system browser.
+    /// The window logic (HTML generation, local server, navigation) depends
+    /// only on this interface.
     /// </summary>
     public interface IWebViewHost
     {
-        /// <summary>Initialisiert die zugrunde liegende Webansicht (einmalig).</summary>
+        /// <summary>Initializes the underlying web view (once).</summary>
         Task EnsureInitializedAsync();
 
-        /// <summary>Navigiert die Webansicht zur angegebenen URL.</summary>
+        /// <summary>Navigates the web view to the given URL.</summary>
         void Navigate(string url);
     }
 }

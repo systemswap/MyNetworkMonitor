@@ -1,9 +1,9 @@
 namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 {
     /// <summary>
-    /// Microsoft Remote Desktop. Gefragt wird mit einer X.224-Verbindungs-
-    /// anfrage; die Antwort ist ein TPKT-Paket, das im COTP-Teil den Code
-    /// "Connection Confirm" traegt.
+    /// Microsoft Remote Desktop. Asks with an X.224 Connection Request; the
+    /// answer is a TPKT packet whose COTP part carries the code "Connection
+    /// Confirm" (MS-RDPBCGR 2.2.1.1 and 2.2.1.2).
     /// </summary>
     public sealed class RdpProbe : ServiceProbeBase
     {
@@ -11,18 +11,21 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         public override string Group => ServiceGroups.Remote;
         public override IReadOnlyList<int> DefaultPorts => [3389];
 
-        /// <summary>Woertlich aus dem alten Schalter uebernommen - kein Byte veraendert.</summary>
+        /// <summary>
+        /// X.224 Connection Request with an RDP Negotiation Request
+        /// (MS-RDPBCGR 2.2.1.1.1) asking for TLS and CredSSP.
+        /// </summary>
         public override byte[] Hello => new byte[] { 0x03, 0x00, 0x00, 0x13, 0x0e, 0xe0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x08, 0x00, 0x03, 0x00, 0x00, 0x00 };
 
-        /// <summary>Woertlich aus der alten Antwortpruefung uebernommen - keine Bedingung veraendert.</summary>
+        /// <summary>Matches a TPKT packet whose X.224 code is Connection Confirm (0xD0).</summary>
         public override bool Identify(byte[] response)
         {
             ServiceType service = Service;
             bool serviceMatched = false;
 
-            // ?? RDP: Antwort auf die X.224-Verbindungsanfrage ist ein TPKT-Paket
-            // (0x03 0x00 ...), das im COTP-Teil den Code 0xD0 (Connection Confirm)
-            // traegt.
+            // RDP: the answer to the X.224 Connection Request is a TPKT packet
+            // (0x03 0x00 ...) whose COTP part carries the code 0xD0 (Connection
+            // Confirm).
             if (service == ServiceType.RDP)
             {
                 if (response.Length >= 6 && response[0] == 0x03 && response[1] == 0x00 && response[5] == 0xD0)
@@ -35,26 +38,27 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Welche Sicherheitsschicht der Server fuer die Anmeldung waehlt.
+        /// The security layer the server selects for the login.
         /// <para>
-        /// Das Erkennungspaket fragt bereits nach TLS und CredSSP - die letzten
-        /// vier Byte der Anfrage sind genau diese beiden Wuensche. Was der
-        /// Server daraufhin waehlt, steht in seiner Antwort und ist die
-        /// eigentliche Auskunft: <c>CredSSP</c> heisst, dass sich ein Betrachter
-        /// ausweisen muss, <em>bevor</em> ein Anmeldebildschirm erscheint. Fehlt
-        /// es, nimmt der Server jede Verbindung bis zum Anmeldebildschirm an -
-        /// die Lage, die Wuermer wie BlueKeep gebraucht haben.
+        /// The detection packet already asks for TLS and CredSSP; the last four
+        /// bytes of the request are exactly these two flags. What the server
+        /// selects in response is in its answer and is the actual information:
+        /// <c>CredSSP</c> means a client must authenticate <em>before</em> a
+        /// login screen appears. Without it, the server accepts every connection
+        /// up to the login screen, the situation worms exploiting BlueKeep
+        /// (CVE-2019-0708) relied on.
         /// </para>
         /// <para>
-        /// Reines Mitlesen der Antwort auf das ohnehin gesendete Paket; kein
-        /// Anmeldeversuch und keine zweite Verbindung.
+        /// Only the answer to the packet that is sent anyway is read; no login
+        /// attempt and no second connection.
         /// </para>
         /// </summary>
         protected override string? Describe(byte[] response)
         {
-            // Der Aushandlungsteil beginnt hinter TPKT-Kopf (4) und X.224-Bestaetigung
-            // (7). Fehlt er, hat der Server ohne Aushandlung bestaetigt - das
-            // ist selbst die Auskunft, denn dann bleibt es beim alten Verfahren.
+            // The negotiation part starts after the TPKT header (4) and the X.224
+            // Connection Confirm (7). If it is missing, the server confirmed
+            // without negotiation, which is the information itself: standard
+            // RDP security applies.
             const int negotiation = 11;
 
             if (response.Length < negotiation + 1)
@@ -64,8 +68,8 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
             byte type = response[negotiation];
 
-            // 0x02 - der Server nennt das gewaehlte Verfahren in den vier Byte
-            // ab Position 15, little-endian.
+            // 0x02, RDP_NEG_RSP (MS-RDPBCGR 2.2.1.2.1): the server names the
+            // selected protocol in the four bytes from offset 15, little-endian.
             if (type == 0x02 && response.Length >= negotiation + 8)
             {
                 int selected = response[negotiation + 4]
@@ -76,8 +80,9 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                 return $"Security: {ProtocolName(selected)}";
             }
 
-            // 0x03 - er lehnt das Gewuenschte ab und nennt den Grund. Auch das
-            // ist eine Aussage ueber seine Einstellung, keine Stoerung.
+            // 0x03, RDP_NEG_FAILURE (MS-RDPBCGR 2.2.1.2.2): it rejects the
+            // request and names the reason. That too is a statement about its
+            // configuration, not a fault.
             if (type == 0x03 && response.Length >= negotiation + 8)
             {
                 return $"Security: {FailureReason(response[negotiation + 4])}";
@@ -86,7 +91,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             return "Security: Standard RDP (no NLA)";
         }
 
-        /// <summary>Die Verfahren aus der RDP-Festlegung; sie sind Bitwerte.</summary>
+        /// <summary>The protocols from MS-RDPBCGR 2.2.1.1.1; they are bit flags.</summary>
         private static string ProtocolName(int selected) => selected switch
         {
             0x00 => "Standard RDP (no NLA)",
@@ -98,9 +103,9 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         };
 
         /// <summary>
-        /// Die Ablehnungsgruende. Zwei davon sind keine schlechte Nachricht:
-        /// wer TLS oder NLA <em>verlangt</em>, ist strenger eingestellt als der,
-        /// der alles annimmt.
+        /// The failure codes. Two of them are not bad news: a server that
+        /// <em>requires</em> TLS or NLA is configured more strictly than one
+        /// that accepts everything.
         /// </summary>
         private static string FailureReason(byte code) => code switch
         {

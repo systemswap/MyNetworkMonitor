@@ -5,10 +5,8 @@ using Newtonsoft.Json;
 namespace MyNetworkMonitor.Core.Services
 {
     /// <summary>
-    /// Erzeugt die Daten der 3D-Topologie aus der Ergebnistabelle. Enthaelt
-    /// bewusst keinerlei UI-Bezug (im WPF-Original lag alles in
-    /// VisualizeTopologieWindow.xaml.cs), damit WPF und Avalonia dieselbe
-    /// Darstellung erzeugen.
+    /// Generates the data of the 3D topology from the scan results. Deliberately
+    /// free of any UI dependency, so every view produces the same rendering.
     /// </summary>
     public static class TopologyGraph
     {
@@ -18,12 +16,13 @@ namespace MyNetworkMonitor.Core.Services
         private const string LocalLibrary =
             "<script src=\"./libs/3d-force-graph.min.js\"></script>";
 
+        /// <summary>A node in the network graph; property names are the JSON names used by the page.</summary>
         private sealed record Node(string id, string group, string label, string hostname, string ip, string mac, string lookupIPs);
 
         /// <summary>
-        /// Eine Kante im Graph. Die Merkmale schliessen einander nicht aus -
-        /// dieselben zwei Geraete koennen sich eine Adresse und einen Namen
-        /// teilen -, die Farbgebung entscheidet sich fuer das schwerere.
+        /// An edge in the graph. The flags are not mutually exclusive - the same
+        /// two devices can share an address and a name -; the coloring picks the
+        /// more severe one.
         /// </summary>
         private sealed record Link(
             string source, string target,
@@ -31,17 +30,18 @@ namespace MyNetworkMonitor.Core.Services
             bool isDuplicatedMac, bool isDnsConflict);
 
         /// <summary>
-        /// Baut den Graph aus dem neuen Geraetemodell.
+        /// Builds the graph from the device model.
         /// <para>
-        /// Gegenueber der <see cref="DataTable"/>-Fassung wird nicht neu
-        /// gruppiert, sondern genommen, was der
-        /// <see cref="Model.DuplicateDetector"/> bereits festgestellt hat -
-        /// zwei Stellen, die dieselbe Frage unabhaengig voneinander
-        /// beantworten, geben frueher oder spaeter verschiedene Antworten.
-        /// Die Kanten selbst muessen trotzdem hier entstehen: der Detektor
-        /// vermerkt am Geraet <em>dass</em> etwas doppelt ist, nicht, mit wem.
+        /// Unlike the <see cref="DataTable"/> variant, nothing is regrouped here;
+        /// the graph takes what <see cref="Model.DuplicateDetector"/> has already
+        /// determined - two places answering the same question independently
+        /// sooner or later give different answers. The edges themselves still
+        /// have to be created here: the detector records on the device
+        /// <em>that</em> something is duplicated, not with whom.
         /// </para>
         /// </summary>
+        /// <param name="devices">The scanned devices.</param>
+        /// <returns>The graph as JSON with <c>nodes</c> and <c>links</c> for 3d-force-graph.</returns>
         public static string BuildGraphJson(IReadOnlyList<Model.Device> devices)
         {
             ArgumentNullException.ThrowIfNull(devices);
@@ -69,7 +69,7 @@ namespace MyNetworkMonitor.Core.Services
             HashSet<Link> links = [];
             HashSet<(string, string)> duplicatePairs = [];
 
-            // Geraete derselben Gruppe sternfoermig am ersten Knoten aufhaengen
+            // Attach devices of the same group as a star to the first node.
             foreach (IGrouping<string, Model.Device> group in devices.GroupBy(d => d.GroupDescription))
             {
                 List<Model.Device> members = [.. group];
@@ -81,9 +81,9 @@ namespace MyNetworkMonitor.Core.Services
                 }
             }
 
-            // Doppelt vergebene Adresse. Link-Local bleibt draussen, aus
-            // demselben Grund wie im Detektor: fe80::1 je Schnittstelle ist
-            // keine Doppelvergabe.
+            // Duplicated address. Link-local addresses are excluded for the same
+            // reason as in the detector: fe80::1 per interface is no duplicate
+            // assignment.
             Pair(devices
                     .SelectMany(d => d.Addresses
                         .Where(a => a.Info.Scope != Network.IpAddressScope.LinkLocal)
@@ -95,10 +95,9 @@ namespace MyNetworkMonitor.Core.Services
                         .GroupBy(d => d.HostName, StringComparer.OrdinalIgnoreCase),
                  (a, b) => new Link(a, b, false, false, true, false, false));
 
-            // Der Name zeigt auf eine Adresse, an der ein anderes Geraet
-            // antwortet. Das ist die Kante, die es ohne DNS nicht gaebe - und
-            // die einzige, die zwei Geraete verbindet, die einander sonst
-            // nirgends beruehren.
+            // The name points to an address at which another device answers.
+            // This edge would not exist without DNS - and it is the only one
+            // connecting two devices that otherwise touch nowhere.
             foreach (Model.Device device in devices.Where(d => d.WasLookedUp))
             {
                 foreach (string address in device.LookupAddresses)
@@ -148,10 +147,12 @@ namespace MyNetworkMonitor.Core.Services
         }
 
         /// <summary>
-        /// Baut Knoten und Kanten als JSON. Kanten entstehen aus der
-        /// Gruppenzugehoerigkeit, aus LookUpIPs und aus Dubletten (IP, Hostname,
-        /// MAC) - letztere jeweils bidirektional, damit sie im Graph auffallen.
+        /// Builds nodes and edges as JSON from the result table. Edges come from
+        /// group membership, from LookUpIPs and from duplicates (IP, host name,
+        /// MAC) - the latter in both directions so they stand out in the graph.
         /// </summary>
+        /// <param name="resultTable">The scan result table.</param>
+        /// <returns>The graph as JSON with <c>nodes</c> and <c>links</c> for 3d-force-graph.</returns>
         public static string BuildGraphJson(DataTable resultTable)
         {
             List<Node> nodes = resultTable.AsEnumerable()
@@ -168,7 +169,7 @@ namespace MyNetworkMonitor.Core.Services
             var links = new HashSet<(string source, string target, bool isLookup, bool isDuplicatedIP,
                                      bool isDuplicatedHostname, bool isDuplicatedMac)>();
 
-            // Geraete derselben IP-Gruppe sternfoermig am ersten Knoten aufhaengen
+            // Attach devices of the same IP group as a star to the first node.
             foreach (IGrouping<string, Node> group in nodes.GroupBy(n => n.group))
             {
                 List<Node> groupNodes = group.ToList();
@@ -181,7 +182,7 @@ namespace MyNetworkMonitor.Core.Services
                 }
             }
 
-            // LookUpIPs verbinden nur, wenn die Ziel-IP selbst als Geraet in der Tabelle steht
+            // LookUpIPs only connect if the target IP is itself a device in the table.
             foreach (Node node in nodes)
             {
                 if (string.IsNullOrEmpty(node.lookupIPs)) continue;
@@ -200,7 +201,7 @@ namespace MyNetworkMonitor.Core.Services
                 }
             }
 
-            // Jede Dublette nur einmal erfassen - IP schlaegt Hostname schlaegt MAC
+            // Record each duplicate only once - IP beats host name beats MAC.
             var duplicatePairs = new HashSet<(string, string)>();
 
             AddDuplicateLinks(nodes.GroupBy(n => n.ip), skipEmptyKey: false,
@@ -224,9 +225,9 @@ namespace MyNetworkMonitor.Core.Services
                     isDuplicatedHostname = l.isDuplicatedHostname,
                     isDuplicatedMac = l.isDuplicatedMac,
 
-                    // Die alte Ergebnistabelle unterscheidet nicht, ob ein
-                    // Lookup ins Leere zeigt - das Feld gibt es hier nur,
-                    // damit beide Fassungen dieselbe Form liefern.
+                    // The result table does not record whether a lookup
+                    // points nowhere - the field exists only so both variants
+                    // produce the same shape.
                     isDnsConflict = false
                 }).ToList()
             };
@@ -262,10 +263,13 @@ namespace MyNetworkMonitor.Core.Services
         }
 
         /// <summary>
-        /// Bettet die Graph-Daten in die HTML-Seite ein. Die Bibliothek kommt
-        /// entweder vom CDN (dann ist die Datei allein weitergebbar) oder aus
-        /// dem lokalen Ordner libs/.
+        /// Embeds the graph data in the HTML page. The library comes either from
+        /// the CDN (then the file can be passed on by itself) or from the local
+        /// libs/ folder.
         /// </summary>
+        /// <param name="graphJson">The graph from <c>BuildGraphJson</c>.</param>
+        /// <param name="useOnlineVersion">Load 3d-force-graph from the CDN instead of the bundled copy.</param>
+        /// <returns>The complete HTML page.</returns>
         public static string BuildHtml(string graphJson, bool useOnlineVersion)
         {
             string libraryTag = useOnlineVersion ? OnlineLibrary : LocalLibrary;
@@ -509,10 +513,14 @@ namespace MyNetworkMonitor.Core.Services
         }
 
         /// <summary>
-        /// Schreibt die HTML-Datei in den Graph-Ordner und liefert ihren Pfad.
-        /// Der Dateiname traegt einen Zeitstempel, damit aufeinanderfolgende
-        /// Visualisierungen erhalten bleiben.
+        /// Writes the HTML file into the graph folder and returns its path.
+        /// The file name carries a timestamp so successive visualizations are
+        /// kept.
         /// </summary>
+        /// <param name="graphFolder">The target folder; created if missing.</param>
+        /// <param name="resultTable">The scan result table.</param>
+        /// <param name="useOnlineVersion">Load 3d-force-graph from the CDN instead of the bundled copy.</param>
+        /// <returns>The full path of the written HTML file.</returns>
         public static string WriteHtmlFile(string graphFolder, DataTable resultTable, bool useOnlineVersion)
         {
             Directory.CreateDirectory(graphFolder);
@@ -520,7 +528,11 @@ namespace MyNetworkMonitor.Core.Services
             return Write(graphFolder, BuildHtml(BuildGraphJson(resultTable), useOnlineVersion));
         }
 
-        /// <summary>Dieselbe Datei, gebaut aus dem neuen Geraetemodell.</summary>
+        /// <summary>The same file, built from the device model.</summary>
+        /// <param name="graphFolder">The target folder; created if missing.</param>
+        /// <param name="devices">The scanned devices.</param>
+        /// <param name="useOnlineVersion">Load 3d-force-graph from the CDN instead of the bundled copy.</param>
+        /// <returns>The full path of the written HTML file.</returns>
         public static string WriteHtmlFile(string graphFolder, IReadOnlyList<Model.Device> devices,
                                            bool useOnlineVersion)
         {
@@ -539,11 +551,11 @@ namespace MyNetworkMonitor.Core.Services
         }
 
         /// <summary>
-        /// Kopiert die mitgelieferte 3d-force-graph-Bibliothek in den
-        /// Unterordner libs/ des Graph-Ordners, damit die Offline-Variante
-        /// funktioniert. Fehlt die Quelldatei, bleibt es dabei - dann traegt nur
-        /// die Online-Variante.
+        /// Copies the bundled 3d-force-graph library into the libs/ subfolder of
+        /// the graph folder so the offline variant works. If the source file is
+        /// missing, nothing happens - then only the online variant works.
         /// </summary>
+        /// <param name="graphFolder">The graph folder that receives the libs/ subfolder.</param>
         public static void EnsureLocalLibrary(string graphFolder)
         {
             string sourceFile = Path.Combine(AppContext.BaseDirectory, "3dForceGraphLib", "3d-force-graph.min.js");
@@ -566,7 +578,7 @@ namespace MyNetworkMonitor.Core.Services
             }
             catch (Exception)
             {
-                // Ohne lokale Bibliothek bleibt die Online-Variante nutzbar
+                // Without the local library, the online variant remains usable.
             }
         }
     }

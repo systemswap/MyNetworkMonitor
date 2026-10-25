@@ -1,16 +1,14 @@
 namespace MyNetworkMonitor.Core.Services
 {
     /// <summary>
-    /// Wo die Anwendung ihre Dateien ablegt.
+    /// Where the application stores its files.
     /// <para>
-    /// Der Satellitenbetrieb braucht einen zweiten Ort neben den
-    /// Einstellungen des angemeldeten Nutzers: der Dienst laeuft als
-    /// LocalSystem und hat kein Dokumente-Verzeichnis. Alles, was Dienst
-    /// <em>und</em> Oberflaeche gemeinsam brauchen - der eigene Schluessel, die
-    /// Hostliste, die Satellitenliste - liegt darum maschinenweit. Sonst
-    /// haetten beide verschiedene Schluessel und damit verschiedene
-    /// Kennungen, und eine Freigabe am Hauptscanner gaelte nur fuer eine von
-    /// beiden.
+    /// Satellite mode needs a second location besides the signed-in user's
+    /// settings: the service runs as LocalSystem and has no Documents folder.
+    /// Everything the service <em>and</em> the user interface both need - the own
+    /// key, the host list, the satellite list - is therefore stored machine-wide.
+    /// Otherwise both would have different keys and thus different identities,
+    /// and an approval on the main scanner would apply to only one of them.
     /// </para>
     /// </summary>
     public static class AppPaths
@@ -18,45 +16,45 @@ namespace MyNetworkMonitor.Core.Services
         private const string FolderName = "MyNetworkMonitor";
 
         /// <summary>
-        /// Ein eigener Ablageort statt der ueblichen - gesetzt ueber
-        /// <c>--state</c> auf der Befehlszeile.
+        /// A custom storage location instead of the default one - set via
+        /// <c>--state</c> on the command line.
         /// <para>
-        /// Damit laesst sich eine zweite Instanz auf demselben Rechner
-        /// betreiben, ohne der ersten in die Dateien zu schreiben. Gebraucht
-        /// wird das beim Ausprobieren: Hauptscanner und Satellit auf einer
-        /// Maschine, jeder mit <b>eigenem Schluessel</b> - und damit einem
-        /// eigenen Fingerabdruck, sonst waere die Freigabe eine Freigabe fuer
-        /// sich selbst und pruefte nichts.
+        /// Allows running a second instance on the same machine without writing
+        /// into the files of the first. Used for testing: main scanner and
+        /// satellite on one machine, each with its <b>own key</b> - and thus its
+        /// own fingerprint; otherwise the approval would be an approval of itself
+        /// and verify nothing.
         /// </para>
         /// </summary>
         private static string? _stateRoot;
 
         /// <summary>
-        /// Legt Ablageort und Einstellungen dieser Instanz auf einen eigenen
-        /// Ordner. Vor dem ersten Zugriff aufzurufen, also beim Start.
+        /// Moves the storage location and settings of this instance to a dedicated
+        /// folder. Must be called before the first access, i.e. at startup.
         /// </summary>
+        /// <param name="root">The folder to use; empty or whitespace keeps the default location.</param>
         public static void UseOwnState(string root)
         {
             _stateRoot = string.IsNullOrWhiteSpace(root) ? null : Path.GetFullPath(root);
         }
 
-        /// <summary>Ob diese Instanz einen eigenen Ablageort benutzt.</summary>
+        /// <summary>Whether this instance uses a custom storage location.</summary>
         public static bool HasOwnState => _stateRoot is not null;
 
         /// <summary>
-        /// Der Einstellungsordner, wenn ein eigener Ablageort gilt - sonst
-        /// <c>null</c>, dann bleibt es beim Ordner unter Dokumente.
+        /// The settings folder when a custom storage location applies - otherwise
+        /// <c>null</c>, in which case the folder under Documents is used.
         /// </summary>
         public static string? OwnSettingsFolder =>
             _stateRoot is null ? null : Path.Combine(_stateRoot, "Settings");
 
         /// <summary>
-        /// Der maschinenweite Ordner: unter Windows <c>%ProgramData%</c>,
-        /// sonst <c>/var/lib</c>.
+        /// The machine-wide folder: <c>%ProgramData%</c> on Windows,
+        /// <c>/var/lib</c> elsewhere.
         /// <para>
-        /// Nicht <see cref="Environment.SpecialFolder.CommonApplicationData"/>
-        /// unter Linux: das ist dort <c>/usr/share</c> und gehoert der
-        /// Paketverwaltung, nicht den Daten eines Dienstes.
+        /// Not <see cref="Environment.SpecialFolder.CommonApplicationData"/>
+        /// on Linux: there it maps to <c>/usr/share</c>, which belongs to the
+        /// package manager, not to the data of a service.
         /// </para>
         /// </summary>
         public static string MachineFolder
@@ -74,9 +72,9 @@ namespace MyNetworkMonitor.Core.Services
         }
 
         /// <summary>
-        /// Legt den maschinenweiten Ordner an, falls er fehlt, und gibt ihn
-        /// zurueck.
+        /// Creates the machine-wide folder if it is missing and returns it.
         /// </summary>
+        /// <returns>The full path of the machine-wide folder.</returns>
         public static string EnsureMachineFolder()
         {
             string folder = MachineFolder;
@@ -85,24 +83,24 @@ namespace MyNetworkMonitor.Core.Services
         }
 
         /// <summary>
-        /// Die Dateien des Satellitenbetriebs, die vom nutzereigenen Ordner in
-        /// den maschinenweiten wandern.
+        /// The satellite-mode files that move from the per-user folder to the
+        /// machine-wide folder.
         /// </summary>
         private static readonly string[] SharedFiles =
             ["identity.pfx", "satellites.json", "mainScanners.json"];
 
         /// <summary>
-        /// Holt den vorhandenen Bestand aus den Einstellungen des Nutzers
-        /// nach, falls maschinenweit noch nichts liegt.
+        /// Copies the existing state from the user's settings if nothing is
+        /// stored machine-wide yet.
         /// <para>
-        /// Ohne das bekaeme jede bestehende Installation beim ersten Start
-        /// nach dem Umbau einen <em>neuen</em> Schluessel: die Gegenstellen
-        /// saehen einen fremden Fingerabdruck, und jede Freigabe muesste von
-        /// Hand erneuert werden. Es wird kopiert und nicht verschoben - geht
-        /// etwas schief, ist der alte Stand noch da.
+        /// Without this, an installation that keeps these files in the per-user
+        /// settings would get a <em>new</em> key on its first start with the
+        /// machine-wide folder: peers would see an unknown fingerprint and every
+        /// approval would have to be renewed by hand. Files are copied rather than
+        /// moved - if something goes wrong, the previous state is still there.
         /// </para>
         /// </summary>
-        /// <param name="userSettingsFolder">Der bisherige Ort, etwa Dokumente\MyNetworkMonitor\Settings.</param>
+        /// <param name="userSettingsFolder">The per-user settings folder, for example Documents\MyNetworkMonitor\Settings.</param>
         public static void MigrateSatelliteState(string userSettingsFolder)
         {
             if (string.IsNullOrWhiteSpace(userSettingsFolder)) return;
@@ -121,9 +119,9 @@ namespace MyNetworkMonitor.Core.Services
             }
             catch (Exception)
             {
-                // Ein misslungener Umzug darf den Start nicht aufhalten. Die
-                // Folge ist ein neuer Schluessel und damit eine neue Freigabe -
-                // aergerlich, aber nicht schlimm.
+                // A failed migration must not block startup. The consequence is
+                // a new key and thus a new approval - inconvenient, but not
+                // critical.
             }
         }
     }

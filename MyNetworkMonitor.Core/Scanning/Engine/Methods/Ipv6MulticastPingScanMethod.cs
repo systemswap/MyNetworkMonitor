@@ -8,31 +8,30 @@ using MyNetworkMonitor.Core.Services;
 namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 {
     /// <summary>
-    /// Eine Echo-Anforderung an <c>ff02::1</c> - "alle Knoten in diesem
-    /// Segment". Ein Paket hinaus, viele Antworten zurueck.
+    /// An echo request to <c>ff02::1</c> ("all nodes on this segment"). One
+    /// packet out, many answers back.
     /// <para>
-    /// Das ist der eigentliche Ersatz fuer den Ping-Durchlauf ueber ein
-    /// IPv4-Netz, und er ist dem Original ueberlegen: 254 Anfragen und
-    /// Wartezeiten werden zu einer einzigen Frage, die jedes Geraet im Segment
-    /// von sich aus beantwortet. Genau deshalb faellt der Unterschied unter
-    /// IPv6 nicht ins Gewicht, dass ein /64 nicht durchlaufbar ist.
+    /// This is the IPv6 counterpart of the ping sweep over an IPv4 network,
+    /// and it is superior to it: 254 requests and timeouts become a single
+    /// question that every device on the segment answers. That is exactly why
+    /// it does not matter under IPv6 that a /64 cannot be enumerated.
     /// </para>
     /// <para>
-    /// <b>Zwei Wege, je nach Rechten</b> - und das Verfahren laeuft in beiden
-    /// Faellen, statt ohne Administratorrechte auszufallen:
+    /// <b>Two ways, depending on privileges</b>, so that the method runs in
+    /// both cases instead of failing without administrator rights:
     /// </para>
     /// <list type="number">
     /// <item>
-    /// Mit ICMPv6-Socket (unter Linux meist auch ohne Sonderrechte, unter
-    /// Windows mit Administratorrechten): die Anforderung geht hinaus und
-    /// <em>jede</em> Antwort wird eingesammelt. Das vollstaendige Ergebnis.
+    /// With an ICMPv6 socket (on Linux usually without special privileges, on
+    /// Windows with administrator rights): the request is sent and
+    /// <em>every</em> answer is collected. The complete result.
     /// </item>
     /// <item>
-    /// Ohne Socket: die Anforderung geht ueber
-    /// <see cref="Ping"/> hinaus - der nimmt zwar nur die erste Antwort
-    /// entgegen, aber das Betriebssystem traegt <em>alle</em> Antwortenden in
-    /// seine Nachbarschaftstabelle ein. Die wird danach ausgelesen. Der Umweg
-    /// kostet nichts und findet in der Praxis fast dasselbe.
+    /// Without a socket: the request is sent through <see cref="Ping"/>,
+    /// which accepts only the first answer, but the operating system enters
+    /// <em>all</em> responders into its neighbor table, which is read
+    /// afterwards. The detour costs nothing and in practice finds almost the
+    /// same.
     /// </item>
     /// </list>
     /// </summary>
@@ -53,17 +52,16 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         protected override Ipv6Discovery Discovery => Ipv6Discovery.MulticastPing;
 
         /// <summary>
-        /// Nicht zwingend: ohne erhoehte Rechte geht der Umweg ueber die
-        /// Nachbarschaftstabelle. Ein Kaestchen, das ausgegraut waere, obwohl
-        /// das Verfahren laeuft, waere die falsche Auskunft.
+        /// Not required: without elevated privileges the method takes the
+        /// detour through the neighbor table. A checkbox greyed out although
+        /// the method runs would be misleading.
         /// </summary>
         public override bool RequiresElevation => false;
 
         /// <summary>
-        /// Wie lange auf Antworten gewartet wird. Geraete antworten auf eine
-        /// Multicast-Anfrage bewusst verzoegert und zufaellig verteilt (RFC
-        /// 4443), damit nicht alle gleichzeitig senden - wer zu frueh aufhoert
-        /// zuzuhoeren, verliert genau die langsamen Geraete.
+        /// How long to wait for answers. Devices answer a multicast request with
+        /// a deliberate random delay (RFC 4443) so that they do not all send at
+        /// once; stopping to listen too early loses exactly the slow devices.
         /// </summary>
         private static readonly TimeSpan ListenWindow = TimeSpan.FromSeconds(3);
 
@@ -89,8 +87,8 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         }
 
         /// <summary>
-        /// Fragt ein Segment ab. Erst der direkte Weg, sonst der Umweg - der
-        /// Rueckgabewert ist die Zahl der gemeldeten Geraete.
+        /// Queries one segment: the direct way first, otherwise the detour.
+        /// Returns the number of devices reported.
         /// </summary>
         private async Task<int> ProbeAsync(ScanContext context, Ipv6Segment segment, CancellationToken cancellationToken)
         {
@@ -101,10 +99,10 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                 : await ViaNeighborTableAsync(context, segment, cancellationToken);
         }
 
-        // ------------------------------------------------- Weg 1: eigener Socket
+        // ------------------------------------------------- Way 1: own socket
 
         /// <summary>
-        /// Sendet die Anforderung und sammelt alles ein, was zurueckkommt.
+        /// Sends the request and collects everything that comes back.
         /// </summary>
         private async Task<int> ListenForRepliesAsync(
             ScanContext context,
@@ -112,9 +110,9 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             Icmpv6Channel channel,
             CancellationToken cancellationToken)
         {
-            // Die Kennung erlaubt, die eigenen Antworten von fremdem
-            // ICMPv6-Verkehr zu trennen. Ein Rohsocket sieht allen Verkehr,
-            // auch den anderer Programme.
+            // The identifier separates replies to this request from other
+            // ICMPv6 traffic. A raw socket sees all traffic, including that of
+            // other programs.
             ushort identifier = (ushort)Random.Shared.Next(1, ushort.MaxValue);
 
             try
@@ -124,8 +122,8 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             }
             catch (SocketException)
             {
-                // Senden nicht moeglich, obwohl der Socket zustande kam - dann
-                // bleibt der Umweg ueber die Tabelle.
+                // Sending is not possible although the socket was opened; the
+                // detour through the table remains.
                 return await ViaNeighborTableAsync(context, segment, cancellationToken);
             }
 
@@ -146,8 +144,8 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                 }
                 catch (OperationCanceledException)
                 {
-                    // Das Zeitfenster ist abgelaufen. Ein Abbruch durch den
-                    // Nutzer wird unten unterschieden.
+                    // The time window has expired. Cancellation through the
+                    // token is distinguished below.
                     break;
                 }
                 catch (SocketException)
@@ -168,28 +166,28 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            // Der eigene Rechner antwortet auf die eigene Anfrage nicht (die
-            // Rueckschleife ist abgeschaltet), steht aber ohnehin nicht zur
-            // Debatte. Was die Antworten nicht hergeben - die MAC - traegt der
-            // Blick in die Nachbarschaftstabelle nach, die das Betriebssystem
-            // durch denselben Austausch gerade gefuellt hat.
+            // The local machine does not answer its own request (multicast
+            // loopback is off), and it is not a target anyway. What the
+            // replies do not provide, the MAC, comes from the neighbor table,
+            // which the operating system has just filled through the same
+            // exchange.
             int viaTable = await ViaNeighborTableAsync(context, segment, cancellationToken);
 
             return Math.Max(seen.Count, viaTable);
         }
 
-        // ------------------------------------------- Weg 2: Nachbarschaftstabelle
+        // ------------------------------------------- Way 2: neighbor table
 
         /// <summary>
-        /// Stoert das Segment mit einer Echo-Anforderung ueber
-        /// <see cref="Ping"/> auf und liest anschliessend aus, wer daraufhin in
-        /// der Nachbarschaftstabelle gelandet ist.
+        /// Stirs up the segment with an echo request through
+        /// <see cref="Ping"/> and then reads who has ended up in the neighbor
+        /// table as a result.
         /// <para>
-        /// Der Ping selbst liefert nur eine einzige Antwort - das ist die
-        /// Grenze der Klasse und laesst sich nicht umgehen. Entscheidend ist
-        /// aber nicht, was <see cref="Ping"/> zurueckgibt, sondern was das
-        /// Betriebssystem nebenbei lernt: es traegt jeden Antwortenden in seine
-        /// Tabelle ein, und die steht uns vollstaendig offen.
+        /// The ping itself returns only a single answer; that is a limitation
+        /// of the class and cannot be worked around. What matters, however, is
+        /// not what <see cref="Ping"/> returns but what the operating system
+        /// learns along the way: it enters every responder into its table,
+        /// which is fully readable.
         /// </para>
         /// </summary>
         private async Task<int> ViaNeighborTableAsync(
@@ -207,9 +205,9 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                 using Ping ping = new();
                 await ping.SendPingAsync(allNodes, ListenWindow);
             }
-            catch (PingException) { /* Die Antwort interessiert nicht - nur die Wirkung. */ }
-            catch (PlatformNotSupportedException) { /* dito */ }
-            catch (SocketException) { /* dito */ }
+            catch (PingException) { /* The answer is irrelevant; only the side effect matters. */ }
+            catch (PlatformNotSupportedException) { /* as above */ }
+            catch (SocketException) { /* as above */ }
 
             cancellationToken.ThrowIfCancellationRequested();
 

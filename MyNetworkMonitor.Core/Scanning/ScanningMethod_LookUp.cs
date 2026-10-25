@@ -10,36 +10,47 @@ using System.Threading.Tasks;
 
 namespace MyNetworkMonitor
 {
+    /// <summary>
+    /// Resolves the host names of the targets forward (name to addresses) and compares the result
+    /// with the scanned address.
+    /// </summary>
     public class ScanningMethod_LookUp
     {
+        /// <summary>Creates the forward lookup.</summary>
         public ScanningMethod_LookUp()
         {
 
         }
 
+        /// <summary>Reports progress as (processed, responded, total, status).</summary>
         public event Action<int, int, int, ScanStatus> ProgressUpdated;
+
+        /// <summary>Raised when a host name has been resolved.</summary>
         public event EventHandler<ScanTask_Finished_EventArgs>? Lookup_Task_Finished;
+
+        /// <summary>Raised when all lookups of a run have finished.</summary>
         public event Action<ScanStatus>? Lookup_Finished;
 
-        // War 10 gegen den System-Resolver. Direkt gegen den (per Scope oder
-        // Gateway-Fallback bekannten) DNS-Server beantwortet, siehe
-        // ScanningMethod_ReverseLookupToHostAndAliases: dort verkraftete
-        // dasselbe Gateway live 32 gleichzeitige Anfragen in unter 100ms.
+        // The queries go directly to the DNS server known from the scope or, without one, to the
+        // gateway, not to the system resolver (see docs/FEHLERGEDAECHTNIS.md, No. 8). A typical
+        // gateway answers 32 concurrent queries in under 100 ms, so 16 leaves headroom.
         private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(16);
 
-        /// <summary>Wie oft eine ausbleibende Antwort erneut angefragt wird, bevor der Name als nicht aufloesbar gilt.</summary>
+        /// <summary>How often a missing answer is requested again before the name counts as unresolvable.</summary>
         private const int QueryRetries = 3;
 
-        /// <summary>Wie lange je Versuch auf eine Antwort gewartet wird - siehe ReverseLookup fuer die Begruendung derselben Werte.</summary>
+        /// <summary>How long each attempt waits for an answer; the reverse lookup uses the same values and explains them.</summary>
         private static readonly TimeSpan QueryTimeout = TimeSpan.FromSeconds(1);
 
-        /// <summary>Gesamtbudget je Name, ueber alle Wiederholungen hinweg.</summary>
+        /// <summary>
+        /// Total time budget per name across all retries; shorter than all retries together, the
+        /// retries of the DNS client never run (see docs/FEHLERGEDAECHTNIS.md, No. 7).
+        /// </summary>
         private static readonly TimeSpan QueryBudget =
             QueryTimeout * (QueryRetries + 1) + TimeSpan.FromMilliseconds(500);
 
         /// <summary>
-        /// Ein Client je Namensserver-Zusammenstellung, ueber den ganzen Lauf
-        /// hinweg - derselbe Grund wie bei
+        /// One client per set of name servers for the whole run, for the same reason as in
         /// <see cref="ScanningMethod_ReverseLookupToHostAndAlieases.ClientFor"/>.
         /// </summary>
         private readonly System.Collections.Concurrent.ConcurrentDictionary<string, LookupClient> _clients = new();
@@ -62,9 +73,8 @@ namespace MyNetworkMonitor
                 options.UseCache = true;
                 options.ThrowDnsErrors = false;
 
-                // Der Reihe nach fragen, nicht zufaellig - die Liste ist eine
-                // Rangfolge. Siehe die gleichlautende Stelle in der
-                // Rueckwaertsaufloesung.
+                // Ask in order, not at random: the list is a ranking. See the same setting in the
+                // reverse lookup.
                 options.UseRandomNameServer = false;
 
                 return new LookupClient(options);
@@ -72,9 +82,8 @@ namespace MyNetworkMonitor
         }
 
         /// <summary>
-        /// Namensserver, die in diesem Lauf nur Zeitueberschreitungen lieferten,
-        /// und der zuletzt erfolgreiche. Beides wie in der
-        /// Rueckwaertsaufloesung - dort steht die ausfuehrliche Begruendung.
+        /// Name servers that only timed out in this run, and the one that answered last. Both work
+        /// as in the reverse lookup, which explains them in detail.
         /// </summary>
         private readonly System.Collections.Concurrent.ConcurrentDictionary<string, int> _silence = new();
 
@@ -86,8 +95,8 @@ namespace MyNetworkMonitor
             _silence.TryGetValue(server.Address.ToString(), out int misses) && misses >= SilentAfter;
 
         /// <summary>
-        /// Fragt genau einen Server, mit eigenem Zeitbudget. Ein Schweigen wird
-        /// vermerkt, eine Antwort macht den Server zum bevorzugten.
+        /// Asks exactly one server with its own time budget. A timeout is recorded; an answer
+        /// makes the server the preferred one.
         /// </summary>
         private async Task<IPHostEntry?> AskOneAsync(NameServer server, string hostname)
         {
@@ -118,7 +127,7 @@ namespace MyNetworkMonitor
             }
         }
 
-        /// <summary>Ein Client je einzelnem Namensserver, wiederverwendet wie oben.</summary>
+        /// <summary>One client per single name server, reused like the clients above.</summary>
         private LookupClient SingleServerClientFor(NameServer dnsServer) =>
             _clients.GetOrAdd("single:" + dnsServer.Address, _ => new LookupClient(
                 new LookupClientOptions([dnsServer])
@@ -134,28 +143,23 @@ namespace MyNetworkMonitor
         private int total = 0;
 
 
-        private CancellationTokenSource _cts = new CancellationTokenSource(); // 🔹 Ermöglicht das Abbrechen
+        private CancellationTokenSource _cts = new CancellationTokenSource(); // Allows the scan to be cancelled.
 
-        //int currentValue = Interlocked.Increment(ref current);
-        //Task.Run(() => ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running));
 
-        //int respondedValue = Interlocked.Increment(ref responded);
-        //Task.Run(() => ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running));
-
-        //Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished));
-
+        /// <summary>
+        /// Cancels the running lookup and reports <see cref="ScanStatus.stopped"/>.
+        /// </summary>
         public void StopScan()
         {
             if (_cts != null && !_cts.IsCancellationRequested)
             {
-                _cts.Cancel(); // 🔹 Scan abbrechen
-                // Hier NICHT aufraeumen und ersetzen: die Schleifen lesen _cts ueber
-                // das Feld. Ein frisches CTS an dieser Stelle meldet ihnen wieder
-                // "nicht abgebrochen", und der Lauf geht weiter, statt zu enden.
-                // Das Zuruecksetzen erledigt StartNewScan beim naechsten Lauf.
+                _cts.Cancel();
+                // Do NOT dispose and replace the source here: the loops read _cts through the
+                // field. A fresh source at this point would report "not cancelled" to them and
+                // the run would continue instead of ending. StartNewScan resets it for the next run.
             }
                        
-            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped); // 🔹 UI auf 0 setzen
+            ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped); // Resets the progress display.
         }
 
         private void StartNewScan()
@@ -170,67 +174,29 @@ namespace MyNetworkMonitor
             }
             _cts = new CancellationTokenSource();
 
-            // 🔹 Zähler zurücksetzen
+            // Reset the counters.
             current = 0;
             responded = 0;
             total = 0;
         }
 
 
-
-        //public async Task LookupAsync(List<IPToScan> IPs)
-        //{
-        //    StartNewScan();
-
-        //    if (_cts.Token.IsCancellationRequested) return; // 🔹 Sofort abbrechen
-
-        //    current = 0;
-        //    responded = 0;
-        //    total = 0;
-        //    Task.Run(() => ProgressUpdated?.Invoke(current, responded, total));
-
-
-        //    var tasks = new List<Task>();
-
-        //    Parallel.ForEach(IPs, ip =>
-        //    {
-        //        if (!string.IsNullOrEmpty(ip.HostName))
-        //        {
-        //            var task = Task.Run(() => LookupTask(ip));
-        //            if (task != null) tasks.Add(task);
-        //        }
-        //    });
-
-        //    await Task.WhenAll(tasks.Where(t => t != null));
-
-        //    if (Lookup_Finished != null)
-        //    {
-        //        Lookup_Finished(this, new Method_Finished_EventArgs());
-        //    }
-        //}
-
+        /// <summary>
+        /// Resolves the host name of every target that has one and reports the addresses found.
+        /// </summary>
+        /// <param name="IPs">The targets; entries without a host name are skipped.</param>
         public async Task LookupAsync(List<IPToScan> IPs)
         {
             StartNewScan();
 
-            if (_cts.Token.IsCancellationRequested) return; // 🔹 Sofort abbrechen
+            if (_cts.Token.IsCancellationRequested) return;
 
             current = 0;
             responded = 0;
-            total = IPs.Count; // 🔹 Gesamtzahl setzen
+            total = IPs.Count;
             ProgressUpdated?.Invoke(current, responded, total, ScanStatus.running);
 
             var tasks = new List<Task>();
-
-            //foreach (var ip in IPs)
-            //{ 
-            //    if (_cts.Token.IsCancellationRequested) break; // 🔹 Falls abgebrochen, verlasse die Schleife
-
-            //    if (!string.IsNullOrEmpty(ip.HostName))
-            //    {
-            //        tasks.Add(LookupTask(ip)); // 🔹 CancellationToken übergeben
-            //    }
-            //}
 
             foreach (var ip in IPs)
             {
@@ -240,14 +206,14 @@ namespace MyNetworkMonitor
                 {
                     tasks.Add(Task.Run(async () =>
                     {
-                        await _semaphore.WaitAsync(); // Warte, bis ein Platz frei wird
+                        await _semaphore.WaitAsync(); // Wait for a free slot.
                         try
                         {
                             await LookupTask(ip);                            
                         }
                         finally
                         {
-                            _semaphore.Release(); // Nach Abschluss freigeben
+                            _semaphore.Release();
                         }
                     }));
                 }
@@ -259,71 +225,12 @@ namespace MyNetworkMonitor
             }
             catch (OperationCanceledException)
             {
-                // 🔹 Falls abgebrochen, wird das hier abgefangen
+                // Cancelled by StopScan.
             }
 
             
                 Lookup_Finished?.Invoke(ScanStatus.finished);            
         }
-
-
-        //private async Task LookupTask(IPToScan ipToScan)
-        //{
-        //    IPHostEntry _entry;
-        //    try
-        //    {
-        //        _entry = await Dns.GetHostEntryAsync(ipToScan.HostnameWithDomain);
-
-        //        bool _LookUpStatus = false;
-        //        string _LookUpIPs = string.Empty;
-
-        //        //wenn nur eine ip zurück kommt und diese gleich der in der spalte ip dann passt alles
-        //        if (_entry.AddressList.ToList().Count == 1 && ipToScan.IPorHostname == _entry.AddressList[0].ToString())
-        //        {
-        //            _LookUpStatus = true;
-        //        }
-
-        //        //wenn nur eine ip zurück kommt und diese ungleich der in der spalte ip ist dann false
-        //        if (_entry.AddressList.ToList().Count == 1 && ipToScan.IPorHostname != _entry.AddressList[0].ToString())
-        //        {
-        //            _LookUpStatus = false;
-        //            _LookUpIPs = _entry.AddressList[0].ToString();
-        //        }
-
-        //        //werden mehrere ips zurück gegeben werden alle eingetragen
-        //        if (_entry.AddressList.ToList().Count != 1)
-        //        {
-        //            _LookUpStatus = false;
-
-        //            if (_entry.AddressList.ToList().Count == 0)
-        //            {
-        //                _LookUpIPs = "no IPs registred";
-        //            }
-        //            else
-        //            {
-        //                _LookUpIPs = string.Join("\r\n", _entry.AddressList.ToList());
-        //            }
-        //        }
-
-        //        if (Lookup_Task_Finished != null)
-        //        {
-        //            ipToScan.LookUpStatus = _LookUpStatus;
-        //            ipToScan.LookUpIPs = _LookUpIPs;
-        //            ipToScan.IP_HostEntry = _entry;
-
-        //            ipToScan.UsedScanMethod = ScanMethod.Lookup;
-
-        //            ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
-        //            scanTask_Finished.ipToScan = ipToScan;
-
-        //            Task.Run(() => Lookup_Task_Finished(this, scanTask_Finished));
-        //        }
-        //    }
-        //    catch (Exception)
-        //    {
-
-        //    }
-        //}
 
 
         private async Task LookupTask(IPToScan ipToScan)
@@ -340,7 +247,7 @@ namespace MyNetworkMonitor
 
                 IPHostEntry? found = null;
 
-                // Zuerst der Server, der zuletzt aufgeloest hat.
+                // First the server that resolved last.
                 if (_preferredServer is { } preferredAddress)
                 {
                     NameServer? preferred = client.NameServers
@@ -365,17 +272,16 @@ namespace MyNetworkMonitor
                     }
                     catch (OperationCanceledException) when (!_cts.Token.IsCancellationRequested)
                     {
-                        // Der vordere Server schweigt - das kostet den Namen
-                        // nicht mehr, unten ist jeder einzeln an der Reihe.
+                        // The leading server is silent. The name is not lost: below, each server
+                        // is asked on its own.
                         leadingSilent = true;
                         if (leading is not null)
                             _silence.AddOrUpdate(leading.Address.ToString(), 1, (_, misses) => misses + 1);
                     }
                 }
 
-                // Dann jeder hinterlegte Server einzeln, bis einer den Namen
-                // aufloest - in einem Netz mit mehreren Zonen kennt ihn oft nur
-                // einer von ihnen.
+                // Then each configured server on its own until one resolves the name; in a network
+                // with several zones often only one of them knows it.
                 if (found is null && client.NameServers.Count > 1)
                 {
                     foreach (NameServer dnsServer in client.NameServers.Skip(leadingSilent ? 1 : 0))
@@ -424,7 +330,6 @@ namespace MyNetworkMonitor
 
                 if (Lookup_Task_Finished != null)
                 {
-                    //ipToScan.LookUpStatus = _LookUpStatus;
                     ipToScan.LookUpIPs = _LookUpIPs;
                     ipToScan.IP_HostEntry = _entry;
                     ipToScan.UsedScanMethod = ScanMethod.Lookup;
@@ -438,68 +343,21 @@ namespace MyNetworkMonitor
             }
             catch (OperationCanceledException)
             {
-                // 🔹 Falls das Lookup abgebrochen wurde, wird das hier behandelt
+                // Cancelled by StopScan.
             }
             catch (Exception)
             {
-                // 🔹 Andere Fehler abfangen
+                // A failed lookup leaves the target without a result.
             }
             finally
             {
-                // Erst zaehlen, wenn die Abfrage beantwortet oder abgelaufen
-                // ist. Beim Absenden zu zaehlen liesse den Balken lange vor
-                // dem eigentlichen Ende am Anschlag stehen.
+                // Count only once the query has been answered or has timed out; counting on
+                // sending would fill the progress bar long before the actual end.
                 int currentValue = Interlocked.Increment(ref current);
                 ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
             }
         }
 
 
-
-        //public async Task<IPHostEntry> nsLookup(string Hostname)
-        //{
-        //    IPHostEntry _entry;
-        //    try
-        //    {
-        //        _entry = await Dns.GetHostEntryAsync(Hostname);
-        //        if (_entry.AddressList.ToList().Count == 0)
-        //        {
-        //            // "no IPs registred";
-        //            return null;
-        //        }
-        //        else
-        //        {
-        //            return _entry;
-        //        }
-        //    }
-        //    catch (Exception)
-        //    {
-        //        return null;
-        //    }
-        //}
-
-        //public async Task<IPHostEntry> nsLookup(string Hostname)
-        //{
-        //    try
-        //    {
-        //        IPHostEntry _entry = await Dns.GetHostEntryAsync(Hostname).WaitAsync(_cts.Token);
-        //        return _entry.AddressList.Length > 0 ? _entry : null;
-        //    }
-        //    catch (OperationCanceledException)
-        //    {
-        //        return null; // 🔹 Abbruch sicherstellen
-        //    }
-        //    catch (Exception)
-        //    {
-        //        return null;
-        //    }
-        //}
-
-
-        // nsLookup(string) stand hier bis zum 13.08.2026. Aufrufer waren allein
-        // die alten Oberflaechen (WPF und MainWindowView); mit ihnen ist sie
-        // weggefallen. Die Namensaufloesung des Laufs geht ueber
-        // ReverseLookup/Hostname, die ihren DNS-Server aus dem Bereich kennen -
-        // etwas, das dieser Methode ohne IPToScan nie zur Verfuegung stand.
     }
 }

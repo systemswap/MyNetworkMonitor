@@ -10,10 +10,19 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
+/// <summary>
+/// Queries the NetBIOS name service of the targets (node status, RFC 1002) for host name and
+/// workgroup.
+/// </summary>
 public class ScanningMethod_NetBios
 {
+    /// <summary>Raised for every target that answered with a host name.</summary>
     public event Action<IPToScan> NetbiosIPScanFinished;
+
+    /// <summary>Reports progress as (sent, responded, total, status).</summary>
     public event Action<int, int, int, ScanStatus> ProgressUpdated;
+
+    /// <summary>Raised when all queries of a run have finished.</summary>
     public event Action<bool> NetbiosScanFinished;
     
 
@@ -21,17 +30,19 @@ public class ScanningMethod_NetBios
     private int responded = 0;
     private int total = 0;
 
-    private CancellationTokenSource _cts = new CancellationTokenSource(); // 🔹 Ermöglicht das Abbrechen
+    private CancellationTokenSource _cts = new CancellationTokenSource(); // Allows the scan to be cancelled.
 
+    /// <summary>
+    /// Cancels the running scan and reports <see cref="ScanStatus.stopped"/>.
+    /// </summary>
     public void StopScan()
     {
         if (_cts != null && !_cts.IsCancellationRequested)
         {
-            _cts.Cancel(); // 🔹 Scan abbrechen
-            // Hier NICHT aufraeumen und ersetzen: die Schleifen lesen _cts ueber
-            // das Feld. Ein frisches CTS an dieser Stelle meldet ihnen wieder
-            // "nicht abgebrochen", und der Lauf geht weiter, statt zu enden.
-            // Das Zuruecksetzen erledigt StartNewScan beim naechsten Lauf.
+            _cts.Cancel();
+            // Do NOT dispose and replace the source here: the loops read _cts through the
+            // field. A fresh source at this point would report "not cancelled" to them and
+            // the run would continue instead of ending. StartNewScan resets it for the next run.
         }
 
         ProgressUpdated?.Invoke(current, responded, total, ScanStatus.stopped);
@@ -49,7 +60,7 @@ public class ScanningMethod_NetBios
         }
         _cts = new CancellationTokenSource();
 
-        // 🔹 Zähler zurücksetzen
+        // Reset the counters.
         current = 0;
         responded = 0;
         total = 0;
@@ -57,6 +68,11 @@ public class ScanningMethod_NetBios
 
 
 
+    /// <summary>
+    /// Queries every target for its NetBIOS name table, with a time limit of five seconds per target.
+    /// </summary>
+    /// <param name="IPsToScan">The targets; each entry must be an IPv4 address.</param>
+    /// <param name="maxParallelScans">Maximum number of concurrent queries.</param>
     public async Task ScanMultipleIPsAsync(List<IPToScan> IPsToScan, int maxParallelScans = 50)
     {
         StartNewScan();
@@ -65,32 +81,32 @@ public class ScanningMethod_NetBios
         responded = 0;
         total = IPsToScan.Count;
 
-        var semaphore = new SemaphoreSlim(maxParallelScans); // Begrenzung der gleichzeitigen Tasks
+        var semaphore = new SemaphoreSlim(maxParallelScans); // Limits the concurrent queries.
         var tasks = new List<Task>();
 
         foreach (var ip in IPsToScan)
         {
-            if (_cts.Token.IsCancellationRequested) break;  // 🔹 Saubere Abbruchprüfung
+            if (_cts.Token.IsCancellationRequested) break;
 
-            await semaphore.WaitAsync(_cts.Token); // Erlaubt nur `maxParallelScans` gleichzeitige Anfragen
+            await semaphore.WaitAsync(_cts.Token); // At most maxParallelScans queries at a time.
 
             tasks.Add(Task.Run(async () =>
             {
                 try
                 {
-                    if (_cts.Token.IsCancellationRequested) return;  // 🔹 Vor dem Start abbrechen                    
+                    if (_cts.Token.IsCancellationRequested) return;
 
                     ip.UsedScanMethod = ScanMethod.NetBios;
                     await RunWithTimeout(QueryNetBiosAsync(ip, _cts.Token), TimeSpan.FromSeconds(5));
                 }
                 finally
                 {
-                    semaphore.Release(); // Gibt den Slot nach Abschluss frei
+                    semaphore.Release();
                 }
             }));
         }
 
-        await Task.WhenAll(tasks.Where(t => t != null)); // Warte auf ALLE Scans
+        await Task.WhenAll(tasks.Where(t => t != null)); // Wait for all queries.
 
         NetbiosScanFinished?.Invoke(true);
     }
@@ -100,17 +116,16 @@ public class ScanningMethod_NetBios
     {
         try
         {
-            if (cancellationToken.IsCancellationRequested) return; // 🔹 Abbruchprüfung
+            if (cancellationToken.IsCancellationRequested) return;
 
-            // Die abgeschickte Anfrage zaehlt, nicht die fertige. Die Anzeige
-            // stellt gesendet, geantwortet und gesamt nebeneinander - daran ist
-            // abzulesen, dass noch gewartet wird.
+            // Count the sent query, not the finished one. The display shows sent, responded and
+            // total side by side, which shows that answers are still pending.
             int currentValue = Interlocked.Increment(ref current);
             ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
 
             if (GetRemoteNetBiosName(IPAddress.Parse(iPToScan.IPorHostname), out string? nbName, out string? nbWorkgroup, out _))
             {
-                if (cancellationToken.IsCancellationRequested) return; // 🔹 Abbruchprüfung
+                if (cancellationToken.IsCancellationRequested) return;
 
                 iPToScan.NetBiosHostname = nbName ?? string.Empty;
                 iPToScan.NetBiosWorkgroup = nbWorkgroup ?? string.Empty;
@@ -132,7 +147,8 @@ public class ScanningMethod_NetBios
 
     /// <summary>
     /// Asks a host for its NetBIOS name table (node status, RFC 1002, sections 4.2.17 and 4.2.18) and takes host name and
-    /// workgroup from it; see <see cref="NetBiosNodeStatus"/>.
+    /// workgroup from it; see <see cref="NetBiosNodeStatus"/>. The response is validated field by field against the
+    /// transaction ID instead of being read at fixed offsets (see docs/FEHLERGEDAECHTNIS.md, No. 15).
     /// </summary>
     /// <param name="targetAddress">The IPv4 address of the host.</param>
     /// <param name="nbName">The host name, or null if the response contains none.</param>

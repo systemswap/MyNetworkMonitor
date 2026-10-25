@@ -8,14 +8,13 @@ using static MyNetworkMonitor.ServiceScanData;
 namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 {
     /// <summary>
-    /// Weboberflaechen. Einer der sechs Dienste mit eigenem Ablauf: hier
-    /// werden keine rohen Bytes verglichen, sondern eine HTTP-Anfrage
-    /// gestellt und die Statuszeile ausgewertet - und schlaegt das fehl,
-    /// dieselbe Anfrage ueber TLS.
+    /// Web interfaces. One of the services with their own procedure: instead
+    /// of comparing raw bytes, it sends an HTTP request and evaluates the
+    /// status line, and also sends the same request over TLS.
     /// <para>
-    /// Der Grund fuer den Sonderweg: ein Webserver antwortet nicht von sich
-    /// aus und auch nicht auf beliebige Bytes. Ohne gueltige Anfrage bleibt
-    /// die Leitung stumm, und der Port gaelte als offen ohne Dienst.
+    /// The reason for the special path: a web server does not speak first and
+    /// does not answer arbitrary bytes. Without a valid request the line stays
+    /// silent, and the port would count as open without a service.
     /// </para>
     /// </summary>
     public sealed class WebServicesProbe : ServiceProbeBase
@@ -27,15 +26,15 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             [80, 443, 1880, 3000, 5000, 5001, 8080, 8086, 8443];
 
         /// <summary>
-        /// Kein festes Paket: die Anfrage baut der eigene Ablauf, weil sie den
-        /// Zielnamen im Host-Kopf traegt und damit je Ziel anders aussieht.
+        /// No fixed packet: the own procedure builds the request, because it
+        /// carries the target in the Host header and differs per target.
         /// </summary>
         public override byte[] Hello => [];
 
         /// <summary>
-        /// Erst unverschluesselt fragen, dann ueber TLS - und aus beiden
-        /// Befunden den staerkeren nehmen. Die Zeitlimits stecken in den beiden
-        /// Abfragen fest; darum bleibt <paramref name="context"/> ungenutzt.
+        /// Asks unencrypted first, then over TLS, and takes the stronger of the
+        /// two results. The timeouts are fixed in the two requests, so
+        /// <paramref name="context"/> is not used.
         /// </summary>
         public override async Task<PortResult> ProbeAsync(
             ProbeContext context, string address, int port, CancellationToken token)
@@ -44,15 +43,15 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
             PortResult portResult = new PortResult { Ports = new List<int> { port }, Status = PortStatus.NoResponse };
 
-            // HTTP fragen und den Befund festhalten, bevor HTTPS ihn ueberschreibt
+            // Ask over HTTP and keep the result before HTTPS overwrites it
             bool httpSuccess = await CheckHttpAsync(address, port, portResult);
             PortStatus httpStatus = portResult.Status;
 
             bool httpsSuccess = await CheckHttpsAsync(address, port, portResult);
             PortStatus httpsStatus = portResult.Status;
 
-            // Rangfolge der beiden Befunde: laeuft schlaegt Fehler schlaegt
-            // offen schlaegt gefiltert
+            // Precedence of the two results: running beats error beats open
+            // beats filtered
             if (httpSuccess || httpsSuccess)
             {
                 portResult.Status = PortStatus.IsRunning;
@@ -78,27 +77,27 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Unverschluesselte Anfrage. Als Webserver gilt, wer eine Statuszeile
-        /// mit 2xx bis 5xx schickt oder HTML im Rumpf hat - auch ein 404 ist
-        /// eine Antwort und damit ein Dienst.
+        /// Unencrypted request. A web server is whatever sends a status line
+        /// with 2xx to 5xx or has HTML in the body; a 404 is also an answer and
+        /// therefore a service.
         /// </summary>
         private static async Task<bool> CheckHttpAsync(string ipAddress, int port, PortResult portResult)
         {
             using (var tcpClient = new TcpClient())
-            using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2))) // 2s Timeout
+            using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2))) // 2-second timeout
             {
                 try
                 {
                     Task connectTask = tcpClient.ConnectAsync(ipAddress, port);
                     if (await Task.WhenAny(connectTask, Task.Delay(2000, cts.Token)) != connectTask)
                     {
-                        portResult.Status = PortStatus.NoResponse; // Timeout erreicht
+                        portResult.Status = PortStatus.NoResponse; // timeout
                         return false;
                     }
 
                     if (!tcpClient.Connected)
                     {
-                        portResult.Status = PortStatus.Filtered; // Verbindung verweigert
+                        portResult.Status = PortStatus.Filtered; // connection refused
                         return false;
                     }
 
@@ -106,36 +105,36 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                     using (var writer = new StreamWriter(stream, Encoding.ASCII, leaveOpen: true))
                     using (var reader = new StreamReader(stream, Encoding.UTF8, leaveOpen: true))
                     {
-                        writer.NewLine = "\r\n"; // HTTP erfordert CRLF
+                        writer.NewLine = "\r\n"; // HTTP requires CRLF
                         writer.AutoFlush = true;
 
                         await writer.WriteLineAsync($"GET / HTTP/1.1");
                         await writer.WriteLineAsync($"Host: {ipAddress}");
                         await writer.WriteLineAsync("Connection: close");
                         await writer.WriteLineAsync("User-Agent: Mozilla/5.0 (compatible; MyScanner/1.0)");
-                        await writer.WriteLineAsync("Accept: */*"); // Erlaubt alle Antworten
-                        await writer.WriteLineAsync("Accept-Encoding: identity"); // Verhindert GZIP-Probleme
-                        await writer.WriteLineAsync(""); // Leere Zeile fuer HTTP-Protokollkonformitaet
+                        await writer.WriteLineAsync("Accept: */*"); // accept any content type
+                        await writer.WriteLineAsync("Accept-Encoding: identity"); // no compressed answer
+                        await writer.WriteLineAsync(""); // empty line ends the request header
 
                         Task<string> readTask = reader.ReadToEndAsync();
                         if (await Task.WhenAny(readTask, Task.Delay(2000, cts.Token)) != readTask)
                         {
-                            portResult.Status = PortStatus.NoResponse; // Antwort zu lange gebraucht
+                            portResult.Status = PortStatus.NoResponse; // answer took too long
                             return false;
                         }
 
                         string response = await readTask;
 
-                        // [2345] erfasst alle wichtigen HTTP-Statuscodes:
-                        // 2xx Erfolg, 3xx Weiterleitung, 4xx Client-Fehler
-                        // (Geraet antwortet trotzdem), 5xx Server-Fehler
+                        // [2345] covers all relevant HTTP status classes:
+                        // 2xx success, 3xx redirection, 4xx client error
+                        // (the device still answers), 5xx server error
                         if (Regex.IsMatch(response, @"^HTTP/\d\.\d [2345]\d{2}") || response.ToLower().Contains("<html"))
                         {
-                            portResult.Status = PortStatus.IsRunning; // Webseite erkannt
+                            portResult.Status = PortStatus.IsRunning; // web page detected
                             return true;
                         }
 
-                        portResult.Status = PortStatus.Open; // Verbindung offen, aber kein Webserver erkannt
+                        portResult.Status = PortStatus.Open; // connection open, but no web server detected
                         return false;
                     }
                 }
@@ -143,20 +142,20 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                 {
                     if (ex.SocketErrorCode == SocketError.ConnectionRefused)
                     {
-                        portResult.Status = PortStatus.Filtered; // Firewall oder kein Dienst aktiv
+                        portResult.Status = PortStatus.Filtered; // firewall or no service running
                     }
                     else
                     {
-                        portResult.Status = PortStatus.Error; // Netzwerkfehler
+                        portResult.Status = PortStatus.Error; // network error
                     }
                 }
                 catch (IOException)
                 {
-                    portResult.Status = PortStatus.Error; // Verbindung wurde unerwartet geschlossen
+                    portResult.Status = PortStatus.Error; // connection closed unexpectedly
                 }
                 catch (OperationCanceledException)
                 {
-                    portResult.Status = PortStatus.NoResponse; // Timeout erreicht
+                    portResult.Status = PortStatus.NoResponse; // timeout
                 }
             }
 
@@ -164,48 +163,48 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Dieselbe Anfrage ueber TLS. Zertifikatsfehler werden bewusst
-        /// hingenommen - gefragt ist, ob dort ein Webserver steht, nicht ob er
-        /// ein gueltiges Zertifikat traegt.
+        /// The same request over TLS. Certificate errors are deliberately
+        /// accepted: the question is whether a web server is there, not
+        /// whether it has a valid certificate.
         /// </summary>
         private static async Task<bool> CheckHttpsAsync(string ipAddress, int port, PortResult portResult)
         {
             using (var tcpClient = new TcpClient())
-            using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(1))) // Timeout von 1 Sekunde fuer Verbindung
+            using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(1))) // 1-second connect timeout
             {
                 try
                 {
                     Task connectTask = tcpClient.ConnectAsync(ipAddress, port);
                     if (await Task.WhenAny(connectTask, Task.Delay(1000, cts.Token)) != connectTask)
                     {
-                        portResult.Status = PortStatus.NoResponse; // Keine Antwort vom Port
+                        portResult.Status = PortStatus.NoResponse; // no answer from the port
                         return false;
                     }
 
                     if (!tcpClient.Connected)
                     {
-                        portResult.Status = PortStatus.Filtered; // Verbindung verweigert, Firewall
+                        portResult.Status = PortStatus.Filtered; // connection refused, firewall
                         return false;
                     }
 
                     using (SslStream sslStream = new SslStream(tcpClient.GetStream(), false, (sender, cert, chain, sslPolicyErrors) => true))
-                    using (var sslCts = new CancellationTokenSource(TimeSpan.FromSeconds(2))) // Timeout fuer SSL-Handshake
+                    using (var sslCts = new CancellationTokenSource(TimeSpan.FromSeconds(2))) // TLS handshake timeout
                     {
                         var sslTask = sslStream.AuthenticateAsClientAsync(ipAddress);
                         if (await Task.WhenAny(sslTask, Task.Delay(2000, sslCts.Token)) != sslTask)
                         {
-                            portResult.Status = PortStatus.NoResponse; // SSL-Timeout, Server antwortet nicht
+                            portResult.Status = PortStatus.NoResponse; // TLS timeout, server does not answer
                             return false;
                         }
 
-                        // Erst pruefen, ob der Handshake wirklich stand
+                        // First check that the handshake really succeeded
                         if (!sslStream.IsAuthenticated)
                         {
-                            portResult.Status = PortStatus.Error; // SSL-Fehler
+                            portResult.Status = PortStatus.Error; // TLS error
                             return false;
                         }
 
-                        // Nur jetzt darf die Anfrage gesendet werden
+                        // Only now may the request be sent
                         byte[] requestBytes = Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: " + ipAddress + "\r\nConnection: close\r\n\r\n");
                         await sslStream.WriteAsync(requestBytes, 0, requestBytes.Length, sslCts.Token);
 
@@ -213,7 +212,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                         var readTask = sslStream.ReadAsync(buffer, 0, buffer.Length, sslCts.Token);
                         if (await Task.WhenAny(readTask, Task.Delay(2000, sslCts.Token)) != readTask)
                         {
-                            portResult.Status = PortStatus.NoResponse; // Antwort nicht erhalten
+                            portResult.Status = PortStatus.NoResponse; // no answer received
                             return false;
                         }
 
@@ -222,30 +221,30 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                         {
                             string response = Encoding.ASCII.GetString(buffer, 0, bytesRead);
 
-                            // Dieselbe Regel wie unverschluesselt: 2xx bis 5xx
-                            // oder HTML im Rumpf
+                            // Same rule as unencrypted: 2xx to 5xx
+                            // or HTML in the body
                             if (Regex.IsMatch(response, @"^HTTP/\d\.\d [2345]\d{2}") || response.ToLower().Contains("<html"))
                             {
-                                portResult.Status = PortStatus.IsRunning; // Webseite erkannt
+                                portResult.Status = PortStatus.IsRunning; // web page detected
                                 return true;
                             }
 
-                            portResult.Status = PortStatus.Open; // Port ist offen, aber keine Webseite
+                            portResult.Status = PortStatus.Open; // port is open, but no web page
                             return false;
                         }
                     }
                 }
                 catch (InvalidOperationException)
                 {
-                    portResult.Status = PortStatus.Error; // SSL-Verbindung kam nicht zustande
+                    portResult.Status = PortStatus.Error; // TLS connection failed
                 }
                 catch (SocketException ex) when (ex.SocketErrorCode == SocketError.ConnectionRefused)
                 {
-                    portResult.Status = PortStatus.Filtered; // Verbindung verweigert
+                    portResult.Status = PortStatus.Filtered; // connection refused
                 }
                 catch (Exception)
                 {
-                    portResult.Status = PortStatus.Error; // Sonstiger Fehler
+                    portResult.Status = PortStatus.Error; // other error
                 }
             }
 
@@ -253,9 +252,9 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Dieser Dienst hat keine eigene Antwortsignatur - er wird ueber
-        /// seinen eigenen Ablauf erkannt, nicht ueber ein Bytemuster. Es bleibt
-        /// bei der alten Regel fuer solche Faelle: eine Antwort zaehlt.
+        /// This service has no answer signature of its own; it is detected by
+        /// its own procedure, not by a byte pattern. For such cases any answer
+        /// counts.
         /// </summary>
         public override bool Identify(byte[] response) => response.Length > 0;
     }

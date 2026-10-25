@@ -5,22 +5,21 @@ using MyNetworkMonitor.Core.Network;
 namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 {
     /// <summary>
-    /// Probiert die niedrigen Adressen eines Praefixes durch - <c>::1</c> bis
-    /// <c>::ff</c>.
+    /// Tries the low addresses of a prefix, <c>::1</c> through <c>::ff</c>.
     /// <para>
-    /// Der Grund, warum das trotz 18 Trillionen moeglicher Adressen je /64
-    /// funktioniert: <b>von Hand vergebene Adressen sind klein</b>. Wer einen
-    /// Server, einen Switch oder einen Drucker fest adressiert, nimmt <c>::1</c>,
-    /// <c>::10</c>, <c>::100</c> - niemand tippt eine zufaellige 64-Bit-Zahl ab.
-    /// Genau diese Geraete sind zugleich die interessanten, und genau sie
-    /// finden die uebrigen Verfahren schlecht: sie stehen oft in einem anderen
-    /// Segment und antworten dort weder auf Multicast noch auf Neighbor
-    /// Discovery.
+    /// Why this works despite 18 quintillion possible addresses per /64:
+    /// <b>manually assigned addresses are small</b>. A statically addressed
+    /// server, switch or printer gets <c>::1</c>, <c>::10</c> or <c>::100</c>;
+    /// nobody types in a random 64-bit number. These devices are also the
+    /// interesting ones, and exactly those the other methods find poorly: they
+    /// are often on a different segment and answer neither multicast nor
+    /// neighbor discovery there.
     /// </para>
     /// <para>
-    /// Deshalb ist dieses Verfahren nicht voreingestellt (es steht nicht in
-    /// <see cref="Ipv6Discovery.Default"/>): es sendet als einziges der sechs
-    /// nennenswert viele Pakete an Adressen, an denen ueberwiegend niemand ist.
+    /// Not preselected for that reason (it is not part of
+    /// <see cref="Ipv6Discovery.Default"/>): it is the only one of the six
+    /// that sends a significant number of packets to addresses where mostly
+    /// nobody is.
     /// </para>
     /// </summary>
     public sealed class Ipv6LowByteSweepScanMethod : Ipv6MethodBase
@@ -40,16 +39,15 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         protected override Ipv6Discovery Discovery => Ipv6Discovery.LowByteSweep;
 
         /// <summary>
-        /// Es gibt eine Zielliste - und anders als bei den uebrigen fuenf
-        /// laesst sie sich auch beziffern. Ein Kaestchen "nur bekannte Geraete"
-        /// waere hier trotzdem sinnlos: die Liste besteht gerade aus Adressen,
-        /// die noch niemand kennt.
+        /// There is a target list, and unlike for the other five it can be
+        /// counted. A "known devices only" checkbox would still be pointless
+        /// here: the list consists precisely of addresses nobody knows yet.
         /// </summary>
         public override bool EnumeratesTargets => false;
 
         /// <summary>
-        /// Wie weit hochgezaehlt wird. 0xff deckt ab, was Menschen vergeben;
-        /// darueber hinaus stiege der Aufwand linear, der Ertrag aber nicht.
+        /// Upper end of the sweep. 0xff covers what people assign manually;
+        /// beyond that the effort grows linearly but the yield does not.
         /// </summary>
         private const int HighestLowByte = 0xFF;
 
@@ -71,8 +69,8 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                     {
                         IPAddress address = prefix.Combine([(byte)(low >> 8), (byte)low]);
 
-                        // Dieselbe Adresse kann aus zwei Praefixen entstehen,
-                        // wenn sich Bereiche ueberschneiden.
+                        // The same address can result from two prefixes when
+                        // scopes overlap.
                         if (!seen.Add(address.ToString())) continue;
 
                         candidates.Add(new Ipv6Candidate
@@ -89,10 +87,10 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         }
 
         /// <summary>
-        /// Die Praefixe, die durchprobiert werden. Ein Bereich vom Typ
-        /// <see cref="ScanScopeKind.IPv6Prefix"/> gibt seines ausdruecklich vor
-        /// - dann gilt nur dieses, denn genau dafuer hat der Nutzer es
-        /// eingetragen. Sonst kommen sie vom Adapter.
+        /// The prefixes to sweep. A scope of kind
+        /// <see cref="ScanScopeKind.IPv6Prefix"/> specifies its prefix
+        /// explicitly; then only that prefix applies, since that is what it
+        /// was configured for. Otherwise the prefixes come from the interface.
         /// </summary>
         private static List<Ipv6Prefix> PrefixesFor(Ipv6Segment segment)
         {

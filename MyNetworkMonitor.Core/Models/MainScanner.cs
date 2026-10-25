@@ -3,88 +3,83 @@ using CommunityToolkit.Mvvm.ComponentModel;
 namespace MyNetworkMonitor.Core.Models
 {
     /// <summary>
-    /// Ein Hauptscanner, zu dem sich diese Anlage als Satellit hinausverbindet
-    /// - etwa der Arbeitsplatz-Laptop oder der Server.
+    /// A main scanner that this installation connects out to as a satellite,
+    /// for example a workstation laptop or a server.
     /// <para>
-    /// Ein Satellit kennt mehrere davon und haelt zu allen gleichzeitig eine
-    /// Verbindung, jede fuer sich freigegeben und einzeln wiederverbindend
-    /// (SATELLIT.md, Abschnitt 1). Faellt einer aus, arbeitet der andere
-    /// weiter.
+    /// A satellite knows several of them and keeps a connection to all of them
+    /// at the same time, each approved separately and reconnecting
+    /// independently (SATELLIT.md, section 1). If one fails, the others keep
+    /// working.
     /// </para>
     /// <para>
-    /// Das Gegenstueck ist <see cref="Satellite"/>: dort steht, wer sich
-    /// <em>hierher</em> verbindet.
+    /// The counterpart is <see cref="Satellite"/>, which describes who connects
+    /// <em>to this installation</em>.
     /// </para>
     /// </summary>
     public partial class MainScanner : ObservableObject
     {
         /// <summary>
-        /// Hostname oder Adresse. Ein Name ist vorzuziehen - er ueberlebt
-        /// einen Adresswechsel, und genau das macht einen Laptop als
-        /// Hauptscanner moeglich.
+        /// Host name or address. A name is preferable - it survives an address
+        /// change, which is what makes a laptop usable as a main scanner.
         /// </summary>
         [ObservableProperty] private string _host = string.Empty;
 
         /// <summary>
-        /// Die Domaene, an die ein kurzer Name angehaengt wird - optional.
+        /// The domain appended to a short name; optional.
         /// <para>
-        /// Gedacht fuer den Fall, dass der Satellit in einem Segment steht, in
-        /// dem das Suffix nicht automatisch angehaengt wird: dort loest
-        /// "laptop" nicht auf, "laptop.firma.local" schon. Leer lassen, wo der
-        /// kurze Name genuegt oder ohnehin eine Adresse eingetragen ist -
-        /// darum optional und nicht Pflicht.
+        /// Intended for a satellite in a segment where the DNS suffix is not
+        /// appended automatically: there "laptop" does not resolve, but
+        /// "laptop.corp.example" does. Leave empty where the short name is
+        /// sufficient or an address is entered, hence optional.
         /// </para>
         /// </summary>
         [ObservableProperty] private string _domain = string.Empty;
 
         /// <summary>
-        /// Der Port dieses Empfaengers. Je Eintrag und nicht einmal fuer alle:
-        /// derselbe Satellit darf einen Hauptscanner auf 443 und einen anderen
-        /// auf 27411 erreichen - das hilft dort, wo nur wenige Ports nach
-        /// draussen duerfen.
+        /// The port of this receiver. Set per entry rather than globally: the
+        /// same satellite can reach one main scanner on 443 and another on
+        /// 27411, which helps where only a few outbound ports are allowed.
         /// </summary>
         [ObservableProperty] private int _port = 27411;
 
-        /// <summary>Gedaechtnisstuetze, etwa "Laptop Max" oder "Server".</summary>
+        /// <summary>A note to identify the entry, such as "Office laptop" or "Server".</summary>
         [ObservableProperty] private string _note = string.Empty;
 
         /// <summary>
-        /// Ob zu diesem Empfaenger ueberhaupt verbunden werden soll. Aus
-        /// heisst: der Eintrag bleibt stehen, wird aber nicht angewaehlt - etwa
-        /// der Laptop, waehrend man im Urlaub ist.
+        /// Whether to connect to this receiver at all. When off, the entry is
+        /// kept but not dialed - for example a laptop that is away for a while.
         /// </summary>
         [ObservableProperty] private bool _enabled = true;
 
         /// <summary>
-        /// Der gemerkte Fingerabdruck dieses Hauptscanners. Wird beim ersten
-        /// Verbinden uebernommen und danach geprueft: ein anderer Schluessel
-        /// ist ein anderer Gegenueber, egal wie der Name lautet (SATELLIT.md,
-        /// Abschnitt 4, Punkt 5).
+        /// The pinned fingerprint of this main scanner. Taken on the first
+        /// connection and checked afterwards: a different key is a different
+        /// peer, whatever the name (SATELLIT.md, section 4, item 5).
         /// <para>
-        /// Wird <b>gespeichert</b>. Nur gemerkt gilt er bis zum naechsten
-        /// Start, und danach vertraute der Satellit wieder blind dem ersten,
-        /// der antwortet - womit die ganze Pruefung nichts wert waere.
+        /// It is <b>persisted</b>. Held only in memory, it would last until the
+        /// next start, after which the satellite would again blindly trust the
+        /// first peer to answer - making the whole check worthless.
         /// </para>
         /// </summary>
         [ObservableProperty] private string _pinnedFingerprint = string.Empty;
 
-        // --- Laufender Zustand, nichts davon wird gespeichert ----------------
+        // --- Runtime state, none of it is persisted ---------------------------
 
-        /// <summary>Ob die Verbindung zu diesem Empfaenger gerade steht.</summary>
+        /// <summary>Whether the connection to this receiver is currently established.</summary>
         [ObservableProperty] private bool _isConnected;
 
-        /// <summary>Ob dieser Empfaenger diese Anlage freigegeben hat.</summary>
+        /// <summary>Whether this receiver has approved this installation.</summary>
         [ObservableProperty] private bool _isApproved;
 
-        /// <summary>Was die Verbindung zuletzt gemeldet hat - ein Satz fuer die Liste.</summary>
+        /// <summary>The last message reported by the connection, one sentence for the list.</summary>
         [ObservableProperty] private string _status = "Not connected.";
 
-        /// <summary>Es wird gerade versucht oder gehalten.</summary>
+        /// <summary>A connection is currently being attempted or maintained.</summary>
         [ObservableProperty] private bool _isActive;
 
         /// <summary>
-        /// Die Verbindung steht, die Freigabe fehlt noch - der Zustand
-        /// zwischen "Connect gedrueckt" und "am Hauptscanner angenommen".
+        /// Connected but not yet approved - the state between "Connect pressed"
+        /// and "accepted on the main scanner".
         /// </summary>
         public bool IsWaitingForApproval => IsConnected && !IsApproved;
 
@@ -92,13 +87,13 @@ namespace MyNetworkMonitor.Core.Models
         partial void OnIsApprovedChanged(bool value) => OnPropertyChanged(nameof(IsWaitingForApproval));
 
         /// <summary>
-        /// Der Name, mit dem tatsaechlich verbunden wird: der kurze Name samt
-        /// Domaene, wenn eine angegeben ist und noetig ist.
+        /// The name actually connected to: the short name plus domain, if a
+        /// domain is set and needed.
         /// <para>
-        /// Angehaengt wird nur, wenn <see cref="Host"/> keinen Punkt und keinen
-        /// Doppelpunkt enthaelt. Eine IPv4 traegt Punkte, eine IPv6 Doppelpunkte,
-        /// ein bereits vollstaendiger Name Punkte - in allen drei Faellen waere
-        /// ein angehaengtes Suffix falsch, und der Eintrag liefe ins Leere.
+        /// The domain is appended only if <see cref="Host"/> contains neither a
+        /// dot nor a colon. An IPv4 address contains dots, an IPv6 address
+        /// colons, a fully qualified name dots - in all three cases an appended
+        /// suffix would be wrong and the entry would never connect.
         /// </para>
         /// </summary>
         public string TargetHost
@@ -116,7 +111,7 @@ namespace MyNetworkMonitor.Core.Models
             }
         }
 
-        /// <summary>Wie der Eintrag in der Liste steht.</summary>
+        /// <summary>How the entry is shown in the list.</summary>
         public string Display =>
             string.IsNullOrWhiteSpace(Note)
                 ? $"{TargetHost}:{Port}"

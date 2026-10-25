@@ -4,7 +4,7 @@ using static MyNetworkMonitor.ServiceScanData;
 
 namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 {
-    /// <summary>OPC UA. Gefragt wird mit einer Hello-Nachricht des Binaerprotokolls.</summary>
+    /// <summary>OPC UA. Asks with a Hello message of the binary protocol (OPC UA Part 6).</summary>
     public sealed class OpcUaProbe : ServiceProbeBase
     {
         public override ServiceType Service => ServiceType.OPCUA;
@@ -13,7 +13,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
         /// <summary>
         /// Hello message (OPC UA Part 6, section 7.1.2.3) with the neutral endpoint URL <c>opc.tcp://localhost:4840/</c>;
-        /// servers answer with Acknowledge or Error regardless of the URL.
+        /// servers answer with Acknowledge or Error regardless of the URL. See docs/FEHLERGEDAECHTNIS.md, No. 14.
         /// </summary>
         public override byte[] Hello => new byte[]
             {
@@ -23,13 +23,12 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                 0x6F, 0x73, 0x74, 0x3A, 0x34, 0x38, 0x34, 0x30, 0x2F
             };
 
-        /// <summary>Woertlich aus der alten Antwortpruefung uebernommen - keine Bedingung veraendert.</summary>
+        /// <summary>Matches an answer that starts with <c>HELF</c> or <c>ACKF</c>.</summary>
         public override bool Identify(byte[] response)
         {
             ServiceType service = Service;
             bool serviceMatched = false;
 
-            // ?? OPC UA
             if (service == ServiceType.OPCUA)
             {
                 if (response.Length >= 4)
@@ -39,12 +38,12 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
                     if (response.Take(4).SequenceEqual(opcUaHelloHeader))
                     {
-                        //OPC UA Hello Frame erkannt
+                        // OPC UA Hello frame detected
                         serviceMatched = true;
                     }
                     else if (response.Take(4).SequenceEqual(opcUaAckHeader))
                     {
-                        //OPC UA Acknowledge Frame erkannt
+                        // OPC UA Acknowledge frame detected
                         serviceMatched = true;
                     }
                 }
@@ -54,15 +53,14 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Erst die uebliche Erkennung, und wenn sie gegriffen hat, noch eine
-        /// Frage nach den Endpunkten.
+        /// First the common detection and, if it matched, a request for the
+        /// endpoints.
         /// <para>
-        /// Die Erkennung selbst bleibt unberuehrt: das Hello-Paket und
-        /// <see cref="Identify"/> entscheiden weiterhin allein, ob hier OPC UA
-        /// laeuft. Das Acknowledge, mit dem sie das tut, enthaelt aber nur
-        /// Puffergroessen - wer der Server ist, steht erst in den Endpunkten.
-        /// Die zweite Verbindung ist Absicht: die erste hat ihre Aufgabe
-        /// erledigt, und ein Fehlschlag hier soll den Befund nicht umstossen.
+        /// The hello packet and <see cref="Identify"/> alone decide whether OPC
+        /// UA is running. The Acknowledge they rely on contains only buffer
+        /// sizes, however; who the server is only shows in the endpoints. The
+        /// second connection is deliberate: the first has done its job, and a
+        /// failure here must not overturn the finding.
         /// </para>
         /// </summary>
         public override async Task<PortResult> ProbeAsync(
@@ -84,14 +82,14 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             }
             catch (Exception)
             {
-                // Der Dienst steht bereits fest. Dass die Auskunft darueber
-                // hinaus nicht zu holen war, ist kein Grund, den Fund zu
-                // verwerfen - viele Server geben ohne Zertifikat nichts heraus.
+                // The service is already established. That no further
+                // information was available is no reason to discard the
+                // finding; many servers reveal nothing without a certificate.
             }
 
-            // Ausserhalb des try, damit es auch nach einem Zeitlimit greift:
-            // sonst bliebe die Notiz der Basispruefung stehen, und die wandert
-            // bei diesem Dienst in die Detailansicht.
+            // Outside the try so that it also applies after a timeout;
+            // otherwise the note of the base check would remain, and for this
+            // service it ends up in the details view.
             portResult.PortLog = string.IsNullOrWhiteSpace(info)
                 ? "Acknowledged, but no endpoint information available."
                 : info;
@@ -100,9 +98,10 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Baut einen Sicherheitskanal ohne Verschluesselung auf und fragt die
-        /// Endpunkte ab. Ohne diesen Umweg gibt ein OPC-UA-Server seine Kennung
-        /// nicht heraus - das Acknowledge des Verbindungsaufbaus traegt sie nicht.
+        /// Opens a secure channel without encryption and requests the endpoints
+        /// (GetEndpoints, OPC UA Part 4, section 5.4.4). Without this detour an
+        /// OPC UA server does not reveal its identity; the Acknowledge of the
+        /// connection setup does not carry it.
         /// </summary>
         private static async Task<string?> ReadServerInfoAsync(
             ProbeContext context, string address, int port, CancellationToken token)
@@ -121,12 +120,12 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
             string url = $"opc.tcp://{address}:{port}/";
 
-            // --- Hello, diesmal mit der Adresse des Ziels ---
+            // --- Hello, this time with the address of the target ---
             //
-            // Das Erkennungspaket oben traegt eine fest eingebaute fremde
-            // Adresse. Fuer die Ja/Nein-Frage genuegt das - die Server
-            // bestaetigen trotzdem -, fuer eine Auskunft nimmt man besser die
-            // Adresse, unter der man den Server tatsaechlich anspricht.
+            // The detection packet above carries a fixed, neutral URL. That is
+            // enough for the yes/no question, since servers acknowledge anyway;
+            // for information requests the address under which the server is
+            // actually reached is the better choice.
             byte[] urlBytes = Encoding.UTF8.GetBytes(url);
             List<byte> hello = [.. "HELF"u8];
             hello.AddRange(BitConverter.GetBytes((uint)(32 + urlBytes.Length)));
@@ -143,7 +142,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             (string Type, byte[] Body)? acknowledge = await ReadMessageAsync(stream, read);
             if (acknowledge is null || acknowledge.Value.Type != "ACKF") return null;
 
-            // --- Sicherheitskanal ohne Verschluesselung ---
+            // --- Secure channel without encryption ---
             List<byte> request = [0x01, 0x00, 0xBE, 0x01];      // OpenSecureChannelRequest (446)
             request.AddRange(RequestHeader(1));
             request.AddRange(BitConverter.GetBytes(0u));        // ClientProtocolVersion
@@ -194,15 +193,15 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Liest die BuildInfo eines Servers ueber eine <b>anonyme</b> Sitzung:
-        /// Hersteller, Softwarestand und Baudatum. <c>null</c>, wenn der Server
-        /// keine anonyme Sitzung zulaesst oder nichts Verwertbares liefert.
+        /// Reads the BuildInfo of a server through an <b>anonymous</b> session:
+        /// manufacturer, software version and build date. <c>null</c> if the
+        /// server does not allow an anonymous session or returns nothing usable.
         /// <para>
-        /// Dies ist der einzige Schritt, der ueber die reine Auskunft
-        /// hinausgeht und eine Sitzung <em>aufbaut</em>. Er laeuft ausdruecklich
-        /// nur ohne Zugangsdaten - der Scanner fuehrt keine Passwoerter mit -,
-        /// und nur dort, wo sonst keine Firmware zu bekommen ist. Ein Server,
-        /// der anonyme Sitzungen ablehnt, liefert hier nichts, und dabei bleibt es.
+        /// This is the only step that goes beyond a plain information request
+        /// and <em>establishes</em> a session. It runs only without credentials
+        /// (the scanner carries no passwords) and only where no firmware
+        /// version is available otherwise. A server that rejects anonymous
+        /// sessions returns nothing here, and that is final.
         /// </para>
         /// </summary>
         internal static async Task<string?> ReadBuildInfoAsync(
@@ -237,7 +236,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
             if (await ReadMessageAsync(stream, read) is not { Type: "ACKF" }) return null;
 
-            // --- Sicherheitskanal ohne Verschluesselung ---
+            // --- Secure channel without encryption ---
             List<byte> openBody = [0x01, 0x00, 0xBE, 0x01];
             openBody.AddRange(RequestHeader(1));
             openBody.AddRange(BitConverter.GetBytes(0u));
@@ -268,7 +267,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             create.AddRange(RequestHeader(2));
             create.AddRange(EncodeString("urn:mynetworkmonitor:client"));   // ClientDescription.ApplicationUri
             create.AddRange(EncodeString("urn:mynetworkmonitor:client"));   // ProductUri
-            create.AddRange([0x02]);                                        // ApplicationName: nur Text
+            create.AddRange([0x02]);                                        // ApplicationName: text only
             create.AddRange(EncodeString("MyNetworkMonitor"));
             create.AddRange(BitConverter.GetBytes(1u));                     // ApplicationType: Client
             create.AddRange(NullValue);                                     // GatewayServerUri
@@ -290,14 +289,14 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             if (session is not { Type: "MSGF" }) return null;
 
             byte[] sb = session.Value.Body;
-            int q = 16 + 4 + 24;                 // Sicherheitskopf, TypeId, ResponseHeader
+            int q = 16 + 4 + 24;                 // security header, TypeId, ResponseHeader
             q = SkipNodeId(sb, q);               // SessionId
             int tokenStart = q;
             q = SkipNodeId(sb, q);               // AuthenticationToken
             if (q > sb.Length) return null;
             byte[] authToken = sb[tokenStart..q];
 
-            // --- ActivateSession, anonym ---
+            // --- ActivateSession, anonymous ---
             List<byte> activate = [0x01, 0x00, 0xD3, 0x01];   // ActivateSessionRequest (467)
             activate.AddRange(RequestHeader(3, authToken));
             activate.AddRange(NullValue); activate.AddRange(NullValue);   // ClientSignature
@@ -305,7 +304,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             activate.AddRange(NullValue);                                 // LocaleIds
             byte[] policy = EncodeString("Anonymous");
             activate.AddRange([0x01, 0x00, 0x41, 0x01]);                  // AnonymousIdentityToken (321)
-            activate.AddRange([0x01]);                                    // Body als ByteString
+            activate.AddRange([0x01]);                                    // body as ByteString
             activate.AddRange(BitConverter.GetBytes((uint)policy.Length));
             activate.AddRange(policy);
             activate.AddRange(NullValue); activate.AddRange(NullValue);   // UserTokenSignature
@@ -315,9 +314,9 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             if (activated is not { Type: "MSGF" } || activated.Value.Body.Length < 16 + 4 + 16) return null;
 
             uint status = BitConverter.ToUInt32(activated.Value.Body, 16 + 4 + 12);   // ServiceResult
-            if (status != 0) return null;                // etwa Bad_IdentityTokenRejected
+            if (status != 0) return null;                // e.g. Bad_IdentityTokenRejected
 
-            // --- Read auf die BuildInfo-Knoten ---
+            // --- Read the BuildInfo nodes ---
             uint[] nodes = [2263, 2264, 2265, 2266, 2267];
 
             List<byte> readRequest = [0x01, 0x00, 0x77, 0x02];   // ReadRequest (631)
@@ -328,11 +327,11 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
             foreach (uint node in nodes)
             {
-                readRequest.AddRange([0x01, 0x00]);                       // NodeId FourByte, Namensraum 0
+                readRequest.AddRange([0x01, 0x00]);                       // NodeId FourByte, namespace 0
                 readRequest.AddRange(BitConverter.GetBytes((ushort)node));
                 readRequest.AddRange(BitConverter.GetBytes(13u));         // AttributeId: Value
                 readRequest.AddRange(NullValue);                          // IndexRange
-                readRequest.AddRange([0x00, 0x00]);                       // DataEncoding: leere QualifiedName
+                readRequest.AddRange([0x00, 0x00]);                       // DataEncoding: empty QualifiedName
                 readRequest.AddRange(NullValue);
             }
 
@@ -344,7 +343,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             return FormatBuildInfo(values.Value.Body);
         }
 
-        /// <summary>Verpackt einen Rumpf in eine MSG-Nachricht mit Sicherheitskopf und sendet sie.</summary>
+        /// <summary>Wraps a body in a MSG message with security header and sends it.</summary>
         private static async Task SendSecureMessage(
             NetworkStream stream, uint channel, uint tokenId, uint sequence, uint requestId,
             List<byte> body, CancellationToken token)
@@ -359,7 +358,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             await stream.WriteAsync(message.ToArray(), token);
         }
 
-        /// <summary>Wie <see cref="RequestHeader(uint)"/>, aber mit einem Sitzungstoken statt der leeren NodeId.</summary>
+        /// <summary>Like <see cref="RequestHeader(uint)"/>, but with a session token instead of the empty NodeId.</summary>
         private static byte[] RequestHeader(uint handle, byte[] authToken)
         {
             List<byte> header = [.. authToken];
@@ -372,7 +371,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             return [.. header];
         }
 
-        /// <summary>Ueberspringt eine NodeId in ihren verschiedenen Kodierungen.</summary>
+        /// <summary>Skips a NodeId in any of its encodings (OPC UA Part 6, section 5.2.2.9).</summary>
         private static int SkipNodeId(byte[] d, int p)
         {
             byte encoding = (byte)(d[p] & 0x0F);
@@ -389,14 +388,14 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Macht aus den fuenf gelesenen BuildInfo-Werten die Zeilen fuer die
-        /// Detailansicht.
+        /// Turns the five BuildInfo values read into the lines for the details
+        /// view.
         /// <para>
-        /// Die Hersteller belegen die einzelnen Felder uneinheitlich - der eine
-        /// legt die Version in "ProductName", der andere in "SoftwareVersion".
-        /// Darum wird nicht nach Feldnamen zugeordnet, sondern nach Form: der
-        /// Hersteller steht im ersten Feld, die Version ist die erste
-        /// versionsartige Zeichenkette, das Baudatum der erste Zeitwert.
+        /// Vendors fill the fields inconsistently: one puts the version in
+        /// "ProductName", another in "SoftwareVersion". Values are therefore
+        /// assigned by form, not by field name: the manufacturer is in the
+        /// first field, the version is the first version-like string, the
+        /// build date is the first date value.
         /// </para>
         /// </summary>
         private static string? FormatBuildInfo(byte[] body)
@@ -421,7 +420,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
             List<string> lines = [];
 
-            // Erstes Textfeld ist der Hersteller.
+            // The first text field is the manufacturer.
             string? manufacturer = texts.Count > 0 ? texts[0] : null;
             if (!string.IsNullOrWhiteSpace(manufacturer)) lines.Add($"Manufacturer: {manufacturer}");
 
@@ -433,7 +432,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             return lines.Count == 0 ? null : string.Join(Environment.NewLine, lines);
         }
 
-        /// <summary>Eine Zeichenkette mit Ziffern und Punkt, oder mit fuehrendem V - etwa "1.2.3.4" oder "V01.02.03".</summary>
+        /// <summary>A string with digits and a dot, or with a leading V, such as "1.2.3.4" or "V01.02.03".</summary>
         private static bool LooksLikeVersion(string text)
         {
             if (text.Contains('.') && text.Any(char.IsDigit)) return true;
@@ -441,10 +440,10 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Ein DataValue: der Wert und, wo vorhanden, ein Zeitwert. Die Felder
-        /// stehen in fester Reihenfolge, jedes nur, wenn sein Bit in der Maske
-        /// steht - werden die Zeitstempel nicht abgezogen, verrutscht der
-        /// naechste Wert.
+        /// A DataValue (OPC UA Part 6, section 5.2.2.17): the value and, where
+        /// present, a date value. The fields are in a fixed order, each only if
+        /// its bit is set in the mask; if the timestamps are not skipped, the
+        /// next value is misaligned.
         /// </summary>
         private static (string? Text, string? AsDate) ReadDataValue(byte[] d, ref int p)
         {
@@ -476,7 +475,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                         }
                         break;
 
-                    case 21:                       // LocalizedText: Maske, dann Sprache und Text
+                    case 21:                       // LocalizedText: mask, then locale and text
                         byte lt = d[p++];
                         if ((lt & 0x01) != 0) p = SkipByteString(d, p);
                         if ((lt & 0x02) != 0)
@@ -498,11 +497,10 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Aus den Zeichenketten der Antwort das machen, was in der
-        /// Detailansicht stehen soll. Sortiert wird nach der Form: eine
-        /// Anwendungskennung beginnt mit "urn:", eine Sicherheitsrichtlinie
-        /// endet hinter "SecurityPolicy#", ein Endpunkt beginnt mit "opc.tcp".
-        /// Was uebrig bleibt und keine Adresse ist, ist der Name.
+        /// Turns the strings of the answer into what the details view shows.
+        /// They are sorted by form: an application URI starts with "urn:", a
+        /// security policy follows "SecurityPolicy#", an endpoint starts with
+        /// "opc.tcp". What remains and is not an address is the name.
         /// </summary>
         private static string? Summarize(List<string> strings)
         {
@@ -529,7 +527,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                 }
                 else if (text.StartsWith("http://opcfoundation.org", StringComparison.OrdinalIgnoreCase))
                 {
-                    // Profil- und Transportkennungen sagen nichts ueber das Geraet.
+                    // Profile and transport URIs say nothing about the device.
                 }
                 else if (text.StartsWith("http", StringComparison.OrdinalIgnoreCase))
                 {
@@ -552,12 +550,12 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Loest Prozentzeichen-Ersatzdarstellungen auf, wie sie in einer
-        /// Anwendungskennung vorkommen: aus "WAGO%20750" wird "WAGO 750".
+        /// Decodes percent-encoding as found in an application URI:
+        /// "WAGO%20750" becomes "WAGO 750".
         /// <para>
-        /// Nur zweistellige Sedezimalfolgen werden ersetzt, und nur zu
-        /// druckbaren Zeichen. Ein einzelnes Prozentzeichen im Text bleibt
-        /// stehen, statt den Rest der Zeile zu verschlucken.
+        /// Only two-digit hexadecimal sequences are replaced, and only with
+        /// printable characters. A single percent sign in the text stays
+        /// instead of swallowing the rest of the line.
         /// </para>
         /// </summary>
         private static string Readable(string value)
@@ -587,18 +585,18 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             return result.ToString();
         }
 
-        /// <summary>Sprachkennzeichen wie "en-US" gehoeren zum Namen, sind aber nicht der Name.</summary>
+        /// <summary>Locale IDs such as "en-US" belong to the name but are not the name.</summary>
         private static bool LooksLikeLocale(string text) =>
             text.Length <= 5 && text.Contains('-');
 
         /// <summary>
-        /// Laengenpraefixierte, druckbare Zeichenketten aus der Antwort.
+        /// Length-prefixed, printable strings from the answer.
         /// <para>
-        /// Die Antwort vollstaendig zu zerlegen hiesse, den halben
-        /// OPC-UA-Datentypsatz nachzubauen - verschachtelte Strukturen,
-        /// Felder, Erweiterungsobjekte. Fuer eine Auskunft in der
-        /// Detailansicht genuegt es, die Texte einzusammeln: sie tragen ihre
-        /// Laenge vor sich her, und was danach nicht druckbar ist, war keiner.
+        /// Fully decoding the answer would mean rebuilding half of the OPC UA
+        /// type system: nested structures, arrays, extension objects. For
+        /// information in the details view it is enough to collect the texts:
+        /// they carry their length in front, and what is not printable after
+        /// that was not a text.
         /// </para>
         /// </summary>
         private static List<string> ReadableStrings(byte[] data)
@@ -636,10 +634,10 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             return [.. result];
         }
 
-        /// <summary>Der Kopf, den jede Anfrage traegt - ohne Anmeldung, ohne Diagnose.</summary>
+        /// <summary>The header every request carries, without session and without diagnostics.</summary>
         private static byte[] RequestHeader(uint handle)
         {
-            List<byte> header = [0x00, 0x00];                   // AuthenticationToken: leere NodeId
+            List<byte> header = [0x00, 0x00];                   // AuthenticationToken: empty NodeId
             header.AddRange(BitConverter.GetBytes(DateTime.UtcNow.ToFileTimeUtc()));
             header.AddRange(BitConverter.GetBytes(handle));     // RequestHandle
             header.AddRange(BitConverter.GetBytes(0u));         // ReturnDiagnostics
@@ -650,9 +648,9 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Kanalnummer und Token aus der Antwort auf OpenSecureChannel. Beide
-        /// muessen in jeder folgenden Nachricht stehen, sonst verwirft der
-        /// Server sie ungelesen.
+        /// Channel ID and token ID from the answer to OpenSecureChannel. Both
+        /// must be in every following message, otherwise the server discards
+        /// it unread.
         /// </summary>
         private static bool TryReadChannelToken(byte[] body, out uint channelId, out uint tokenId)
         {
@@ -661,12 +659,12 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
             try
             {
-                int p = 4;                      // SecureChannelId des Kopfes
+                int p = 4;                      // SecureChannelId of the header
                 p = SkipByteString(body, p);    // SecurityPolicyUri
                 p = SkipByteString(body, p);    // SenderCertificate
                 p = SkipByteString(body, p);    // ReceiverCertificateThumbprint
                 p += 8;                         // SequenceNumber + RequestId
-                p += 4;                         // TypeId der Antwort
+                p += 4;                         // TypeId of the response
                 p += 8 + 4 + 4 + 1 + 4 + 3;     // ResponseHeader
                 p += 4;                         // ServerProtocolVersion
 
@@ -688,7 +686,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             return offset + 4 + (length > 0 ? length : 0);
         }
 
-        /// <summary>Eine Nachricht des Binaerprotokolls: vier Zeichen Art, vier Byte Laenge, Rumpf.</summary>
+        /// <summary>A message of the binary protocol: four characters type, four bytes length, body.</summary>
         private static async Task<(string Type, byte[] Body)?> ReadMessageAsync(
             NetworkStream stream, CancellationToken token)
         {
@@ -698,9 +696,8 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             string type = Encoding.ASCII.GetString(head, 0, 4);
             uint size = BitConverter.ToUInt32(head, 4);
 
-            // Eine Laengenangabe, der man nicht folgen sollte: ein Server, der
-            // sich vertut, wuerde uns sonst einen Puffer in beliebiger Groesse
-            // anlegen lassen.
+            // A length that should not be trusted: a faulty server could
+            // otherwise make the probe allocate a buffer of any size.
             if (size is < 8 or > 1_000_000) return null;
 
             byte[] body = size > 8 ? await ReadExactAsync(stream, (int)size - 8, token) ?? [] : [];

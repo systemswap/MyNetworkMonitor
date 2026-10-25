@@ -9,10 +9,10 @@ using MyNetworkMonitor.Core.ViewModels;
 namespace MyNetworkMonitor.Avalonia.Views;
 
 /// <summary>
-/// Die Farbwerte der neuen Oberflaeche an einer Stelle. Farbe traegt hier
-/// Bedeutung, nicht Schmuck: Tuerkis fuer IPv4, Indigo fuer IPv6, und davon
-/// getrennt die Ampelfarben der Portzustaende. Verstreut im XAML waere die
-/// Regel nach der dritten Aenderung nicht mehr durchgehalten.
+/// The colors of the user interface in one place. Color carries meaning here,
+/// not decoration: teal for IPv4, indigo for IPv6, and separately the traffic
+/// light colors of the port states. Scattered across the XAML, the rule would
+/// not survive the third change.
 /// </summary>
 internal static class ShellPalette
 {
@@ -34,9 +34,8 @@ internal static class ShellPalette
     internal static readonly SolidColorBrush MuteFg = new(Color.Parse("#96A7AB"));
     internal static readonly SolidColorBrush Nothing = new(Colors.Transparent);
 
-    // Die Befundfarben der bisherigen Anwendung, auf die hellere Tabelle
-    // dieser Oberflaeche gebracht. Die Zuordnung bleibt: je roeter, desto
-    // schwerer der Befund.
+    // Finding colors, adapted to the light table background. The redder the
+    // color, the more severe the finding.
     internal static readonly SolidColorBrush DupAddrBg = new(Color.Parse("#F6D9D6"));
     internal static readonly SolidColorBrush DupAddrFg = new(Color.Parse("#8E2B23"));
     internal static readonly SolidColorBrush DupNameBg = new(Color.Parse("#FAE3CC"));
@@ -45,7 +44,7 @@ internal static class ShellPalette
     internal static readonly SolidColorBrush DupSoftFg = new(Color.Parse("#7C6416"));
 }
 
-/// <summary>Gruener Punkt, wenn erreichbar - sonst grau.</summary>
+/// <summary>Green dot when reachable, grey otherwise.</summary>
 public sealed class OnlineBrushConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
@@ -55,7 +54,7 @@ public sealed class OnlineBrushConverter : IValueConverter
         throw new NotSupportedException();
 }
 
-/// <summary>IPv4-Adresse in Textfarbe, ein Fehlen blass.</summary>
+/// <summary>IPv4 address in the text color, a missing one dimmed.</summary>
 public sealed class Ipv4BrushConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
@@ -65,7 +64,7 @@ public sealed class Ipv4BrushConverter : IValueConverter
         throw new NotSupportedException();
 }
 
-/// <summary>IPv6 durchgehend in Indigo, ein Fehlen blass.</summary>
+/// <summary>IPv6 always in indigo, a missing one dimmed.</summary>
 public sealed class Ipv6BrushConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
@@ -76,7 +75,7 @@ public sealed class Ipv6BrushConverter : IValueConverter
 }
 
 /// <summary>
-/// Fehlende Angaben kursiv - damit "keine" nicht wie eine Adresse aussieht.
+/// Missing values in italics, so that "none" does not look like an address.
 /// </summary>
 public sealed class MissingStyleConverter : IValueConverter
 {
@@ -87,7 +86,7 @@ public sealed class MissingStyleConverter : IValueConverter
         throw new NotSupportedException();
 }
 
-/// <summary>Farbe nach Adressfamilie - die durchgaengige Regel des Entwurfs.</summary>
+/// <summary>Color by address family, the consistent rule of the design.</summary>
 public sealed class FamilyBrushConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
@@ -98,8 +97,8 @@ public sealed class FamilyBrushConverter : IValueConverter
 }
 
 /// <summary>
-/// Die Herkunft des Interface-Identifiers nur zeigen, wenn sie etwas aussagt.
-/// "NotApplicable" bei IPv4 und "Unknown" sind keine Information.
+/// Shows the origin of the interface identifier only when it is meaningful.
+/// "NotApplicable" for IPv4 and "Unknown" carry no information.
 /// </summary>
 public sealed class IidVisibleConverter : IValueConverter
 {
@@ -112,9 +111,9 @@ public sealed class IidVisibleConverter : IValueConverter
 }
 
 /// <summary>
-/// Kurzform des Portzustands. Die sieben Zustaende bleiben unterscheidbar,
-/// weil sie fachlich Verschiedenes bedeuten - nur die Benennung wird kuerzer,
-/// damit sie in eine schmale Spalte passt.
+/// Short form of the port state. The seven states stay distinguishable
+/// because they mean different things; only the labels are shorter so that
+/// they fit a narrow column.
 /// </summary>
 public sealed class PortStatusTextConverter : IValueConverter
 {
@@ -135,6 +134,7 @@ public sealed class PortStatusTextConverter : IValueConverter
         throw new NotSupportedException();
 }
 
+/// <summary>Background of the port state badge.</summary>
 public sealed class PortStatusBackgroundConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
@@ -152,6 +152,7 @@ public sealed class PortStatusBackgroundConverter : IValueConverter
         throw new NotSupportedException();
 }
 
+/// <summary>Text color of the port state badge, matching the background.</summary>
 public sealed class PortStatusForegroundConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
@@ -168,9 +169,9 @@ public sealed class PortStatusForegroundConverter : IValueConverter
 }
 
 /// <summary>
-/// Das Kuerzel in der Befundspalte. Kurz genug fuer eine schmale Spalte,
-/// eindeutig genug, um ohne Legende zu verstehen, worum es geht - der
-/// vollstaendige Text steht im Kurzhinweis daneben.
+/// The abbreviation in the findings column. Short enough for a narrow column,
+/// clear enough to be understood without a legend; the full text is in the
+/// tooltip.
 /// </summary>
 public sealed class ConflictLabelConverter : IValueConverter
 {
@@ -178,8 +179,8 @@ public sealed class ConflictLabelConverter : IValueConverter
     {
         if (value is not DeviceConflict conflict || conflict == DeviceConflict.None) return string.Empty;
 
-        // Nur der schwerste Befund kommt in die Spalte. Mehrere Kuerzel
-        // nebeneinander waeren in 44 Pixeln nicht mehr zu lesen.
+        // Only the most severe finding goes into the column. Several
+        // abbreviations side by side would be unreadable in 44 pixels.
         if (conflict.HasFlag(DeviceConflict.Address)) return "DUP IP";
         if (conflict.HasFlag(DeviceConflict.DnsMultipleAddresses)) return "DNS x";
         if (conflict.HasFlag(DeviceConflict.HostName)) return "DUP NAME";
@@ -195,7 +196,7 @@ public sealed class ConflictLabelConverter : IValueConverter
         throw new NotSupportedException();
 }
 
-/// <summary>Hintergrund des Befundkaestchens - je schwerer, desto roeter.</summary>
+/// <summary>Background of the finding badge: the more severe, the redder.</summary>
 public sealed class ConflictBackgroundConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
@@ -218,7 +219,7 @@ public sealed class ConflictBackgroundConverter : IValueConverter
         throw new NotSupportedException();
 }
 
-/// <summary>Schriftfarbe des Befundkaestchens, passend zum Hintergrund.</summary>
+/// <summary>Text color of the finding badge, matching the background.</summary>
 public sealed class ConflictForegroundConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
@@ -242,8 +243,8 @@ public sealed class ConflictForegroundConverter : IValueConverter
 }
 
 /// <summary>
-/// Faerbt die Zahl der Namensserver. Ueber der plausiblen Grenze wird sie
-/// rot - das ist der Befund, um dessentwillen die Spalte ueberhaupt da ist.
+/// Colors the number of name servers. Above the plausible limit it turns red,
+/// which is the finding the column exists for.
 /// </summary>
 public sealed class DnsCountBrushConverter : IValueConverter
 {
@@ -257,8 +258,8 @@ public sealed class DnsCountBrushConverter : IValueConverter
 }
 
 /// <summary>
-/// Faerbt das Ablaufdatum eines Zertifikats. Abgelaufen wird rot - das ist
-/// genau der Fall, um dessentwillen die Zeile ueberhaupt gelesen wird.
+/// Colors the expiry date of a certificate. Expired turns red, which is
+/// exactly the case the line is read for.
 /// </summary>
 public sealed class CertificateExpiryBrushConverter : IValueConverter
 {
@@ -269,7 +270,7 @@ public sealed class CertificateExpiryBrushConverter : IValueConverter
         throw new NotSupportedException();
 }
 
-/// <summary>Hintergrund des Dringlichkeitskaestchens in der Befundliste.</summary>
+/// <summary>Background of the severity badge in the findings list.</summary>
 public sealed class SeverityBackgroundConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
@@ -284,7 +285,7 @@ public sealed class SeverityBackgroundConverter : IValueConverter
         throw new NotSupportedException();
 }
 
-/// <summary>Schriftfarbe des Dringlichkeitskaestchens.</summary>
+/// <summary>Text color of the severity badge.</summary>
 public sealed class SeverityForegroundConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>

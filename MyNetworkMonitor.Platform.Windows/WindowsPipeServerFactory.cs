@@ -6,31 +6,32 @@ using System.Security.Principal;
 namespace MyNetworkMonitor.Platform.Windows
 {
     /// <summary>
-    /// Legt die Steuerpipe des Dienstes mit einer Zugriffsliste an.
+    /// Creates the control pipe of the service with an access control list.
     /// <para>
-    /// Ohne die geht es nicht: der Dienst laeuft als LocalSystem, die
-    /// Oberflaeche als angemeldeter Nutzer. Eine Pipe gehoert standardmaessig
-    /// dem, der sie anlegt - der Nutzer bekaeme beim Verbinden "Zugriff
-    /// verweigert", und das Fenster zeigte dauerhaft, der Dienst antworte
-    /// nicht.
+    /// The ACL is required: the service runs as LocalSystem, the user interface
+    /// as the logged-on account. By default a pipe belongs to its creator, so
+    /// connecting from the user interface fails with "access denied" and the
+    /// window permanently reports that the service does not respond.
     /// </para>
     /// <para>
-    /// Vergeben wird genau so viel, wie zum Fragen noetig ist: Lesen und
-    /// Schreiben fuer die lokale Gruppe der Benutzer. Kein
-    /// <c>FullControl</c> - wer die Pipe benutzen darf, soll sie deswegen
-    /// nicht auch aendern duerfen.
+    /// The ACL grants exactly what querying needs: read and write for the local
+    /// Users group. No <c>FullControl</c>: being allowed to use the pipe does
+    /// not imply being allowed to change it.
     /// </para>
     /// </summary>
     [SupportedOSPlatform("windows")]
     public static class WindowsPipeServerFactory
     {
+        /// <summary>Creates the server end of the named pipe with the access rules described above.</summary>
+        /// <param name="name">Name of the pipe.</param>
+        /// <returns>The pipe server stream, not yet connected.</returns>
         public static NamedPipeServerStream Create(string name)
         {
             PipeSecurity security = new();
 
-            // Ueber die bekannte Kennung und nicht ueber den Namen: die Gruppe
-            // heisst auf einem deutschen Windows "Benutzer", die Kennung ist
-            // ueberall dieselbe.
+            // Uses the well-known SID rather than the name: the group name is
+            // localized (e.g. "Benutzer" on German Windows), the SID is the
+            // same everywhere.
             security.AddAccessRule(new PipeAccessRule(
                 new SecurityIdentifier(WellKnownSidType.BuiltinUsersSid, null),
                 PipeAccessRights.ReadWrite,

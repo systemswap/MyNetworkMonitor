@@ -3,95 +3,97 @@ using static MyNetworkMonitor.ServiceScanData;
 namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 {
     /// <summary>
-    /// Was eine Sonde waehrend eines Laufs an Rahmenbedingungen vorfindet.
+    /// The conditions a probe works under during a run.
     /// <para>
-    /// Die beiden Werte sind die bisherigen Konstanten aus
-    /// <c>ScanningMethod_Services</c> und stehen hier nur, damit sie nicht
-    /// wieder fest verdrahtet sind. Bewusst <b>nicht</b> vorbelegt aus
-    /// <c>ScanSettings.PortTimeoutMs</c>: die Diensterkennung hat den
-    /// Schieberegler noch nie benutzt, und das jetzt nebenbei zu aendern
-    /// wuerde die Laufzeit jedes Scans verschieben, ohne dass es jemand
-    /// entschieden haette.
+    /// The timeout and retry defaults are deliberately <b>not</b> taken from
+    /// <c>ScanSettings.PortTimeoutMs</c>: service detection does not use the
+    /// port-timeout slider, and coupling it to the slider would change the
+    /// duration of every service scan.
     /// </para>
     /// </summary>
     public sealed class ProbeContext
     {
-        /// <summary>Zeitlimit fuer Verbindungsaufbau und Antwort, in Millisekunden.</summary>
+        /// <summary>Timeout for connecting and for the answer, in milliseconds.</summary>
         public int TimeoutMs { get; init; } = 2000;
 
-        /// <summary>Versuche je Port, bevor "keine Antwort" gilt.</summary>
+        /// <summary>Attempts per port before the port counts as "no response".</summary>
         public int RetryCount { get; init; } = 3;
 
         /// <summary>
-        /// Ob eine Sonde eine Frage stellen darf, die den Zustand der
-        /// Gegenstelle veraendert.
+        /// Whether a probe may send a request that changes the state of the
+        /// remote side.
         /// <para>
-        /// Vorgabe ist <c>false</c>, und das ist keine Vorsicht um ihrer selbst
-        /// willen. Bei SECS/GEM gibt es genau eine Nachricht, die eine Anlage im
-        /// Zustand "nicht kommunizierend" beantworten muss - S1F13. Sie
-        /// beantwortet sie auch, mit Modell und Softwarestand, geht dabei aber
-        /// in den kommunizierenden Zustand und haelt den Fragenden fuer ihr
-        /// Leitsystem: gemessen kamen binnen einer halben Sekunde eine
-        /// Alarmmeldung und laufend Ereignisse mit echten Produktionsdaten. Wo
-        /// Spooling eingerichtet ist, koennten sie dem echten Leitsystem
-        /// fehlen.
+        /// Defaults to <c>false</c> for a concrete reason. In SECS/GEM there is
+        /// exactly one message an equipment in the "not communicating" state
+        /// must answer: S1F13, Establish Communications Request (SEMI E5). The
+        /// equipment answers with model and software revision, but enters the
+        /// communicating state and treats the sender as its host: in a
+        /// measurement, an alarm
+        /// report and a continuous stream of events with real production data
+        /// arrived within half a second. Where spooling is configured, these
+        /// messages can be missing at the real host.
         /// </para>
         /// <para>
-        /// Darum entscheidet das nicht die Sonde, sondern wer die Anlagen im
-        /// eigenen Netz kennt - je Dienst, in der Dienstverwaltung.
+        /// The decision therefore lies not with the probe but with whoever
+        /// knows the equipment in the network: per service, in the service
+        /// manager.
         /// </para>
         /// </summary>
         public bool ActiveInquiry { get; init; }
     }
 
     /// <summary>
-    /// Ein Dienst, nach dem gesucht werden kann - mit allem, was ihn ausmacht,
-    /// an einer Stelle: seine Ports, sein Hello-Paket, seine Antwortpruefung
-    /// und, wo noetig, ein eigener Ablauf.
+    /// A service that can be searched for, with everything that defines it in
+    /// one place: its ports, its hello packet, its answer check and, where
+    /// needed, its own procedure. Adding a service means adding one file.
     /// <para>
-    /// Vorher lag das ueber vier Schalter in einer Datei mit 2600 Zeilen
-    /// verteilt - Ports in <c>GetDefaultServicePorts</c>, Paket in
-    /// <c>GetDetectionPacket</c>, Pruefung in <c>IdentifyServices</c>, Ablauf
-    /// in <c>ScanServicePortAsync</c>. Einen Dienst hinzuzufuegen hiess, alle
-    /// vier zu finden; jetzt ist es eine Datei.
-    /// </para>
-    /// <para>
-    /// Die Regel fuer die Erkennungspakete gilt unveraendert: die Byte-Felder
-    /// sind experimentell ermittelt und werden nicht "aufgeraeumt". Wandern
-    /// duerfen sie nur woertlich, und der Beweis dafuer ist ein byteweiser
-    /// Vergleich gegen den alten Stand.
+    /// The detection packets are determined experimentally and are not
+    /// "tidied up"; they change only for a protocol reason. Every probe
+    /// checks the answer against its protocol and sends real application
+    /// data; see docs/FEHLERGEDAECHTNIS.md, No. 2 and No. 14.
     /// </para>
     /// </summary>
     public interface IServiceProbe
     {
+        /// <summary>The service this probe detects.</summary>
         ServiceType Service { get; }
 
-        /// <summary>Gruppe fuer die Dienstverwaltung - "Network", "Databases", ...</summary>
+        /// <summary>Group in the service manager, one of <see cref="ServiceGroups"/>.</summary>
         string Group { get; }
 
         /// <summary>
-        /// Die Ports, an denen dieser Dienst ueblicherweise sitzt. Vorgabe:
-        /// <c>services.xml</c> kann sie ueberlagern, und genau dafuer ist sie da.
+        /// The ports this service usually listens on. These are defaults:
+        /// <c>services.xml</c> can override them, which is their purpose.
         /// </summary>
         IReadOnlyList<int> DefaultPorts { get; }
 
         /// <summary>
-        /// Was gesendet wird, um eine Antwort zu bekommen. Leer bei Diensten,
-        /// die von sich aus gruessen - FTP, MySQL, MariaDB.
+        /// What is sent to get an answer. Empty for services that send a
+        /// greeting on their own: FTP, MySQL, MariaDB.
         /// </summary>
         byte[] Hello { get; }
 
-        /// <summary>Passt die Antwort zum Protokoll dieses Dienstes?</summary>
+        /// <summary>Checks whether an answer matches the protocol of this service.</summary>
+        /// <param name="response">The bytes received after sending <see cref="Hello"/>.</param>
+        /// <returns><c>true</c> if the answer comes from this service.</returns>
         bool Identify(byte[] response);
 
         /// <summary>
-        /// Einmal je Lauf, bevor das erste Ziel angefasst wird. Fuer Dienste,
-        /// die nicht Ziel fuer Ziel arbeiten - DHCP fragt einmal in die Runde
-        /// und vergleicht danach nur noch, wer geantwortet hat.
+        /// Called once per run, before the first target is touched. For services
+        /// that do not work target by target: DHCP asks once by broadcast and
+        /// afterwards only compares who answered.
         /// </summary>
+        /// <param name="context">The conditions of the run.</param>
+        /// <param name="targets">All addresses of the run.</param>
+        /// <param name="token">Cancels the run.</param>
         Task PrepareAsync(ProbeContext context, IReadOnlyList<string> targets, CancellationToken token);
 
-        /// <summary>Ein Ziel, ein Port.</summary>
+        /// <summary>Probes one port on one target.</summary>
+        /// <param name="context">The conditions of the run.</param>
+        /// <param name="address">The target address.</param>
+        /// <param name="port">The port to probe.</param>
+        /// <param name="token">Cancels the run.</param>
+        /// <returns>The status of the port and a log text for the details view.</returns>
         Task<PortResult> ProbeAsync(ProbeContext context, string address, int port, CancellationToken token);
     }
 }

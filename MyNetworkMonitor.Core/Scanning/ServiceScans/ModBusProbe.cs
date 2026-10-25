@@ -5,8 +5,8 @@ using static MyNetworkMonitor.ServiceScanData;
 namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 {
     /// <summary>
-    /// Modbus TCP. Steuerungen dieser Art vertragen wenig - darum eine
-    /// Verbindung, eine Anfrage, fertig.
+    /// Modbus TCP. Controllers of this kind tolerate little, so detection uses
+    /// one connection and one request.
     /// </summary>
     public sealed class ModBusProbe : ServiceProbeBase
     {
@@ -14,36 +14,34 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         public override string Group => ServiceGroups.Industrial;
         public override IReadOnlyList<int> DefaultPorts => [502];
 
-        /// <summary>Woertlich aus dem alten Schalter uebernommen - kein Byte veraendert.</summary>
+        /// <summary>Read Holding Registers (0x03), unit 1, register 0, count 1.</summary>
         public override byte[] Hello => new byte[] { 0x00, 0x01, 0x00, 0x00, 0x00, 0x06, 0x01, 0x03, 0x00, 0x00, 0x00, 0x01 };
 
-        /// <summary>Woertlich aus der alten Antwortpruefung uebernommen - keine Bedingung veraendert.</summary>
+        /// <summary>Matches an MBAP header with protocol ID 0 and a valid function or exception code.</summary>
         public override bool Identify(byte[] response)
         {
             ServiceType service = Service;
             bool serviceMatched = false;
 
-            // ?? Modbus TCP-Erkennung
             if (service == ServiceType.ModBus)
             {
-                // Modbus TCP Header besteht aus 7 Bytes, der Funktionscode ist das
-                // erste Byte danach - also Index 7, und der ist nur gueltig zu lesen,
-                // wenn die Antwort mindestens 8 Byte lang ist. Mit ">= 7" warf response[7]
-                // bei einer genau 7 Byte langen Antwort eine IndexOutOfRangeException,
-                // gefangen von der pauschalen catch-Klausel in FindServicePortAsync und
-                // dort als "Fehler" statt als "kein Modbus" verbucht.
-                // [0-1] Transaction Identifier (2 Bytes)
-                // [2-3] Protocol Identifier (immer 0x00 0x00 für Modbus TCP)
-                // [4-5] Length Field (Länge der nachfolgenden Daten)
+                // The Modbus TCP (MBAP) header is 7 bytes; the function code is the
+                // first byte after it, index 7, which can only be read if the answer
+                // is at least 8 bytes long. With ">= 7", a 7-byte answer would throw
+                // an IndexOutOfRangeException and count as an error instead of
+                // "not Modbus".
+                // [0-1] Transaction Identifier (2 bytes)
+                // [2-3] Protocol Identifier (always 0x00 0x00 for Modbus TCP)
+                // [4-5] Length Field (length of the following data)
                 // [6]   Unit Identifier
                 // [7]   Function Code
                 if (response.Length >= 8)
                 {
-                    // Protokollkennung überprüfen (muss 0x00 0x00 für Modbus TCP sein)
+                    // Check the protocol identifier (must be 0x00 0x00 for Modbus TCP)
                     bool isModbusTcp = response[2] == 0x00 && response[3] == 0x00;
 
-                    // Funktioncode prüfen: Gültige Modbus-Funktionscodes liegen zwischen 0x01 und 0x10
-                    // Beispiele:
+                    // Check the function code: valid Modbus function codes are 0x01 to 0x10
+                    // Examples:
                     // 0x01 - Read Coils
                     // 0x02 - Read Discrete Inputs
                     // 0x03 - Read Holding Registers
@@ -52,16 +50,15 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                     // 0x06 - Write Single Register
                     // 0x10 - Write Multiple Registers
                     //
-                    // Eine Fehlerantwort (Exception Response) traegt denselben
-                    // Funktionscode mit gesetztem oberstem Bit, also 0x81-0x90 -
-                    // etwa wenn das angefragte Register auf diesem Geraet nicht
-                    // existiert. Das ist trotzdem eine Modbus-Antwort und kein
-                    // Nichttreffer: das Geraet hat verstanden und geantwortet,
-                    // nur eben mit "nein" statt mit Werten.
+                    // An exception response carries the same function code with
+                    // the most significant bit set, i.e. 0x81-0x90, for example
+                    // when the requested register does not exist on this device.
+                    // That is still a Modbus answer and a match: the device
+                    // understood and answered, just with "no" instead of values.
                     byte functionCode = response[7];
                     bool validFunctionCode = functionCode is >= 0x01 and <= 0x10 or >= 0x81 and <= 0x90;
 
-                    // Wenn sowohl das Protokoll als auch der Funktionscode stimmen, erkennen wir Modbus TCP
+                    // Modbus TCP is detected when both protocol and function code match
                     if (isModbusTcp && validFunctionCode)
                     {
                         serviceMatched = true;
@@ -73,20 +70,20 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Erst die uebliche Erkennung, danach die Frage nach der Kennung des
-        /// Geraets.
+        /// First the common detection, then the request for the device
+        /// identification.
         /// <para>
-        /// Die Erkennung bleibt unberuehrt - sie entscheidet weiterhin allein
-        /// ueber den Befund. Die Antwort, mit der sie das tut, enthaelt aber
-        /// nur einen Registerwert und sagt nichts darueber, wer da antwortet.
-        /// Wer es verraet, tut es auf Funktionscode 0x2B mit Untertyp 0x0E
-        /// ("Read Device Identification"): Hersteller, Produktkennung, Version.
+        /// Detection alone decides the finding. Its answer, however, contains
+        /// only a register value and says nothing about who is answering. A
+        /// device that reveals it does so on function code 0x2B with MEI type
+        /// 0x0E ("Read Device Identification", Modbus Application Protocol
+        /// Specification V1.1b3, section 6.21): vendor, product code, revision.
         /// </para>
         /// <para>
-        /// Pflicht ist das nicht. Ein Geraet, das den Code nicht kennt,
-        /// antwortet mit 0xAB und dem Grund 1 ("unzulaessige Funktion") - das
-        /// ist eine gueltige Modbus-Antwort und kein Fehler, nur eben keine
-        /// Auskunft. Dann bleibt es bei dem, was ohnehin feststeht.
+        /// This function is optional. A device that does not know the code
+        /// answers with 0xAB and exception code 1 ("illegal function"): a valid
+        /// Modbus answer and not an error, just no information. The finding
+        /// then stays as it is.
         /// </para>
         /// </summary>
         public override async Task<PortResult> ProbeAsync(
@@ -100,16 +97,16 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
             try
             {
-                // Erst die beiden genormten Wege, in der Reihenfolge ihrer
-                // Ergiebigkeit: 0x2B liefert einzelne benannte Felder, 0x11 nur
-                // eine Zeichenkette, die der Hersteller frei belegt.
+                // First the two standard ways, in order of how much they yield:
+                // 0x2B returns individual named fields, 0x11 only a string the
+                // vendor defines freely.
                 info = await ReadDeviceIdentificationAsync(context, address, port, token);
                 info ??= await ReadServerIdAsync(context, address, port, token);
 
-                // Und zum Schluss der herstellereigene Weg. Nicht jeder kennt
-                // die genormten: WAGO antwortet auf beide mit "unzulaessige
-                // Funktion", legt dieselben Angaben aber in eigenen
-                // Halteregistern ab.
+                // Finally the vendor-specific way. Not every device supports
+                // the standard ones: WAGO answers both with "illegal function"
+                // but stores the same information in its own holding
+                // registers.
                 info ??= await ReadWagoIdentificationAsync(context, address, port, token);
             }
             catch (OperationCanceledException) when (token.IsCancellationRequested)
@@ -118,7 +115,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             }
             catch (Exception)
             {
-                // Der Fund steht bereits fest; die Auskunft ist die Zugabe.
+                // The finding is already established; the identification is extra.
             }
 
             portResult.PortLog = info ?? "Unit ID 1 answered, device identification not supported.";
@@ -127,15 +124,15 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Fragt die Grunddaten ab und liest die Objekte aus der Antwort.
-        /// <c>null</c>, wenn das Geraet die Funktion nicht kennt.
+        /// Requests the basic device identification and reads the objects from
+        /// the answer. <c>null</c> if the device does not know the function.
         /// </summary>
         private static async Task<string?> ReadDeviceIdentificationAsync(
             ProbeContext context, string address, int port, CancellationToken token)
         {
-            // MBAP-Kopf: Vorgang 2, Protokoll 0, Laenge 5, Einheit 1.
-            // Danach: 0x2B Funktionscode, 0x0E Untertyp, 0x01 Grunddaten,
-            // 0x00 erstes Objekt.
+            // MBAP header: transaction 2, protocol 0, length 5, unit 1.
+            // Then: 0x2B function code, 0x0E MEI type, 0x01 basic device
+            // identification, 0x00 first object.
             byte[] request = [0x00, 0x02, 0x00, 0x00, 0x00, 0x05, 0x01, 0x2B, 0x0E, 0x01, 0x00];
 
             using var client = new TcpClient();
@@ -159,19 +156,20 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Der Aufbau der Antwort: sieben Byte MBAP-Kopf, dann Funktionscode,
-        /// Untertyp, Datenklasse, Konformitaet, "folgt noch mehr", naechstes
-        /// Objekt, Anzahl - und danach je Objekt Nummer, Laenge, Text.
+        /// Layout of the answer: seven bytes MBAP header, then function code,
+        /// MEI type, read device ID code, conformity level, "more follows",
+        /// next object ID, number of objects, and then per object its ID,
+        /// length and text.
         /// </summary>
         private static string? ParseDeviceIdentification(byte[] response)
         {
             const int HeaderLength = 7;
 
-            // Zu kurz, oder gar keine Antwort auf diesen Funktionscode.
+            // Too short, or no answer to this function code at all.
             if (response.Length < HeaderLength + 2) return null;
 
-            // 0xAB ist 0x2B mit gesetztem obersten Bit: das Geraet kennt die
-            // Funktion nicht.
+            // 0xAB is 0x2B with the most significant bit set: the device does not
+            // know the function.
             if (response[HeaderLength] != 0x2B) return null;
             if (response.Length < HeaderLength + 8) return null;
 
@@ -200,24 +198,26 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Funktionscode 0x11 "Report Server ID" - der zweite genormte Weg.
+        /// Function code 0x11 "Report Server ID" (Modbus Application Protocol
+        /// Specification V1.1b3, section 6.13), the second standard way.
         /// <para>
-        /// Was in der Antwort steht, legt der Hersteller fest: meist ein Name
-        /// im Klartext, manchmal nur eine Zahl. Darum wird nur der druckbare
-        /// Teil uebernommen und alles ab dem ersten Steuerzeichen verworfen.
+        /// The content of the answer is defined by the vendor: usually a name
+        /// in plain text, sometimes only a number. Therefore only the printable
+        /// part is taken and everything from the first control character on is
+        /// discarded.
         /// </para>
         /// <para>
-        /// <c>null</c>, wenn das Geraet die Funktion nicht kennt - es antwortet
-        /// dann mit 0x91 und einem Grund. Keines der bisher geprueften Geraete
-        /// unterstuetzt sie; sie steht hier, weil sie genormt ist und eine
-        /// einzige Anfrage kostet.
+        /// <c>null</c> if the device does not know the function; it then answers
+        /// with 0x91 and an exception code. None of the devices tested so far
+        /// supports it; it is included because it is standardised and costs a
+        /// single request.
         /// </para>
         /// </summary>
         private static async Task<string?> ReadServerIdAsync(
             ProbeContext context, string address, int port, CancellationToken token)
         {
-            // MBAP-Kopf: Vorgang 3, Protokoll 0, Laenge 2, Einheit 1, dann der
-            // Funktionscode allein - die Anfrage hat keine weiteren Angaben.
+            // MBAP header: transaction 3, protocol 0, length 2, unit 1, then the
+            // function code alone; the request has no further data.
             byte[] request = [0x00, 0x03, 0x00, 0x00, 0x00, 0x02, 0x01, 0x11];
 
             using var client = new TcpClient();
@@ -239,7 +239,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             const int HeaderLength = 7;
 
             if (read < HeaderLength + 2) return null;
-            if (buffer[HeaderLength] != 0x11) return null;   // 0x91 waere die Ablehnung
+            if (buffer[HeaderLength] != 0x11) return null;   // 0x91 would be the rejection
 
             int count = buffer[HeaderLength + 1];
             if (count <= 0 || HeaderLength + 2 + count > read) return null;
@@ -257,23 +257,21 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Die Kennung einer WAGO-Steuerung aus ihren Halteregistern.
+        /// The identification of a WAGO controller from its holding registers.
         /// <para>
-        /// WAGO beantwortet den genormten Funktionscode 0x2B nicht, legt die
-        /// Angaben aber ab Register 0x2010 ab - lesbar ohne Anmeldung, waehrend
-        /// die Weboberflaeche desselben Geraets ohne Zugangsdaten nur 401
-        /// zurueckgibt.
+        /// WAGO does not answer the standard function code 0x2B but stores the
+        /// information from register 0x2010 on, readable without login, while
+        /// the web interface of the same device returns only 401 without
+        /// credentials.
         /// </para>
         /// <para>
-        /// Der Text steht je Register mit vertauschten Bytes: aus
-        /// "AWOG" wird "WAGO".
+        /// The text has its bytes swapped per register: "AWOG" becomes "WAGO".
         /// </para>
         /// <para>
-        /// Die Kurzbeschreibung ist zugleich die Absicherung: nur wenn dort
-        /// "WAGO" steht, gelten die uebrigen Register als Kennung. An diesen
-        /// Adressen kann bei einem anderen Hersteller alles Moegliche liegen -
-        /// Prozesswerte etwa -, und die duerfen nicht als Geraetename
-        /// durchgehen.
+        /// The short description doubles as the safeguard: only if it says
+        /// "WAGO" do the other registers count as identification. At these
+        /// addresses another vendor's device may hold anything, process values
+        /// for example, and these must not pass as a device name.
         /// </para>
         /// </summary>
         private static async Task<string?> ReadWagoIdentificationAsync(
@@ -323,7 +321,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             return string.Join(Environment.NewLine, lines);
         }
 
-        /// <summary>Ein einzelnes Halteregister als Zahl.</summary>
+        /// <summary>A single holding register as a number.</summary>
         private static async Task<int?> ReadWordAsync(
             NetworkStream stream, int register, CancellationToken token)
         {
@@ -332,9 +330,9 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Liest Halteregister mit Funktionscode 0x03 und liefert den reinen
-        /// Datenteil. <c>null</c>, wenn das Geraet mit einer Ausnahme
-        /// antwortet - etwa, weil es die Adresse nicht kennt.
+        /// Reads holding registers with function code 0x03 and returns the data
+        /// part only. <c>null</c> if the device answers with an exception, for
+        /// example because it does not know the address.
         /// </summary>
         private static async Task<byte[]?> ReadHoldingAsync(
             NetworkStream stream, int register, int count, CancellationToken token)
@@ -351,8 +349,8 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             byte[] buffer = new byte[512];
             int read = await stream.ReadAsync(buffer, token);
 
-            // Kopf, Funktionscode und Laengenbyte muessen da sein, und der
-            // Funktionscode darf nicht das Fehlerbit tragen.
+            // Header, function code and byte count must be present, and the
+            // function code must not carry the exception bit.
             if (read < 9 || buffer[7] != 0x03) return null;
 
             int length = buffer[8];
@@ -362,8 +360,8 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Text aus Registern, in denen die beiden Bytes je Register vertauscht
-        /// abgelegt sind. Nicht druckbare Zeichen beenden ihn.
+        /// Text from registers in which the two bytes of each register are
+        /// swapped. Non-printable characters end it.
         /// </summary>
         private static string? SwappedText(byte[]? data)
         {
@@ -389,7 +387,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             return result.Length >= 2 ? result : null;
         }
 
-        /// <summary>Die Objektnummern der Grunddaten, wie sie die Modbus-Spezifikation vergibt.</summary>
+        /// <summary>The object IDs of the device identification as assigned by the Modbus specification.</summary>
         private static string ObjectName(int objectId) => objectId switch
         {
             0x00 => "Vendor",

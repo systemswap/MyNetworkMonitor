@@ -4,97 +4,99 @@ using MyNetworkMonitor.Core.Network;
 namespace MyNetworkMonitor.Core.Model
 {
     /// <summary>
-    /// Was an einem Geraet doppelt vergeben ist. Mehrere Befunde koennen
-    /// zugleich zutreffen, darum Flags.
+    /// What is assigned more than once on a device. Several findings can apply
+    /// at the same time, hence flags.
     /// </summary>
     [Flags]
     public enum DeviceConflict
     {
+        /// <summary>No conflict.</summary>
         None = 0,
 
         /// <summary>
-        /// Dieselbe IP-Adresse antwortet an mehreren Geraeten. Der schwerste
-        /// Befund: einer der beiden verliert Pakete, und welcher, entscheidet
-        /// der ARP-Cache des Absenders.
+        /// The same IP address answers on several devices. The most serious
+        /// finding: one of the two loses packets, and the sender's ARP cache
+        /// decides which one.
         /// </summary>
         Address = 1,
 
         /// <summary>
-        /// Derselbe Hostname zeigt auf mehrere Geraete. Meist ein Altbestand
-        /// im DNS, gelegentlich zwei Rechner mit gleichem Namen.
+        /// The same host name points to several devices. Usually a stale DNS
+        /// entry, occasionally two computers with the same name.
         /// </summary>
         HostName = 2,
 
-        /// <summary>Derselbe selbst vergebene Name steht an mehreren Geraeten.</summary>
+        /// <summary>The same internal name is assigned to several devices.</summary>
         InternalName = 4,
 
         /// <summary>
-        /// Der Hostname loest im DNS auf mehrere Adressen auf. Der Befund, den
-        /// nur der Vorwaertslookup liefert: die beteiligten Geraete antworten
-        /// jedes fuer sich unauffaellig, und ohne DNS faellt gar nicht auf,
-        /// dass sie sich einen Namen teilen.
+        /// The host name resolves to several addresses in DNS. Only the forward
+        /// lookup reveals this: the devices involved each respond
+        /// inconspicuously, and without DNS it goes unnoticed that they share a
+        /// name.
         /// </summary>
         DnsMultipleAddresses = 16,
 
         /// <summary>
-        /// Der Name zeigt auf eine Adresse, unter der das Geraet nicht
-        /// antwortet - Altbestand im DNS oder ein fremder Namensvetter.
+        /// The name points to an address at which the device does not answer -
+        /// a stale DNS entry or another device with the same name.
         /// </summary>
         DnsMismatch = 32,
 
         /// <summary>
-        /// Der Rueckwaertslookup liefert zur Adresse mehrere Namen. Umgekehrter
-        /// Fall zu <see cref="DnsMultipleAddresses"/>.
+        /// The reverse lookup returns several names for the address. The
+        /// reverse case of <see cref="DnsMultipleAddresses"/>.
         /// </summary>
         DnsMultipleNames = 64,
 
         /// <summary>
-        /// Derselbe Alias steht an mehreren Geraeten. Ein Alias ist genauso
-        /// eine Namensvergabe wie der Hostname - und weil er selten
-        /// nachgehalten wird, bleibt ein Altbestand dort noch laenger stehen.
+        /// The same alias appears on several devices. An alias is a name
+        /// assignment just like the host name - and because aliases are rarely
+        /// maintained, stale entries remain there even longer.
         /// </summary>
         DuplicateAlias = 128,
 
         /// <summary>
-        /// Ein Geraet antwortet unter mehreren IPv4-Adressen. Unter IPv6 ist
-        /// das der Normalfall und kein Befund, unter IPv4 fast immer ein
-        /// zweiter DHCP-Bezug oder eine vergessene feste Adresse.
+        /// A device answers on several IPv4 addresses. For IPv6 this is normal
+        /// and not a finding; for IPv4 it is almost always a second DHCP lease
+        /// or a forgotten static address.
         /// </summary>
         MultipleIpv4 = 8
     }
 
     /// <summary>
-    /// Findet doppelt vergebene Adressen und Namen im Geraetebestand.
+    /// Finds addresses and names assigned more than once in the device
+    /// inventory.
     /// <para>
-    /// Das ist der Befund, den kein anderer Scanner liefert, und er entsteht
-    /// erst aus der Gesamtschau: einzeln betrachtet sieht jedes der beteiligten
-    /// Geraete unauffaellig aus. Darum wird nicht je Zeile geprueft, sondern
-    /// einmal ueber den ganzen Bestand gruppiert - die bisherige Anwendung hat
-    /// je Zeile ein <c>Select("IP = …")</c> abgesetzt, was quadratisch laeuft
-    /// und an einem Apostroph im Namen zerbricht.
+    /// The finding emerges only from the overall view: taken individually,
+    /// each device involved looks inconspicuous. The check therefore groups
+    /// once over the whole inventory instead of querying per row - a per-row
+    /// <c>DataTable.Select("IP = …")</c> runs in quadratic time and breaks on an
+    /// apostrophe in a name.
     /// </para>
     /// <para>
-    /// Voraussetzung ist, dass der <see cref="DeviceStore"/> Geraete mit
-    /// widersprechender MAC gar nicht erst zusammenfuehrt - sonst waere die
-    /// Doppelbelegung zu einem Eintrag verschmolzen, bevor hier jemand
-    /// nachsehen kann.
+    /// Requires that the <see cref="DeviceStore"/> never merges devices with
+    /// conflicting MAC addresses - otherwise the duplicate assignment would be
+    /// merged into one entry before it can be examined here.
     /// </para>
     /// </summary>
     public static class DuplicateDetector
     {
         /// <summary>
-        /// Prueft den gesamten Bestand und schreibt das Ergebnis an die
-        /// Geraete. Aufzurufen, wenn ein Lauf fertig ist - waehrenddessen waere
-        /// jeder Befund vorlaeufig, weil das Gegenstueck noch fehlen kann.
+        /// Checks the whole inventory and writes the result to the devices.
+        /// Call it when a run has finished - during a run every finding would
+        /// be provisional, because the counterpart may still be missing.
         /// </summary>
-        /// <returns>Wie viele Geraete einen Befund tragen.</returns>
+        /// <param name="devices">The complete device inventory.</param>
+        /// <returns>The number of devices with a finding.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="devices"/> is <c>null</c>.</exception>
         public static int Analyze(IReadOnlyList<Device> devices)
         {
             ArgumentNullException.ThrowIfNull(devices);
 
-            // Welche Adresse an welchen Geraeten haengt. Link-Local bleibt
-            // aussen vor: fe80::1 darf je Schnittstelle vorkommen, das ist
-            // keine Doppelvergabe, sondern die Bauart von IPv6.
+            // Which address belongs to which devices. Link-local addresses are
+            // excluded: fe80::1 may occur once per interface - that is not a
+            // duplicate assignment but how IPv6 works (RFC 4291, section 2.5.6).
             Dictionary<string, List<Device>> byAddress = new(StringComparer.OrdinalIgnoreCase);
 
             foreach (Device device in devices)
@@ -116,10 +118,10 @@ namespace MyNetworkMonitor.Core.Model
             Dictionary<string, int> hostNameCount = Count(devices, d => d.HostName);
             Dictionary<string, int> internalNameCount = Count(devices, d => d.InternalName);
 
-            // Aliase zaehlen wie Hostnamen: ein Name, der auf zwei Geraete
-            // zeigt, ist auch dann doppelt vergeben, wenn er im DNS nur der
-            // zweite Eintrag ist. Je Geraet einmal zaehlen - mehrere gleiche
-            // Aliase an demselben Geraet sind keine Doppelvergabe.
+            // Aliases count like host names: a name pointing to two devices is
+            // assigned twice even if it is only the second entry in DNS. Each
+            // device counts once - identical aliases on the same device are not
+            // a duplicate assignment.
             Dictionary<string, int> aliasCount = new(StringComparer.OrdinalIgnoreCase);
 
             foreach (Device device in devices)
@@ -169,7 +171,7 @@ namespace MyNetworkMonitor.Core.Model
                     reasons.Add($"name \"{device.InternalName}\" is assigned more than once");
                 }
 
-                // Was der Namensdienst weiss und der Scan allein nicht sieht.
+                // What the name service knows and the scan alone cannot see.
                 if (device.WasLookedUp && device.LookupAddresses.Count > 1)
                 {
                     conflicts |= DeviceConflict.DnsMultipleAddresses;
@@ -210,7 +212,8 @@ namespace MyNetworkMonitor.Core.Model
             return affected;
         }
 
-        /// <summary>Setzt alle Befunde zurueck. Vor einem neuen Lauf.</summary>
+        /// <summary>Clears all findings. Call before a new run.</summary>
+        /// <param name="devices">The devices to reset.</param>
         public static void Reset(IReadOnlyList<Device> devices)
         {
             foreach (Device device in devices)
@@ -236,8 +239,8 @@ namespace MyNetworkMonitor.Core.Model
         }
 
         /// <summary>
-        /// Die anderen Halter einer Adresse, benannt. Wer den Befund sieht,
-        /// will als Naechstes wissen, wen er anrufen muss.
+        /// The other holders of an address, by name. The next question after
+        /// seeing the finding is which device to look at.
         /// </summary>
         private static string Others(List<Device> holders, Device self)
         {

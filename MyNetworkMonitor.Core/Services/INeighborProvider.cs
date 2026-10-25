@@ -4,73 +4,76 @@ using System.Net.NetworkInformation;
 namespace MyNetworkMonitor.Core.Services
 {
     /// <summary>
-    /// Zustand eines Nachbareintrags. Entspricht den Zustaenden aus RFC 4861 und
-    /// ist unter Windows wie Linux dasselbe - beide fuehren dieselbe
-    /// Zustandsmaschine, nur unter anderen Namen.
+    /// State of a neighbor entry. Corresponds to the states of RFC 4861,
+    /// section 7.3.2, and is the same on Windows and Linux - both run the same
+    /// state machine, only under different names.
     /// <para>
-    /// Der Zustand ist kein Beiwerk: <see cref="Incomplete"/> und
-    /// <see cref="Failed"/> heissen "diese Adresse wurde angefragt, es kam aber
-    /// nie eine Antwort". Solche Eintraege als gefundenes Geraet zu melden waere
-    /// falsch - sie bezeugen nur den eigenen Versuch.
+    /// The state matters: <see cref="Incomplete"/> and <see cref="Failed"/> mean
+    /// "this address was queried, but no answer ever came". Reporting such
+    /// entries as discovered devices would be wrong - they only witness the
+    /// local attempt.
     /// </para>
     /// </summary>
     public enum NeighborState
     {
+        /// <summary>The state could not be determined.</summary>
         Unknown = 0,
 
-        /// <summary>Angefragt, noch keine Antwort. Kein Geraet.</summary>
+        /// <summary>Queried, no answer yet. Not a device.</summary>
         Incomplete,
 
-        /// <summary>Aufgegeben, es antwortet niemand. Kein Geraet.</summary>
+        /// <summary>Given up, nobody answers. Not a device.</summary>
         Failed,
 
-        /// <summary>Eintrag vorhanden, aber laenger nicht bestaetigt.</summary>
+        /// <summary>Entry present, but not confirmed for some time.</summary>
         Stale,
 
-        /// <summary>Wird gerade nachgeprueft.</summary>
+        /// <summary>Waiting before reachability is re-verified.</summary>
         Delay,
 
-        /// <summary>Nachfrage laeuft.</summary>
+        /// <summary>Reachability probe in progress.</summary>
         Probe,
 
-        /// <summary>Kuerzlich bestaetigt - das Geraet ist da.</summary>
+        /// <summary>Recently confirmed - the device is present.</summary>
         Reachable,
 
-        /// <summary>Fest eingetragen, wird nie geprueft.</summary>
+        /// <summary>Statically configured, never verified.</summary>
         Permanent
     }
 
     /// <summary>
-    /// Ein Eintrag aus der Nachbarschaftstabelle des Betriebssystems - das
-    /// IPv6-Gegenstueck zu <see cref="Models.ArpEntry"/>.
+    /// An entry from the operating system's neighbor table - the IPv6
+    /// counterpart to <see cref="Models.ArpEntry"/>.
     /// <para>
-    /// Reichhaltiger als der ARP-Eintrag, und das mit Absicht: unter IPv6 traegt
-    /// die Tabelle zusaetzlich den Zustand und das Router-Merkmal. Beides ist
-    /// auswertbar - <see cref="IsRouter"/> benennt den Router im Segment, ohne
-    /// dass ein einziges Paket gesendet wurde.
+    /// Richer than the ARP entry, deliberately: under IPv6 the table also
+    /// carries the state and the router flag. Both can be evaluated -
+    /// <see cref="IsRouter"/> identifies the router on the segment without
+    /// sending a single packet.
     /// </para>
     /// </summary>
     public sealed class NeighborEntry
     {
+        /// <summary>The neighbor's IP address.</summary>
         public required IPAddress Address { get; init; }
 
-        /// <summary>Fehlt bei Eintraegen, die nie beantwortet wurden.</summary>
+        /// <summary>Missing for entries that were never answered.</summary>
         public PhysicalAddress? Mac { get; init; }
 
-        /// <summary>Index des Adapters, ueber den der Nachbar erreichbar ist.</summary>
+        /// <summary>Index of the adapter through which the neighbor is reachable.</summary>
         public int InterfaceIndex { get; init; }
 
-        /// <summary>Name des Adapters, soweit die Plattform ihn mitliefert.</summary>
+        /// <summary>Name of the adapter, if the platform provides it.</summary>
         public string? InterfaceName { get; init; }
 
+        /// <summary>The neighbor cache state of the entry.</summary>
         public NeighborState State { get; init; } = NeighborState.Unknown;
 
-        /// <summary>Der Nachbar hat sich als Router zu erkennen gegeben.</summary>
+        /// <summary>The neighbor has identified itself as a router.</summary>
         public bool IsRouter { get; init; }
 
         /// <summary>
-        /// Der Eintrag bezeugt ein tatsaechlich vorhandenes Geraet. Ein blosser
-        /// Anfrageversuch ohne Antwort tut das nicht.
+        /// The entry witnesses a device that is actually present. A mere query
+        /// attempt without an answer does not.
         /// </summary>
         public bool IsUsable =>
             State is not (NeighborState.Incomplete or NeighborState.Failed or NeighborState.Unknown) &&
@@ -81,20 +84,20 @@ namespace MyNetworkMonitor.Core.Services
     }
 
     /// <summary>
-    /// Liest die Nachbarschaftstabelle (Neighbor Cache) des Betriebssystems.
+    /// Reads the operating system's neighbor table (neighbor cache).
     /// <para>
-    /// Eigene Schnittstelle statt einer Erweiterung von
-    /// <see cref="IArpProvider"/>: der ARP-Anbieter liefert Zeichenketten und
-    /// kennt weder Zustand noch Adapter, und seine Windows-Fassung parst die
-    /// Ausgabe von <c>arp -a</c>. Fuer IPv6 reicht das nicht - dort braucht es
-    /// den Zustand, um Anfrageversuche von echten Nachbarn zu trennen.
+    /// A separate interface instead of an extension of
+    /// <see cref="IArpProvider"/>: the ARP provider returns strings and knows
+    /// neither state nor adapter, and its Windows implementation parses the
+    /// output of <c>arp -a</c>. That is not enough for IPv6 - there the state is
+    /// needed to separate query attempts from real neighbors.
     /// </para>
     /// </summary>
     public interface INeighborProvider
     {
         /// <summary>
-        /// Alle Eintraege beider Adressfamilien. Wirft nicht - laesst sich die
-        /// Tabelle nicht lesen, kommt eine leere Liste zurueck.
+        /// All entries of both address families. Does not throw - if the table
+        /// cannot be read, an empty list is returned.
         /// </summary>
         Task<IReadOnlyList<NeighborEntry>> GetNeighborsAsync(CancellationToken cancellationToken = default);
     }

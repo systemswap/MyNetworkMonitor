@@ -1,15 +1,15 @@
 namespace MyNetworkMonitor.Core.Services
 {
     /// <summary>
-    /// Eine eingehend erlaubte Portangabe aus der oertlichen Firewall.
+    /// A port allowed for inbound traffic by the local firewall.
     /// </summary>
-    /// <param name="Protocol">TCP oder UDP.</param>
-    /// <param name="Ports">Einzelner Port oder Bereich, wie die Regel es sagt (z. B. "5900-5904").</param>
-    /// <param name="RuleName">Name der Regel - damit man erkennt, wozu der Port gehoert.</param>
+    /// <param name="Protocol">TCP or UDP.</param>
+    /// <param name="Ports">A single port or range as stated by the rule (e.g. "5900-5904").</param>
+    /// <param name="RuleName">Name of the rule - shows what the port belongs to.</param>
     /// <param name="AnyProgram">
-    /// Die Regel gilt fuer <b>jedes</b> Programm. Nur solche Ports lassen sich
-    /// ohne neue Regel benutzen: eine Regel, die an ein bestimmtes Programm
-    /// gebunden ist, hilft einer anderen Anwendung nicht.
+    /// The rule applies to <b>every</b> program. Only such ports can be used
+    /// without a new rule: a rule bound to a specific program does not help
+    /// another application.
     /// </param>
     public readonly record struct AllowedInboundPort(
         string Protocol,
@@ -17,54 +17,59 @@ namespace MyNetworkMonitor.Core.Services
         string RuleName,
         bool AnyProgram);
 
-    /// <summary>Ergebnis eines Versuchs, eine Regel anzulegen oder zu entfernen.</summary>
-    /// <param name="Success">Hat geklappt.</param>
-    /// <param name="Message">Klartext fuer den Nutzer - auch im Erfolgsfall.</param>
+    /// <summary>Result of an attempt to create or remove a rule.</summary>
+    /// <param name="Success">The change succeeded.</param>
+    /// <param name="Message">Plain-language message for display - also on success.</param>
     public readonly record struct FirewallChangeResult(bool Success, string Message);
 
     /// <summary>
-    /// Zugriff auf die oertliche Firewall: lesen, welche eingehenden Ports
-    /// erlaubt sind, und - mit erhoehten Rechten - eine eigene Regel anlegen.
+    /// Access to the local firewall: reads which inbound ports are allowed and -
+    /// with elevated privileges - creates a dedicated rule.
     /// <para>
-    /// Zweck ist der Lauschport des Hauptscanners. Wer keine Rechte hat, sucht
-    /// sich einen Port, der ohnehin offen ist; wer Administrator ist, legt sich
-    /// den gewuenschten Port selbst an. Beides soll die Oberflaeche koennen.
+    /// The purpose is the listening port of the main scanner. Without privileges,
+    /// a port that is already open can be chosen; with administrator rights, the
+    /// desired port can be opened directly. The user interface supports both.
     /// </para>
     /// <para>
-    /// Angelegt wird ausschliesslich eine Regel <b>fuer diese Anwendung</b>,
-    /// mit erkennbarem Namen und auf genau einen Port. Nichts wird pauschal
-    /// geoeffnet, und bestehende Regeln werden nicht angefasst.
+    /// Only a rule <b>for this application</b> is ever created, with a
+    /// recognizable name and for exactly one port. Nothing is opened broadly,
+    /// and existing rules are not touched.
     /// </para>
     /// </summary>
     public interface IFirewallInspector
     {
-        /// <summary>Ob auf dieser Plattform ueberhaupt gelesen werden kann.</summary>
+        /// <summary>Whether firewall rules can be read on this platform at all.</summary>
         bool IsSupported { get; }
 
         /// <summary>
-        /// Alle aktiven Erlaubnisregeln fuer eingehende Verbindungen mit
-        /// konkreter Portangabe. Leer, wenn nichts gelesen werden konnte.
+        /// All active allow rules for inbound connections with a specific port.
+        /// Empty if nothing could be read.
         /// </summary>
         IReadOnlyList<AllowedInboundPort> ReadAllowedInbound();
 
         /// <summary>
-        /// Ob eine Regel angelegt werden darf - also ob die Anwendung mit
-        /// erhoehten Rechten laeuft.
+        /// Whether a rule may be created - that is, whether the application runs
+        /// with elevated privileges.
         /// </summary>
         bool CanCreateRule { get; }
 
         /// <summary>
-        /// Legt eine eingehende Erlaubnis fuer diese Anwendung auf dem
-        /// angegebenen TCP-Port an. Gibt es sie schon, wird sie auf den neuen
-        /// Port gesetzt statt eine zweite anzulegen.
+        /// Creates an inbound allow rule for this application on the given TCP
+        /// port. If the rule already exists, it is moved to the new port instead
+        /// of creating a second one.
         /// </summary>
+        /// <param name="port">The TCP port to allow.</param>
+        /// <param name="ruleName">The name of the rule to create or update.</param>
+        /// <returns>Whether the change succeeded, with a message for display.</returns>
         FirewallChangeResult AllowInboundTcp(int port, string ruleName);
 
-        /// <summary>Entfernt eine zuvor angelegte Regel wieder.</summary>
+        /// <summary>Removes a previously created rule.</summary>
+        /// <param name="ruleName">The name of the rule to remove.</param>
+        /// <returns>Whether the change succeeded, with a message for display.</returns>
         FirewallChangeResult RemoveRule(string ruleName);
     }
 
-    /// <summary>Wenn keine Umsetzung da ist - meldet schlicht, dass es nicht geht.</summary>
+    /// <summary>Used when no implementation is available - reports that the operation is not supported.</summary>
     public sealed class NullFirewallInspector : IFirewallInspector
     {
         public bool IsSupported => false;

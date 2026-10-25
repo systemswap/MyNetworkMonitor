@@ -24,22 +24,41 @@ using System.Collections;
 using System.Collections.Specialized;
 
 
+/// <summary>
+/// The result of probing one port for a service.
+/// </summary>
 public enum PortStatus
 {
+    /// <summary>The connection was established, but the answer did not prove the service.</summary>
     Open,
+
+    /// <summary>The connection attempt timed out, possibly because of a firewall.</summary>
     Filtered,
+
+    /// <summary>No answer after all attempts.</summary>
     NoResponse,
+
+    /// <summary>The target refused the connection: no service listens on the port.</summary>
     Closed,
+
+    /// <summary>The answer matches the protocol: the service runs on the port.</summary>
     IsRunning,
+
+    /// <summary>An answer came back that matches no known pattern.</summary>
     UnknownResponse,
+
+    /// <summary>The probe failed with an error, such as a broken connection or a TLS error.</summary>
     Error
 }
 
 
 
+/// <summary>
+/// The services the service scan can detect.
+/// </summary>
 public enum ServiceType
 {
-    // ?? Netzwerk-Dienste
+    // Network services
     WebServices,
     DNS_TCP,
     DNS_UDP,
@@ -56,18 +75,17 @@ public enum ServiceType
     RustdeskServer,
     RustdeskClient,
 
-    // Datenbanken
+    // Databases
     MSSQLServer,
     PostgreSQL,    
     MariaDB,
     MySQL,
     OracleDB,
-    // no SQL Datenbanken
+    // NoSQL databases
     MongoDB,
     InfluxDB2,
-    //InfluxDB3,
 
-    // Industrieprotokolle
+    // Industrial protocols
     OPCUA,
     ModBus,
     S7,
@@ -78,8 +96,16 @@ public enum ServiceType
 
 
 
+/// <summary>
+/// Detects services on the targets with protocol-specific probes and manages the service
+/// settings stored in services.xml.
+/// </summary>
 public class ScanningMethod_Services
 {
+    /// <summary>
+    /// Creates the service scan and loads the service settings.
+    /// </summary>
+    /// <param name="ServiceXMLPath">The path of the stored service settings; a missing file leaves the defaults.</param>
     public ScanningMethod_Services(string ServiceXMLPath)
     {
         SetServicePorts(ServiceXMLPath);
@@ -92,19 +118,21 @@ public class ScanningMethod_Services
 
     private CancellationTokenSource _cts = new CancellationTokenSource();
 
+    /// <summary>
+    /// Cancels the running scan and reports <see cref="ScanStatus.stopped"/>.
+    /// </summary>
     public void StopScan()
     {
         if (_cts != null && !_cts.IsCancellationRequested)
         {
-            _cts.Cancel(); // 🔹 Scan abbrechen
-            // Hier NICHT aufraeumen und ersetzen: die Schleifen lesen _cts ueber
-            // das Feld. Ein frisches CTS an dieser Stelle meldet ihnen wieder
-            // "nicht abgebrochen", und der Lauf geht weiter, statt zu enden.
-            // Das Zuruecksetzen erledigt StartNewScan beim naechsten Lauf.
+            _cts.Cancel();
+            // Do NOT dispose and replace the source here: the loops read _cts through the
+            // field. A fresh source at this point would report "not cancelled" to them and
+            // the run would continue instead of ending. StartNewScan resets it for the next run.
         }
         scanStatus = ScanStatus.stopped;
         ScanStatusUpdated?.Invoke(scanStatus);
-        ProgressUpdated?.Invoke(current, responded, total); // 🔹 UI auf 0 setzen
+        ProgressUpdated?.Invoke(current, responded, total); // Resets the progress display.
     }
 
     ScanStatus scanStatus = ScanStatus.running;
@@ -121,7 +149,7 @@ public class ScanningMethod_Services
         }
         _cts = new CancellationTokenSource();
 
-        // 🔹 Zähler zurücksetzen
+        // Reset the counters.
         current = 0;
         responded = 0;
         total = 0;
@@ -132,43 +160,52 @@ public class ScanningMethod_Services
 
     private string _serviceXMLPath = string.Empty;
 
-    /// <summary>Zeitlimit je Port im grossen Lauf, in Millisekunden.</summary>
+    /// <summary>Time limit per port in the full scan, in milliseconds.</summary>
     private const int Timeout = 2000;
 
-    /// <summary>Versuche je Port im grossen Lauf.</summary>
+    /// <summary>Attempts per port in the full scan.</summary>
     private const int RetryCount = 3;
 
     /// <summary>
-    /// Ports nebeneinander bei der Suche ueber alle 65536 - deutlich mehr als
-    /// im grossen Lauf, weil dort ein Ziel viele Dienste bekommt und hier ein
-    /// Dienst sehr viele Ports.
+    /// Ports checked in parallel by the search over all 65536 ports; far more than in the full
+    /// scan, because there one target gets many services and here one service gets very many
+    /// ports.
     /// </summary>
     private const int MaxParallelPortSearch = 200;
 
+    /// <summary>Raised once per target with findings, after the whole scan.</summary>
     public event Action<IPToScan> ServiceIPScanFinished;
   
+    /// <summary>Raised when the scan is stopped.</summary>
     public event Action<ScanStatus> ScanStatusUpdated;
+
+    /// <summary>Reports progress of the full scan as (checks done, responded, total checks).</summary>
     public event Action<int, int, int> ProgressUpdated;
+
+    /// <summary>Raised when the full scan has finished.</summary>
     public event Action ServiceScanFinished;
 
+    /// <summary>Reports progress of the port search as (ports started, ports with the service, 65536).</summary>
     public event Action<int, int, int> FindServicePortProgressUpdated;
+
+    /// <summary>Raised when the port search has finished.</summary>
     public event Action<IPToScan> FindServicePortFinished;
 
     /// <summary>
-    /// Prueft die gewaehlten Dienste an den gewaehlten Zielen.
+    /// Checks the selected services on the selected targets.
     /// <para>
-    /// Der Ablauf selbst liegt in <see cref="ServiceScanRunner"/>: ein Dienst
-    /// nach dem anderen, innerhalb eines Dienstes alle Ziele nebeneinander.
-    /// Hier steht nur noch die Anbindung fuer die beiden Oberflaechen -
-    /// Signatur und Ereignisse bleiben unveraendert.
+    /// The sequence itself is in <see cref="ServiceScanRunner"/>: one service after the other,
+    /// all targets of a service in parallel. This method connects it to the user interface.
     /// </para>
     /// <para>
-    /// Ein Unterschied ist sichtbar: <c>ProgressUpdated</c> zaehlt jetzt
-    /// Pruefungen statt Ziele, also Dienst mal Ziel. So zaehlt der Ablauf
-    /// ohnehin schon, und nur so laesst sich ablesen, dass gerade ein
-    /// langsamer Dienst an der Reihe ist.
+    /// <c>ProgressUpdated</c> counts checks, not targets, that is services times targets. That is
+    /// how the runner counts, and only this way does the display show that a slow service is
+    /// currently running.
     /// </para>
     /// </summary>
+    /// <param name="IPsToScan">The targets.</param>
+    /// <param name="services">The services to check.</param>
+    /// <param name="extraPorts">Additional ports per service; <see langword="null"/> for none.</param>
     public async Task ScanIPsAsync(List<IPToScan> IPsToScan, List<ServiceType> services, Dictionary<ServiceType, List<int>> extraPorts = null)
     {
         StartNewScan();
@@ -176,9 +213,9 @@ public class ScanningMethod_Services
 
         ProgressUpdated?.Invoke(current, responded, total);
 
-        // Je Ziel wird gesammelt, was die einzelnen Dienste melden, und erst
-        // am Ende einmal gemeldet: die Oberflaechen erwarten ein Ziel mit all
-        // seinen Diensten, nicht 24 Teilmeldungen.
+        // Collect what the individual services report per target and report each target once
+        // at the end: the user interface expects one target with all its services, not 24
+        // partial reports.
         Dictionary<string, IPToScan> byAddress = new();
         foreach (IPToScan target in IPsToScan)
         {
@@ -233,8 +270,8 @@ public class ScanningMethod_Services
         }
         catch (OperationCanceledException)
         {
-            // Ein Abbruch ist ein gewolltes Ende und kein Fehlschlag: was bis
-            // dahin gefunden wurde, wird trotzdem gemeldet.
+            // A cancellation is an intended end, not a failure: what was found until then is
+            // still reported.
         }
         finally
         {
@@ -244,10 +281,9 @@ public class ScanningMethod_Services
 
         foreach (IPToScan target in IPsToScan)
         {
-            // Gemeldet wird jedes gepruefte Ziel, auch ohne Fund: "geprueft,
-            // nichts offen" ist ein Ergebnis und gehoert in den Bestand -
-            // sonst stuende ein Geraet dauerhaft auf "nie geprueft". Ziele
-            // ohne jede Meldung sind dagegen gar nicht erst drangekommen.
+            // Report every target with at least one result from a probe: "checked, nothing open"
+            // is a result and belongs in the inventory, otherwise a device would stay at "never
+            // checked" for good. Targets without any result were not reached at all.
             if (!withFindings.Contains(target.IPorHostname ?? string.Empty)) continue;
 
             target.UsedScanMethod = ScanMethod.Services;
@@ -259,24 +295,25 @@ public class ScanningMethod_Services
 
 
     /// <summary>
-    /// Sucht einen einzelnen Dienst an <b>allen</b> 65536 Ports eines Ziels.
+    /// Searches for a single service on <b>all</b> 65536 ports of a target.
     /// <para>
-    /// Gefragt wird mit derselben Sonde wie im grossen Lauf, nur knapper
-    /// eingestellt: eine Sekunde Geduld und ein Versuch je Port - bei 65536
-    /// Ports faellt jede zusaetzliche Wiederholung als Wartezeit ins Gewicht.
+    /// The probe is the same as in the full scan, with tighter settings: one second of
+    /// patience and one attempt per port; with 65536 ports every additional retry adds
+    /// noticeable waiting time.
     /// </para>
     /// <para>
-    /// Uebernommen wird nur, was die Sonde als <c>IsRunning</c> meldet, also
-    /// eine Antwort, die zum Protokoll passt. Ein offener Port allein ist
-    /// hier kein Fund - gesucht ist ein bestimmter Dienst, und den findet man
-    /// nicht daran, dass irgendetwas antwortet.
+    /// Only what the probe reports as <c>IsRunning</c> is taken, that is an answer that matches
+    /// the protocol. An open port alone is no finding here: the search is for a specific service,
+    /// and that is not found by something answering.
     /// </para>
     /// <para>
-    /// Der Lauf geht ueber alle Ports durch. Frueher hielt er beim ersten
-    /// Treffer an; ein Dienst kann aber auf mehreren Ports sitzen, und genau
-    /// die will man sehen, wenn man schon alle Ports absucht.
+    /// The run covers all ports and does not stop at the first hit: a service can listen on
+    /// several ports, and a search over all ports is meant to show them all.
     /// </para>
     /// </summary>
+    /// <param name="ipToScan">The target.</param>
+    /// <param name="service">The service to search for.</param>
+    /// <returns>The target with a service result that lists the ports found.</returns>
     public async Task<IPToScan> FindServicePortAsync(IPToScan ipToScan, ServiceType service)
     {
         StartNewScan();
@@ -292,8 +329,8 @@ public class ScanningMethod_Services
 
         if (!ServiceProbes.Has(service))
         {
-            // Kein Verfahren fuer diesen Dienst - nichts zu suchen, aber das
-            // Ereignis muss trotzdem kommen, sonst wartet die Oberflaeche.
+            // No probe for this service: nothing to search, but the event must still be
+            // raised, otherwise the user interface keeps waiting.
             FindServicePortFinished?.Invoke(ipToScan);
             return ipToScan;
         }
@@ -309,10 +346,9 @@ public class ScanningMethod_Services
         {
             if (_cts.Token.IsCancellationRequested) break;
 
-            // Gemeldet wird der Zaehler, nicht die Portnummer: bei einem Lauf
-            // ueber alle 65536 Ports sehen beide fast gleich aus, gemeint ist
-            // aber "der wievielte Port" - und das ist bei einem Abbruch oder
-            // einem Ausschnitt der Portliste etwas anderes.
+            // Report the counter, not the port number: over all 65536 ports both look almost the
+            // same, but the meaning is "how many ports so far", which differs on a cancellation
+            // or for a section of the port list.
             int currentValue = Interlocked.Increment(ref current);
             FindServicePortProgressUpdated?.Invoke(currentValue, Volatile.Read(ref responded), total);
 
@@ -344,12 +380,12 @@ public class ScanningMethod_Services
                 }
                 catch (OperationCanceledException)
                 {
-                    // Abbruch ist kein Fehlschlag dieses Ports.
+                    // A cancellation is no failure of this port.
                 }
                 catch (Exception)
                 {
-                    // Ein einzelner Port, der sich nicht pruefen laesst, darf
-                    // den Lauf ueber die uebrigen 65535 nicht beenden.
+                    // A single port that cannot be checked must not end the run over the
+                    // remaining 65535.
                 }
                 finally
                 {
@@ -364,7 +400,7 @@ public class ScanningMethod_Services
         }
         catch (OperationCanceledException)
         {
-            // siehe oben
+            // A cancellation is no failure, see above.
         }
         finally
         {
@@ -379,6 +415,11 @@ public class ScanningMethod_Services
 
 
     private DataTable _dt_Servives = new DataTable();
+
+    /// <summary>
+    /// The service settings: one row per service with selection, ports, hello packet, expected
+    /// answer, group and the switch for active inquiries.
+    /// </summary>
     public DataTable Services 
     {
         get { return _dt_Servives; }
@@ -394,11 +435,11 @@ public class ScanningMethod_Services
         _dt_Servives.Columns.Add("HelloBytePackage", typeof(string));
         _dt_Servives.Columns.Add("ResponsedBytePackagePart", typeof(string));
         _dt_Servives.Columns.Add("ResponsedContainsString", typeof(string));
-        _dt_Servives.Columns.Add("ServiceGroup", typeof(string)); // Gruppierungs-Spalte
+        _dt_Servives.Columns.Add("ServiceGroup", typeof(string)); // Grouping column
 
-    // Nur fuer Dienste, deren Auskunft eine Frage braucht, die den Zustand der
-    // Gegenstelle veraendert - bei SECS/GEM ist das S1F13. Vorgabe ist aus, und
-    // das bleibt sie: einschalten muss, wer die Anlagen im eigenen Netz kennt.
+    // Only for services whose information needs a request that changes the state of the
+    // remote side; for SECS/GEM that is S1F13. The default is off and stays off: it is to be
+    // switched on only by someone who knows the equipment in the network.
     _dt_Servives.Columns.Add("ActiveInquiry", typeof(bool));
 
 
@@ -408,7 +449,7 @@ public class ScanningMethod_Services
             row["toScan"] = false;
             row["Service"] = serviceType.ToString();
             row["Ports"] = string.Join(", ", GetDefaultServicePorts(serviceType));
-            row["HelloBytePackage"] = GetDetectionPackageString(serviceType);  // Optional: Hier kannst du Hex-Strings einfügen
+            row["HelloBytePackage"] = GetDetectionPackageString(serviceType);  // Hex text of the hello packet
             row["ResponsedBytePackagePart"] = "";
             row["ResponsedContainsString"] = "";
             row["ServiceGroup"] = GetServiceGroup(serviceType);
@@ -435,7 +476,7 @@ public class ScanningMethod_Services
                     {
                         string service = existingRow["Service"].ToString() ?? string.Empty;
 
-                        // Ports vergleichen
+                        // Compare ports.
                         if (existingRow["Ports"].ToString() != tempRow["Ports"].ToString())
                         {
                             if (IsSupersededDefault(service, "Ports", tempRow["Ports"].ToString()))
@@ -450,7 +491,7 @@ public class ScanningMethod_Services
                             }
                         }
 
-                        // HelloBytePackage vergleichen
+                        // Compare HelloBytePackage.
                         if (existingRow["HelloBytePackage"].ToString() != tempRow["HelloBytePackage"].ToString())
                         {
                             if (!IsSupersededDefault(service, "HelloBytePackage", tempRow["HelloBytePackage"].ToString()))
@@ -459,24 +500,23 @@ public class ScanningMethod_Services
                             }
                         }
 
-                        // ResponsedBytePackagePart vergleichen
+                        // Compare ResponsedBytePackagePart.
                         if (existingRow["ResponsedBytePackagePart"].ToString() != tempRow["ResponsedBytePackagePart"].ToString())
                         {
                             existingRow["ResponsedBytePackagePart"] = tempRow["ResponsedBytePackagePart"];
                         }
 
-                        // ResponsedContainsString vergleichen
+                        // Compare ResponsedContainsString.
                         if (existingRow["ResponsedContainsString"].ToString() != tempRow["ResponsedContainsString"].ToString())
                         {
                             existingRow["ResponsedContainsString"] = tempRow["ResponsedContainsString"];
                         }
 
-                        // ToScan aktualisieren
+                        // Take the selection.
                         existingRow["toScan"] = tempRow["toScan"];
 
-                        // Die aktive Nachfrage, sofern die Datei sie schon kennt.
-                        // Aeltere Dateien haben die Spalte nicht - dann bleibt es
-                        // bei der Vorgabe "aus".
+                        // The active inquiry, if the file has the column. Files without it keep
+                        // the default "off".
                         if (tempTable.Columns.Contains("ActiveInquiry") && tempRow["ActiveInquiry"] is bool wanted)
                         {
                             existingRow["ActiveInquiry"] = wanted;
@@ -489,56 +529,50 @@ public class ScanningMethod_Services
     }
 
     /// <summary>
-    /// Vorgaben, die einmal ausgeliefert wurden und inzwischen falsch sind.
+    /// Defaults that were shipped once and are wrong by now.
     /// <para>
-    /// Die gespeicherte XML sticht den Code - so ist sie gedacht, damit sich
-    /// Ports und Pakete anpassen lassen, ohne die Anwendung neu zu bauen. Die
-    /// Kehrseite: eine Datei, die einmal angelegt wurde, friert die damalige
-    /// Vorgabe ein. Eine spaetere Korrektur im Code erreicht diesen Rechner
-    /// nie, und niemand sieht, woran es liegt.
+    /// The stored XML takes precedence over the code, by design, so that ports and packets can
+    /// be adjusted without rebuilding the application. The downside: a file, once created,
+    /// freezes the default of that time, and a later correction in the code never reaches that
+    /// computer without any visible reason.
     /// </para>
     /// <para>
-    /// Darum diese Liste: steht in der Datei <em>genau</em> der alte
-    /// Vorgabewert, gilt der neue. Alles, was davon abweicht, ist eine eigene
-    /// Anpassung und bleibt unangetastet - der Zweck der Datei bleibt also
-    /// erhalten.
+    /// Hence this list: if the file contains <em>exactly</em> an old default value, the current
+    /// default applies. Anything else is a deliberate adjustment and stays untouched, so the
+    /// purpose of the file is preserved.
     /// </para>
     /// </summary>
     /// <remarks>
-    /// Erkannt wird ueber die Pruefsumme und nicht ueber den Wert selbst. Das
-    /// alte Client-Paket trug eine interne Adresse, eine Geraetekennung und
-    /// einen Benutzernamen als ASCII-Bytes; stuende es hier im Klartext, waere
-    /// genau das wieder im oeffentlichen Projekt - nur als Hex getarnt und
-    /// damit umso leichter zu uebersehen. Die Pruefsumme genuegt: sie erkennt
-    /// den alten Wert, gibt ihn aber nicht preis.
+    /// Matching uses a checksum, not the value itself. An old client packet carried an internal
+    /// address, a device ID and a user name as ASCII bytes; in plain text here, exactly that would
+    /// be in the public project again, only disguised as hex and therefore easier to overlook. The
+    /// checksum is enough: it recognises the old value without revealing it.
     /// </remarks>
     private static readonly (string Service, string Column, string Sha256)[] SupersededDefaults =
     [
-        // Stand vor 6.0.0.5: der RustDesk-Server lag auf 5900, demselben Port
-        // wie UltraVNC. Jeder VNC-Rechner galt dadurch zusaetzlich als
-        // RustDesk-Server. Die Korrektur im Code lief bei allen ins Leere, die
-        // schon eine services.xml hatten.
+        // Default before 6.0.0.5: the RustDesk server was on 5900, the same port as UltraVNC, so
+        // every VNC computer also counted as a RustDesk server. Without this entry an existing
+        // services.xml keeps the old port.
         ("RustdeskServer", "Ports", "B0A1CAFD46C582F82B4CD19B94D6E1DCE4305E3536EFB5949E3FC1193496D802"),
 
-        // Stand vor 7.1: die drei ASCII-Felder des Client-Pakets stammten aus
-        // einem Mitschnitt und benannten damit einen echten Rechner. Im Code
-        // stehen laengst Platzhalter; ohne diesen Eintrag verschickte eine
-        // bestehende Datei weiterhin die alten Werte.
+        // Default before 7.1: the three ASCII fields of the client packet came from a capture and
+        // named a real computer. The code uses placeholders; without this entry an existing file
+        // keeps sending the old values.
         ("RustdeskClient", "HelloBytePackage", "D58106E650361454C362FD3FA4832D840E08493C4C36C50620243A8EB417FA46"),
 
-        // Packets taken from network captures that named a real SQL Server instance, the program and operating system
-        // of the capturing computer, and the address of a foreign OPC UA server; replaced by neutral packets in 7.3.0.17.
+        // Defaults before 7.3.0.17: packets taken from network captures that named a real SQL Server instance, the
+        // program and operating system of the capturing computer, and the address of a foreign OPC UA server; the code
+        // uses neutral packets. See docs/FEHLERGEDAECHTNIS.md, No. 14.
         ("MSSQLServer", "HelloBytePackage", "884815CC8494B604E9E916384D941B5B55684CB125E646F7D246B31D8BFFF1DC"),
         ("MongoDB", "HelloBytePackage", "90DCFBF16467625E757858845C4E5AD45E0DF8DAFF0BCED97223C6F5882DF545"),
         ("OPCUA", "HelloBytePackage", "B4A94C948BDCFEF7219FC5276AC78AC44B2499A057923F323DB28ADE194BBB97")
     ];
 
     /// <summary>
-    /// Ob der gespeicherte Wert genau einer ueberholten Vorgabe entspricht.
+    /// Whether the stored value matches exactly one superseded default.
     /// <para>
-    /// Verglichen wird die Pruefsumme des Wertes, ohne Ruecksicht auf
-    /// Leerzeichen und Gross-/Kleinschreibung: die Datei wird von Hand
-    /// bearbeitet, und daran soll es nicht scheitern.
+    /// The checksum of the value is compared, ignoring white space and letter case: the file
+    /// may be edited by hand, and that must not defeat the check.
     /// </para>
     /// </summary>
     private static bool IsSupersededDefault(string service, string column, string? stored)
@@ -553,7 +587,7 @@ public class ScanningMethod_Services
             string.Equals(d.Sha256, digest, StringComparison.OrdinalIgnoreCase));
     }
 
-    /// <summary>Pruefsumme eines Wertes, gegen Leerzeichen und Schreibweise unempfindlich.</summary>
+    /// <summary>SHA-256 checksum of a value, insensitive to white space and letter case.</summary>
     private static string Fingerprint(string value)
     {
         string normalised = new(value.Where(c => !char.IsWhiteSpace(c))
@@ -566,25 +600,29 @@ public class ScanningMethod_Services
         return Convert.ToHexString(hash);
     }
 
+    /// <summary>
+    /// Normalises the list columns and saves the service settings with schema to the path given
+    /// at construction. Errors are written to the console.
+    /// </summary>
     public void SaveServiceSettingsToXML()
     {
         try
         {
             foreach (DataRow row in _dt_Servives.Rows)
             {
-                // Ports formatieren: "53,46" ? "53, 46"
+                // Format ports: "53,46" becomes "53, 46"
                 if (row["Ports"] != DBNull.Value)
                 {
                     row["Ports"] = string.Join(", ", row["Ports"].ToString().Split(',').Select(p => p.Trim()));
                 }
 
-                // HelloBytePackage formatieren
+                // Format HelloBytePackage.
                 if (row["HelloBytePackage"] != DBNull.Value)
                 {
                     row["HelloBytePackage"] = string.Join(", ", row["HelloBytePackage"].ToString().Split(',').Select(p => p.Trim()));
                 }
 
-                // ResponsedBytePackagePart formatieren
+                // Format ResponsedBytePackagePart.
                 if (row["ResponsedBytePackagePart"] != DBNull.Value)
                 {
                     row["ResponsedBytePackagePart"] = string.Join(", ", row["ResponsedBytePackagePart"].ToString().Split(',').Select(p => p.Trim()));
@@ -607,11 +645,12 @@ public class ScanningMethod_Services
 
 
     /// <summary>
-    /// Die Standardports eines Dienstes. Sie stehen bei seiner Sonde unter
-    /// Scanning/ServiceScans - je Dienst eine Datei, in der Ports, Hello-Paket
-    /// und Antwortpruefung beieinander liegen. Hier steht nur noch der Zugang
-    /// fuer die Dienstverwaltung und die beiden Oberflaechen.
+    /// The default ports of a service. They are defined with its probe under
+    /// Scanning/ServiceScans, one file per service with ports, hello packet and answer check
+    /// together. This is the access point for the service settings and the user interface.
     /// </summary>
+    /// <param name="service">The service.</param>
+    /// <returns>The default ports; empty if there is no probe for the service.</returns>
     public static List<int> GetDefaultServicePorts(ServiceType service) =>
         ServiceProbes.Has(service)
             ? [.. ServiceProbes.For(service).DefaultPorts]
@@ -622,22 +661,22 @@ public class ScanningMethod_Services
     {
         return serviceType switch
         {
-            // Netzwerk-Dienste
+            // Network services
             ServiceType.WebServices or ServiceType.DNS_TCP or ServiceType.DNS_UDP or ServiceType.DHCP or ServiceType.SSH or ServiceType.FTP
                 => "🌍 Netzwerk-Dienste",
 
-            // Remote-Desktop & Fernwartung
+            // Remote desktop and remote maintenance
             ServiceType.RDP or ServiceType.UltraVNC or ServiceType.BigFixRemote or ServiceType.TeamViewer or ServiceType.Anydesk or ServiceType.RustdeskServer or ServiceType.RustdeskClient
                 => "🖥️ Remote-Desktop & Fernwartung",
 
-            // Datenbanken
+            // Databases
             ServiceType.MSSQLServer or ServiceType.PostgreSQL or ServiceType.MariaDB or ServiceType.MySQL or ServiceType.OracleDB
                 => "🗄️ SQL-Datenbanken",
 
             ServiceType.MongoDB or ServiceType.InfluxDB2
                 => "📦 NoSQL-Datenbanken",
 
-            // Industrieprotokolle
+            // Industrial protocols
             ServiceType.OPCUA or ServiceType.ModBus or ServiceType.S7 or ServiceType.BacNet or ServiceType.Wago or ServiceType.SecsGem
                 => "🏭 Industrieprotokolle",
 
@@ -647,10 +686,12 @@ public class ScanningMethod_Services
 
 
     /// <summary>
-    /// Das Hello-Paket als Hex-Text fuer die Spalte "HelloBytePackage" der
-    /// Dienstverwaltung. Die Pakete selbst liegen bei den Sonden unter
-    /// Scanning/ServiceScans - je Dienst eine Datei.
+    /// The hello packet as hex text for the "HelloBytePackage" column of the service settings.
+    /// The packets themselves are defined with the probes under Scanning/ServiceScans, one file
+    /// per service.
     /// </summary>
+    /// <param name="serviceType">The service.</param>
+    /// <returns>The bytes as two-digit hex values separated by ", "; empty if there is no packet.</returns>
     public string GetDetectionPackageString(ServiceType serviceType)
     {
         byte[] packet = ServiceProbes.Has(serviceType)
@@ -662,7 +703,7 @@ public class ScanningMethod_Services
             return string.Empty;
         }
 
-        // Konvertiere jedes Byte in einen 2-stelligen Hex-Wert und verbinde sie mit Kommas
+        // Convert each byte into a two-digit hex value and join them with commas.
         return string.Join(", ", packet.Select(b => b.ToString("X2")));
     }
 

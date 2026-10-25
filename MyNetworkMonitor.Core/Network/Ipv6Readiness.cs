@@ -4,66 +4,66 @@ using System.Net.Sockets;
 namespace MyNetworkMonitor.Core.Network
 {
     /// <summary>
-    /// Wie weit IPv6 auf einem Adapter tatsaechlich nutzbar ist.
+    /// How far IPv6 is actually usable on an adapter.
     /// <para>
-    /// In vielen Netzen ist IPv6 abgeschaltet, nur halb eingerichtet oder es
-    /// fehlt schlicht der Router, der ein Praefix ankuendigt. Die Anwendung
-    /// muss das erkennen, <b>bevor</b> sie IPv6-Verfahren startet - sonst
-    /// laufen sie ohne Ergebnis in ihre Zeitlimits und der Nutzer sieht leere
-    /// Spalten ohne Erklaerung.
+    /// On many networks IPv6 is switched off, only half configured, or there is
+    /// simply no router announcing a prefix. The application must detect this
+    /// <b>before</b> starting IPv6 methods - otherwise they run into their
+    /// timeouts without a result and the display shows empty columns without
+    /// explanation.
     /// </para>
     /// </summary>
     public enum Ipv6Availability
     {
-        /// <summary>Noch nicht geprueft.</summary>
+        /// <summary>Not checked yet.</summary>
         Unknown,
 
-        /// <summary>Das Betriebssystem selbst kann kein IPv6.</summary>
+        /// <summary>The operating system itself does not support IPv6.</summary>
         NotSupportedByOperatingSystem,
 
-        /// <summary>Der Adapter hat IPv6 nicht gebunden - im Adapter abgeschaltet.</summary>
+        /// <summary>The adapter has no IPv6 binding - switched off on the adapter.</summary>
         DisabledOnAdapter,
 
         /// <summary>
-        /// IPv6 ist gebunden, aber es gibt keine einzige IPv6-Adresse.
-        /// Ungewoehnlich, kommt bei frisch gestarteten oder gestoerten
-        /// Adaptern vor.
+        /// IPv6 is bound, but there is not a single IPv6 address. Unusual;
+        /// occurs on freshly started or faulty adapters.
         /// </summary>
         NoAddress,
 
         /// <summary>
-        /// Nur eine Link-Local-Adresse vorhanden. Der Adapter kann IPv6, aber
-        /// im Netz kuendigt kein Router ein Praefix an. Das Segment selbst
-        /// laesst sich trotzdem vollstaendig untersuchen - Neighbor Discovery,
-        /// Multicast und MLD arbeiten alle ueber Link-Local.
+        /// Only a link-local address is present. The adapter supports IPv6, but
+        /// no router on the network announces a prefix. The segment itself can
+        /// still be examined completely - neighbor discovery, multicast and MLD
+        /// all work over link-local.
         /// </summary>
         LinkLocalOnly,
 
         /// <summary>
-        /// Zusaetzlich eine ULA, aber keine globale Adresse. Internes IPv6
-        /// ohne Anbindung nach aussen.
+        /// Additionally a ULA, but no global address. Internal IPv6 without an
+        /// outside connection.
         /// </summary>
         UniqueLocalOnly,
 
-        /// <summary>Globale Adresse vorhanden - IPv6 vollstaendig nutzbar.</summary>
+        /// <summary>Global address present - IPv6 fully usable.</summary>
         Global
     }
 
     /// <summary>
-    /// Ergebnis der Verfuegbarkeitspruefung samt Begruendung. Die Begruendung
-    /// ist fuer die Oberflaeche gedacht: sie steht dort, wo sonst die
-    /// IPv6-Ergebnisse staenden.
+    /// Result of the availability check with its reason. The reason is meant
+    /// for the user interface: it appears where the IPv6 results would
+    /// otherwise be.
     /// </summary>
     public sealed class Ipv6Readiness
     {
+        /// <summary>The determined availability.</summary>
         public required Ipv6Availability Availability { get; init; }
 
-        /// <summary>Kurzer Satz fuer die Oberflaeche, warum es so ist, wie es ist.</summary>
+        /// <summary>Short sentence for the user interface explaining the state.</summary>
         public required string Reason { get; init; }
 
         /// <summary>
-        /// IPv6-Verfahren im Segment sind sinnvoll: Neighbor Cache, Multicast
-        /// an ff02::1, Router Advertisements und MLD brauchen nur Link-Local.
+        /// IPv6 methods on the segment make sense: neighbor cache, multicast to
+        /// ff02::1, router advertisements and MLD only need link-local.
         /// </summary>
         public bool CanScanLocalSegment =>
             Availability is Ipv6Availability.LinkLocalOnly
@@ -71,21 +71,21 @@ namespace MyNetworkMonitor.Core.Network
                          or Ipv6Availability.Global;
 
         /// <summary>
-        /// Ziele ausserhalb des eigenen Segments sind ueber IPv6 erreichbar.
-        /// Ohne globale oder lokal eindeutige Adresse ist das nicht der Fall.
+        /// Targets outside the own segment are reachable via IPv6. Without a
+        /// global or unique local address this is not the case.
         /// </summary>
         public bool CanScanRoutedTargets =>
             Availability is Ipv6Availability.UniqueLocalOnly or Ipv6Availability.Global;
 
         /// <summary>
-        /// Die Pruefung "ist dieser Port global erreichbar" ist nur mit einer
-        /// globalen Adresse aussagekraeftig.
+        /// The check "is this port reachable globally" is only meaningful with a
+        /// global address.
         /// </summary>
         public bool CanAssessGlobalExposure => Availability == Ipv6Availability.Global;
 
         /// <summary>
-        /// IPv6-Spalten und -Ansichten ausblenden statt leer zeigen. Wenn IPv6
-        /// gar nicht verfuegbar ist, ist eine leere Spalte nur Rauschen.
+        /// Hide IPv6 columns and views instead of showing them empty. When IPv6
+        /// is not available at all, an empty column is only noise.
         /// </summary>
         public bool ShouldHideIpv6Ui =>
             Availability is Ipv6Availability.NotSupportedByOperatingSystem
@@ -94,16 +94,17 @@ namespace MyNetworkMonitor.Core.Network
 
         public override string ToString() => $"{Availability}: {Reason}";
 
-        // ------------------------------------------------------------ Pruefung
+        // ------------------------------------------------------------ Check
 
-        /// <summary>Kann das Betriebssystem ueberhaupt IPv6?</summary>
+        /// <summary>Does the operating system support IPv6 at all?</summary>
         public static bool OperatingSystemSupportsIpv6 => Socket.OSSupportsIPv6;
 
         /// <summary>
-        /// Prueft einen einzelnen Adapter. Wirft nicht - ein Adapter, der
-        /// waehrend der Pruefung verschwindet, ergibt
-        /// <see cref="Ipv6Availability.Unknown"/>.
+        /// Checks a single adapter. Does not throw - an adapter that disappears
+        /// during the check yields <see cref="Ipv6Availability.Unknown"/>.
         /// </summary>
+        /// <param name="nic">The adapter; null yields <see cref="Ipv6Availability.Unknown"/>.</param>
+        /// <returns>The availability with a reason for display.</returns>
         public static Ipv6Readiness ForInterface(NetworkInterface? nic)
         {
             if (!Socket.OSSupportsIPv6)

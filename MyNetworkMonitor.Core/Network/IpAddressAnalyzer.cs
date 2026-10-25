@@ -5,23 +5,25 @@ using System.Net.Sockets;
 namespace MyNetworkMonitor.Core.Network
 {
     /// <summary>
-    /// Wertet eine IP-Adresse allein anhand ihrer Bits aus. Kein Netzwerkzugriff,
-    /// keine Nebenwirkungen - damit ueberall einsetzbar, auch waehrend eines Scans.
+    /// Evaluates an IP address based on its bits alone. No network access, no
+    /// side effects - therefore usable anywhere, including during a scan.
     /// <para>
-    /// Der Analysator sagt bewusst nur das, was aus der Adresse folgt. Ob eine
-    /// zufaellig aussehende Adresse eine Privacy Extension (RFC 4941) oder ein
-    /// stabiler opaker Identifier (RFC 7217) ist, laesst sich so nicht
-    /// entscheiden - beides ergibt <see cref="InterfaceIdKind.Random"/>. Diese
-    /// Unterscheidung kann nur die Beobachtung ueber die Zeit oder die Angabe
-    /// des Betriebssystems liefern.
+    /// The analyzer deliberately states only what follows from the address.
+    /// Whether a random-looking address is a privacy extension (RFC 8981, which
+    /// obsoletes RFC 4941) or a stable opaque identifier (RFC 7217) cannot be
+    /// decided this way - both yield <see cref="InterfaceIdKind.Random"/>. Only
+    /// observation over time or information from the operating system can make
+    /// that distinction.
     /// </para>
     /// </summary>
     public static class IpAddressAnalyzer
     {
         /// <summary>
-        /// Zerlegt eine Adresse in ihre Bestandteile. Wirft nicht - eine nicht
-        /// deutbare Adresse ergibt einen Datensatz mit <see cref="IpAddressScope.Unknown"/>.
+        /// Splits an address into its components. Does not throw - an address
+        /// that cannot be interpreted yields a record with <see cref="IpAddressScope.Unknown"/>.
         /// </summary>
+        /// <param name="address">The address to analyze.</param>
+        /// <returns>The analysis result.</returns>
         public static IpAddressInfo Analyze(IPAddress address)
         {
             ArgumentNullException.ThrowIfNull(address);
@@ -32,10 +34,13 @@ namespace MyNetworkMonitor.Core.Network
         }
 
         /// <summary>
-        /// Wie <see cref="Analyze(IPAddress)"/>, nimmt aber Text entgegen -
-        /// einschliesslich Zone ("fe80::1%12"). Liefert <c>false</c>, wenn sich
-        /// der Text nicht als Adresse lesen laesst.
+        /// Like <see cref="Analyze(IPAddress)"/>, but takes text - including a
+        /// zone ("fe80::1%12"). Returns <c>false</c> if the text cannot be read
+        /// as an address.
         /// </summary>
+        /// <param name="text">The address as text.</param>
+        /// <param name="info">The analysis result, or null if the text is not an address.</param>
+        /// <returns><c>true</c> if the text is a valid address.</returns>
         public static bool TryAnalyze(string? text, out IpAddressInfo? info)
         {
             info = null;
@@ -72,7 +77,7 @@ namespace MyNetworkMonitor.Core.Network
             };
         }
 
-        /// <summary>RFC 1918 sowie der Carrier-Grade-NAT-Bereich aus RFC 6598.</summary>
+        /// <summary>RFC 1918 and the carrier-grade NAT range from RFC 6598.</summary>
         private static bool IsPrivateV4(byte[] b) =>
             b[0] == 10 ||
             (b[0] == 172 && b[1] >= 16 && b[1] <= 31) ||
@@ -80,8 +85,8 @@ namespace MyNetworkMonitor.Core.Network
             (b[0] == 100 && b[1] >= 64 && b[1] <= 127);
 
         /// <summary>
-        /// IPv4 wird als IPv4-mapped (::ffff:a.b.c.d) einsortiert, damit eine
-        /// gemischte Liste in einer Spalte sinnvoll sortiert.
+        /// IPv4 is sorted as IPv4-mapped (::ffff:a.b.c.d) so that a mixed list
+        /// sorts sensibly in one column.
         /// </summary>
         private static byte[] BuildV4SortKey(byte[] v4)
         {
@@ -120,9 +125,9 @@ namespace MyNetworkMonitor.Core.Network
                 ZoneId = zone,
                 DerivedMac = mac,
                 EmbeddedIPv4 = embedded,
-                // .NET erzeugt fuer IPv6 bereits die Kurzform nach RFC 5952
-                // (klein, laengste Nullfolge zu :: zusammengefasst) und haengt
-                // eine vorhandene Zone mit % an.
+                // .NET already produces the short form per RFC 5952 for IPv6
+                // (lower case, longest run of zeros compressed to ::) and
+                // appends an existing zone with %.
                 Canonical = address.ToString(),
                 SortKey = b
             };
@@ -135,18 +140,18 @@ namespace MyNetworkMonitor.Core.Network
 
             if (b[0] == 0xFF) return IpAddressScope.Multicast;
 
-            // fe80::/10
+            // fe80::/10 (RFC 4291, section 2.5.6)
             if (b[0] == 0xFE && (b[1] & 0xC0) == 0x80) return IpAddressScope.LinkLocal;
 
-            // fc00::/7 - Unique Local
+            // fc00::/7 - unique local (RFC 4193)
             if ((b[0] & 0xFE) == 0xFC) return IpAddressScope.UniqueLocal;
 
-            // Dokumentations- und Messbereiche sind zwar formal global, aber
-            // nicht geroutet. Sie als global auszuweisen waere irrefuehrend.
+            // Documentation and benchmarking ranges are formally global but
+            // not routed. Reporting them as global would be misleading.
             if (special is IpAddressSpecial.Documentation or IpAddressSpecial.Benchmarking)
                 return IpAddressScope.Unknown;
 
-            // 2000::/3 - der einzige bisher zugeteilte globale Unicast-Bereich
+            // 2000::/3 - the only global unicast range allocated by IANA
             if ((b[0] & 0xE0) == 0x20) return IpAddressScope.Global;
 
             return IpAddressScope.Unknown;
@@ -156,7 +161,7 @@ namespace MyNetworkMonitor.Core.Network
         {
             if (address.IsIPv4MappedToIPv6) return IpAddressSpecial.IPv4Mapped;
 
-            // ff02::1:ffXX:XXXX - Solicited-Node-Multicast
+            // ff02::1:ffXX:XXXX - solicited-node multicast (RFC 4291, section 2.7.1)
             if (b[0] == 0xFF && b[1] == 0x02 &&
                 b[2] == 0 && b[3] == 0 && b[4] == 0 && b[5] == 0 && b[6] == 0 && b[7] == 0 &&
                 b[8] == 0 && b[9] == 0 && b[10] == 0 && b[11] == 0x01 && b[12] == 0xFF)
@@ -164,7 +169,7 @@ namespace MyNetworkMonitor.Core.Network
                 return IpAddressSpecial.SolicitedNodeMulticast;
             }
 
-            // 64:ff9b::/96
+            // 64:ff9b::/96 - NAT64 well-known prefix (RFC 6052)
             if (b[0] == 0x00 && b[1] == 0x64 && b[2] == 0xFF && b[3] == 0x9B &&
                 b[4] == 0 && b[5] == 0 && b[6] == 0 && b[7] == 0 &&
                 b[8] == 0 && b[9] == 0 && b[10] == 0 && b[11] == 0)
@@ -174,29 +179,29 @@ namespace MyNetworkMonitor.Core.Network
 
             if (b[0] == 0x20 && b[1] == 0x01)
             {
-                // 2001:0000::/32 - Teredo
+                // 2001:0000::/32 - Teredo (RFC 4380)
                 if (b[2] == 0x00 && b[3] == 0x00) return IpAddressSpecial.Teredo;
 
-                // 2001:db8::/32 - Dokumentation
+                // 2001:db8::/32 - documentation (RFC 3849)
                 if (b[2] == 0x0D && b[3] == 0xB8) return IpAddressSpecial.Documentation;
 
-                // 2001:2::/48 - Benchmarking
+                // 2001:2::/48 - benchmarking (RFC 5180)
                 if (b[2] == 0x00 && b[3] == 0x02 && b[4] == 0x00 && b[5] == 0x00)
                     return IpAddressSpecial.Benchmarking;
             }
 
-            // 2002::/16 - 6to4
+            // 2002::/16 - 6to4 (RFC 3056)
             if (b[0] == 0x20 && b[1] == 0x02) return IpAddressSpecial.SixToFour;
 
-            // fc00::/8 - zentral zu vergeben, bislang nie zugeteilt
+            // fc00::/8 - intended for central assignment, never allocated (RFC 4193)
             if (b[0] == 0xFC) return IpAddressSpecial.UnassignedUniqueLocal;
 
-            // Interface-Identifier 0000:5efe oder 0200:5efe - ISATAP
+            // Interface identifier 0000:5efe or 0200:5efe - ISATAP (RFC 5214)
             if ((b[8] == 0x00 || b[8] == 0x02) && b[9] == 0x00 && b[10] == 0x5E && b[11] == 0xFE)
                 return IpAddressSpecial.Isatap;
 
-            // ::a.b.c.d - IPv4-kompatibel, abgekuendigt. Die Nulladresse und
-            // Loopback duerfen nicht hineinfallen.
+            // ::a.b.c.d - IPv4-compatible, deprecated (RFC 4291, section 2.5.5.1).
+            // The unspecified address and loopback must not fall into this.
             bool upperAllZero = true;
             for (int i = 0; i < 12; i++)
             {
@@ -218,14 +223,14 @@ namespace MyNetworkMonitor.Core.Network
                     return new IPAddress(b[12..16]);
 
                 case IpAddressSpecial.SixToFour:
-                    // 2002:AABB:CCDD::/48 - die IPv4 steht direkt hinter dem Praefix
+                    // 2002:AABB:CCDD::/48 - the IPv4 address follows the prefix directly.
                     return new IPAddress(b[2..6]);
 
                 case IpAddressSpecial.Isatap:
                     return new IPAddress(b[12..16]);
 
                 case IpAddressSpecial.Teredo:
-                    // Die Client-Adresse ist bitweise invertiert abgelegt.
+                    // The client address is stored bitwise inverted (RFC 4380, section 4).
                     byte[] client = new byte[4];
                     for (int i = 0; i < 4; i++) client[i] = (byte)(b[12 + i] ^ 0xFF);
                     return new IPAddress(client);
@@ -247,11 +252,11 @@ namespace MyNetworkMonitor.Core.Network
                 return InterfaceIdKind.Embedded;
             }
 
-            // EUI-64: ff:fe in der Mitte des Interface-Identifiers
+            // EUI-64: ff:fe in the middle of the interface identifier (RFC 4291, appendix A)
             if (b[11] == 0xFF && b[12] == 0xFE) return InterfaceIdKind.Eui64;
 
-            // Die oberen 6 Byte des Identifiers sind null, es bleibt also
-            // hoechstens ::ffff.
+            // The upper 6 bytes of the identifier are zero, so at most
+            // ::ffff remains.
             bool iidNearlyZero = true;
             for (int i = 8; i < 14; i++)
             {
@@ -260,24 +265,23 @@ namespace MyNetworkMonitor.Core.Network
 
             if (iidNearlyZero)
             {
-                // Vollstaendig null: das ist die Subnetz-Router-Anycast-Adresse
-                // bzw. ein blosses Praefix, kein Geraet.
+                // Entirely zero: that is the subnet-router anycast address
+                // (RFC 4291, section 2.6.1) or a bare prefix, not a device.
                 if (b[14] == 0 && b[15] == 0) return InterfaceIdKind.Unknown;
 
-                // Sehr kleiner Wert wie ::1 oder ::20. Solche Adressen werden
-                // von Hand vergeben - typisch fuer Server und Infrastruktur.
+                // Very small value such as ::1 or ::20. Such addresses are
+                // assigned manually - typical for servers and infrastructure.
                 return InterfaceIdKind.LowByte;
             }
 
-            // Alles Uebrige sieht zufaellig aus. Ob Privacy Extension oder
-            // stabiler opaker Identifier, ist hier nicht entscheidbar.
+            // Everything else looks random. Whether privacy extension or
+            // stable opaque identifier cannot be decided here.
             return InterfaceIdKind.Random;
         }
 
         /// <summary>
-        /// Rechnet einen EUI-64-Interface-Identifier auf die MAC zurueck:
-        /// die eingeschobenen Bytes ff:fe entfallen, das u/l-Bit wird
-        /// zurueckgekippt.
+        /// Converts an EUI-64 interface identifier back to the MAC address: the
+        /// inserted bytes ff:fe are dropped and the u/l bit is flipped back.
         /// </summary>
         private static PhysicalAddress ExtractMac(byte[] b)
         {

@@ -5,8 +5,8 @@ using static MyNetworkMonitor.ServiceScanData;
 namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 {
     /// <summary>
-    /// Siemens S7 ueber ISO-on-TCP. 102 ist der Standardport, 1020 kommt bei
-    /// abweichend eingerichteten Anlagen vor.
+    /// Siemens S7 over ISO-on-TCP (RFC 1006). 102 is the standard port; 1020
+    /// occurs in installations configured differently.
     /// </summary>
     public sealed class S7Probe : ServiceProbeBase
     {
@@ -14,7 +14,10 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         public override string Group => ServiceGroups.Industrial;
         public override IReadOnlyList<int> DefaultPorts => [102, 1020];
 
-        /// <summary>Woertlich aus dem alten Schalter uebernommen - kein Byte veraendert.</summary>
+        /// <summary>
+        /// TPKT with a COTP Connection Request (ISO 8073) for TSAP connection
+        /// type PG, rack 0, slot 2.
+        /// </summary>
         public override byte[] Hello => new byte[]
             {
                 0x03, 0x00, 0x00, 0x16, 0x11, 0xE0, 0x00, 0x00, 0x00, 0x01,
@@ -22,16 +25,16 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                 0x01, 0x02
             };
 
-        /// <summary>Woertlich aus der alten Antwortpruefung uebernommen - keine Bedingung veraendert.</summary>
+        /// <summary>Matches a TPKT packet whose COTP code is Connection Confirm (0xD0).</summary>
         public override bool Identify(byte[] response)
         {
             ServiceType service = Service;
             bool serviceMatched = false;
 
-            // ?? Siemens S7: Antwort auf die COTP-Verbindungsanfrage ist ein
-            // TPKT-Paket (0x03 0x00 ...), dessen COTP-Teil den Code 0xD0
-            // (Connection Confirm) traegt - an derselben Stelle, an der die
-            // eigene Anfrage 0xE0 (Connection Request) trug.
+            // Siemens S7: the answer to the COTP connection request is a TPKT
+            // packet (0x03 0x00 ...) whose COTP part carries the code 0xD0
+            // (Connection Confirm), at the same position where the request
+            // carried 0xE0 (Connection Request).
             if (service == ServiceType.S7)
             {
                 if (response.Length >= 6 && response[0] == 0x03 && response[1] == 0x00 && response[5] == 0xD0)
@@ -44,28 +47,26 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Drei Schritte: die uebliche Erkennung, bei Bedarf die Suche nach
-        /// dem richtigen Anschlusspunkt, und zum Schluss die Frage, wer da
-        /// steht.
+        /// Three steps: the common detection, if needed the search for the
+        /// correct connection endpoint (TSAP), and finally the question of
+        /// who is there.
         /// <para>
-        /// Das Erkennungspaket bleibt unberuehrt und wird als erstes
-        /// geschickt. Wer darauf bestaetigt, wird gefunden wie bisher - Byte
-        /// fuer Byte derselbe Ablauf.
+        /// The detection packet is sent first. A device that confirms it is
+        /// found by the common procedure alone.
         /// </para>
         /// <para>
-        /// Meldet die Basispruefung dagegen nur "Port offen", wird der
-        /// Anschlusspunkt gesucht. Das Erkennungspaket fragt Rack 0, Slot 2 -
-        /// dort sitzt die CPU einer S7-300 oder 400. Eine S7-1200 oder 1500
-        /// hat sie auf Slot 1, und Slot 2 gibt es bei ihr nicht: sie laesst
-        /// die Anfrage unbeantwortet und schliesst die Verbindung. Solche
-        /// Steuerungen standen bisher als blosser offener Port in der Liste.
+        /// If the base check reports only "port open", the endpoint is
+        /// searched. The detection packet asks for rack 0, slot 2, where the
+        /// CPU of an S7-300 or S7-400 sits. An S7-1200 or S7-1500 has it in
+        /// slot 1 and has no slot 2: it leaves the request unanswered and
+        /// closes the connection. Without the search, such controllers would
+        /// appear as a mere open port.
         /// </para>
         /// <para>
-        /// Erst wenn ein Anschlusspunkt bestaetigt hat, folgt die Auskunft:
-        /// Setup Communication und die SZL-Abfragen. Beides ist lesend. Eine
-        /// Steuerung, die nur den COTP-Handschlag beherrscht, laesst die
-        /// Setup-Nachricht unbeantwortet - dann bleibt es bei dem, was ohnehin
-        /// feststeht.
+        /// Only after an endpoint has confirmed does the information request
+        /// follow: Setup Communication and the SZL queries. Both are read-only.
+        /// A controller that supports only the COTP handshake leaves the setup
+        /// message unanswered; the finding then stays as it is.
         /// </para>
         /// </summary>
         public override async Task<PortResult> ProbeAsync(
@@ -73,8 +74,8 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         {
             PortResult portResult = await base.ProbeAsync(context, address, port, token);
 
-            // Das Paket, mit dem die Verbindung zustande kam - der
-            // Auskunftsschritt braucht denselben Anschlusspunkt noch einmal.
+            // The packet that established the connection; the information
+            // step needs the same endpoint again.
             byte[]? accepted = portResult.Status == PortStatus.IsRunning ? Hello : null;
             string? endpoint = null;
 
@@ -104,23 +105,21 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             }
             catch (Exception)
             {
-                // Der Fund steht bereits fest; die Auskunft ist die Zugabe.
-                // Der haeufigste Fall ist eine Steuerung, die nur den
-                // COTP-Handschlag beherrscht: dann laeuft das Lesen der
-                // Setup-Antwort in sein Zeitlimit.
+                // The finding is already established; the identification is
+                // extra. The most common case is a controller that supports
+                // only the COTP handshake: reading the setup answer then runs
+                // into its timeout.
             }
 
-            // Auch wenn nichts zu holen war, wird das Protokoll ersetzt - und
-            // zwar ausserhalb des try, damit es auch nach einem Zeitlimit
-            // geschieht. Sonst bliebe die Notiz der Basispruefung stehen, und
-            // die wandert bei diesem Dienst in die Detailansicht: dort stuende
-            // dann "Antwort passt zum erwarteten Protokoll" als Auskunft ueber
-            // die Steuerung.
+            // The log is replaced even if nothing was available, outside the
+            // try so that this also happens after a timeout. Otherwise the note
+            // of the base check would remain and, for this service, end up in
+            // the details view as if it were information about the controller.
             List<string> lines = [];
 
-            // Wo die Verbindung zustande kam, gehoert dazu - aber nur, wenn es
-            // nicht der uebliche Anschlusspunkt war. Bei einer S7-300 auf
-            // Rack 0, Slot 2 waere die Zeile eine Selbstverstaendlichkeit.
+            // Where the connection was established is included, but only if it
+            // was not the usual endpoint. For an S7-300 on rack 0, slot 2 the
+            // line would state the obvious.
             if (endpoint is not null) lines.Add($"Connection endpoint: {endpoint}");
 
             if (string.IsNullOrWhiteSpace(info))
@@ -138,58 +137,58 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Ein Anschlusspunkt: das fertige Anfragepaket und seine Beschreibung
-        /// im Klartext.
+        /// A connection endpoint: the complete request packet and its
+        /// plain-text description.
         /// </summary>
         private readonly record struct TsapCandidate(byte[] Request, string Description);
 
-        /// <summary>Wie eine Gegenstelle auf eine Verbindungsanfrage reagiert hat.</summary>
+        /// <summary>How the remote side reacted to a connection request.</summary>
         private enum Attempt
         {
-            /// <summary>Bestaetigt - dieser Anschlusspunkt ist der richtige.</summary>
+            /// <summary>Confirmed: this endpoint is the correct one.</summary>
             Confirmed,
 
-            /// <summary>Abgewiesen. Nicht der richtige Punkt, aber jemand hat geantwortet.</summary>
+            /// <summary>Rejected. Not the correct endpoint, but something answered.</summary>
             Rejected,
 
-            /// <summary>Keine Antwort bis zum Zeitlimit.</summary>
+            /// <summary>No answer before the timeout.</summary>
             Silent
         }
 
         /// <summary>
-        /// Sucht einen Anschlusspunkt, den die Gegenstelle bestaetigt - in zwei
-        /// Runden, deren zweite nur laeuft, wenn sie etwas bringen kann.
+        /// Searches for an endpoint that the remote side confirms, in two
+        /// rounds; the second runs only if it can yield something.
         /// <para>
-        /// Die erste Runde fragt die gebraeuchlichen Punkte. Bestaetigt einer,
-        /// ist die Suche vorbei.
+        /// The first round asks the common endpoints. If one confirms, the
+        /// search is over.
         /// </para>
         /// <para>
-        /// Sonst entscheidet das Verhalten der Gegenstelle ueber die zweite
-        /// Runde, und nicht eine Einstellung: <b>hat sie abgewiesen</b>, ist sie
-        /// ansprechbar, und dann wird der vollstaendige Adressraum durchsucht -
-        /// alle Verbindungsarten, alle acht Racks, alle 32 Slots. Gemessen an
-        /// zwei Steuerungen weist eine SPS jeden falschen Punkt binnen weniger
-        /// Millisekunden ab, darum ist das billig. <b>War sie stumm</b>, wird
-        /// abgebrochen: wo nichts antwortet, findet auch der volle Raum nichts,
-        /// er wuerde nur Minuten verbrennen.
+        /// Otherwise the behaviour of the remote side, not a setting, decides
+        /// about the second round: <b>if it rejected</b>, it is responsive, and
+        /// the complete address space is searched: all connection types, all
+        /// eight racks, all 32 slots. Measured on two controllers, a PLC rejects
+        /// every wrong endpoint within a few milliseconds, so this is cheap.
+        /// <b>If it was silent</b>, the search stops: where nothing answers, the
+        /// full space finds nothing either and would only waste minutes.
         /// </para>
         /// <para>
-        /// Der Sinn der zweiten Runde ist, dass niemand den Aufbau der Anlage
-        /// kennen muss. Wer den Scanner bedient, weiss nicht, auf welchem Rack
-        /// und Slot die CPU steckt - das weiss nur, wer sie projektiert hat.
+        /// The purpose of the second round is that no knowledge of the
+        /// installation is required. The person running the scanner usually
+        /// does not know which rack and slot hold the CPU; only whoever
+        /// configured it does.
         /// </para>
         /// <para>
-        /// Gefragt wird nebenlaeufig, gewertet in fester Reihenfolge, damit bei
-        /// mehreren bestaetigten Punkten immer derselbe gewinnt. Ueber allem
-        /// liegt ein Gesamtzeitbudget als Sicherung: verhaelt sich eine
-        /// Gegenstelle unerwartet, ist danach trotzdem Schluss.
+        /// Requests run concurrently and are evaluated in a fixed order, so that
+        /// with several confirmed endpoints the same one always wins. An overall
+        /// time budget acts as a safeguard: if a remote side behaves
+        /// unexpectedly, the search still ends.
         /// </para>
         /// </summary>
         private static async Task<TsapCandidate?> FindAcceptedTsapAsync(
             ProbeContext context, string address, int port, CancellationToken token)
         {
-            // Kuerzer als beim ersten Anlauf: hier geht es nur um die Frage, ob
-            // ueberhaupt bestaetigt wird, und es sind viele Versuche.
+            // Shorter than the first attempt: the only question here is whether
+            // a confirmation comes at all, and there are many attempts.
             int timeoutMs = Math.Min(context.TimeoutMs, 1500);
 
             List<TsapCandidate> common = [.. CommonCandidates()];
@@ -199,7 +198,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
             if (found is not null) return found;
 
-            // Niemand hat geantwortet - die zweite Runde koennte es auch nicht.
+            // Nothing answered; the second round could not change that.
             if (!responded) return null;
 
             List<TsapCandidate> remaining = [.. RemainingCandidates()];
@@ -214,26 +213,25 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             }
             catch (OperationCanceledException) when (!token.IsCancellationRequested)
             {
-                // Zeitbudget abgelaufen. Der Befund der ersten Runde bleibt
-                // gueltig, es gibt nur keinen Anschlusspunkt dazu.
+                // Time budget expired. The result of the first round stays
+                // valid; there is just no endpoint for it.
                 return null;
             }
         }
 
-        /// <summary>Obergrenze fuer die vollstaendige Suche, unabhaengig davon, wie sie laeuft.</summary>
+        /// <summary>Upper limit for the complete search, regardless of how it proceeds.</summary>
         private const int FullSearchBudgetMs = 5000;
 
         /// <summary>
-        /// Fragt alle Kandidaten nebenlaeufig und liefert den ersten
-        /// bestaetigten in Reihenfolge - dazu, ob ueberhaupt jemand geantwortet
-        /// hat.
+        /// Asks all candidates concurrently and returns the first confirmed one
+        /// in order, plus whether anything answered at all.
         /// </summary>
         private static async Task<(TsapCandidate? Found, bool Responded)> TryAllAsync(
             string address, int port, List<TsapCandidate> candidates, int timeoutMs, CancellationToken token)
         {
-            // Sechs gleichzeitig: genug, um die Wartezeiten zu ueberlappen, und
-            // wenig genug, dass eine kleine Steuerung nicht an ihre Grenze der
-            // gleichzeitigen Verbindungen stoesst.
+            // Six at a time: enough to overlap the waiting times, and few enough
+            // that a small controller does not reach its limit of simultaneous
+            // connections.
             using var limit = new SemaphoreSlim(6);
 
             Task<Attempt>[] attempts = [.. candidates.Select(async candidate =>
@@ -263,19 +261,18 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             return (null, responded);
         }
 
-        /// <summary>Die Verbindungsarten, die im S7-Umfeld vorkommen.</summary>
+        /// <summary>The connection types used with S7 controllers.</summary>
         private static readonly byte[] ConnectionTypes = [0x01, 0x02, 0x03];
 
         /// <summary>
-        /// Die gebraeuchlichen Anschlusspunkte fuer die erste Runde, in der
-        /// Reihenfolge, in der sie gewertet werden: erst Slot 1 - dort sitzt
-        /// die CPU einer S7-1200 oder 1500 -, dann Slot 0, dann die uebrigen.
-        /// Rack 0 vor Rack 1, und je Stelle die Verbindungsarten PG, OP und
-        /// Basic.
+        /// The common endpoints for the first round, in the order of
+        /// evaluation: first slot 1, where the CPU of an S7-1200 or S7-1500
+        /// sits, then slot 0, then the others. Rack 0 before rack 1, and for
+        /// each position the connection types PG, OP and Basic.
         /// <para>
-        /// Rack 0, Slot 2 mit Verbindungsart PG fehlt bewusst: das ist das
-        /// Erkennungspaket, und wenn diese Suche laeuft, ist es bereits
-        /// erfolglos geblieben.
+        /// Rack 0, slot 2 with connection type PG is deliberately missing: that
+        /// is the detection packet, and when this search runs, it has already
+        /// failed.
         /// </para>
         /// </summary>
         private static IEnumerable<TsapCandidate> CommonCandidates()
@@ -295,13 +292,13 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Alles Uebrige fuer die zweite Runde: der vollstaendige Adressraum
-        /// ohne das, was die erste Runde schon hatte.
+        /// Everything else for the second round: the complete address space
+        /// without what the first round already covered.
         /// <para>
-        /// Im zweiten TSAP-Byte tragen die oberen drei Bit das Rack und die
-        /// unteren fuenf den Slot - mehr als acht Racks und 32 Slots gibt es
-        /// also nicht. Mal drei Verbindungsarten sind das 768 Punkte
-        /// insgesamt, von denen hier die 24 der ersten Runde fehlen.
+        /// In the second TSAP byte the upper three bits hold the rack and the
+        /// lower five the slot, so there are no more than eight racks and 32
+        /// slots. Times three connection types that makes 768 endpoints in
+        /// total, of which the 24 of the first round are omitted here.
         /// </para>
         /// </summary>
         private static IEnumerable<TsapCandidate> RemainingCandidates()
@@ -313,7 +310,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                     foreach (byte type in ConnectionTypes)
                     {
                         if (IsDetectionPacket(type, rack, slot)) continue;
-                        if (rack <= 1 && slot <= 3) continue;   // hatte die erste Runde
+                        if (rack <= 1 && slot <= 3) continue;   // covered by the first round
 
                         yield return Candidate(type, rack, slot);
                     }
@@ -337,13 +334,12 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         };
 
         /// <summary>
-        /// Eine Verbindungsanfrage fuer einen Anschlusspunkt. Bis auf die
-        /// beiden letzten Bytes steht hier dasselbe wie im Erkennungspaket;
-        /// mit Verbindungsart 0x01, Rack 0 und Slot 2 kommt es Byte fuer Byte
-        /// heraus.
+        /// A connection request for an endpoint. Except for the last two bytes
+        /// it is identical to the detection packet; with connection type 0x01,
+        /// rack 0 and slot 2 it matches byte for byte.
         /// <para>
-        /// Im zweiten Byte des Ziel-TSAP stecken Rack und Slot zusammen: die
-        /// oberen drei Bit tragen das Rack, die unteren fuenf den Slot.
+        /// The second byte of the destination TSAP combines rack and slot: the
+        /// upper three bits hold the rack, the lower five the slot.
         /// </para>
         /// </summary>
         private static byte[] ConnectionRequest(byte connectionType, int rack, int slot)
@@ -361,14 +357,13 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Schickt eine Verbindungsanfrage und meldet, wie die Gegenstelle
-        /// reagiert hat.
+        /// Sends a connection request and reports how the remote side reacted.
         /// <para>
-        /// Die Unterscheidung zwischen "abgewiesen" und "stumm" ist der Kern
-        /// der zweiten Runde. Abgewiesen heisst: es hat jemand geantwortet, nur
-        /// nicht an diesem Punkt - dann lohnt das Weitersuchen. Eine Steuerung
-        /// weist einen falschen Punkt binnen weniger Millisekunden ab, meist
-        /// indem sie die Verbindung zuruecksetzt oder ohne Antwort schliesst.
+        /// The distinction between "rejected" and "silent" is the core of the
+        /// second round. Rejected means something answered, just not at this
+        /// endpoint, so searching further is worthwhile. A controller rejects a
+        /// wrong endpoint within a few milliseconds, usually by resetting the
+        /// connection or closing it without an answer.
         /// </para>
         /// </summary>
         private static async Task<Attempt> TryTsapAsync(
@@ -391,11 +386,11 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
                 byte[]? confirm = await ReadTpktAsync(stream, timeout.Token);
 
-                if (confirm is null) return Attempt.Rejected;   // ohne Antwort geschlossen
+                if (confirm is null) return Attempt.Rejected;   // closed without an answer
 
                 return confirm.Length >= 6 && confirm[5] == 0xD0
                     ? Attempt.Confirmed
-                    : Attempt.Rejected;                         // etwa ein Disconnect Request
+                    : Attempt.Rejected;                         // e.g. a Disconnect Request
             }
             catch (OperationCanceledException) when (token.IsCancellationRequested)
             {
@@ -403,17 +398,17 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             }
             catch (OperationCanceledException)
             {
-                return Attempt.Silent;                          // eigenes Zeitlimit abgelaufen
+                return Attempt.Silent;                          // own timeout expired
             }
             catch (SocketException ex) when (ex.SocketErrorCode == SocketError.ConnectionRefused)
             {
-                // Der Port ist inzwischen zu. Weitersuchen waere sinnlos, aber
-                // es ist auch kein Zeichen von Ansprechbarkeit.
+                // The port is now closed. Searching further would be pointless,
+                // and it is no sign of responsiveness either.
                 return Attempt.Silent;
             }
             catch (IOException)
             {
-                return Attempt.Rejected;                        // Verbindung zurueckgesetzt
+                return Attempt.Rejected;                        // connection reset
             }
             catch (Exception)
             {
@@ -422,10 +417,9 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Verbindung aufbauen, Verstaendigung aushandeln, beide Kennlisten
-        /// lesen. <paramref name="connectionRequest"/> ist das Paket, das die
-        /// Gegenstelle zuvor bestaetigt hat - ein anderer Anschlusspunkt
-        /// wuerde hier wieder abgewiesen.
+        /// Connects, negotiates communication and reads both identification
+        /// lists. <paramref name="connectionRequest"/> is the packet the remote
+        /// side confirmed before; a different endpoint would be rejected again.
         /// </summary>
         private static async Task<string?> ReadIdentificationAsync(
             ProbeContext context, string address, int port, byte[] connectionRequest, CancellationToken token)
@@ -442,15 +436,14 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             timeout.CancelAfter(context.TimeoutMs * 3);
             CancellationToken read = timeout.Token;
 
-            // Verbindungsanfrage - das Paket, das schon einmal bestaetigt wurde.
+            // Connection request: the packet that was already confirmed once.
             await stream.WriteAsync(connectionRequest, read);
 
             byte[]? confirm = await ReadTpktAsync(stream, read);
             if (confirm is null || confirm.Length < 6 || confirm[5] != 0xD0) return null;
 
-            // Setup Communication: handelt aus, wie gross die Datenpakete
-            // sein duerfen. Ohne diesen Schritt beantwortet keine Steuerung
-            // eine SZL-Abfrage.
+            // Setup Communication negotiates the maximum PDU size. Without this
+            // step no controller answers an SZL query.
             byte[] setup =
             [
                 0x03, 0x00, 0x00, 0x19, 0x02, 0xF0, 0x80,
@@ -465,8 +458,8 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
             List<string> lines = [];
 
-            // 0x0011 traegt die Bestellnummer, 0x001C die Namen der Anlage
-            // und des Moduls samt Seriennummer.
+            // 0x0011 carries the order number, 0x001C the names of the plant
+            // and the module, including the serial number.
             byte[]? modules = await ReadSzlAsync(stream, 0x0011, read);
             byte[]? components = await ReadSzlAsync(stream, 0x001C, read);
 
@@ -476,7 +469,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             return lines.Count == 0 ? null : string.Join(Environment.NewLine, lines);
         }
 
-        /// <summary>Fragt eine Systemzustandsliste ab und liefert ihren Datenteil.</summary>
+        /// <summary>Queries a system status list (SZL) and returns its answer.</summary>
         private static async Task<byte[]?> ReadSzlAsync(
             NetworkStream stream, ushort szlId, CancellationToken token)
         {
@@ -494,12 +487,12 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Der Datenteil einer SZL-Antwort, ab dem Ruecknahmecode.
+        /// The data part of an SZL answer, starting at the return code.
         /// <para>
-        /// Aufbau: vier Byte TPKT, drei Byte COTP, zehn Byte S7-Kopf, dann der
-        /// Parameterteil in der Laenge, die der Kopf nennt - und erst danach
-        /// die Daten. Die Parameterlaenge wechselt zwischen Steuerungen,
-        /// darum wird sie gelesen und nicht angenommen.
+        /// Layout: four bytes TPKT, three bytes COTP, ten bytes S7 header, then
+        /// the parameter part in the length given by the header, and only
+        /// then the data. The parameter length differs between controllers, so
+        /// it is read rather than assumed.
         /// </para>
         /// </summary>
         private static byte[]? SzlData(byte[]? response)
@@ -513,14 +506,14 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             int start = HeaderLength + parameterLength;
 
             if (start + 12 > response.Length) return null;
-            if (response[start] != 0xFF) return null;   // Ruecknahmecode: 0xFF ist "in Ordnung"
+            if (response[start] != 0xFF) return null;   // return code: 0xFF means "success"
 
             return response[start..];
         }
 
         /// <summary>
-        /// Die Saetze einer Liste. Jeder ist gleich lang, beginnt mit seiner
-        /// Nummer und traegt danach seinen Text.
+        /// The records of a list. All have the same length, start with their
+        /// index and carry their text after it.
         /// </summary>
         private static IEnumerable<(int Index, byte[] Payload)> SzlRecords(byte[]? response)
         {
@@ -546,41 +539,41 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Text aus einem Satz, hoechstens <paramref name="maxLength"/> Zeichen
-        /// lang. Die Begrenzung ist noetig, weil hinter dem Text noch Zahlen
-        /// stehen koennen - in SZL 0x0011 etwa Bauform und Ausgabestand.
+        /// Text from a record, at most <paramref name="maxLength"/> characters.
+        /// The limit is needed because numbers can follow the text, in SZL
+        /// 0x0011 for example module type and revision.
         /// </summary>
         private static string RecordText(byte[] payload, int maxLength)
         {
             int length = Math.Min(maxLength, payload.Length);
 
-            // Nur der druckbare Anfang zaehlt. Die Textfelder einer SZL sind
-            // ab dem ersten Byte mit Leerzeichen aufgefuellt; wo stattdessen
-            // gleich ein Steuerzeichen steht, ist das Feld keins mit Text,
-            // sondern eine Zahl. Ohne diese Bedingung machte die
-            // Standortangabe einer S7-1500 aus den Bytes 00 2A ... den Text
-            // "*" - kein Standort, sondern das zweite Byte einer Zahl.
+            // Only the printable start counts. The text fields of an SZL are
+            // padded with spaces from the first byte; where a control character
+            // comes first instead, the field holds a number, not text. Without
+            // this condition the location of an S7-1500 with the bytes 00 2A ...
+            // would become the text "*": not a location, but the second byte of
+            // a number.
             int end = 0;
             while (end < length && payload[end] is >= 0x20 and <= 0x7E) end++;
 
             string text = Encoding.ASCII.GetString(payload, 0, end).Trim();
 
-            // Ein einzelnes Zeichen ist keine Auskunft, sondern ein Zufall.
+            // A single character is not information but chance.
             return text.Length >= 2 ? text : string.Empty;
         }
 
         /// <summary>
-        /// SZL 0x0011: Satz 1 traegt die Bestellnummer des Moduls. Sie steht in
-        /// den ersten 20 Zeichen; danach folgen Bauform, Ausgabestand der
-        /// Baugruppe und des Erzeugnisses.
+        /// SZL 0x0011: record 1 carries the order number of the module in its
+        /// first 20 characters, followed by module type and the hardware and
+        /// product revisions.
         /// </summary>
         private static void AppendModuleInfo(List<string> lines, byte[]? response)
         {
             foreach ((int index, byte[] payload) in SzlRecords(response))
             {
-                // Satz 1 ist die Baugruppe selbst, Satz 7 ihre Firmware. Satz 6
-                // wiederholt meist die Bestellnummer, und die Saetze ab 0x80
-                // beschreiben Zubehoer wie die Speicherkarte.
+                // Record 1 is the module itself, record 7 its firmware. Record 6
+                // usually repeats the order number, and records from 0x80 on
+                // describe accessories such as the memory card.
                 if (index == 1)
                 {
                     string text = RecordText(payload, 20);
@@ -595,13 +588,13 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Die Ausgabestaende stehen hinter den 20 Zeichen der Bestellnummer:
-        /// zwei Byte Bauform, dann vier Byte Version. Das erste davon ist das
-        /// Zeichen 'V', die drei folgenden sind die Zahlen - aus 56 04 05 01
-        /// wird V4.5.1.
+        /// The revision follows the 20 characters of the order number: two
+        /// bytes module type, then four bytes version. The first of these is
+        /// the character 'V', the three after it are the numbers: 56 04 05 01
+        /// becomes V4.5.1.
         /// <para>
-        /// <c>null</c>, wenn dort kein 'V' steht: dann traegt der Satz keine
-        /// Version, sondern etwas anderes.
+        /// <c>null</c> if there is no 'V': the record then carries something
+        /// other than a version.
         /// </para>
         /// </summary>
         private static string? FirmwareVersion(byte[] payload)
@@ -615,8 +608,8 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// SZL 0x001C: die Namen, die jemand bei der Projektierung vergeben
-        /// hat - Anlage, Modul, Standort - und die Seriennummer.
+        /// SZL 0x001C: the names assigned during configuration (plant, module,
+        /// location) and the serial number.
         /// </summary>
         private static void AppendComponentInfo(List<string> lines, byte[]? response)
         {
@@ -641,7 +634,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             }
         }
 
-        /// <summary>Eine Nachricht mit TPKT-Kopf: die Laenge steht in Byte 2 und 3.</summary>
+        /// <summary>A message with TPKT header (RFC 1006): the length is in bytes 2 and 3.</summary>
         private static async Task<byte[]?> ReadTpktAsync(NetworkStream stream, CancellationToken token)
         {
             byte[]? head = await ReadExactAsync(stream, 4, token);

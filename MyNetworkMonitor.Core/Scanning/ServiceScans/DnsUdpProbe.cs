@@ -5,20 +5,20 @@ using static MyNetworkMonitor.ServiceScanData;
 namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 {
     /// <summary>
-    /// Dieselbe Anfrage wie ueber TCP, nur ueber UDP - der Weg, den
-    /// Namensaufloesung ueblicherweise nimmt. Getrennt gefuehrt, weil ein
-    /// Server durchaus das eine koennen und das andere nicht.
+    /// The same query as over TCP, but over UDP, the usual transport for name
+    /// resolution. Kept separate because a server may support one and not
+    /// the other.
     /// </summary>
     public sealed class DnsUdpProbe : ServiceProbeBase
     {
-        /// <summary>Wie beim TCP-Weg ein Name, den es nicht gibt.</summary>
+        /// <summary>As for TCP, a name that does not exist.</summary>
         private const string ProbeDomain = "gotme.udp.com";
 
         public override ServiceType Service => ServiceType.DNS_UDP;
         public override string Group => ServiceGroups.Network;
         public override IReadOnlyList<int> DefaultPorts => [53];
 
-        /// <summary>Wie beim TCP-Weg: die Anfrage entsteht erst zur Laufzeit.</summary>
+        /// <summary>As for TCP, the query is built at run time.</summary>
         public override byte[] Hello => [];
 
         public override Task<PortResult> ProbeAsync(
@@ -30,10 +30,8 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Die Anfrage ueber UDP, wortgleich aus <c>ScanningMethod_Services</c>
-        /// uebernommen: drei Versuche mit je einer Sekunde Geduld. Ueber UDP
-        /// gibt es kein Verbindungsergebnis - es zaehlt allein, ob etwas
-        /// zurueckkommt.
+        /// The query over UDP: three attempts with one second each. UDP has no
+        /// connection result; only whether something comes back counts.
         /// </summary>
         private static async Task<PortResult> SendUdpDnsQuery(string dnsServer, byte[] query, int port = 53)
         {
@@ -42,36 +40,35 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             using UdpClient udpClient = new UdpClient();
             udpClient.Connect(dnsServer, port);
 
-            for (int attempt = 1; attempt <= 3; attempt++) // Maximal 3 Wiederholungen
+            for (int attempt = 1; attempt <= 3; attempt++) // at most 3 attempts
             {
                 try
                 {
                     await udpClient.SendAsync(query, query.Length);
 
-                    using var cts = new CancellationTokenSource(1000); // 1 Sekunde Timeout
+                    using var cts = new CancellationTokenSource(1000); // 1-second timeout
                     var receiveTask = udpClient.ReceiveAsync();
 
                     if (await Task.WhenAny(receiveTask, Task.Delay(1000, cts.Token)) == receiveTask)
                     {
-                        // Erst das Ergebnis holen, dann werten - nicht umgekehrt.
+                        // Fetch the result first, then set the status, not the
+                        // other way round.
                         //
-                        // WhenAny endet auch bei einem *fehlgeschlagenen*
-                        // Empfang. Der Socket ist hier verbunden, und damit
-                        // stellt Windows die ICMP-Absage "Port nicht
-                        // erreichbar" zuverlaessig zu: bei jedem Rechner ohne
-                        // Namensdienst schlaegt der Empfang also sofort fehl.
+                        // WhenAny also completes on a *failed* receive. The
+                        // socket is connected here, so Windows reliably
+                        // delivers the ICMP "port unreachable" message: on every
+                        // host without a name service the receive fails at once.
                         //
-                        // Vorher stand die Zeile mit IsRunning davor. Der
-                        // Zugriff darunter warf, der Fang unten schluckte die
-                        // Ausnahme - und der bereits gesetzte Zustand blieb
-                        // stehen. Damit galt ausgerechnet die Absage als
-                        // laufender Namensdienst.
+                        // With IsRunning set before this line, the access below
+                        // would throw, the catch would swallow the exception,
+                        // and the status already set would remain, so the
+                        // rejection itself would count as a running name
+                        // service.
                         byte[] antwort = receiveTask.Result.Buffer;
 
-                        // Und die Antwort muss zur eigenen Frage gehoeren:
-                        // dieselbe Transaktionskennung und das Antwortbit
-                        // gesetzt. Sonst zaehlte jedes Datagramm, das an
-                        // diesem Socket ankommt.
+                        // The answer must also belong to this query: same
+                        // transaction ID and QR bit set. Otherwise every
+                        // datagram arriving at this socket would count.
                         if (DnsRequest.IsAnswerTo(query, antwort))
                         {
                             portResult.Status = PortStatus.IsRunning;
@@ -90,19 +87,19 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                 }
                 catch (Exception)
                 {
-                    // Kein Namensserver an dieser Stelle - naechster Versuch.
+                    // No name server here; try again.
                 }
 
-                if (attempt < 3) await Task.Delay(200); // Kurze Pause vor naechstem Versuch
+                if (attempt < 3) await Task.Delay(200); // short pause before the next attempt
             }
 
-            return portResult; // Falls nach 3 Versuchen keine Antwort kam
+            return portResult; // no answer after 3 attempts
         }
 
         /// <summary>
-        /// Dieser Dienst hat keine eigene Antwortsignatur - er wird ueber
-        /// seinen eigenen Ablauf erkannt, nicht ueber ein Bytemuster. Es bleibt
-        /// bei der alten Regel fuer solche Faelle: eine Antwort zaehlt.
+        /// This service has no answer signature of its own; it is detected by
+        /// its own procedure, not by a byte pattern. For such cases any answer
+        /// counts.
         /// </summary>
         public override bool Identify(byte[] response) => response.Length > 0;
     }

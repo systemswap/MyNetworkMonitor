@@ -4,69 +4,74 @@ using MyNetworkMonitor.Core.Scanning.Engine;
 namespace MyNetworkMonitor.Core.ViewModels
 {
     /// <summary>
-    /// Ein Verfahren in der Schublade: angehakt oder nicht, und ob es unter den
-    /// aktuellen Bedingungen ueberhaupt laufen kann.
+    /// A scan method in the method drawer: whether it is checked and whether it
+    /// can run under the current conditions.
     /// <para>
-    /// <see cref="Availability"/> wird bei jeder Aenderung der Bereichsauswahl
-    /// neu bestimmt. Ein Verfahren, das nicht laufen kann, wird ausgegraut und
-    /// traegt <see cref="BlockReason"/> als Erklaerung - statt still zu
-    /// scheitern, wenn man auf Start drueckt.
+    /// <see cref="Availability"/> is re-evaluated whenever the scope selection
+    /// changes. A method that cannot run is greyed out and carries
+    /// <see cref="BlockReason"/> as an explanation instead of failing silently
+    /// when the scan is started.
     /// </para>
     /// </summary>
     public partial class ScanMethodChoice : ObservableObject
     {
+        /// <summary>The scan method this choice represents.</summary>
         public required IScanMethod Method { get; init; }
 
+        /// <summary>The method's identifier.</summary>
         public string Id => Method.Id;
+        /// <summary>The method's display name.</summary>
         public string DisplayName => Method.DisplayName;
+        /// <summary>The phase in which the method runs.</summary>
         public ScanPhase Phase => Method.Phase;
+        /// <summary>The address families the method supports.</summary>
         public FamilySupport Families => Method.Families;
+        /// <summary>The method only listens and sends nothing.</summary>
         public bool IsPassive => Method.IsPassive;
 
+        /// <summary>The method is checked.</summary>
         [ObservableProperty] private bool _isSelected;
 
         /// <summary>
-        /// Dieses Verfahren soll nur die Geraete abfragen, die schon in der
-        /// Tabelle stehen.
+        /// The method queries only the devices that are already in the table.
         /// </summary>
         [ObservableProperty] private bool _onlyKnownTargets;
 
         /// <summary>
-        /// Das Verfahren geht eine Zielliste durch und laesst sich darum
-        /// ueberhaupt beschraenken. Fuer SSDP, mDNS und die ARP-Tabelle gibt es
-        /// nichts zu kuerzen - sie bekommen kein Kaestchen.
+        /// The method walks a target list and can therefore be restricted at
+        /// all. SSDP, mDNS and the ARP table have nothing to restrict and get
+        /// no check box.
         /// </summary>
         public bool CanRestrictToKnown => Method.EnumeratesTargets;
 
+        /// <summary>Whether the method can run under the current conditions, and why not.</summary>
         [ObservableProperty] private ScanMethodAvailability _availability = ScanMethodAvailability.Available;
 
         /// <summary>
-        /// Kann angehakt werden. Nur eine harte Sperre nimmt das Kaestchen weg -
-        /// fehlende Adminrechte, kein Adapter, kein Raw-Socket. "Kein passendes
-        /// Ziel" (<see cref="ScanMethodState.NotApplicable"/>) sperrt dagegen
-        /// nicht mehr: das haengt am gewaehlten Bereich, und ohne einen Bereich
-        /// muss man die Verfahren trotzdem einstellen koennen - etwa um ein
-        /// einzelnes Geraet aus der Tabelle erneut zu scannen. Ob ein Verfahren
-        /// dann tatsaechlich laeuft, entscheidet der Lauf gegen seine eigenen
-        /// Ziele, nicht dieses Kaestchen.
+        /// The method can be checked. Only a hard block disables the check box:
+        /// missing administrator rights, no adapter, no raw socket. "No matching
+        /// target" (<see cref="ScanMethodState.NotApplicable"/>) does not disable
+        /// it: that depends on the selected scope, and the methods must remain
+        /// configurable without a scope, e.g. to rescan a single device from the
+        /// table. Whether a method actually runs is decided by the run against
+        /// its own targets, not by this check box.
         /// </summary>
         public bool IsEnabled => Availability.State != ScanMethodState.Blocked;
 
-        /// <summary>Leer, wenn das Verfahren laeuft.</summary>
+        /// <summary>Empty when the method can run.</summary>
         public string BlockReason => Availability.CanRun ? string.Empty : Availability.Reason;
 
-        /// <summary>Was das Verfahren findet und wofuer man es benutzt.</summary>
+        /// <summary>What the method finds and what it is used for.</summary>
         public string Explanation => Method.Explanation;
 
         /// <summary>
-        /// Was im Tooltip steht: immer die Erklaerung, und darunter der Grund,
-        /// falls das Verfahren gerade nicht laufen kann.
+        /// The tooltip text: always the explanation, followed by the reason if
+        /// the method cannot run right now.
         /// <para>
-        /// Beides gehoert zusammen. Bisher stand dort nur der Sperrgrund - bei
-        /// den lauffaehigen Verfahren also nichts, und das sind die, bei denen
-        /// die Frage "soll ich den Haken setzen?" ueberhaupt erst aufkommt.
-        /// Umgekehrt hilft einem Gesperrten die blosse Erklaerung nicht weiter,
-        /// wenn nirgends steht, warum es ausgegraut ist.
+        /// Both belong together. The block reason alone would leave runnable
+        /// methods without a tooltip, although those are the ones where the
+        /// question "should this be checked?" arises. Conversely, the
+        /// explanation alone does not tell why a blocked method is greyed out.
         /// </para>
         /// </summary>
         public string Hint
@@ -75,9 +80,9 @@ namespace MyNetworkMonitor.Core.ViewModels
             {
                 if (BlockReason.Length == 0) return Explanation;
 
-                // Zwei verschiedene Lagen: hart gesperrt (Kaestchen weg) oder
-                // nur "passt gerade nicht" (Kaestchen bleibt, laeuft aber nicht,
-                // solange es so eingestellt ist).
+                // Two different situations: hard block (check box disabled) or
+                // merely "does not fit right now" (check box stays, but the
+                // method does not run with the current settings).
                 string lead = Availability.State == ScanMethodState.Blocked
                     ? "Not available right now:"
                     : "Won't run as things are set:";
@@ -86,35 +91,35 @@ namespace MyNetworkMonitor.Core.ViewModels
             }
         }
 
-        /// <summary>Nur IPv6 - traegt in der Oberflaeche die Indigo-Kennzeichnung.</summary>
+        /// <summary>IPv6 only; marked in indigo in the UI.</summary>
         public bool IsIpv6Only => Families == FamilySupport.IPv6;
 
-        /// <summary>Steht eingerueckt unter dem Verfahren darueber - siehe <see cref="IScanMethod.Indented"/>.</summary>
+        /// <summary>Shown indented below the preceding method; see <see cref="IScanMethod.Indented"/>.</summary>
         public bool Indented => Method.Indented;
 
-        /// <summary>Kann beide Familien - selten, aber sichtbar zu machen.</summary>
+        /// <summary>Supports both address families; rare, but marked in the UI.</summary>
         public bool IsDualStack => Families == FamilySupport.Both;
 
-        // ------------------------------------------------------- Fortschritt
+        // ---------------------------------------------------------- Progress
 
-        /// <summary>Wie viele Anfragen dieses Verfahren abgeschickt hat.</summary>
+        /// <summary>Number of requests this method has sent.</summary>
         [ObservableProperty] private int _sent;
 
-        /// <summary>Wie viele Ziele geantwortet haben.</summary>
+        /// <summary>Number of targets that have answered.</summary>
         [ObservableProperty] private int _responded;
 
-        /// <summary>Wie viele Ziele es insgesamt sind.</summary>
+        /// <summary>Total number of targets.</summary>
         [ObservableProperty] private int _total;
 
-        /// <summary>Das Verfahren hat in diesem Lauf schon gemeldet.</summary>
+        /// <summary>The method has reported progress in this run.</summary>
         [ObservableProperty] private bool _hasProgress;
 
         /// <summary>
-        /// Die drei Zahlen nebeneinander: gesendet, geantwortet, gesamt.
+        /// The three numbers side by side: sent, answered, total.
         /// <para>
-        /// Zwei Zahlen genuegen nicht. "254 / 254" liest sich wie "fertig",
-        /// waehrend in Wahrheit alles abgeschickt ist und noch auf Antworten
-        /// gewartet wird; erst die mittlere Zahl sagt, was dabei herauskam.
+        /// Two numbers are not enough. "254 / 254" reads as "finished" while
+        /// everything has merely been sent and answers are still awaited; only
+        /// the middle number shows the result.
         /// </para>
         /// </summary>
         public string ProgressText => HasProgress ? $"{Sent} / {Responded} / {Total}" : string.Empty;
@@ -124,7 +129,7 @@ namespace MyNetworkMonitor.Core.ViewModels
         partial void OnTotalChanged(int value) => OnPropertyChanged(nameof(ProgressText));
         partial void OnHasProgressChanged(bool value) => OnPropertyChanged(nameof(ProgressText));
 
-        /// <summary>Setzt die Zaehler vor einem neuen Lauf zurueck.</summary>
+        /// <summary>Resets the counters before a new run.</summary>
         public void ResetProgress()
         {
             Sent = Responded = Total = 0;
@@ -132,17 +137,17 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Der Haken gilt <em>und</em> das Verfahren kann gerade laufen. Das
-        /// ist es, was ein Lauf tatsaechlich ausfuehrt.
+        /// The method is checked <em>and</em> can run right now. This is what a
+        /// run actually executes.
         /// <para>
-        /// Getrennt vom Haken, weil beides Verschiedenes bedeutet:
-        /// <see cref="IsSelected"/> ist der Wunsch des Nutzers,
-        /// <see cref="IsEnabled"/> die Lage im Augenblick. Frueher wurde bei
-        /// einer Sperre der Haken selbst geloescht - der Wunsch war damit weg
-        /// und kam auch dann nicht wieder, wenn das Verfahren gleich darauf
-        /// wieder lauffaehig war. Es genuegte, einen anderen Bereich
-        /// anzuwaehlen: die Verfuegbarkeitspruefung lief, ein Verfahren war
-        /// darin kurz gesperrt, und die Auswahl war still leer.
+        /// Kept separate from the check mark because the two mean different
+        /// things: <see cref="IsSelected"/> is the chosen setting,
+        /// <see cref="IsEnabled"/> the current situation. A block therefore
+        /// never clears the check mark; clearing it would lose the choice
+        /// permanently, even when the method becomes runnable again moments
+        /// later. Selecting a different scope is enough to trigger this: the
+        /// availability check runs, a method is briefly blocked, and the
+        /// selection would silently end up empty.
         /// </para>
         /// </summary>
         public bool IsEffective => IsSelected && IsEnabled;

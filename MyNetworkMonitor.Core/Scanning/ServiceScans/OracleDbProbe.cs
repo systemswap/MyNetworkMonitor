@@ -3,10 +3,10 @@ using System.Text;
 namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 {
     /// <summary>
-    /// Oracle. Spricht nicht von sich aus - anders als FTP oder MySQL braucht
-    /// es ein echtes TNS-Connect-Paket, sonst bleibt die Leitung stumm. Als
-    /// Treffer zaehlt auch eine Ablehnung: dass der Dienst die Verbindung
-    /// zurueckweist, beweist ihn ebenso.
+    /// Oracle. Does not speak first: unlike FTP or MySQL it needs a real TNS
+    /// Connect packet, otherwise the line stays silent. A refusal also counts
+    /// as a match: a service that rejects the connection proves its presence
+    /// just as well.
     /// </summary>
     public sealed class OracleDbProbe : ServiceProbeBase
     {
@@ -14,18 +14,16 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         public override string Group => ServiceGroups.SqlDatabases;
         public override IReadOnlyList<int> DefaultPorts => [1521];
 
-        /// <summary>Woertlich aus dem alten Schalter uebernommen - kein Byte veraendert.</summary>
+        /// <summary>A TNS Connect packet; see <see cref="BuildTnsConnectPacket"/>.</summary>
         public override byte[] Hello => BuildTnsConnectPacket();
 
         /// <summary>
-        /// Baut ein TNS-Connect-Paket nach dem Oracle-Net-Grundformat: ein 8-Byte-Header
-        /// (Gesamtlaenge, Pruefsumme 0, Pakettyp 1 = Connect, Flag 0, Header-Pruefsumme 0)
-        /// gefolgt von der Version, Verbindungsoptionen und dem Connect-Deskriptor als
-        /// ASCII-Text. Ungetestet gegen einen echten Oracle-Server - anders als bei SMB
-        /// stand hier keiner zur Verfuegung, um es nachzumessen. Ersetzt aber in jedem
-        /// Fall die vorherige Sonde, die nachweislich ueberhaupt nichts bewirkte: dort
-        /// stand das rohe TCP-SYN-Paket aus einem Wireshark-Mitschnitt statt einer
-        /// TNS-Nachricht.
+        /// Builds a TNS Connect packet in the basic Oracle Net format: an 8-byte header
+        /// (total length, checksum 0, packet type 1 = Connect, flag 0, header checksum 0)
+        /// followed by the version, connection options and the connect descriptor as
+        /// ASCII text. Not yet verified against a real Oracle server. A raw TCP SYN
+        /// packet taken from a capture instead of a TNS message would have no effect at
+        /// all; see docs/FEHLERGEDAECHTNIS.md, No. 2.
         /// </summary>
         private static byte[] BuildTnsConnectPacket()
         {
@@ -35,9 +33,9 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
             byte[] descriptorBytes = Encoding.ASCII.GetBytes(connectDescriptor);
 
-            // Version 3.10 (0x013A), "Service Options" 0x0801, SDU/TDU 0x0800 je,
-            // Protocolcharacteristics 0x7F08 - uebliche Werte aus oeffentlich
-            // dokumentierten TNS-Connect-Mitschnitten.
+            // Version 314 (0x013A), service options 0x0801, SDU/TDU 0x0800 each,
+            // protocol characteristics 0x7F08: common values from publicly
+            // documented TNS Connect packets.
             byte[] body = new byte[]
             {
                 0x01, 0x3A, 0x01, 0x2C, 0x08, 0x01, 0x08, 0x00, 0x08, 0x00, 0x7F, 0x08,
@@ -51,11 +49,11 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
             packet[0] = (byte)(totalLength >> 8);
             packet[1] = (byte)(totalLength & 0xFF);
-            packet[2] = 0x00; // Pruefsumme (nicht genutzt)
+            packet[2] = 0x00; // checksum (unused)
             packet[3] = 0x00;
-            packet[4] = 0x01; // Pakettyp: Connect
-            packet[5] = 0x00; // Flag
-            packet[6] = 0x00; // Header-Pruefsumme (nicht genutzt)
+            packet[4] = 0x01; // packet type: Connect
+            packet[5] = 0x00; // flags
+            packet[6] = 0x00; // header checksum (unused)
             packet[7] = 0x00;
 
             Array.Copy(body, 0, packet, 8, body.Length);
@@ -64,14 +62,14 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             return packet;
         }
 
-        /// <summary>Woertlich aus der alten Antwortpruefung uebernommen - keine Bedingung veraendert.</summary>
+        /// <summary>Matches a TNS packet of type Accept, Refuse or Redirect.</summary>
         public override bool Identify(byte[] response)
         {
             ServiceType service = Service;
             bool serviceMatched = false;
 
-            // ?? Oracle TNS: Antworttyp steht in Byte 4 des TNS-Headers.
-            // 2 = Accept, 4 = Refuse (Dienst lehnt ab, ist aber da), 11 = Redirect.
+            // Oracle TNS: the answer type is in byte 4 of the TNS header.
+            // 2 = Accept, 4 = Refuse (the service rejects but is present), 11 = Redirect.
             if (service == ServiceType.OracleDB)
             {
                 if (response.Length >= 8 && response[4] is 0x02 or 0x04 or 0x0B)
@@ -84,22 +82,21 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Was der Listener in seiner Antwort ueber sich preisgibt.
+        /// What the listener reveals about itself in its answer.
         /// <para>
-        /// Der ergiebige Fall ist ausgerechnet die Ablehnung: sie kommt als
-        /// Klartext-Beschreibung zurueck und traegt <c>VSNNUM</c> - die
-        /// Fassungsnummer des Servers als Dezimalzahl - sowie den Fehlercode,
-        /// der sagt, <em>warum</em> abgelehnt wurde. Das kostet keine Anmeldung;
-        /// die Auskunft steht in der Antwort auf das Connect-Paket, das ohnehin
-        /// geschickt wird.
+        /// The most informative case is the refusal: it comes back as a
+        /// plain-text description carrying <c>VSNNUM</c>, the server version as
+        /// a decimal number, and the error code that says <em>why</em> the
+        /// connection was refused. No login is needed; the information is in
+        /// the answer to the Connect packet that is sent anyway.
         /// </para>
         /// </summary>
         protected override string? Describe(byte[] response)
         {
             List<string> lines = [];
 
-            // Der Pakettyp steht in Byte 4 und sagt, wie der Listener die
-            // Anfrage aufgenommen hat.
+            // The packet type in byte 4 tells how the listener received the
+            // request.
             string reaction = response.Length >= 8
                 ? response[4] switch
                 {
@@ -116,9 +113,9 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
             if (ReadVersionNumber(text) is { } version) lines.Add($"Version: {version}");
 
-            // Der Fehlercode benennt die Ablehnung. 12514 etwa heisst, dass der
-            // Listener laeuft, den angefragten Dienstnamen aber nicht kennt -
-            // erwartbar, denn geraten wurde "orcl".
+            // The error code names the refusal. 12514, for example, means the
+            // listener is running but does not know the requested service name,
+            // which is expected, since "orcl" is a guess.
             string error = FieldValue(text, "ERR");
             if (error.Length > 0 && error != "0") lines.Add($"Oracle error: ORA-{error}");
 
@@ -126,10 +123,10 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Rechnet <c>VSNNUM</c> in die uebliche Schreibweise um. Die Zahl ist
-        /// eine gepackte Fassungsnummer: das oberste Byte traegt die
-        /// Hauptfassung, danach folgen in Halbbyte- und Byte-Schritten die
-        /// weiteren Stellen. Aus 186647552 wird so 11.2.0.4.0.
+        /// Converts <c>VSNNUM</c> into the usual notation. The number is a
+        /// packed version: the top byte holds the major version, followed by
+        /// the other parts in nibble and byte steps. 186647552 becomes
+        /// 11.2.0.4.0.
         /// </summary>
         private static string? ReadVersionNumber(string text)
         {
@@ -144,15 +141,14 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             int portRelease = (int)(packed >> 8 & 0x0F);
             int portUpdate = (int)(packed & 0xFF);
 
-            // Eine Hauptfassung von 0 waere keine Oracle-Fassung, sondern ein
-            // falsch gelesenes Feld.
+            // A major version of 0 is not an Oracle version but a misread field.
             return major == 0 ? null : $"{major}.{minor}.{update}.{portRelease}.{portUpdate}";
         }
 
         /// <summary>
-        /// Der Wert eines Feldes aus der Klartext-Beschreibung. Sie ist in
-        /// Klammern geschachtelt aufgebaut - <c>(SCHLUESSEL=Wert)</c> -, und
-        /// gebraucht werden hier nur einzelne Blaetter daraus.
+        /// The value of a field from the plain-text description. It is built of
+        /// nested parentheses, <c>(KEY=value)</c>, and only single leaves are
+        /// needed here.
         /// </summary>
         private static string FieldValue(string text, string key)
         {

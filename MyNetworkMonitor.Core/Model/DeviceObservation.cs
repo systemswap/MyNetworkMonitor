@@ -4,113 +4,130 @@ using MyNetworkMonitor.Core.Network;
 namespace MyNetworkMonitor.Core.Model
 {
     /// <summary>
-    /// Eine einzelne Sichtung: was ein Verfahren zu einem Zeitpunkt ueber ein
-    /// Geraet erfahren hat. Bewusst schmal - ein Verfahren meldet, was es
-    /// weiss, und laesst den Rest leer.
+    /// A single observation: what a scan method learned about a device at one
+    /// point in time. Deliberately narrow - a method reports what it knows and
+    /// leaves the rest empty.
     /// <para>
-    /// Erst der <see cref="DeviceStore"/> entscheidet, zu welchem Geraet die
-    /// Sichtung gehoert. Die Verfahren selbst muessen davon nichts wissen -
-    /// genau das macht es moeglich, passive Quellen wie den RA-Mitschnitt und
-    /// aktive Scans gleich zu behandeln.
+    /// The <see cref="DeviceStore"/> decides which device the observation
+    /// belongs to. The scan methods need no knowledge of this, which allows
+    /// passive sources such as the router advertisement capture and active
+    /// scans to be treated the same way.
     /// </para>
     /// </summary>
     public sealed class DeviceObservation
     {
-        /// <summary>Welches Verfahren die Sichtung gemeldet hat.</summary>
+        /// <summary>The scan method that reported the observation.</summary>
         public required string Source { get; init; }
 
+        /// <summary>When the observation was made.</summary>
         public DateTimeOffset Timestamp { get; init; } = DateTimeOffset.Now;
 
+        /// <summary>The observed address, if known.</summary>
         public IpAddressInfo? Address { get; init; }
 
+        /// <summary>The MAC address of the responding interface; a hard identifier for matching.</summary>
         public PhysicalAddress? Mac { get; init; }
 
         /// <summary>
-        /// Eine MAC, die das Verfahren zwar nennt, die aber nicht die des
-        /// antwortenden Anschlusses sein muss - heute die aus SNMP.
+        /// A MAC address reported by the method that need not belong to the
+        /// responding interface - currently the one from SNMP.
         /// <para>
-        /// SNMP meldet die MAC des Verwaltungsanschlusses oder die Basis-MAC
-        /// des Geraets. Bei allem mit mehreren Anschluessen - Switch, Router,
-        /// Steuerung - ist das eine andere als die, die auf diese Adresse hin
-        /// per ARP geantwortet hat. Als harte Kennung genommen, zerlegt sie
-        /// ein Geraet in zwei Eintraege, die sich dieselbe Adresse teilen.
+        /// SNMP reports the MAC of the management interface or the base MAC of
+        /// the device. On anything with several interfaces - switch, router,
+        /// controller - that differs from the MAC that answered ARP for this
+        /// address. Used as a hard identifier, it would split one device into
+        /// two entries sharing the same address.
         /// </para>
         /// <para>
-        /// Sie darf darum eine Zuordnung <em>herstellen</em> und eine leere
-        /// MAC fuellen, aber keine Zuordnung <em>verhindern</em> - dieselbe
-        /// Regel wie fuer die aus EUI-64 zurueckgerechnete MAC.
+        /// It may therefore <em>establish</em> a match and fill an empty MAC,
+        /// but never <em>prevent</em> a match - the same rule as for the MAC
+        /// derived from an EUI-64 interface identifier.
         /// </para>
         /// </summary>
         public PhysicalAddress? SoftMac { get; init; }
 
-        /// <summary>DHCPv6-DUID in Hex-Schreibweise.</summary>
+        /// <summary>DHCPv6 DUID in hexadecimal notation.</summary>
         public string? Duid { get; init; }
 
+        /// <summary>Host name without domain.</summary>
         public string? HostName { get; init; }
+        /// <summary>DNS domain of the host.</summary>
         public string? Domain { get; init; }
+        /// <summary>NetBIOS name of the host.</summary>
         public string? NetBiosName { get; init; }
+        /// <summary>Hardware vendor, usually derived from the MAC address.</summary>
         public string? Vendor { get; init; }
 
-        /// <summary>Aus welchem Bereich die Sichtung stammt.</summary>
+        /// <summary>The IP range the observation comes from.</summary>
         public string? GroupDescription { get; init; }
 
-        // --- Angaben zur Adresse, soweit das Verfahren sie kennt -------------
+        // --- Address details, as far as the method knows them ----------------
 
+        /// <summary>How the address was assigned.</summary>
         public AddressOrigin Origin { get; init; } = AddressOrigin.Unknown;
+        /// <summary>State of the address.</summary>
         public AddressState State { get; init; } = AddressState.Unknown;
+        /// <summary>End of the valid lifetime, if known.</summary>
         public DateTimeOffset? ValidUntil { get; init; }
+        /// <summary>End of the preferred lifetime, if known.</summary>
         public DateTimeOffset? PreferredUntil { get; init; }
 
-        /// <summary>Das Ziel hat auf diese Sichtung hin geantwortet.</summary>
+        /// <summary>The target responded to the request behind this observation.</summary>
         public bool IsResponding { get; init; }
 
-        /// <summary>Freitext des Verfahrens, etwa SNMP- oder mDNS-Angaben.</summary>
+        /// <summary>Free-form details from the method, such as SNMP or mDNS information.</summary>
         public Dictionary<string, string>? Details { get; init; }
 
         /// <summary>
-        /// Auf welche Adressen der Hostname im DNS zeigt - das Ergebnis des
-        /// Vorwaertslookups.
+        /// The addresses the host name points to in DNS - the result of the
+        /// forward lookup.
         /// <para>
-        /// Ohne DNS ist eine mehrfach vergebene Adresse gar nicht zu sehen:
-        /// zwei Geraete, die sich unter demselben Namen eintragen, antworten
-        /// jedes fuer sich unauffaellig. Erst der Lookup zeigt, dass hinter
-        /// einem Namen mehrere Adressen stehen, und der Rueckwaertslookup, dass
-        /// hinter einer Adresse mehrere Namen stehen. Darum sind das eigene
-        /// Angaben und kein Freitext in <see cref="Details"/> - nur so laesst
-        /// sich danach faerben, filtern und sortieren.
+        /// Without DNS, a duplicate assignment is invisible: two devices
+        /// registering under the same name each respond inconspicuously. Only
+        /// the forward lookup shows that a name has several addresses, and the
+        /// reverse lookup that an address has several names. These are
+        /// therefore separate properties rather than free text in
+        /// <see cref="Details"/> - only then can they be used for coloring,
+        /// filtering and sorting.
         /// </para>
         /// </summary>
         public List<string>? LookupAddresses { get; init; }
 
-        /// <summary>Weitere Namen zur Adresse, aus dem Rueckwaertslookup.</summary>
+        /// <summary>Further names for the address, from the reverse lookup.</summary>
         public List<string>? Aliases { get; init; }
 
         /// <summary>
-        /// Rest-TTL der Ping-Antwort. 0 heisst "nicht gemessen" - nur der Ping
-        /// fuellt das Feld, alle anderen Verfahren lassen es leer.
+        /// Remaining TTL of the ping reply. 0 means "not measured" - only the
+        /// ping fills this field, all other methods leave it empty.
         /// </summary>
         public int Ttl { get; init; }
 
         /// <summary>
-        /// Wo das Geraet am Netz haengt, sofern ein Switch danach gefragt
-        /// werden konnte. Kommt aus der SNMP-Abfrage, nicht vom Geraet selbst.
+        /// The switch the device is connected to, if a switch could be queried.
+        /// Comes from the SNMP query, not from the device itself.
         /// </summary>
         public string? SwitchName { get; init; }
+        /// <summary>The switch port the device is connected to.</summary>
         public string? SwitchPort { get; init; }
+        /// <summary>The VLAN of the switch port.</summary>
         public string? Vlan { get; init; }
 
-        /// <summary>Titel der Weboberflaeche und Angaben aus ihrem Zertifikat.</summary>
+        /// <summary>Title of the web interface.</summary>
         public string? WebTitle { get; init; }
+        /// <summary>Subject of the web interface certificate.</summary>
         public string? CertificateSubject { get; init; }
+        /// <summary>Issuer of the web interface certificate.</summary>
         public string? CertificateIssuer { get; init; }
+        /// <summary>Expiry date of the web interface certificate.</summary>
         public DateTimeOffset? CertificateExpires { get; init; }
+        /// <summary>Whether the web interface certificate is self-signed.</summary>
         public bool? CertificateIsSelfSigned { get; init; }
 
         /// <summary>
-        /// Erkannte Dienste. Der Zustand wird je Adressfamilie gefuehrt - das
-        /// meldende Verfahren traegt nur die Seite ein, die es geprueft hat,
-        /// die andere bleibt <c>null</c>. Aus dem spaeteren Vergleich beider
-        /// Seiten entsteht der Befund "unter IPv4 hinter NAT, unter IPv6 offen".
+        /// Detected services. The state is tracked per address family - the
+        /// reporting method fills in only the side it checked and leaves the
+        /// other <c>null</c>. Comparing both sides afterwards yields the finding
+        /// "behind NAT on IPv4, open on IPv6".
         /// </summary>
         public List<DeviceServiceResult>? Services { get; init; }
 

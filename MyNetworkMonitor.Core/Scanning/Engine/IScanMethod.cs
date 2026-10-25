@@ -3,172 +3,192 @@ using MyNetworkMonitor.Core.Model;
 namespace MyNetworkMonitor.Core.Scanning.Engine
 {
     /// <summary>
-    /// Was ein Verfahren waehrend seines Laufs zur Verfuegung hat: die Ziele,
-    /// die Einstellungen, einen Weg Ergebnisse zu melden und einen fuer den
-    /// Fortschritt.
+    /// What a method has available during its run: the targets, the settings,
+    /// a way to report results and one to report progress.
     /// <para>
-    /// Ein Verfahren pflegt die Geraeteliste <b>nicht</b> selbst. Es meldet
-    /// Sichtungen ueber <see cref="Report"/>; die Zuordnung uebernimmt der
-    /// <see cref="DeviceStore"/>. Nur dadurch lassen sich aktive Scans und
-    /// passive Quellen wie der RA-Mitschnitt gleich behandeln.
+    /// A method does <b>not</b> maintain the device list itself. It reports
+    /// observations through <see cref="Report"/>; the
+    /// <see cref="DeviceStore"/> handles the mapping. This is what allows
+    /// active scans and passive sources such as the RA capture to be treated
+    /// alike.
     /// </para>
     /// </summary>
     public sealed class ScanContext
     {
+        /// <summary>The selected scopes with their runtime information.</summary>
         public required IReadOnlyList<ScopeRuntime> Scopes { get; init; }
 
+        /// <summary>The targets for this method.</summary>
         public required IReadOnlyList<ScanTargetEntry> Targets { get; init; }
 
+        /// <summary>Settings of the run.</summary>
         public required ScanSettings Settings { get; init; }
 
+        /// <summary>The device store of the run; new findings go through <see cref="Report"/>.</summary>
         public required DeviceStore Store { get; init; }
 
-        /// <summary>Meldet eine Sichtung. Threadsicher ueber die Sperre des Aufrufers.</summary>
+        /// <summary>Reports an observation. Thread-safe through the caller's lock.</summary>
         public required Action<DeviceObservation> Report { get; init; }
 
         /// <summary>
-        /// Meldet den Fortschritt einschliesslich des laufenden Teilschritts.
-        /// Nur die Diensterkennung hat welche - sie geht Dienst fuer Dienst
-        /// vor, und "Services" allein sagt eine Minute lang nichts darueber,
-        /// wo der Lauf steht.
+        /// Reports progress including the current sub-step. Only service
+        /// detection has sub-steps: it proceeds service by service, and
+        /// "Services" alone says nothing for a minute about where the run
+        /// stands.
         /// </summary>
+        /// <remarks>
+        /// Arguments: current, responded, total, detail, step, step count
+        /// (see <see cref="ScanProgress"/>).
+        /// </remarks>
         public required Action<int, int, int, string?, int, int> ReportStepProgress { get; init; }
 
         /// <summary>
-        /// Meldet den Fortschritt eines Verfahrens, das aus einem Stueck
-        /// besteht - der Normalfall.
+        /// Reports progress of a method that consists of a single step, which
+        /// is the normal case.
         /// </summary>
+        /// <param name="current">Number of targets processed so far.</param>
+        /// <param name="responded">Number of targets that have answered.</param>
+        /// <param name="total">Total number of targets.</param>
         public void ReportProgress(int current, int responded, int total) =>
             ReportStepProgress(current, responded, total, null, 0, 0);
 
-        /// <summary>Die Ziele einer Adressfamilie.</summary>
+        /// <summary>The targets of one address family.</summary>
+        /// <param name="family">The address family.</param>
+        /// <returns>Targets with an address of <paramref name="family"/>; unresolved host names are excluded.</returns>
         public IEnumerable<ScanTargetEntry> TargetsOf(Network.IpFamily family) =>
             Targets.Where(t => t.Family == family);
 
         /// <summary>
-        /// Es gibt mindestens ein Ziel dieser Familie.
+        /// Whether there is at least one target of this family.
         /// <para>
-        /// Ein Ziel, das nur als Hostname vorliegt, zaehlt fuer <em>jede</em>
-        /// Familie mit: welche es wird, entscheidet erst die Namensaufloesung
-        /// beim Lauf. Bis dahin ist die Familie schlicht unbekannt.
+        /// A target given only as a host name counts for <em>every</em>
+        /// family: which one it becomes is only decided by name resolution
+        /// during the run. Until then the family is unknown.
         /// </para>
         /// <para>
-        /// Ohne diese Ausnahme war jedes Verfahren gesperrt, sobald in der
-        /// eigenen Eingabe nur ein Hostname stand und kein Bereich angehakt
-        /// war: Ping erschien ausgegraut mit "No IPv4 targets selected",
-        /// obwohl der Name auf eine IPv4 zeigte. Ein Verfahren nicht
-        /// anzubieten, das laufen koennte, ist der schlechtere Fehler - laeuft
-        /// es ins Leere, sagt das Ergebnis es sauber.
+        /// Without this exception every method is blocked as soon as the
+        /// target list contains only a host name and no scope is checked: ping
+        /// appears greyed out with "No IPv4 targets selected" although the
+        /// name points to an IPv4 address. Not offering a method that could
+        /// run is the worse error; if it finds nothing, the result says so
+        /// clearly.
         /// </para>
         /// </summary>
+        /// <param name="family">The address family.</param>
+        /// <returns>True if a target of <paramref name="family"/> or an unresolved host name exists.</returns>
         public bool HasTargetsOf(Network.IpFamily family) =>
             Targets.Any(t => t.Family == family || (t.Family is null && t.HostName is not null));
 
         /// <summary>
-        /// Mindestens ein Bereich erlaubt IPv6 im eigenen Segment. Massgeblich
-        /// fuer Verfahren, die mit Link-Local auskommen - Neighbor Discovery,
-        /// ff02::1, RA-Mitschnitt, MLD.
+        /// At least one scope allows IPv6 on the local segment. Relevant for
+        /// methods that work with link-local addresses: neighbor discovery,
+        /// ff02::1, RA capture, MLD.
         /// </summary>
         public bool AnyScopeAllowsLocalIpv6 => Scopes.Any(s => s.Ipv6.CanScanLocalSegment);
 
-        /// <summary>Mindestens ein Bereich erlaubt IPv6 ueber Segmentgrenzen hinweg.</summary>
+        /// <summary>At least one scope allows IPv6 across segment boundaries.</summary>
         public bool AnyScopeAllowsRoutedIpv6 => Scopes.Any(s => s.Ipv6.CanScanRoutedTargets);
 
         /// <summary>
-        /// Der Grund, warum IPv6 nirgends geht - fuer die Meldung an den
-        /// Nutzer. Nimmt den Grund des ersten Bereichs, weil er in aller Regel
-        /// fuer alle gilt.
+        /// The reason IPv6 is unavailable everywhere, for display in the UI.
+        /// Takes the reason of the first scope, because it normally applies
+        /// to all.
         /// </summary>
         public string Ipv6BlockReason =>
             Scopes.FirstOrDefault()?.Ipv6.Reason ?? "No range selected.";
     }
 
     /// <summary>
-    /// Ein Scan-Verfahren. Alle Module - die 16 bestehenden wie die kuenftigen
-    /// IPv6-Verfahren - werden hierueber gleich behandelt. Ein neues Verfahren
-    /// hinzuzufuegen heisst dann: implementieren und registrieren.
+    /// A scan method. All scan modules, IPv4 and IPv6, are handled uniformly
+    /// through this interface. Adding a method means implementing and
+    /// registering it.
     /// <para>
-    /// Die bestehenden Module bleiben dabei unveraendert. Sie werden von
-    /// Adaptern umschlossen, die ihre Ereignisse auf
-    /// <see cref="ScanContext.Report"/> umsetzen.
+    /// The scan modules themselves stay independent of the engine. They are
+    /// wrapped by adapters that translate their events into
+    /// <see cref="ScanContext.Report"/>.
     /// </para>
     /// </summary>
     public interface IScanMethod
     {
         /// <summary>
-        /// Unveraenderlicher Schluessel, etwa "ping" oder "ndp.neighborcache".
-        /// Wird gespeichert - Anzeigenamen duerfen sich aendern, dieser nicht.
+        /// Immutable key, such as "ping" or "ndp.neighborcache". It is
+        /// persisted; display names may change, this key must not.
         /// </summary>
         string Id { get; }
 
-        /// <summary>Name in der Oberflaeche.</summary>
+        /// <summary>Name shown in the UI.</summary>
         string DisplayName { get; }
 
         /// <summary>
-        /// Was das Verfahren findet und wofuer man es benutzt - in der Sprache
-        /// dessen, der vor der Liste sitzt und entscheiden muss, ob er den
-        /// Haken setzt.
+        /// What the method finds and what it is used for, written for the
+        /// person deciding in front of the list whether to check it.
         /// <para>
-        /// Der Verfahrensname allein beantwortet diese Frage nicht: "SNMP"
-        /// sagt niemandem, ob es sich lohnt. Der Text nennt darum zwei Dinge -
-        /// <b>welche Geraete das ueblicherweise sprechen</b> und <b>was dabei
-        /// herauskommt</b>. Keine Protokollkunde, keine Abkuerzungen, die nicht
-        /// vorher erklaert sind.
+        /// The method name alone does not answer this: "SNMP" does not tell
+        /// anyone whether it is worthwhile. The text therefore states two
+        /// things: <b>which devices typically speak it</b> and <b>what it
+        /// yields</b>. No protocol details, no abbreviations that are not
+        /// explained first.
         /// </para>
         /// </summary>
         string Explanation { get; }
 
+        /// <summary>Phase the method runs in.</summary>
         ScanPhase Phase { get; }
 
+        /// <summary>Address families the method handles.</summary>
         FamilySupport Families { get; }
 
         /// <summary>
-        /// Das Verfahren hoert zu, statt zu fragen - Router Advertisements,
-        /// MLD, der Neighbor Cache. Passive Verfahren laufen weiter, wenn der
-        /// Scan endet, und sind der Grund, warum aus dem Scanner ein Monitor wird.
+        /// The method listens instead of asking: router advertisements, MLD,
+        /// the neighbor cache. Passive methods keep running after the scan
+        /// ends and are what turns the scanner into a monitor.
         /// </summary>
         bool IsPassive { get; }
 
         /// <summary>
-        /// Das Verfahren geht eine Zielliste durch, statt einmal in die Runde
-        /// zu fragen.
+        /// The method walks through a target list instead of sending a single
+        /// query to everyone.
         /// <para>
-        /// Nur solche Verfahren lassen sich auf die bereits gefundenen Geraete
-        /// beschraenken - bei SSDP, mDNS oder dem ARP-Cache gibt es keine
-        /// Zielliste, die man kuerzen koennte. An diesem Merkmal haengt, ob die
-        /// Oberflaeche fuer das Verfahren ein Kaestchen unter "scan only
-        /// devices in table" anbietet.
+        /// Only such methods can be restricted to devices already found; SSDP,
+        /// mDNS and the ARP cache have no target list that could be shortened.
+        /// This property decides whether the UI offers a checkbox for the
+        /// method under "scan only devices in table".
         /// </para>
         /// </summary>
         bool EnumeratesTargets { get; }
 
         /// <summary>
-        /// Braucht Raw Sockets und damit erhoehte Rechte bzw. unter Linux
-        /// CAP_NET_RAW. Die Oberflaeche kann das vorab pruefen und melden,
-        /// statt es scheitern zu lassen.
+        /// Requires raw sockets and thus elevated privileges, or CAP_NET_RAW on
+        /// Linux. The UI can check and report this in advance instead of
+        /// letting the method fail.
         /// </summary>
         bool RequiresElevation { get; }
 
         /// <summary>
-        /// Steht in der Oberflaeche eingerueckt unter dem Verfahren darueber -
-        /// fuer Varianten, die thematisch dazugehoeren, etwa der vollstaendige
-        /// Portscan unter dem gewoehnlichen. Reine Darstellung, ohne Wirkung
-        /// auf den Lauf. Vorgabe: nicht eingerueckt.
+        /// Shown indented below the preceding method in the UI, for variants
+        /// that belong to it, such as the full port scan below the regular
+        /// one. Presentation only, no effect on the run. Default: not
+        /// indented.
         /// </summary>
         bool Indented => false;
 
         /// <summary>
-        /// Prueft vor dem Lauf, ob das Verfahren hier etwas ausrichten kann.
-        /// Muss guenstig sein - keine Netzwerkzugriffe.
+        /// Checks before the run whether the method can achieve anything here.
+        /// Must be cheap: no network access.
         /// </summary>
+        /// <param name="context">The run context.</param>
+        /// <returns>Whether the method can run, and if not, why.</returns>
         ScanMethodAvailability CheckAvailability(ScanContext context);
 
         /// <summary>
-        /// Fuehrt das Verfahren aus. Bei Abbruch ueber
-        /// <paramref name="cancellationToken"/> zuegig zurueckkehren; eine
-        /// <see cref="OperationCanceledException"/> ist zulaessig und wird von
-        /// der Engine als Abbruch gewertet, nicht als Fehler.
+        /// Executes the method. On cancellation through
+        /// <paramref name="cancellationToken"/> it returns promptly; an
+        /// <see cref="OperationCanceledException"/> is permitted and is treated
+        /// by the engine as cancellation, not as an error.
         /// </summary>
+        /// <param name="context">The run context.</param>
+        /// <param name="cancellationToken">Cancels the method.</param>
+        /// <returns>A task that completes when the method has finished.</returns>
         Task ExecuteAsync(ScanContext context, CancellationToken cancellationToken);
     }
 }

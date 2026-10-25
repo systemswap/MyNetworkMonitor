@@ -11,18 +11,18 @@ using MyNetworkMonitor.Core.Services;
 namespace MyNetworkMonitor.Avalonia.Platform.Linux
 {
     /// <summary>
-    /// Linux-Implementierung von <see cref="IArpProvider"/> über "ip neigh"
-    /// (Nachbartabelle). MAC-Adressen werden ins gleiche Format wie unter Windows
-    /// gebracht (Kleinbuchstaben, "-"-getrennt), damit die Vendor-Zuordnung passt.
+    /// Linux implementation of <see cref="IArpProvider"/> based on "ip neigh"
+    /// (neighbor table). MAC addresses are normalized to the Windows format
+    /// (lower case, "-"-separated) so that the vendor lookup matches.
     /// </summary>
     public sealed class LinuxArpProvider : IArpProvider
     {
         public async Task<string?> ResolveMacAsync(IPAddress ip, CancellationToken cancellationToken = default)
         {
-            // Unter Linux gibt es kein direktes SendARP: erst einen Ping absetzen,
-            // damit die Nachbartabelle gefüllt wird, dann per "ip neigh" auslesen.
+            // Linux has no direct SendARP: a ping first fills the neighbor table,
+            // which "ip neigh" then reads.
             try { await ProcessRunner.RunAsync("ping", $"-c 1 -W 1 {ip}", cancellationToken).ConfigureAwait(false); }
-            catch { /* ignorieren */ }
+            catch { /* ignored */ }
 
             var table = await GetArpTableAsync(cancellationToken).ConfigureAwait(false);
             return table.FirstOrDefault(e => e.IpAddress == ip.ToString())?.MacAddress;
@@ -35,7 +35,7 @@ namespace MyNetworkMonitor.Avalonia.Platform.Linux
             var entries = new List<ArpEntry>();
             foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
             {
-                // Beispiel: "192.168.1.1 dev eth0 lladdr aa:bb:cc:dd:ee:ff REACHABLE"
+                // Example: "192.0.2.1 dev eth0 lladdr aa:bb:cc:dd:ee:ff REACHABLE"
                 var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
                 int idx = Array.IndexOf(parts, "lladdr");
                 if (parts.Length < 2 || idx < 0 || idx + 1 >= parts.Length) continue;

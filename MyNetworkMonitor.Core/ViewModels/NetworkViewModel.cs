@@ -6,32 +6,31 @@ using MyNetworkMonitor.Core.Network;
 namespace MyNetworkMonitor.Core.ViewModels
 {
     /// <summary>
-    /// Die Netzansicht: was dieser Rechner an Adaptern hat und wie sie
-    /// eingestellt sind.
+    /// The network view: the adapters of this computer and their configuration.
     /// <para>
-    /// Zunaechst nur die eigene Seite. Praefixe, Router und Multicast-Gruppen
-    /// des Netzes kommen dazu, sobald die passiven IPv6-Verfahren stehen -
-    /// bis dahin gibt es dafuer schlicht keine Daten.
+    /// Covers the local side only; prefixes, routers and multicast groups of
+    /// the network are not part of this view.
     /// </para>
     /// </summary>
     public sealed partial class NetworkViewModel : ObservableObject
     {
+        /// <summary>The adapters shown in the list.</summary>
         public ObservableCollection<AdapterInfo> Adapters { get; } = [];
 
+        /// <summary>The adapter shown in the detail pane.</summary>
         [ObservableProperty] private AdapterInfo? _selected;
 
-        /// <summary>Auch abgeschaltete Adapter zeigen.</summary>
+        /// <summary>Also shows adapters that are down.</summary>
         [ObservableProperty] private bool _includeDown;
 
         partial void OnIncludeDownChanged(bool value) => Refresh();
 
-        /// <summary>Wie viele Adapter auffaellig viele Namensserver tragen.</summary>
+        /// <summary>Number of adapters with an implausibly high number of DNS servers.</summary>
         [ObservableProperty] private int _dnsWarningCount;
 
         /// <summary>
-        /// Der Hinweis unter der Liste. Steht dort nur, wenn es etwas zu sagen
-        /// gibt - eine Zeile "alles in Ordnung" liest nach dem dritten Mal
-        /// niemand mehr.
+        /// The notice below the list. Empty unless there is something to
+        /// report; a permanent "all good" line quickly stops being read.
         /// </summary>
         public string DnsWarningText
         {
@@ -47,10 +46,13 @@ namespace MyNetworkMonitor.Core.ViewModels
             }
         }
 
+        /// <summary>At least one adapter has too many DNS servers.</summary>
         public bool HasDnsWarning => DnsWarningCount > 0;
 
+        /// <summary>Creates the view model and reads the adapters.</summary>
         public NetworkViewModel() => Refresh();
 
+        /// <summary>Re-reads the adapters, keeping the current selection if the adapter still exists.</summary>
         [RelayCommand]
         public void Refresh()
         {
@@ -70,8 +72,8 @@ namespace MyNetworkMonitor.Core.ViewModels
             OnPropertyChanged(nameof(DnsWarningText));
             OnPropertyChanged(nameof(HasDnsWarning));
 
-            // Die Auswahl ueberlebt das Neuladen, solange es den Adapter noch
-            // gibt - sonst springt das Detailfeld bei jedem Klick auf leer.
+            // Keep the selection across reloads as long as the adapter still
+            // exists; otherwise the detail pane would blank on every refresh.
             Selected = Adapters.FirstOrDefault(a => a.Name == previous?.Name) ?? Adapters.FirstOrDefault();
         }
     }

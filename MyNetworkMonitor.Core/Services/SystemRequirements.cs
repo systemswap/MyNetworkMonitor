@@ -16,8 +16,8 @@ namespace MyNetworkMonitor.Core.Services
     /// <summary>One program of the system that MyNetworkMonitor calls.</summary>
     /// <param name="Id">Stable key, used for "don't show again" in the settings.</param>
     /// <param name="Command">Name of the program on the PATH.</param>
-    /// <param name="Purpose">What it is used for (English, shown to the user).</param>
-    /// <param name="WithoutIt">What happens if it is missing (English, shown to the user).</param>
+    /// <param name="Purpose">What it is used for (English, displayed in the UI).</param>
+    /// <param name="WithoutIt">What happens if it is missing (English, displayed in the UI).</param>
     /// <param name="Required">True if a main function does not work without it; optional ones are only a hint.</param>
     /// <param name="DebianPackage">Package on Debian and Ubuntu.</param>
     /// <param name="FedoraPackage">Package on Fedora.</param>
@@ -41,8 +41,8 @@ namespace MyNetworkMonitor.Core.Services
     public static class SystemRequirements
     {
         /// <summary>
-        /// The programs called under Linux. Package names looked up on 25.10.2026: Debian via <c>dpkg -S</c> on Debian 13
-        /// (packages.debian.org), Fedora on packages.fedoraproject.org (file lists of the packages).
+        /// The programs called under Linux. Package names verified for Debian 13 via <c>dpkg -S</c> (packages.debian.org)
+        /// and for Fedora on packages.fedoraproject.org (file lists of the packages).
         /// </summary>
         public static IReadOnlyList<SystemRequirement> Linux { get; } =
         [
@@ -93,7 +93,7 @@ namespace MyNetworkMonitor.Core.Services
                 }
                 catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException)
                 {
-                    // An unreadable folder in the PATH is no reason to fail; try the next one
+                    // An unreadable folder in the PATH is no reason to fail; try the next one.
                 }
             }
             return false;
@@ -143,7 +143,7 @@ namespace MyNetworkMonitor.Core.Services
                 }
                 catch (Exception e) when (e is IOException or UnauthorizedAccessException)
                 {
-                    // Unknown system: both commands are shown
+                    // Unknown system: both commands are shown.
                 }
             }
             return PackageFamily.Unknown;

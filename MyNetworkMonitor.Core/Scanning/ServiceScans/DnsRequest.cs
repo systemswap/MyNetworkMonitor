@@ -3,23 +3,24 @@ using System.Text;
 namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 {
     /// <summary>
-    /// Baut die DNS-Anfrage, mit der beide DNS-Sonden fragen - dieselbe
-    /// Anfrage, nur der Weg dorthin unterscheidet sich. Wortgleich aus
-    /// <c>ScanningMethod_Services</c> uebernommen.
+    /// Builds the DNS query used by both DNS probes; the query is the same,
+    /// only the transport differs (RFC 1035, section 4).
     /// </summary>
     internal static class DnsRequest
     {
-        /// <summary>Kopf und Frage zu einer vollstaendigen Anfrage zusammensetzen.</summary>
+        /// <summary>Combines header and question into a complete query.</summary>
+        /// <param name="domain">The name to ask for, dot-separated.</param>
+        /// <returns>The query message without the TCP length prefix.</returns>
         internal static byte[] Build(string domain)
         {
             byte[] header = new byte[]
             {
                 0xAA, 0xAA,  // Transaction ID
-                0x01, 0x00,  // Standard Query mit rekursiver Abfrage
-                0x00, 0x01,  // Eine Frage
-                0x00, 0x00,  // Keine Antworten vorhanden
-                0x00, 0x00,  // Keine Autoritaetsantworten
-                0x00, 0x00   // Keine zusaetzlichen Antworten
+                0x01, 0x00,  // Standard query, recursion desired
+                0x00, 0x01,  // One question
+                0x00, 0x00,  // No answer records
+                0x00, 0x00,  // No authority records
+                0x00, 0x00   // No additional records
             };
 
             byte[] question = BuildQuestion(domain);
@@ -30,20 +31,22 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Gehoert diese Antwort zu dieser Anfrage?
+        /// Determines whether an answer belongs to a query.
         /// <para>
-        /// Zwei Bedingungen, beide aus dem DNS-Kopf: dieselbe
-        /// Transaktionskennung in Byte 0 und 1, und das Antwortbit (oberstes
-        /// Bit von Byte 2) muss gesetzt sein. Damit zaehlt nur, was wirklich
-        /// auf die eigene Frage antwortet - nicht jedes Datagramm, das am
-        /// Socket ankommt.
+        /// Two conditions, both from the DNS header (RFC 1035, section 4.1.1):
+        /// the same transaction ID in bytes 0 and 1, and the QR bit (most
+        /// significant bit of byte 2) set. Only a real answer to this query
+        /// counts, not every datagram that arrives at the socket.
         /// </para>
         /// <para>
-        /// Ob der Name aufloest, bleibt weiterhin gleichgueltig: gefragt wird
-        /// nach einem Namen, den es nicht gibt. Auch ein "kenne ich nicht" ist
-        /// die Antwort eines Namensservers und damit ein Fund.
+        /// Whether the name resolves does not matter: the query asks for a name
+        /// that does not exist. An NXDOMAIN answer also comes from a name server
+        /// and is therefore a finding.
         /// </para>
         /// </summary>
+        /// <param name="query">The query that was sent.</param>
+        /// <param name="answer">The received message.</param>
+        /// <returns><c>true</c> if <paramref name="answer"/> is a response to <paramref name="query"/>.</returns>
         internal static bool IsAnswerTo(byte[] query, byte[] answer)
         {
             if (query.Length < 3 || answer.Length < 3) return false;
@@ -55,8 +58,8 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         }
 
         /// <summary>
-        /// Der Frageteil: jeder Namensabschnitt mit seiner Laenge davor, dann
-        /// die Null, dann Typ A und Klasse IN.
+        /// The question section: each label preceded by its length, then the
+        /// terminating zero, then type A and class IN.
         /// </summary>
         private static byte[] BuildQuestion(string domain)
         {
@@ -71,8 +74,8 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                 position += part.Length;
             }
 
-            question[position++] = 0x00; // Null-Terminierung
-            question[position++] = 0x00; // Type: A (IPv4-Adresse anfragen)
+            question[position++] = 0x00; // Root label (terminator)
+            question[position++] = 0x00; // Type: A (IPv4 address)
             question[position++] = 0x01;
             question[position++] = 0x00; // Class: IN (Internet)
             question[position++] = 0x01;

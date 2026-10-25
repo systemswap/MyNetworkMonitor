@@ -7,15 +7,19 @@ using MyNetworkMonitor.Core.Scanning.Engine;
 
 namespace MyNetworkMonitor.Core.ViewModels
 {
-    /// <summary>Ein Port der Sammlung: die Nummer, wofuer sie gescannt wird, und wofuer sie steht.</summary>
+    /// <summary>A port in the collection: the number, the protocols it is scanned with, and what it stands for.</summary>
     public partial class PortEntry : ObservableObject
     {
+        /// <summary>The port number.</summary>
         [ObservableProperty] private int _port;
+        /// <summary>Scanned over TCP.</summary>
         [ObservableProperty] private bool _tcp;
+        /// <summary>Scanned over UDP.</summary>
         [ObservableProperty] private bool _udp;
+        /// <summary>What the port is used for.</summary>
         [ObservableProperty] private string _description = string.Empty;
 
-        /// <summary>Weder TCP noch UDP - der Eintrag ist da, wird aber nicht gescannt.</summary>
+        /// <summary>Neither TCP nor UDP; the entry exists but is not scanned.</summary>
         public bool IsIdle => !Tcp && !Udp;
 
         partial void OnTcpChanged(bool value) => OnPropertyChanged(nameof(IsIdle));
@@ -25,12 +29,11 @@ namespace MyNetworkMonitor.Core.ViewModels
     }
 
     /// <summary>
-    /// Die Portsammlung: welche Ports ein Scan anfasst, je Protokoll getrennt.
+    /// The port collection: which ports a scan probes, separately per protocol.
     /// <para>
-    /// Liest und schreibt das bisherige <c>portsToScan.xml</c>, damit beide
-    /// Oberflaechen waehrend des Umbaus dieselbe Sammlung sehen. Fehlt die
-    /// Datei, gilt die eingebaute Liste aus <see cref="PortCollection"/> - man
-    /// steht also nie ohne Ports da.
+    /// Reads and writes <c>portsToScan.xml</c>. If the file is missing, the
+    /// built-in list from <see cref="PortCollection"/> applies, so there is
+    /// always a set of ports.
     /// </para>
     /// </summary>
     public partial class PortEditorViewModel : ObservableObject
@@ -39,31 +42,44 @@ namespace MyNetworkMonitor.Core.ViewModels
         private string _xmlPath = string.Empty;
         private bool _loading;
 
+        /// <summary>Creates the editor.</summary>
+        /// <param name="settings">The scan settings that receive the selected TCP and UDP ports.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="settings"/> is <see langword="null"/>.</exception>
         public PortEditorViewModel(ScanSettings settings)
         {
             _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         }
 
-        /// <summary>Alle Ports, unabhaengig vom Suchfeld.</summary>
+        /// <summary>All ports, regardless of the search field.</summary>
         public ObservableCollection<PortEntry> All { get; } = [];
 
-        /// <summary>Was das Suchfeld durchlaesst - daran haengt die Tabelle.</summary>
+        /// <summary>The ports that pass the search field; the table binds to this.</summary>
         public ObservableCollection<PortEntry> Visible { get; } = [];
 
+        /// <summary>The selected port.</summary>
         [ObservableProperty] private PortEntry? _selected;
+        /// <summary>The status line text.</summary>
         [ObservableProperty] private string _status = string.Empty;
 
-        /// <summary>Sucht ueber Portnummer und Beschreibung zugleich.</summary>
+        /// <summary>Searches port number and description at the same time.</summary>
         [ObservableProperty] private string _filter = string.Empty;
 
         partial void OnFilterChanged(string value) => ApplyFilter();
 
+        /// <summary>Number of ports scanned over TCP.</summary>
         public int TcpCount => All.Count(p => p.Tcp);
+        /// <summary>Number of ports scanned over UDP.</summary>
         public int UdpCount => All.Count(p => p.Udp);
+        /// <summary>Number of ports in the collection.</summary>
         public int TotalCount => All.Count;
 
-        // ------------------------------------------------------------- Laden
+        // ------------------------------------------------------------ Loading
 
+        /// <summary>
+        /// Loads the collection and passes the selection to the scan settings.
+        /// A missing or unreadable file falls back to the built-in defaults.
+        /// </summary>
+        /// <param name="xmlPath">The port collection file; also the target for later saves.</param>
         public void Load(string xmlPath)
         {
             _xmlPath = xmlPath;
@@ -82,8 +98,8 @@ namespace MyNetworkMonitor.Core.ViewModels
                     }
                     catch (Exception ex)
                     {
-                        // Beschaedigte Datei: mit den Standardports weiter,
-                        // statt ohne Ports dazustehen.
+                        // Damaged file: continue with the default ports instead
+                        // of having none.
                         ports = new PortCollection();
                         Status = $"Port collection could not be read, defaults apply: {ex.Message}";
                     }
@@ -119,7 +135,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             PushToSettings();
         }
 
-        // --------------------------------------------------------- Speichern
+        // ------------------------------------------------------------- Saving
 
         private static readonly TimeSpan SaveDelay = TimeSpan.FromMilliseconds(600);
 
@@ -136,9 +152,9 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Traegt die Auswahl in die Scan-Einstellungen. Ohne diesen Schritt
-        /// wuerde ein Haken erst nach einem Neustart wirken - der Scan liest
-        /// die Listen, nicht die Datei.
+        /// Writes the selection into the scan settings. Without this step a
+        /// check mark would only take effect after a restart; the scan reads
+        /// the lists, not the file.
         /// </summary>
         private void PushToSettings()
         {
@@ -152,20 +168,20 @@ namespace MyNetworkMonitor.Core.ViewModels
             OnPropertyChanged(nameof(UdpCount));
             OnPropertyChanged(nameof(TotalCount));
 
-            // Die Portverfahren pruefen beim Start, ob ueberhaupt Ports
-            // ausgewaehlt sind. Ohne diese Meldung bliebe das Urteil von vor
-            // dem Laden stehen - und weil da noch keine Ports da waren, liess
-            // sich "TCP ports" gar nicht anhaken.
+            // The port methods check whether any ports are selected. Without
+            // this notification the verdict from before loading would remain,
+            // and since no ports existed then, "TCP ports" could not be
+            // checked.
             PortsChanged?.Invoke();
         }
 
-        /// <summary>Die Portauswahl hat sich geaendert.</summary>
+        /// <summary>Raised when the port selection has changed.</summary>
         public event Action? PortsChanged;
 
         /// <summary>
-        /// Merkt den Stand vor und schreibt ihn kurz darauf. Die Kaestchen
-        /// werden oft in Serie gesetzt; je Klick eine Datei zu schreiben waere
-        /// verschwendet.
+        /// Captures the current state and writes it shortly afterwards. Check
+        /// boxes are often toggled in series; writing the file on every click
+        /// would be wasteful.
         /// </summary>
         public void Save()
         {
@@ -178,6 +194,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             _saveTimer.Change(SaveDelay, Timeout.InfiniteTimeSpan);
         }
 
+        /// <summary>Writes pending changes immediately, e.g. before closing.</summary>
         public void SaveNow()
         {
             if (_loading || string.IsNullOrEmpty(_xmlPath) || !_dirty) return;
@@ -188,8 +205,8 @@ namespace MyNetworkMonitor.Core.ViewModels
         }
 
         /// <summary>
-        /// Baut die Tabelle im bisherigen Format. Laeuft auf dem
-        /// Oberflaechen-Thread, weil die Sammlung ihr gehoert.
+        /// Builds the table in the <c>portsToScan.xml</c> format. Runs on the
+        /// UI thread because the collection belongs to it.
         /// </summary>
         private DataTable BuildTable()
         {
@@ -221,12 +238,12 @@ namespace MyNetworkMonitor.Core.ViewModels
             }
         }
 
-        // ----------------------------------------------------------- Befehle
+        // ----------------------------------------------------------- Commands
 
         [RelayCommand]
         private void Add()
         {
-            // Eine freie Nummer vorschlagen, statt eine doppelte anzulegen.
+            // Suggest an unused number instead of creating a duplicate.
             int candidate = All.Count == 0 ? 80 : All.Max(p => p.Port) + 1;
             while (All.Any(p => p.Port == candidate) && candidate < 65535) candidate++;
 
@@ -261,22 +278,25 @@ namespace MyNetworkMonitor.Core.ViewModels
             Status = $"Port {port} deleted.";
         }
 
-        /// <summary>Alle sichtbaren Eintraege auf einmal umschalten - spart Klickarbeit.</summary>
+        /// <summary>Switches TCP on for all visible entries at once.</summary>
         [RelayCommand]
         private void AllTcp() => SetAll(tcp: true, value: true);
 
+        /// <summary>Switches TCP off for all visible entries.</summary>
         [RelayCommand]
         private void NoTcp() => SetAll(tcp: true, value: false);
 
+        /// <summary>Switches UDP on for all visible entries.</summary>
         [RelayCommand]
         private void AllUdp() => SetAll(tcp: false, value: true);
 
+        /// <summary>Switches UDP off for all visible entries.</summary>
         [RelayCommand]
         private void NoUdp() => SetAll(tcp: false, value: false);
 
         /// <summary>
-        /// Wirkt nur auf die sichtbaren Zeilen. Wer nach "SQL" sucht und dann
-        /// "all TCP" drueckt, meint die SQL-Ports - nicht alle 300.
+        /// Affects only the visible rows. Searching for "SQL" and then pressing
+        /// "all TCP" means the SQL ports, not all 300.
         /// </summary>
         private void SetAll(bool tcp, bool value)
         {
@@ -287,7 +307,7 @@ namespace MyNetworkMonitor.Core.ViewModels
             }
         }
 
-        // ------------------------------------------------------------ Filter
+        // ------------------------------------------------------------- Filter
 
         private void ApplyFilter()
         {

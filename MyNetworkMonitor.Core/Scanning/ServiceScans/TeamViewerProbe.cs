@@ -1,8 +1,8 @@
 namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 {
     /// <summary>
-    /// TeamViewer. Erkannt an zwei festen Stellen der Antwort - dem Kopf und
-    /// einer zweiten Marke weiter hinten im selben Paket.
+    /// TeamViewer. Detected by two fixed positions in the answer: the header
+    /// and a second marker further back in the same packet.
     /// </summary>
     public sealed class TeamViewerProbe : ServiceProbeBase
     {
@@ -10,7 +10,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         public override string Group => ServiceGroups.Remote;
         public override IReadOnlyList<int> DefaultPorts => [5938];
 
-        /// <summary>Woertlich aus dem alten Schalter uebernommen - kein Byte veraendert.</summary>
+        /// <summary>The request that TeamViewer answers with a packet of the same header.</summary>
         public override byte[] Hello => new byte[]
             {
                 0x17, 0x24, 0x0A, 0x20, 0x00, 0xE1, 0xBF, 0xE5,
@@ -20,13 +20,12 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                 0x9B, 0x8E, 0xDF, 0xA9, 0x03
             };
 
-        /// <summary>Woertlich aus der alten Antwortpruefung uebernommen - keine Bedingung veraendert.</summary>
+        /// <summary>Matches when the header (bytes 0-3) and the marker at offset 37 are both present.</summary>
         public override bool Identify(byte[] response)
         {
             ServiceType service = Service;
             bool serviceMatched = false;
 
-            // ?? TeamViewer-Erkennung
             if (service == ServiceType.TeamViewer)
             {
                 byte[] teamViewerHeader1 = { 0x17, 0x24, 0x0A, 0x20 };  // Header 1

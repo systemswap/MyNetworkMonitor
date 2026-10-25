@@ -1,79 +1,83 @@
 namespace MyNetworkMonitor.Core.Services
 {
-    /// <summary>In welchem Zustand der Satellitendienst ist.</summary>
+    /// <summary>The state of the satellite service.</summary>
     public enum ServiceState
     {
-        /// <summary>Nicht eingerichtet.</summary>
+        /// <summary>Not installed.</summary>
         NotInstalled,
 
-        /// <summary>Eingerichtet, laeuft aber nicht.</summary>
+        /// <summary>Installed, but not running.</summary>
         Stopped,
 
-        /// <summary>Eingerichtet und laeuft.</summary>
+        /// <summary>Installed and running.</summary>
         Running,
 
-        /// <summary>Nicht feststellbar - etwa weil die Plattform es nicht kann.</summary>
+        /// <summary>Cannot be determined - for example because the platform does not support it.</summary>
         Unknown
     }
 
-    /// <summary>Was ueber den Dienst bekannt ist.</summary>
-    /// <param name="State">Der Zustand.</param>
-    /// <param name="Message">Klartext fuer den Nutzer.</param>
-    /// <param name="StartsWithSystem">Er startet beim Hochfahren von selbst.</param>
+    /// <summary>What is known about the service.</summary>
+    /// <param name="State">The state.</param>
+    /// <param name="Message">Plain-language message for display.</param>
+    /// <param name="StartsWithSystem">The service starts automatically at boot.</param>
     public readonly record struct ServiceStatus(ServiceState State, string Message, bool StartsWithSystem)
     {
+        /// <summary>The service is installed, running or not.</summary>
         public bool IsInstalled => State is ServiceState.Stopped or ServiceState.Running;
+        /// <summary>The service is running.</summary>
         public bool IsRunning => State == ServiceState.Running;
     }
 
-    /// <summary>Ergebnis eines Eingriffs am Dienst.</summary>
-    /// <param name="Success">Hat geklappt.</param>
-    /// <param name="Message">Klartext fuer den Nutzer - auch im Erfolgsfall.</param>
+    /// <summary>Result of an operation on the service.</summary>
+    /// <param name="Success">The operation succeeded.</param>
+    /// <param name="Message">Plain-language message for display - also on success.</param>
     public readonly record struct ServiceChangeResult(bool Success, string Message);
 
     /// <summary>
-    /// Einrichten und Steuern des Satellitendienstes.
+    /// Installs and controls the satellite service.
     /// <para>
-    /// Der Satellit soll dauerhaft laufen und nach einem Neustart von selbst
-    /// wiederkommen - dafuer genuegt keine gestartete Oberflaeche. Der Dienst
-    /// startet dieselbe Anwendung mit <c>--satellite</c>: ohne Fenster, mit
-    /// Protokoll in eine Datei (SATELLIT.md, Abschnitt 9).
+    /// The satellite runs permanently and comes back by itself after a reboot -
+    /// a started user interface is not sufficient for that. The service starts
+    /// the same application with <c>--satellite</c>: without a window, logging
+    /// to a file (SATELLIT.md, section 9).
     /// </para>
     /// <para>
-    /// Einrichten und Entfernen brauchen erhoehte Rechte. Die Umsetzung darf
-    /// sich dafuer selbst erhoeht neu starten - der Nutzer sieht eine
-    /// Rueckfrage des Betriebssystems und sonst nichts.
+    /// Installing and removing require elevated privileges. The implementation
+    /// may restart itself elevated for this - the only visible effect is a
+    /// confirmation prompt of the operating system.
     /// </para>
     /// </summary>
     public interface IServiceControl
     {
-        /// <summary>Ob sich auf dieser Plattform ueberhaupt ein Dienst einrichten laesst.</summary>
+        /// <summary>Whether a service can be installed on this platform at all.</summary>
         bool IsSupported { get; }
 
-        /// <summary>Ob die Anwendung gerade erhoeht laeuft.</summary>
+        /// <summary>Whether the application currently runs elevated.</summary>
         bool IsElevated { get; }
 
-        /// <summary>Fragt den Zustand ab.</summary>
+        /// <summary>Queries the state.</summary>
+        /// <returns>The current state with a message for display.</returns>
         ServiceStatus Read();
 
         /// <summary>
-        /// Richtet den Dienst ein: Autostart, Wiederanlauf nach einem Absturz,
-        /// und startet ihn gleich.
+        /// Installs the service with automatic start and restart after a crash,
+        /// and starts it right away.
         /// </summary>
-        /// <param name="executablePath">Die Anwendung, die als Dienst laufen soll.</param>
+        /// <param name="executablePath">The application to run as a service.</param>
+        /// <returns>Whether the operation succeeded, with a message for display.</returns>
         ServiceChangeResult Install(string executablePath);
 
-        /// <summary>Haelt den Dienst an und entfernt ihn wieder.</summary>
+        /// <summary>Stops the service and removes it.</summary>
         ServiceChangeResult Uninstall();
 
-        /// <summary>Startet den eingerichteten Dienst.</summary>
+        /// <summary>Starts the installed service.</summary>
         ServiceChangeResult Start();
 
-        /// <summary>Haelt den laufenden Dienst an, ohne ihn zu entfernen.</summary>
+        /// <summary>Stops the running service without removing it.</summary>
         ServiceChangeResult Stop();
     }
 
-    /// <summary>Wenn keine Umsetzung da ist - meldet schlicht, dass es nicht geht.</summary>
+    /// <summary>Used when no implementation is available - reports that the operation is not supported.</summary>
     public sealed class NullServiceControl : IServiceControl
     {
         private const string NotHere = "Setting up a service is not supported on this platform yet.";

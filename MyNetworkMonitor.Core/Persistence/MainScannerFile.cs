@@ -5,16 +5,17 @@ using MyNetworkMonitor.Core.Models;
 namespace MyNetworkMonitor.Core.Persistence
 {
     /// <summary>
-    /// Speichert die Liste der Hauptscanner, zu denen sich diese Anlage als
-    /// Satellit verbindet.
+    /// Stores the list of main scanners this installation connects to as a
+    /// satellite.
     /// <para>
-    /// Liegt maschinenweit (<c>AppPaths.MachineFolder</c>) und nicht bei den
-    /// Einstellungen des Nutzers: der Dienst muss dieselbe Liste lesen, und der
-    /// hat kein Dokumente-Verzeichnis.
+    /// Stored machine-wide (<c>AppPaths.MachineFolder</c>) rather than with the
+    /// per-user settings: the service must read the same list and has no
+    /// documents folder.
     /// </para>
     /// </summary>
     public static class MainScannerFile
     {
+        /// <summary>The default file name.</summary>
         public const string DefaultFileName = "mainScanners.json";
 
         private static readonly JsonSerializerOptions Options = new()
@@ -23,14 +24,14 @@ namespace MyNetworkMonitor.Core.Persistence
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
         };
 
-        /// <summary>Ein Empfaenger in der Datei - nur das, was dauerhaft gilt.</summary>
+        /// <summary>A receiver in the file - only the persistent part.</summary>
         private sealed class Record
         {
             public string Host { get; set; } = string.Empty;
 
             /// <summary>
-            /// Optional. Fehlt sie in einer aelteren Datei, bleibt sie leer -
-            /// dann gilt der Name so, wie er dasteht.
+            /// Optional. If an older file lacks it, it stays empty and the host
+            /// name is used as entered.
             /// </summary>
             public string Domain { get; set; } = string.Empty;
 
@@ -40,6 +41,10 @@ namespace MyNetworkMonitor.Core.Persistence
             public string PinnedFingerprint { get; set; } = string.Empty;
         }
 
+        /// <summary>Saves the list; entries without a host are skipped.</summary>
+        /// <param name="hosts">The main scanners to save.</param>
+        /// <param name="filePath">Target file; its directory is created if needed.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="hosts"/> is <c>null</c>.</exception>
         public static void Save(IEnumerable<MainScanner> hosts, string filePath)
         {
             ArgumentNullException.ThrowIfNull(hosts);
@@ -63,10 +68,12 @@ namespace MyNetworkMonitor.Core.Persistence
         }
 
         /// <summary>
-        /// Liest die Liste. Eine fehlende oder beschaedigte Datei ergibt eine
-        /// leere Liste - ohne Empfaenger verbindet sich die Anlage eben
-        /// nirgendwohin, das ist kein Grund, den Start scheitern zu lassen.
+        /// Reads the list. A missing or damaged file yields an empty list -
+        /// without receivers the installation simply connects nowhere, which is
+        /// no reason to fail the start.
         /// </summary>
+        /// <param name="filePath">The file to read.</param>
+        /// <returns>The main scanners; empty if the file is missing or unreadable.</returns>
         public static List<MainScanner> Load(string filePath)
         {
             try

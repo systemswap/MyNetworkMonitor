@@ -4,28 +4,29 @@ using DnsClient;
 namespace MyNetworkMonitor.Core.Services
 {
     /// <summary>
-    /// Was ein einzelner Namensserver zu einer Adresse zu sagen hatte.
+    /// What a single name server reported for an address.
     /// </summary>
-    /// <param name="Server">Der befragte Namensserver.</param>
-    /// <param name="HostName">Der Name, den er zur Adresse nennt - leer, wenn keiner.</param>
-    /// <param name="Addresses">Die Adressen, die er zu diesem Namen zurueckgibt.</param>
-    /// <param name="Error">Womit die Abfrage gescheitert ist, falls sie es tat.</param>
+    /// <param name="Server">The name server queried.</param>
+    /// <param name="HostName">The name it returns for the address - empty if none.</param>
+    /// <param name="Addresses">The addresses it returns for that name.</param>
+    /// <param name="Error">Why the query failed, if it did; otherwise empty.</param>
     public sealed record DnsServerAnswer(
         string Server, string HostName, IReadOnlyList<string> Addresses, string Error)
     {
-        /// <summary>Der Server hat ueberhaupt nicht geantwortet.</summary>
+        /// <summary>The server did not answer at all.</summary>
         public bool Failed => Error.Length > 0;
 
-        /// <summary>Er hat geantwortet, kennt die Adresse aber nicht.</summary>
+        /// <summary>The server answered but does not know the address.</summary>
         public bool IsEmpty => !Failed && HostName.Length == 0;
 
         /// <summary>
-        /// Der Rueckwaertsweg fuehrt zu einem Namen, der Vorwaertsweg aber
-        /// nicht zurueck zur Adresse. Das ist der Fall, den man ohne beide
-        /// Richtungen nie sieht.
+        /// The reverse lookup leads to a name, but the forward lookup of that name
+        /// does not lead back to the address. This case is only visible when both
+        /// directions are checked.
         /// </summary>
         public bool RoundTripBroken { get; init; }
 
+        /// <summary>The answer as one line of text, prefixed with the server.</summary>
         public string Text =>
             Failed ? $"{Server}: no answer ({Error})"
             : IsEmpty ? $"{Server}: does not know this address"
@@ -36,14 +37,16 @@ namespace MyNetworkMonitor.Core.Services
     }
 
     /// <summary>
-    /// Das Ergebnis eines Quervergleichs ueber alle Namensserver.
+    /// The result of a cross-check of one address across all name servers.
     /// </summary>
+    /// <param name="Address">The address that was checked.</param>
+    /// <param name="Answers">One answer per name server queried.</param>
     public sealed record DnsCrossCheckResult(
         string Address, IReadOnlyList<DnsServerAnswer> Answers)
     {
         /// <summary>
-        /// Die Namen, auf die sich die antwortenden Server geeinigt haben.
-        /// Mehr als einer heisst: sie widersprechen sich.
+        /// The distinct names returned by the answering servers.
+        /// More than one means they contradict each other.
         /// </summary>
         public IReadOnlyList<string> DistinctNames =>
             [.. Answers.Where(a => !a.Failed && !a.IsEmpty)
@@ -51,20 +54,20 @@ namespace MyNetworkMonitor.Core.Services
                        .Distinct(StringComparer.OrdinalIgnoreCase)
                        .Order(StringComparer.OrdinalIgnoreCase)];
 
-        /// <summary>Server, die geantwortet, die Adresse aber nicht gekannt haben.</summary>
+        /// <summary>Servers that answered but did not know the address.</summary>
         public IReadOnlyList<DnsServerAnswer> Silent => [.. Answers.Where(a => a.IsEmpty)];
 
-        /// <summary>Server, die gar nicht erreichbar waren.</summary>
+        /// <summary>Servers that were not reachable at all.</summary>
         public IReadOnlyList<DnsServerAnswer> Unreachable => [.. Answers.Where(a => a.Failed)];
 
-        /// <summary>Server, bei denen der Rueckweg nicht zur Adresse zurueckfuehrt.</summary>
+        /// <summary>Servers whose returned name does not point back to the address.</summary>
         public IReadOnlyList<DnsServerAnswer> Broken => [.. Answers.Where(a => a.RoundTripBroken)];
 
         /// <summary>
-        /// Es gibt etwas zu melden. Nicht jede Ungleichheit zaehlt: kennt
-        /// <em>kein</em> Server die Adresse, ist das kein Widerspruch zwischen
-        /// ihnen, sondern schlicht ein fehlender Eintrag - und in einem
-        /// Heimnetz der Normalfall.
+        /// There is something to report. Not every difference counts: if
+        /// <em>no</em> server knows the address, that is no contradiction between
+        /// them but simply a missing record - and the normal case on a home
+        /// network.
         /// </summary>
         public bool HasMismatch =>
             DistinctNames.Count > 1
@@ -72,7 +75,7 @@ namespace MyNetworkMonitor.Core.Services
             || Unreachable.Count > 0
             || (DistinctNames.Count == 1 && Silent.Count > 0);
 
-        /// <summary>Der Befund in einem Satz - fuer die Findings-Liste.</summary>
+        /// <summary>The finding in one sentence - for the findings list.</summary>
         public string Summary
         {
             get
@@ -111,41 +114,44 @@ namespace MyNetworkMonitor.Core.Services
             }
         }
 
-        /// <summary>Alle Antworten untereinander - fuer das Detailpanel.</summary>
+        /// <summary>All answers, one per line - for the detail panel.</summary>
         public string Report => string.Join("\r\n", Answers.Select(a => a.Text));
     }
 
     /// <summary>
-    /// Fragt dieselbe Adresse bei jedem bekannten Namensserver einzeln nach und
-    /// stellt die Antworten nebeneinander.
+    /// Queries the same address at every known name server individually and
+    /// presents the answers side by side.
     /// <para>
-    /// Der Sinn ist die Fehlersuche: solange alle Server dasselbe sagen, ist
-    /// nichts zu tun. Weichen sie ab, <b>ist genau das der Befund</b> - und
-    /// weil jede Antwort ihren Server mitfuehrt, steht auch da, welcher von
-    /// ihnen nicht sauber aufloest.
+    /// The purpose is troubleshooting: as long as all servers agree, there is
+    /// nothing to do. If they differ, <b>that difference is the finding</b> - and
+    /// because every answer carries its server, it also shows which of them does
+    /// not resolve cleanly.
     /// </para>
     /// <para>
-    /// Geprueft werden <b>beide Richtungen</b>. Der Rueckwaertsweg allein
-    /// uebersieht den Fall, in dem alle Server denselben Namen liefern, dieser
-    /// Name aber auf eine andere Adresse zurueckzeigt - ein veralteter
-    /// Vorwaertseintrag, der einzeln betrachtet auf jedem Server richtig
-    /// aussieht.
+    /// <b>Both directions</b> are checked. The reverse lookup alone misses the
+    /// case in which all servers return the same name but that name points back
+    /// to a different address - a stale forward record that looks correct on
+    /// every server when viewed in isolation.
     /// </para>
     /// </summary>
     public static class DnsCrossCheck
     {
         /// <summary>
-        /// Wie lange auf einen einzelnen Server gewartet wird. Kurz gehalten:
-        /// die Abfragen laufen ueber mehrere Server, und ein stummer Server
-        /// darf den Vergleich nicht aufhalten - dass er stumm ist, ist selbst
-        /// die Antwort.
+        /// How long to wait for a single server. Kept short: the queries run
+        /// against several servers, and a silent server must not hold up the
+        /// comparison - being silent is itself the answer.
         /// </summary>
         private static readonly TimeSpan QueryTimeout = TimeSpan.FromSeconds(2);
 
         /// <summary>
-        /// Vergleicht eine Adresse ueber die angegebenen Namensserver. Sind
-        /// keine angegeben, werden die des Systems genommen.
+        /// Cross-checks one address across the given name servers. If none are
+        /// given, the system's name servers are used.
         /// </summary>
+        /// <param name="address">The IP address to look up.</param>
+        /// <param name="servers">Name server addresses as text; invalid entries are ignored.</param>
+        /// <param name="cancellationToken">Cancels all queries.</param>
+        /// <returns>The answers of all servers; empty if no name server is known.</returns>
+        /// <exception cref="ArgumentException"><paramref name="address"/> is null, empty or whitespace.</exception>
         public static async Task<DnsCrossCheckResult> RunAsync(
             string address, IReadOnlyList<string> servers, CancellationToken cancellationToken = default)
         {
@@ -166,16 +172,20 @@ namespace MyNetworkMonitor.Core.Services
                 return new DnsCrossCheckResult(address, []);
             }
 
-            // Die Server parallel fragen. Nacheinander summieren sich die
-            // Zeitlimits: fuenf stumme Server sind dann zehn Sekunden, in
-            // denen die Oberflaeche steht.
+            // Query the servers in parallel. Sequentially the timeouts add up:
+            // five silent servers would mean ten seconds of a frozen user
+            // interface.
             DnsServerAnswer[] answers = await Task.WhenAll(
                 resolvers.Select(server => AskAsync(address, server, cancellationToken)));
 
             return new DnsCrossCheckResult(address, answers);
         }
 
-        /// <summary>Dieselbe Pruefung fuer mehrere Adressen nacheinander.</summary>
+        /// <summary>Runs the same check for several addresses, one after another.</summary>
+        /// <param name="addresses">The IP addresses to look up.</param>
+        /// <param name="servers">Name server addresses as text; invalid entries are ignored.</param>
+        /// <param name="cancellationToken">Cancels the remaining checks.</param>
+        /// <returns>One result per address, in input order.</returns>
         public static async Task<List<DnsCrossCheckResult>> RunAsync(
             IEnumerable<string> addresses, IReadOnlyList<string> servers,
             CancellationToken cancellationToken = default)
@@ -192,9 +202,9 @@ namespace MyNetworkMonitor.Core.Services
         }
 
         /// <summary>
-        /// Ein Server, beide Richtungen. Erst die Adresse zum Namen, dann den
-        /// Namen zurueck zu den Adressen - und beides bei demselben Server,
-        /// sonst vergliche man zwei verschiedene Auskuenfte miteinander.
+        /// One server, both directions. First the address to the name, then the
+        /// name back to the addresses - both at the same server, otherwise two
+        /// different sources of information would be compared.
         /// </summary>
         private static async Task<DnsServerAnswer> AskAsync(
             string address, IPAddress server, CancellationToken cancellationToken)
@@ -208,12 +218,11 @@ namespace MyNetworkMonitor.Core.Services
                     Timeout = QueryTimeout,
                     Retries = 1,
 
-                    // Jeder Server bekommt seine eigene Frage. Ein Treffer aus
-                    // dem Zwischenspeicher waere hier das Gegenteil dessen, was
-                    // geprueft werden soll.
+                    // Every server gets its own query. A hit from the cache
+                    // would defeat the purpose of the check.
                     UseCache = false,
 
-                    // Ein fehlender Eintrag ist eine Antwort, kein Fehler.
+                    // A missing record is an answer, not an error.
                     ThrowDnsErrors = false
                 });
 
@@ -229,7 +238,7 @@ namespace MyNetworkMonitor.Core.Services
                     return new DnsServerAnswer(text, string.Empty, [], string.Empty);
                 }
 
-                // Der Rueckweg: zeigt der Name wieder auf diese Adresse?
+                // The way back: does the name point to this address again?
                 IPHostEntry? forward = await client.GetHostEntryAsync(hostName).WaitAsync(cts.Token);
 
                 List<string> addresses = [.. (forward?.AddressList ?? [])
@@ -250,19 +259,19 @@ namespace MyNetworkMonitor.Core.Services
             }
             catch (Exception ex)
             {
-                // Ein Server, der nicht antwortet, ist ein Befund und kein
-                // Grund, den Vergleich der uebrigen fallen zu lassen.
+                // A server that does not answer is a finding, not a reason to
+                // drop the comparison of the remaining servers.
                 return new DnsServerAnswer(text, string.Empty, [], Short(ex.Message));
             }
         }
 
-        /// <summary>Die Namensserver, die der Rechner selbst benutzt.</summary>
+        /// <summary>The name servers the machine itself uses.</summary>
         private static IEnumerable<IPAddress> SystemResolvers()
         {
             try
             {
-                // NameServer.Address ist die Adresse als Text - fuer die
-                // Abfrage wird sie wieder als Adresse gebraucht.
+                // NameServer.Address is the address as text - the query needs
+                // it as an IPAddress again.
                 return NameServer.ResolveNameServers()
                     .Select(n => n.Address)
                     .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -277,8 +286,8 @@ namespace MyNetworkMonitor.Core.Services
         }
 
         /// <summary>
-        /// Fehlermeldungen der Bibliothek sind mehrzeilig. In einer Tabelle
-        /// zerreisst das die Zeile, ohne mehr zu sagen als der erste Satz.
+        /// Error messages of the library span several lines. In a table that
+        /// breaks the row without saying more than the first sentence.
         /// </summary>
         private static string Short(string message)
         {

@@ -8,19 +8,20 @@ using System.Text;
 namespace MyNetworkMonitor.Core.Services
 {
     /// <summary>
-    /// Aufbereitung der Ergebnistabelle fuer den Export. Bewusst ohne
-    /// UI-Bezug: die Views waehlen nur die Zeilen aus und oeffnen den
-    /// Speicherdialog, die Tabellen-Umformung und das CSV-Schreiben passieren
-    /// hier (im WPF-Original lag beides in MainWindow.xaml.cs).
+    /// Prepares the result table for export. Deliberately free of UI
+    /// dependencies: the views only select the rows and open the save dialog;
+    /// reshaping the table and writing the CSV happen here.
     /// </summary>
     public static class ScanResultExport
     {
         /// <summary>
-        /// Flache Variante: eine Zeile je Geraet. Die Bild-Spalten (ARPStatus,
-        /// PingStatus, SSDPStatus, IsIPCam) werden zu "true"/leer und
-        /// aussagekraeftig umbenannt, weil ein PNG-Byte-Array im CSV nichts
-        /// verloren hat.
+        /// Flat variant: one row per device. The image columns (ARPStatus,
+        /// PingStatus, SSDPStatus, IsIPCam) become "true"/empty and are given
+        /// meaningful names, because a PNG byte array has no place in a CSV file.
         /// </summary>
+        /// <param name="rows">The rows to export; all from the same table.</param>
+        /// <param name="escapeForCsv">Quote values that contain quotation marks, line breaks or semicolons.</param>
+        /// <returns>A table with string columns only; empty if there are no rows.</returns>
         public static DataTable BuildFlatTable(IReadOnlyList<DataRow> rows, bool escapeForCsv)
         {
             var table = new DataTable();
@@ -61,18 +62,21 @@ namespace MyNetworkMonitor.Core.Services
         }
 
         /// <summary>
-        /// Aufgeteilte Variante: je erkanntem Dienst eine eigene Zeile mit den
-        /// Spalten Services / Ports / Status. Zeilen ohne erkannte Dienste
-        /// bleiben als eine Zeile erhalten.
+        /// Split variant: one row per detected service with the columns
+        /// Services / Ports / Status. Rows without detected services remain a
+        /// single row.
         /// </summary>
+        /// <param name="schemaSource">The table whose columns are taken over.</param>
+        /// <param name="rows">The rows to export.</param>
+        /// <returns>A table with string columns only, without the detectedServicePorts column.</returns>
         public static DataTable BuildServiceSplitTable(DataTable schemaSource, IReadOnlyList<DataRow> rows)
         {
             DataTable expanded = schemaSource.Clone();
 
             foreach (DataColumn column in expanded.Columns)
             {
-                // Alle Spalten als Text fuehren - sonst scheitert das Setzen von
-                // "true" auf den byte[]-Statusspalten.
+                // Keep all columns as text - otherwise setting "true" on the
+                // byte[] status columns fails.
                 if (column.DataType != typeof(string)) column.DataType = typeof(string);
             }
 
@@ -101,7 +105,7 @@ namespace MyNetworkMonitor.Core.Services
                     string port = parts.Length > 1 ? parts[1].Trim() : string.Empty;
                     string status = parts.Length > 2 ? parts[2].Trim('(', ')') : string.Empty;
 
-                    // Folgezeilen eines Dienstes tragen nur den Port
+                    // Continuation lines of a service carry only the port.
                     if (string.IsNullOrWhiteSpace(service) && !string.IsNullOrWhiteSpace(port)) service = lastService;
                     else lastService = service;
 
@@ -122,10 +126,12 @@ namespace MyNetworkMonitor.Core.Services
             return expanded;
         }
 
-        /// <summary>Semikolon-getrenntes CSV in UTF-8, wie im WPF-Original.</summary>
+        /// <summary>Writes a semicolon-separated CSV file in UTF-8 with BOM.</summary>
+        /// <param name="table">The table to write.</param>
+        /// <param name="stream">The target stream; it stays open.</param>
         public static void WriteCsv(DataTable table, Stream stream)
         {
-            // leaveOpen: der Stream gehoert dem Aufrufer
+            // leaveOpen: the stream belongs to the caller.
             using var writer = new StreamWriter(stream, new UTF8Encoding(true), leaveOpen: true);
 
             writer.WriteLine(string.Join(";", table.Columns.Cast<DataColumn>().Select(c => c.ColumnName)));
@@ -155,7 +161,7 @@ namespace MyNetworkMonitor.Core.Services
             return row;
         }
 
-        /// <summary>Spalten, die im Original PNG-Bytes statt Text enthalten.</summary>
+        /// <summary>Columns that hold PNG bytes instead of text in the result table.</summary>
         private static bool IsStatusColumn(string columnName)
             => columnName.Equals("ARPStatus", StringComparison.OrdinalIgnoreCase)
             || columnName.Equals("PingStatus", StringComparison.OrdinalIgnoreCase)

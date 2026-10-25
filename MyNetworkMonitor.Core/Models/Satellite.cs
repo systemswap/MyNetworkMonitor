@@ -3,107 +3,105 @@ using CommunityToolkit.Mvvm.ComponentModel;
 namespace MyNetworkMonitor.Core.Models
 {
     /// <summary>
-    /// Ein Satellit: eine Instanz dieser Anwendung, die als Dienst in einem
-    /// anderen Netzsegment laeuft und von dort aus scannt.
+    /// A satellite: an instance of this application that runs as a service in
+    /// another network segment and scans from there.
     /// <para>
-    /// Der Entwurf steht in SATELLIT.md. Wichtig fuer das Verstaendnis dieser
-    /// Klasse: <b>der Satellit verbindet sich hierher</b>, nicht umgekehrt.
-    /// Darum stehen hier weder Adresse noch Port als Einstellung - beides ist
-    /// Beobachtung. Seine Kennung ist der Fingerabdruck seines Schluessels, und
-    /// der ueberlebt jeden Adresswechsel.
+    /// The design is described in SATELLIT.md. Key to understanding this
+    /// class: <b>the satellite connects to this installation</b>, not the other
+    /// way round. Address and port are therefore not settings here but
+    /// observations. Its identity is the fingerprint of its key, which
+    /// survives every address change.
     /// </para>
     /// <para>
-    /// Solange der Satellitenbetrieb nicht gebaut ist, entstehen Eintraege nur
-    /// von Hand: man legt den Namen an, den man spaeter vergeben will, und
-    /// kann die Bereiche schon darauf zeigen lassen.
+    /// An entry is created when a satellite with an unknown fingerprint
+    /// connects for the first time; it then waits for approval.
     /// </para>
     /// </summary>
     public partial class Satellite : ObservableObject
     {
         /// <summary>
-        /// Die unveraenderliche Kennung, auf die <c>ScanScope.ScannedBy</c>
-        /// zeigt. Wird beim Anlegen vergeben und nirgends angezeigt.
+        /// The immutable identifier that <c>ScanScope.ScannedBy</c> refers to.
+        /// Assigned on creation and never displayed.
         /// <para>
-        /// Frueher zeigte ein Bereich auf den <em>Namen</em>. Seit der Satellit
-        /// seinen Namen selbst aendern kann, waere das eine Sollbruchstelle:
-        /// eine Umbenennung liesse jede Bereichszuordnung ins Leere laufen, und
-        /// zwar stillschweigend - der Bereich wuerde einfach nicht mehr
-        /// gescannt. Der Fingerabdruck taugt dafuer auch nicht, denn er
-        /// wechselt, wenn der Satellit sich einen neuen Schluessel ausstellt.
+        /// A range must not refer to the <em>name</em>: the satellite can change
+        /// its name itself, and a rename would silently break every range
+        /// assignment - the range would simply no longer be scanned. The
+        /// fingerprint is not suitable either, because it changes when the
+        /// satellite issues itself a new key.
         /// </para>
         /// </summary>
         [ObservableProperty] private string _id = Guid.NewGuid().ToString("N");
 
         /// <summary>
-        /// Anzeigename. Frei aenderbar - die Zuordnung haengt an
-        /// <see cref="Id"/> und nicht hieran.
+        /// Display name. Freely changeable - assignments depend on
+        /// <see cref="Id"/>, not on the name.
         /// </summary>
         [ObservableProperty] private string _name = string.Empty;
 
         /// <summary>
-        /// Wozu dieser Satellit da ist - reine Gedaechtnisstuetze, etwa
-        /// "Schaltschrank IDF2, hinter der Werksfirewall".
+        /// What this satellite is for - a note only, for example
+        /// "Cabinet IDF2, behind the plant firewall".
         /// </summary>
         [ObservableProperty] private string _note = string.Empty;
 
         /// <summary>
-        /// Fingerabdruck seines Schluessels - seine eigentliche Kennung. Leer,
-        /// solange er sich noch nie gemeldet hat.
+        /// Fingerprint of its key - its actual identity. Empty as long as it
+        /// has never connected.
         /// </summary>
         [ObservableProperty] private string _fingerprint = string.Empty;
 
         /// <summary>
-        /// Vom Nutzer freigegeben. Ohne Freigabe bekommt er keine Auftraege,
-        /// auch wenn er verbunden ist - siehe SATELLIT.md, Abschnitt 4.
+        /// Approved on this installation. Without approval it receives no jobs,
+        /// even when connected - see SATELLIT.md, section 4.
         /// </summary>
         [ObservableProperty] private bool _approved;
 
-        /// <summary>Wann er sich zuletzt gemeldet hat. Nur Anzeige.</summary>
+        /// <summary>When it last reported. Display only.</summary>
         [ObservableProperty] private DateTimeOffset? _lastSeen;
 
-        /// <summary>Seine Anwendungsversion, aus der Begruessung. Nur Anzeige.</summary>
+        /// <summary>Its application version, from the greeting. Display only.</summary>
         [ObservableProperty] private string _version = string.Empty;
 
-        /// <summary>Sein Betriebssystem, aus der Begruessung. Nur Anzeige.</summary>
+        /// <summary>Its operating system, from the greeting. Display only.</summary>
         [ObservableProperty] private string _os = string.Empty;
 
-        /// <summary>Von welcher Adresse er sich zuletzt gemeldet hat. Nur Anzeige.</summary>
+        /// <summary>The address it last connected from. Display only.</summary>
         [ObservableProperty] private string _remoteAddress = string.Empty;
 
-        // --- Wo er steht, aus seiner Begruessung -----------------------------
+        // --- Its location, from its greeting -----------------------------------
         //
-        // Wird bei jeder Anmeldung ueberschrieben, nicht nur beim ersten Mal:
-        // nach einem Neustart oder einer neuen DHCP-Lease stimmt es sonst
-        // nicht mehr. Gespeichert wird es trotzdem, damit die Auswahl auch
-        // etwas zeigt, solange der Satellit gerade offline ist.
+        // Overwritten on every login, not only the first one: after a restart
+        // or a new DHCP lease it would otherwise be outdated. It is persisted
+        // anyway so that the selection shows something while the satellite is
+        // offline.
 
-        /// <summary>Sein Rechnername, wie er ihn selbst meldet.</summary>
+        /// <summary>Its computer name, as reported by itself.</summary>
         [ObservableProperty] private string _siteHostName = string.Empty;
 
-        /// <summary>Seine Domaene. Leer, wenn er keiner angehoert.</summary>
+        /// <summary>Its domain. Empty if it belongs to none.</summary>
         [ObservableProperty] private string _siteDomain = string.Empty;
 
-        /// <summary>Seine IPv4-Adressen, durch Komma getrennt.</summary>
+        /// <summary>Its IPv4 addresses, comma-separated.</summary>
         [ObservableProperty] private string _siteIpv4 = string.Empty;
 
-        /// <summary>Seine IPv6-Adressen, durch Komma getrennt.</summary>
+        /// <summary>Its IPv6 addresses, comma-separated.</summary>
         [ObservableProperty] private string _siteIpv6 = string.Empty;
 
         /// <summary>
-        /// Das Netz, das ihn am ehesten beschreibt, etwa <c>192.0.2.0/24</c>.
-        /// Steht in der Auswahl hinter dem Namen.
+        /// The network that best describes its location, for example
+        /// <c>192.0.2.0/24</c>. Shown after the name in the selection.
         /// </summary>
         [ObservableProperty] private string _siteNetwork = string.Empty;
 
-        /// <summary>Alle seine Netze, durch Komma getrennt - fuer den Tooltip.</summary>
+        /// <summary>All of its networks, comma-separated - for the tooltip.</summary>
         [ObservableProperty] private string _siteNetworks = string.Empty;
 
         /// <summary>
-        /// Wie er in der Auswahl "Scanned by satellite" steht: Name und Netz.
+        /// How it appears in the "Scanned by satellite" selection: name and
+        /// network.
         /// <para>
-        /// Ohne das Netz sieht man beim Zuweisen eines Bereichs nur einen
-        /// Namen und muss raten, ob dieser Satellit im richtigen Segment
-        /// sitzt.
+        /// Without the network, assigning a range shows only a name, leaving it
+        /// to guesswork whether this satellite sits in the right segment.
         /// </para>
         /// </summary>
         public string PickerText =>
@@ -112,108 +110,109 @@ namespace MyNetworkMonitor.Core.Models
         partial void OnNameChanged(string value) => OnPropertyChanged(nameof(PickerText));
         partial void OnSiteNetworkChanged(string value) => OnPropertyChanged(nameof(PickerText));
 
-        // --- Was er scannen soll ---------------------------------------------
+        // --- What it should scan ---------------------------------------------
 
         /// <summary>
-        /// "Nur Geraete aus der Tabelle" fuer alle Verfahren dieses Satelliten.
+        /// "Only devices from the table" for all scan methods of this satellite.
         /// </summary>
         [ObservableProperty] private bool _onlyKnownTargets;
 
         /// <summary>
-        /// Die Verfahren, die bei diesem Satelliten nur abfragen sollen, was
-        /// schon gefunden wurde - je Verfahren einzeln.
+        /// The scan methods that, on this satellite, query only what has
+        /// already been found - set per method.
         /// <para>
-        /// Wird beim Anlegen einmalig aus den Haupteinstellungen uebernommen
-        /// und ist danach unabhaengig: was ein Satellit scannen soll, haengt an
-        /// seinem Segment, nicht daran, was hier zuletzt eingestellt war. Eine
-        /// spaetere Aenderung an den Haupteinstellungen wirkt deshalb
-        /// ausdruecklich <em>nicht</em> auf bestehende Satelliten.
+        /// Copied once from the main settings when the entry is created and
+        /// independent afterwards: what a satellite should scan depends on its
+        /// segment, not on what was last configured here. A later change to the
+        /// main settings therefore deliberately does <em>not</em> affect
+        /// existing satellites.
         /// </para>
         /// </summary>
         public HashSet<string> OnlyKnownTargetsFor { get; } = new(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
-        /// Ob der DNS-Quervergleich bei diesem Satelliten nur die Geraete
-        /// prueft, die im Lauf geantwortet haben.
+        /// Whether the DNS cross-check on this satellite checks only the
+        /// devices that responded during the run.
         /// <para>
-        /// Kein Verfahren, sondern eine Unterfunktion des Namensscans - steht
-        /// aber im selben Kasten, weil sie dieselbe Frage beantwortet und
-        /// dieselbe Zeit spart. Aus heisst: auch jede alte Zeile der Tabelle
-        /// wird geprueft, und genau so findet man Namen, die noch aufloesen,
-        /// obwohl das Geraet laengst weg ist.
+        /// Not a scan method but part of the name scan - shown in the same box
+        /// because it answers the same question and saves the same time. When
+        /// off, every old row of the table is checked as well, which is how
+        /// names are found that still resolve although the device is long gone.
         /// </para>
         /// </summary>
         [ObservableProperty] private bool _crossCheckOnlyKnownTargets = true;
 
         /// <summary>
-        /// Die Verfahren, die dieser Satellit einschraenken soll - fertig fuer
-        /// den Auftragstext.
+        /// The scan methods this satellite should restrict, ready for the job
+        /// text.
         /// </summary>
+        /// <param name="restrictable">All scan methods that can be restricted.</param>
+        /// <returns>All of <paramref name="restrictable"/> if <see cref="OnlyKnownTargets"/> is set; otherwise <see cref="OnlyKnownTargetsFor"/>.</returns>
         public IEnumerable<string> EffectiveOnlyKnownFor(IEnumerable<string> restrictable) =>
             OnlyKnownTargets ? restrictable : OnlyKnownTargetsFor;
 
         /// <summary>
-        /// Ob gerade eine Verbindung besteht. Wird nicht gespeichert: nach
-        /// einem Neustart ist niemand verbunden, bis er sich wieder meldet.
+        /// Whether a connection currently exists. Not persisted: after a
+        /// restart no satellite is connected until it reports again.
         /// </summary>
         [ObservableProperty] private bool _isConnected;
 
-        // --- Laufender Auftrag, nichts davon wird gespeichert ----------------
+        // --- Running job, none of it is persisted ----------------------------
 
-        /// <summary>Kennung des laufenden Auftrags, oder leer.</summary>
+        /// <summary>Identifier of the running job, or empty.</summary>
         [ObservableProperty] private string _jobId = string.Empty;
 
-        /// <summary>0 bis 100 - damit man sieht, dass er arbeitet.</summary>
+        /// <summary>0 to 100 - shows that the satellite is working.</summary>
         [ObservableProperty] private int _progressPercent;
 
-        /// <summary>Das Verfahren, das gerade laeuft.</summary>
+        /// <summary>The scan method currently running.</summary>
         [ObservableProperty] private string _progressCurrent = string.Empty;
 
-        /// <summary>Was schon fertig ist.</summary>
+        /// <summary>The steps already completed.</summary>
         [ObservableProperty] private string _progressDone = string.Empty;
 
-        /// <summary>Was noch aussteht.</summary>
+        /// <summary>The steps still pending.</summary>
         [ObservableProperty] private string _progressPending = string.Empty;
 
-        /// <summary>Das wievielte Verfahren des Auftrags laeuft.</summary>
+        /// <summary>The position of the running scan method within the job.</summary>
         [ObservableProperty] private int _progressStep;
 
-        /// <summary>Wie viele Verfahren der Auftrag umfasst.</summary>
+        /// <summary>The number of scan methods in the job.</summary>
         [ObservableProperty] private int _progressSteps;
 
-        // --- Die drei Zahlen des laufenden Verfahrens ------------------------
+        // --- The three counters of the running scan method -------------------
 
-        /// <summary>Abgeschickte Anfragen des laufenden Verfahrens.</summary>
+        /// <summary>Requests sent by the running scan method.</summary>
         [ObservableProperty] private int _progressSent;
 
-        /// <summary>Ziele, die geantwortet haben.</summary>
+        /// <summary>Targets that have responded.</summary>
         [ObservableProperty] private int _progressAnswered;
 
-        /// <summary>Ziele des laufenden Verfahrens insgesamt.</summary>
+        /// <summary>Total targets of the running scan method.</summary>
         [ObservableProperty] private int _progressTotal;
 
         /// <summary>
-        /// Wann die letzte Fortschrittsmeldung ankam. Der Satellit meldet sich
-        /// auch dann, wenn sich nichts geaendert hat - bleibt die Zeit stehen,
-        /// haengt nicht der Scan, sondern die Verbindung.
+        /// When the last progress report arrived. The satellite reports even
+        /// when nothing has changed - if this time stops advancing, the
+        /// connection is stuck, not the scan.
         /// </summary>
         [ObservableProperty] private DateTimeOffset? _progressAt;
 
-        /// <summary>Die drei Zahlen sind erst nach der ersten Meldung zu haben.</summary>
+        /// <summary>The three counters are available only after the first report.</summary>
         public bool HasCounts => ProgressTotal > 0;
 
-        /// <summary>"3 / 12" - das wievielte Verfahren von wie vielen.</summary>
+        /// <summary>"3 / 12" - the running scan method out of how many.</summary>
         public string StepText =>
             ProgressSteps <= 0 ? string.Empty : $"{Math.Max(ProgressStep, 1)} / {ProgressSteps}";
 
         /// <summary>
-        /// Laesst die Altersangabe neu rechnen. Sie haengt an der Uhr und nicht
-        /// an einer Eigenschaft - ohne diesen Anstoss bliebe sie auf dem Wert
-        /// der letzten Meldung stehen, gerade dann, wenn keine mehr kommt.
+        /// Recomputes the age text. It depends on the clock, not on a property -
+        /// without this trigger it would stay at the value of the last report,
+        /// precisely when no more reports arrive.
         /// </summary>
         public void RefreshProgressAge() => OnPropertyChanged(nameof(ProgressAgeText));
 
-        /// <summary>Wie lange die letzte Meldung her ist - in Worten.</summary>
+        /// <summary>How long ago the last report arrived, in words.</summary>
         public string ProgressAgeText
         {
             get
@@ -230,7 +229,7 @@ namespace MyNetworkMonitor.Core.Models
             }
         }
 
-        /// <summary>Es laeuft gerade ein Auftrag.</summary>
+        /// <summary>A job is currently running.</summary>
         public bool IsBusy => !string.IsNullOrEmpty(JobId);
 
         partial void OnJobIdChanged(string value)
@@ -256,17 +255,17 @@ namespace MyNetworkMonitor.Core.Models
         partial void OnProgressAtChanged(DateTimeOffset? value) => OnPropertyChanged(nameof(ProgressAgeText));
 
         /// <summary>
-        /// Was mit diesem Eintrag gerade los ist - ein Satz fuer die Liste,
-        /// damit man den Zustand nicht aus vier Feldern zusammenreimen muss.
+        /// The current state of this entry - one sentence for the list, so the
+        /// state need not be pieced together from four fields.
         /// </summary>
         public string StatusText
         {
             get
             {
-                // Waehrend eines Auftrags dieselbe Aussage wie oertlich im
-                // Kommandobalken: welches Verfahren, wie weit, und die drei
-                // Zahlen - "Ping 40 %  ·  102 / 17 / 254". Die Prozentzahl
-                // gehoert zum laufenden Verfahren, nicht zum ganzen Auftrag.
+                // During a job the same information as the local command bar:
+                // which scan method, how far, and the three counters -
+                // "Ping 40 %  ·  102 / 17 / 254". The percentage belongs to the
+                // running scan method, not to the whole job.
                 if (IsBusy)
                 {
                     List<string> parts = [];
@@ -293,10 +292,10 @@ namespace MyNetworkMonitor.Core.Models
             }
         }
 
-        /// <summary>Er hat sich schon einmal gemeldet und traegt eine Kennung.</summary>
+        /// <summary>It has connected at least once and has an identity.</summary>
         public bool IsKnown => !string.IsNullOrWhiteSpace(Fingerprint);
 
-        /// <summary>Er wartet auf die Freigabe durch den Nutzer.</summary>
+        /// <summary>It is waiting for approval.</summary>
         public bool NeedsApproval => IsKnown && !Approved;
 
         partial void OnIsConnectedChanged(bool value) => RaiseStatus();

@@ -8,9 +8,8 @@ using MyNetworkMonitor.Core.Services;
 namespace MyNetworkMonitor.Avalonia.Platform
 {
     /// <summary>
-    /// Avalonia-Implementierung von <see cref="IDialogService"/>. Zeigt einfache
-    /// modale Dialoge asynchron über dem aktuellen Hauptfenster an – die
-    /// plattformspezifische Entsprechung zur WPF-MessageBox.
+    /// Avalonia implementation of <see cref="IDialogService"/>. Shows simple
+    /// modal message dialogs asynchronously over the current main window.
     /// </summary>
     public sealed class AvaloniaDialogService : IDialogService
     {

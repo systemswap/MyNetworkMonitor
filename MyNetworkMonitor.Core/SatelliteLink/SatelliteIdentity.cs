@@ -4,24 +4,27 @@ using System.Security.Cryptography.X509Certificates;
 namespace MyNetworkMonitor.Core.SatelliteLink
 {
     /// <summary>
-    /// Der eigene Schluessel dieser Instanz - Grundlage der Anmeldung nach
-    /// SATELLIT.md, Abschnitt 4.
+    /// The own key of this instance, the basis of authentication according to
+    /// SATELLIT.md, section 4.
     /// <para>
-    /// Er entsteht beim ersten Start von selbst und wird neben den
-    /// Einstellungen abgelegt. Genau darum muss beim Installieren nichts
-    /// hinterlegt oder kopiert werden: die Gegenstellen lernen den
-    /// Fingerabdruck ueber die Leitung kennen, und ein Mensch gibt ihn einmal
-    /// frei.
+    /// It is created automatically on first start and stored next to the
+    /// settings. That is why nothing has to be deployed or copied during
+    /// installation: peers learn the fingerprint over the connection, and it
+    /// is approved once by hand.
     /// </para>
     /// </summary>
     public static class SatelliteIdentity
     {
+        /// <summary>File name of the certificate with the private key in the settings folder.</summary>
         public const string DefaultFileName = "identity.pfx";
 
         /// <summary>
-        /// Gibt das eigene Zertifikat zurueck und legt es an, falls es noch
-        /// keines gibt.
+        /// Returns the own certificate and creates it if none exists yet.
         /// </summary>
+        /// <param name="settingsFolder">Folder that holds <see cref="DefaultFileName"/>.</param>
+        /// <param name="subjectName">Display name used as the certificate subject when a new one is created.</param>
+        /// <returns>The certificate including its private key.</returns>
+        /// <exception cref="ArgumentException"><paramref name="settingsFolder"/> is null, empty or white space.</exception>
         public static X509Certificate2 GetOrCreate(string settingsFolder, string subjectName)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(settingsFolder);
@@ -36,10 +39,9 @@ namespace MyNetworkMonitor.Core.SatelliteLink
                 }
                 catch (CryptographicException)
                 {
-                    // Unlesbar geworden - lieber ein neuer Schluessel als gar
-                    // keine Verbindung. Die Gegenstellen melden dann einen
-                    // geaenderten Fingerabdruck, und das ist die richtige
-                    // Reaktion: es *ist* ein anderer Schluessel.
+                    // Unreadable: a new key is better than no connection at
+                    // all. Peers then report a changed fingerprint, which is the
+                    // right reaction: it *is* a different key.
                     File.Delete(path);
                 }
             }
@@ -52,15 +54,15 @@ namespace MyNetworkMonitor.Core.SatelliteLink
             request.CertificateExtensions.Add(
                 new X509BasicConstraintsExtension(certificateAuthority: false, false, 0, critical: true));
 
-            // Beide Rollen: dieselbe Anwendung ist einmal Lauscher und einmal
-            // Verbinder, und beide Seiten weisen sich mit demselben Schluessel
-            // aus.
+            // Both roles (server and client authentication): the same
+            // application acts as listener and as connector, and both sides
+            // identify themselves with the same key.
             request.CertificateExtensions.Add(new X509EnhancedKeyUsageExtension(
                 [new Oid("1.3.6.1.5.5.7.3.1"), new Oid("1.3.6.1.5.5.7.3.2")], critical: false));
 
-            // Weit in die Zukunft: das Zertifikat ist kein Vertrauensanker,
-            // sondern nur Traeger des Schluessels. Vertrauen entsteht durch die
-            // Freigabe des Fingerabdrucks, nicht durch eine Laufzeit.
+            // Valid far into the future: the certificate is not a trust anchor,
+            // only the carrier of the key. Trust comes from approving the
+            // fingerprint, not from a validity period.
             using X509Certificate2 created = request.CreateSelfSigned(
                 DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddYears(20));
 
@@ -69,10 +71,9 @@ namespace MyNetworkMonitor.Core.SatelliteLink
 
             File.WriteAllBytes(path, created.Export(X509ContentType.Pfx));
 
-            // Nicht das eben erzeugte Objekt zurueckgeben, sondern das neu
-            // geladene: unter Windows braucht SslStream einen Schluessel, der
-            // aus einer PFX stammt - ein frisch erzeugter laesst sich sonst
-            // nicht zum Signieren verwenden.
+            // Returns the reloaded object, not the one just created: on Windows,
+            // SslStream needs a key that comes from a PFX; a freshly created key
+            // cannot be used for signing there.
             return Load(path);
         }
 
@@ -80,19 +81,17 @@ namespace MyNetworkMonitor.Core.SatelliteLink
             X509CertificateLoader.LoadPkcs12(File.ReadAllBytes(path), password: null, StorageFlags);
 
         /// <summary>
-        /// Wie der private Schluessel beim Laden abgelegt wird.
+        /// How the private key is stored when loading.
         /// <para>
-        /// Unter Windows ausdruecklich <b>nicht</b> <c>EphemeralKeySet</c>:
-        /// Schannel kann mit einem fluechtigen Schluessel kein Zertifikat als
-        /// Serverseite anbieten und bricht den Handschlag ab - "the platform
-        /// does not support ephemeral keys". Der Fehler faellt nur auf, wenn
-        /// wirklich eine Verbindung zustande kommen soll; er wurde beim
-        /// Gegeneinanderlaufen von Lauscher und Verbinder entdeckt.
+        /// On Windows explicitly <b>not</b> <c>EphemeralKeySet</c>: Schannel
+        /// cannot offer a certificate as the server side with an ephemeral key
+        /// and aborts the handshake with "the platform does not support
+        /// ephemeral keys". The error only shows when a connection between
+        /// listener and connector is actually established.
         /// </para>
         /// <para>
-        /// Unter Linux ist der fluechtige Schluessel dagegen der richtige Weg:
-        /// dort gibt es keinen Schluesselspeicher des Betriebssystems, in dem
-        /// etwas zurueckbliebe.
+        /// On Linux, the ephemeral key is the right choice: there is no key
+        /// store of the operating system in which anything would be left behind.
         /// </para>
         /// </summary>
         private static X509KeyStorageFlags StorageFlags =>
@@ -101,9 +100,13 @@ namespace MyNetworkMonitor.Core.SatelliteLink
                 : X509KeyStorageFlags.Exportable | X509KeyStorageFlags.EphemeralKeySet;
 
         /// <summary>
-        /// Der Fingerabdruck eines Zertifikats: SHA-256 ueber seine Rohform,
-        /// in Zweierpaaren mit Doppelpunkten - so, wie man ihn vergleicht.
+        /// The fingerprint of a certificate: SHA-256 over its raw form, as
+        /// upper-case hexadecimal without separators, the form used for
+        /// comparison. <see cref="ForDisplay"/> formats it for display.
         /// </summary>
+        /// <param name="certificate">The certificate.</param>
+        /// <returns>64 hexadecimal characters.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="certificate"/> is null.</exception>
         public static string Fingerprint(X509Certificate2 certificate)
         {
             ArgumentNullException.ThrowIfNull(certificate);
@@ -112,7 +115,9 @@ namespace MyNetworkMonitor.Core.SatelliteLink
             return Convert.ToHexString(hash);
         }
 
-        /// <summary>Fuer die Anzeige: in Zweierpaaren, mit Doppelpunkten.</summary>
+        /// <summary>Formats a fingerprint for display: in pairs, separated by colons.</summary>
+        /// <param name="fingerprint">Fingerprint as returned by <see cref="Fingerprint"/>.</param>
+        /// <returns>For example <c>AB:CD:…</c>, or an empty string for an empty input.</returns>
         public static string ForDisplay(string fingerprint) =>
             string.IsNullOrEmpty(fingerprint)
                 ? string.Empty
@@ -120,9 +125,8 @@ namespace MyNetworkMonitor.Core.SatelliteLink
                                              .Select(i => fingerprint.Substring(i * 2, 2)));
 
         /// <summary>
-        /// Macht aus einem Anzeigenamen etwas, das als Zertifikatsname
-        /// durchgeht - Kommas und Gleichheitszeichen wuerden den Namen sonst
-        /// zerlegen.
+        /// Turns a display name into something acceptable as a certificate
+        /// subject; commas and equals signs would otherwise split the name.
         /// </summary>
         private static string Sanitize(string name)
         {

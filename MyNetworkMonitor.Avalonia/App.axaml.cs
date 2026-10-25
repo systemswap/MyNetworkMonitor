@@ -12,6 +12,7 @@ using MyNetworkMonitor.Core.Services;
 
 namespace MyNetworkMonitor.Avalonia;
 
+/// <summary>The Avalonia application: registers the platform providers and chooses the start window.</summary>
 public partial class App : Application
 {
     public override void Initialize()
@@ -21,17 +22,16 @@ public partial class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
-        // Plattform-Implementierungen fuer die neutrale Scan-Engine in Core.
-        // Die Liste steht in PlatformRegistration, weil der Satellitendienst
-        // dieselbe braucht und ohne Avalonia laeuft.
+        // Platform implementations for the neutral scan engine in Core.
+        // The list lives in PlatformRegistration because the satellite service
+        // needs the same list and runs without Avalonia.
         PlatformRegistration.RegisterAll();
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            // Der Lizenzhinweis: siehe NoticeSuspended. --notice fordert ihn
-            // einzeln an, --no-notice unterdrueckt ihn fuer einen Lauf ohne
-            // Aufsicht; eine Instanz mit eigenem Zustandsordner (Testinstanz)
-            // bekommt ihn ebenfalls nicht.
+            // The license notice: see NoticeSuspended. --notice forces it,
+            // --no-notice suppresses it for an unattended run; an instance with
+            // its own state folder (test instance) does not show it either.
             bool forced = desktop.Args?.Any(a =>
                 string.Equals(a, "--notice", StringComparison.OrdinalIgnoreCase)) == true;
 
@@ -46,36 +46,36 @@ public partial class App : Application
     }
 
     /// <summary>
-    /// Der Lizenzhinweis im Firmennetz ist wieder <b>eingeschaltet</b>: wird ein
-    /// Firmennetz erkannt, steht er als Startfenster vor der Hauptoberflaeche.
+    /// Whether the license notice in a company network is suspended. With
+    /// <c>false</c> the notice is <b>active</b>: when a company network is
+    /// detected, it is shown as the start window before the main window.
     /// <para>
-    /// <b>Zum Abschalten genuegt es, hier auf <c>true</c> zu setzen.</b> Am
-    /// Hinweis selbst (<c>EnterpriseMessageView</c>) und an der Erkennung des
-    /// Firmennetzes muss dafuer nichts geaendert werden.
+    /// <b>Setting this to <c>true</c> is enough to switch it off.</b> Neither
+    /// the notice itself (<c>EnterpriseMessageView</c>) nor the company network
+    /// detection needs to change for that.
     /// </para>
     /// <para>
-    /// Zu bedenken beim Einschalten: der Hinweis ist das Startfenster, und
-    /// solange er offen ist, existiert die Hauptoberflaeche noch gar nicht -
-    /// jeder Start ohne Mausklick bleibt daran haengen. Fuer unbeaufsichtigte
-    /// Laeufe gibt es deshalb <c>--no-notice</c>.
+    /// While active, the notice is the start window, and as long as it is open
+    /// the main window does not exist yet: every start without a mouse click
+    /// stops there. Unattended runs therefore use <c>--no-notice</c>.
     /// </para>
     /// </summary>
     private const bool NoticeSuspended = false;
 
-    /// <summary>Der Lizenzhinweis wird uebersprungen - siehe oben.</summary>
+    /// <summary>Whether the license notice is skipped, see <see cref="NoticeSuspended"/>.</summary>
     private static bool SkipEnterpriseNotice { get; set; }
 
     private static global::Avalonia.Controls.Window CreateMainWindow() => new ShellView();
 
     /// <summary>
-    /// Im Firmennetz steht der Lizenzhinweis vor dem Hauptfenster: erst ein Klick
-    /// auf OK gibt es frei, jeder andere Weg (X, Alt+F4) beendet die Anwendung.
+    /// In a company network the license notice comes before the main window:
+    /// only a click on OK releases it, any other way (X, Alt+F4) exits the
+    /// application.
     ///
-    /// WPF erreicht das mit ShowDialog() im Konstruktor des MainWindow, wo das
-    /// Hauptfenster noch nicht existiert. In Avalonia gibt es diesen Moment nicht
-    /// - ein modaler Dialog braucht ein Besitzerfenster. Deshalb ist der Hinweis
-    /// hier selbst das Startfenster und erzeugt das Hauptfenster erst, wenn er
-    /// bestaetigt wurde.
+    /// A modal dialog in Avalonia needs an owner window, and the main window
+    /// must not exist before the notice is confirmed. The notice is therefore
+    /// the start window itself and creates the main window only after it has
+    /// been confirmed.
     /// </summary>
     private static global::Avalonia.Controls.Window CreateStartWindow(IClassicDesktopStyleApplicationLifetime desktop)
     {
@@ -89,7 +89,7 @@ public partial class App : Application
         }
         catch (Exception)
         {
-            // Eine fehlgeschlagene Erkennung darf den Start nie verhindern
+            // A failed detection must never prevent the start.
             isCompanyNetwork = false;
         }
 
@@ -99,18 +99,17 @@ public partial class App : Application
 
         notice.Accepted += () =>
         {
-            // Der try ist hier kein Zierrat. Schlaegt das Erzeugen des
-            // Hauptfensters fehl, wird es nie gezeigt - der Hinweis schliesst
-            // sich trotzdem, es bleibt kein Fenster offen, und die
-            // Standardregel (OnLastWindowClose) beendet die Anwendung. Fuer den
-            // Nutzer sieht das aus, als beende ein Klick auf OK das Programm,
-            // und zwar ohne jede Meldung.
+            // The try is required. If creating the main window fails, it is
+            // never shown; the notice closes anyway, no window is left open,
+            // and the default shutdown mode (OnLastWindowClose) exits the
+            // application. It would look as if clicking OK quits the program,
+            // without any message.
             try
             {
                 var mainWindow = CreateMainWindow();
 
-                // MainWindow umhaengen, damit spaetere Dialoge das richtige
-                // Besitzerfenster finden (AvaloniaDialogService liest es aus).
+                // Reassigns MainWindow so that later dialogs find the right
+                // owner window (AvaloniaDialogService reads it).
                 desktop.MainWindow = mainWindow;
                 mainWindow.Show();
             }
@@ -124,12 +123,12 @@ public partial class App : Application
     }
 
     /// <summary>
-    /// Zeigt, woran der Start gescheitert ist - in einem eigenen Fenster, weil
-    /// es zu diesem Zeitpunkt kein anderes mehr gibt.
+    /// Shows why the start failed, in a window of its own, because at this point
+    /// no other window exists.
     /// <para>
-    /// Ohne dieses Fenster verschwindet die Anwendung wortlos, und der Fehler
-    /// ist nur noch auf der Konsole zu sehen - die beim Doppelklick niemand
-    /// offen hat. Der Text ist markierbar, damit er sich weiterreichen laesst.
+    /// Without this window the application disappears silently, and the error
+    /// is visible only on the console, which is not open when started by
+    /// double-click. The text is selectable so that it can be passed on.
     /// </para>
     /// </summary>
     private static void ShowStartupFailure(IClassicDesktopStyleApplicationLifetime desktop, Exception error)

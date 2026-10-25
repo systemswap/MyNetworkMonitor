@@ -1,17 +1,16 @@
 namespace MyNetworkMonitor.Core.SatelliteLink
 {
     /// <summary>
-    /// Der laufende Auftrag eines Satelliten - genau einer, ueber alle
-    /// Empfaenger hinweg.
+    /// The running job of a satellite: exactly one, across all main scanners.
     /// <para>
-    /// Gemeinsam und nicht je Verbindung, weil beides davon abhaengt: ein
-    /// Satellit nimmt nur einen Auftrag zur Zeit an (sonst scannte er dasselbe
-    /// Segment doppelt und kaeme sich mit den eigenen Paketen ins Gehege), und
-    /// die Frage "darf der hier abbrechen" laesst sich nur beantworten, wenn
-    /// man weiss, wer ihn gestartet hat.
+    /// Shared rather than per connection because two things depend on it: a
+    /// satellite accepts only one job at a time (otherwise it would scan the
+    /// same segment twice and its own packets would interfere), and the
+    /// question "may this one cancel" can only be answered when it is known who
+    /// started the job.
     /// </para>
     /// <para>
-    /// Siehe SATELLIT.md, Abschnitte 1 und 3.
+    /// See SATELLIT.md, sections 1 and 3.
     /// </para>
     /// </summary>
     public sealed class SatelliteJobHost
@@ -23,32 +22,35 @@ namespace MyNetworkMonitor.Core.SatelliteLink
         private string? _owner;
 
         /// <summary>
-        /// Ob jeder freigegebene Empfaenger abbrechen darf, nicht nur der
-        /// Auftraggeber.
+        /// Whether every approved main scanner may cancel, not only the one
+        /// that started the job.
         /// <para>
-        /// Vorgabe an: ein haengender Auftrag sperrt den Satelliten fuer alle,
-        /// und wer gerade davorsitzt, soll ihn freibekommen, ohne den
-        /// Auftraggeber suchen zu muessen.
+        /// On by default: a hanging job blocks the satellite for everyone, and
+        /// whoever is at a main scanner should be able to release it without
+        /// tracking down the one that started it.
         /// </para>
         /// </summary>
         public bool AllowCancelFromAnyReceiver { get; set; } = true;
 
-        /// <summary>Kennung des laufenden Auftrags, oder <c>null</c>.</summary>
+        /// <summary>Identifier of the running job, or <c>null</c>.</summary>
         public string? CurrentJobId
         {
             get { lock (_sync) return _jobId; }
         }
 
-        /// <summary>Wer ihn gestartet hat, oder <c>null</c>.</summary>
+        /// <summary>The main scanner that started it, or <c>null</c>.</summary>
         public string? Owner
         {
             get { lock (_sync) return _owner; }
         }
 
         /// <summary>
-        /// Nimmt einen Auftrag an, wenn keiner laeuft. Gibt die Abbruchquelle
-        /// zurueck, oder <c>null</c>, wenn schon einer laeuft.
+        /// Accepts a job if none is running.
         /// </summary>
+        /// <param name="jobId">Identifier of the new job.</param>
+        /// <param name="owner">The main scanner that starts it.</param>
+        /// <param name="linked">Token the job's cancellation source is linked to.</param>
+        /// <returns>The cancellation source of the job, or <c>null</c> if a job is already running.</returns>
         public CancellationTokenSource? TryStart(string jobId, string owner, CancellationToken linked)
         {
             lock (_sync)
@@ -64,15 +66,16 @@ namespace MyNetworkMonitor.Core.SatelliteLink
         }
 
         /// <summary>
-        /// Bricht ab, wenn der Anfragende das darf.
+        /// Cancels if the requester is allowed to.
         /// </summary>
         /// <param name="jobId">
-        /// Die gemeinte Auftragskennung, oder <c>null</c> fuer "was auch immer
-        /// gerade laeuft" - fuer den Fall, dass etwas haengt und niemand mehr
-        /// weiss, wie der Auftrag hiess.
+        /// The intended job identifier, or <c>null</c> for "whatever is running
+        /// right now", for the case that something hangs and the job identifier
+        /// is no longer known.
         /// </param>
-        /// <param name="requester">Wer abbrechen will.</param>
-        /// <param name="reason">Warum es nicht ging, falls es nicht ging.</param>
+        /// <param name="requester">The main scanner that wants to cancel.</param>
+        /// <param name="reason">Why cancelling was refused; empty on success.</param>
+        /// <returns>True if cancellation was requested.</returns>
         public bool TryCancel(string? jobId, string requester, out string reason)
         {
             lock (_sync)
@@ -105,13 +108,14 @@ namespace MyNetworkMonitor.Core.SatelliteLink
         }
 
         /// <summary>
-        /// Bricht ab, was gerade laeuft - ohne zu fragen, wer es gestartet hat.
+        /// Cancels whatever is running, regardless of who started it.
         /// <para>
-        /// Fuer den Stopp-Knopf am Satelliten selbst. Wer vor dem Geraet sitzt,
-        /// darf es immer anhalten; <see cref="AllowCancelFromAnyReceiver"/>
-        /// regelt nur, wer das aus der Ferne darf.
+        /// For the stop button on the satellite itself. Local operation may
+        /// always stop it; <see cref="AllowCancelFromAnyReceiver"/> only governs
+        /// who may do so remotely.
         /// </para>
         /// </summary>
+        /// <returns>True if a job was running.</returns>
         public bool CancelCurrent()
         {
             lock (_sync)
@@ -123,7 +127,8 @@ namespace MyNetworkMonitor.Core.SatelliteLink
             }
         }
 
-        /// <summary>Meldet, dass der Auftrag durch ist - egal wie.</summary>
+        /// <summary>Reports that the job has ended, however it ended.</summary>
+        /// <param name="jobId">The job that ended; other identifiers are ignored.</param>
         public void Finish(string jobId)
         {
             lock (_sync)

@@ -5,35 +5,36 @@ using System.Net.Sockets;
 namespace MyNetworkMonitor.Core.Network
 {
     /// <summary>
-    /// Eine Adresse dieses Rechners samt dem Netz, in dem sie steht.
+    /// An address of this machine together with the network it belongs to.
     /// </summary>
     public sealed class SiteAddress
     {
+        /// <summary>The address as text.</summary>
         public required string Address { get; init; }
 
-        /// <summary>Praefixlaenge, etwa 24 fuer eine Maske 255.255.255.0.</summary>
+        /// <summary>Prefix length, for example 24 for a mask of 255.255.255.0.</summary>
         public required int PrefixLength { get; init; }
 
         /// <summary>
-        /// Ob der Adapter dieser Adresse ein Standardgateway hat.
+        /// Whether the adapter of this address has a default gateway.
         /// <para>
-        /// Das unterscheidet die Karte am echten Netz von den virtuellen
-        /// Adaptern, die Hyper-V, WSL, Docker und VPN-Clients anlegen. Die
-        /// tragen ebenfalls eine Adresse und stehen ebenfalls auf "up", taugen
-        /// als Standortangabe aber nichts.
+        /// This distinguishes the card on the real network from the virtual
+        /// adapters created by Hyper-V, WSL, Docker and VPN clients. These also
+        /// carry an address and are also "up", but are useless as a location.
         /// </para>
         /// </summary>
         public required bool HasGateway { get; init; }
 
+        /// <summary>Whether the address is IPv4 (otherwise IPv6).</summary>
         public required bool IsIpv4 { get; init; }
 
-        /// <summary>Der Adaptername - fuer die Anzeige, wenn mehrere in Frage kommen.</summary>
+        /// <summary>The adapter name - for display when several are candidates.</summary>
         public string AdapterName { get; init; } = string.Empty;
 
         /// <summary>
-        /// Das Netz in CIDR-Schreibweise, etwa <c>192.0.2.0/24</c>. Genau das
-        /// braucht man drueben, um zu sehen, welcher Satellit fuer einen
-        /// Bereich zustaendig ist.
+        /// The network in CIDR notation, for example <c>192.0.2.0/24</c>. Exactly
+        /// what the main scanner needs to see which satellite is responsible
+        /// for a range.
         /// </summary>
         public string Network => SiteInfo.ToCidr(Address, PrefixLength);
 
@@ -41,45 +42,52 @@ namespace MyNetworkMonitor.Core.Network
     }
 
     /// <summary>
-    /// Wer dieser Rechner ist und in welchen Netzen er steht.
+    /// Who this machine is and which networks it belongs to.
     /// <para>
-    /// Der Satellit schickt das bei jeder Anmeldung mit. Ohne diese Angaben
-    /// weiss am Hauptscanner niemand, in welchem Segment ein Satellit
-    /// eigentlich sitzt - man saehe nur einen Namen und muesste raten, ob er
-    /// fuer einen Bereich der richtige ist.
+    /// The satellite sends this with every registration. Without this
+    /// information, the main scanner cannot tell which segment a satellite
+    /// actually sits in - it would only show a name, leaving it to guess
+    /// whether the satellite is the right one for a range.
     /// </para>
     /// </summary>
     public sealed class SiteInfo
     {
+        /// <summary>The machine name.</summary>
         public string HostName { get; init; } = string.Empty;
 
-        /// <summary>Die Domaene dieses Rechners. Leer, wenn er keiner angehoert.</summary>
+        /// <summary>The domain of this machine. Empty if it belongs to none.</summary>
         public string Domain { get; init; } = string.Empty;
 
+        /// <summary>The usable addresses, adapters with gateway first, IPv4 before IPv6.</summary>
         public IReadOnlyList<SiteAddress> Addresses { get; init; } = [];
 
+        /// <summary>The IPv4 addresses.</summary>
         public IEnumerable<SiteAddress> Ipv4 => Addresses.Where(a => a.IsIpv4);
+        /// <summary>The IPv6 addresses.</summary>
         public IEnumerable<SiteAddress> Ipv6 => Addresses.Where(a => !a.IsIpv4);
 
+        /// <summary>The IPv4 addresses as one comma-separated line; "-" if none.</summary>
         public string Ipv4Text => Join(Ipv4.Select(a => a.Address));
+        /// <summary>The IPv6 addresses as one comma-separated line; "-" if none.</summary>
         public string Ipv6Text => Join(Ipv6.Select(a => a.Address));
 
         /// <summary>
-        /// Das Netz, das diesen Rechner am ehesten beschreibt: das erste
-        /// IPv4-Netz eines Adapters mit Gateway. Genau dieses steht in der
-        /// Auswahl hinter dem Namen des Satelliten.
+        /// The network that best describes this machine: the first IPv4 network
+        /// of an adapter with a gateway. Exactly this one appears in the
+        /// selection after the satellite's name.
         /// </summary>
         public string PrimaryNetwork =>
             Ipv4.FirstOrDefault(a => a.HasGateway)?.Network
             ?? Ipv4.FirstOrDefault()?.Network
             ?? string.Empty;
 
-        /// <summary>Alle Netze, ohne Doppelte - fuer Tooltip und Maske.</summary>
+        /// <summary>All networks, without duplicates - for tooltip and form.</summary>
         public IReadOnlyList<string> Networks =>
             [.. Addresses.Select(a => a.Network)
                         .Where(n => n.Length > 0)
                         .Distinct(StringComparer.OrdinalIgnoreCase)];
 
+        /// <summary>All networks as one comma-separated line; "-" if none.</summary>
         public string NetworksText => Join(Networks);
 
         private static string Join(IEnumerable<string> values)
@@ -89,13 +97,14 @@ namespace MyNetworkMonitor.Core.Network
         }
 
         /// <summary>
-        /// Liest Name, Domaene und Adressen dieses Rechners.
+        /// Reads name, domain and addresses of this machine.
         /// <para>
-        /// Loopback und link-lokale Adressen bleiben draussen: aus einem
-        /// anderen Segment sind sie nie erreichbar, und als Standortangabe
-        /// waeren sie schlicht falsch.
+        /// Loopback and link-local addresses are excluded: they are never
+        /// reachable from another segment, and as a location they would simply
+        /// be wrong.
         /// </para>
         /// </summary>
+        /// <returns>The site information; empty lists if the adapters cannot be read.</returns>
         public static SiteInfo Read()
         {
             string domain;
@@ -124,8 +133,8 @@ namespace MyNetworkMonitor.Core.Network
                     }
                     catch (NetworkInformationException)
                     {
-                        // Ein Adapter kann zwischen Aufzaehlung und Abfrage
-                        // verschwinden - VPN-Clients tun das staendig.
+                        // An adapter can disappear between enumeration and
+                        // query - VPN clients do that constantly.
                         continue;
                     }
 
@@ -152,12 +161,12 @@ namespace MyNetworkMonitor.Core.Network
             }
             catch (Exception)
             {
-                // Ohne Adapterliste bleibt die Aufstellung leer - das ist eine
-                // Auskunft und darf nichts zum Scheitern bringen.
+                // Without an adapter list the overview stays empty - it is
+                // informational and must not cause anything to fail.
             }
 
-            // Adapter mit Gateway zuerst, IPv4 vor IPv6: was oben steht, ist
-            // das, was drueben in der Auswahl landet.
+            // Adapters with gateway first, IPv4 before IPv6: what comes first
+            // is what ends up in the selection on the main scanner.
             return new SiteInfo
             {
                 HostName = Environment.MachineName,
@@ -170,8 +179,8 @@ namespace MyNetworkMonitor.Core.Network
         }
 
         /// <summary>
-        /// Ob eine Adresse als Standortangabe taugt. Loopback und link-lokal
-        /// nicht - aus einem anderen Segment kommt dort niemand an.
+        /// Whether an address is suitable as a location. Not loopback and not
+        /// link-local - nobody from another segment arrives there.
         /// </summary>
         private static bool IsUsable(IPAddress ip)
         {
@@ -187,9 +196,9 @@ namespace MyNetworkMonitor.Core.Network
         }
 
         /// <summary>
-        /// Die Praefixlaenge. Unter Linux wirft die Abfrage bei manchen
-        /// Adaptern, statt eine Antwort zu verweigern - dann wird auf die
-        /// ueblichen Werte zurueckgefallen, damit wenigstens etwas dasteht.
+        /// The prefix length. On Linux the query throws for some adapters
+        /// instead of declining to answer - then the usual values are used as
+        /// fallback so that at least something is shown.
         /// </summary>
         private static int PrefixOf(UnicastIPAddressInformation unicast, IPAddress ip)
         {
@@ -207,9 +216,12 @@ namespace MyNetworkMonitor.Core.Network
             address.Equals(IPAddress.Any) || address.Equals(IPAddress.IPv6Any);
 
         /// <summary>
-        /// Rechnet Adresse und Praefixlaenge in die Netzschreibweise um, also
-        /// <c>192.0.2.22</c> mit 24 zu <c>192.0.2.0/24</c>.
+        /// Converts address and prefix length into network notation, that is
+        /// <c>192.0.2.22</c> with 24 to <c>192.0.2.0/24</c>.
         /// </summary>
+        /// <param name="address">The address as text.</param>
+        /// <param name="prefixLength">The prefix length in bits.</param>
+        /// <returns>The network in CIDR notation, or empty if the input is invalid.</returns>
         public static string ToCidr(string address, int prefixLength)
         {
             if (!IPAddress.TryParse(address, out IPAddress? ip)) return string.Empty;
@@ -219,7 +231,7 @@ namespace MyNetworkMonitor.Core.Network
 
             if (prefixLength < 0 || prefixLength > bits) return string.Empty;
 
-            // Alles hinter dem Praefix auf null: uebrig bleibt die Netzadresse.
+            // Clear everything after the prefix: what remains is the network address.
             for (int i = 0; i < bytes.Length; i++)
             {
                 int keep = prefixLength - (i * 8);

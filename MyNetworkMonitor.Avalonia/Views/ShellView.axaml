@@ -13,24 +13,23 @@
         FontFamily="Segoe UI" FontSize="12">
 
   <!--
-      Die neue Oberflaeche nach dem abgestimmten Entwurf.
+      Main window.
 
-      Aufbau: Kommandobalken oben ueber allem, Navigationsleiste links,
-      Arbeitsbereich aus Tabelle und Detailpanel, Statusleiste unten. Die
-      Verfahren-Schublade klappt unter dem Kommandobalken auf, statt eine
-      eigene Seite zu sein - so bleibt der haeufigste Ablauf ein Klick.
+      Structure: command bar on top of everything, navigation rail on the left,
+      workspace with table and detail panel, status bar at the bottom. The method
+      drawer opens below the command bar instead of being a page of its own, so
+      the most frequent workflow stays one click.
 
-      Farbe traegt Bedeutung: Tuerkis steht fuer IPv4 und ist zugleich die
-      Produktfarbe, Indigo durchgehend fuer IPv6. Man erkennt am Farbton,
-      welche Protokollwelt man ansieht, ohne ein Label zu lesen.
+      Color carries meaning: teal stands for IPv4 and is also the product color,
+      indigo consistently for IPv6. The hue tells which protocol world is on
+      screen without reading a label.
 
-      Die kompakten Steuerelementmasse aus dem bisherigen Fenster bleiben:
-      Fluent dimensioniert deutlich groesser (MinHeight 32, FontSize 14), was
-      hier ueberall zurueckgesetzt wird.
+      Controls keep compact dimensions: Fluent sizes them considerably larger
+      (MinHeight 32, FontSize 14), which is reset throughout this file.
   -->
 
   <Window.Resources>
-    <!-- Grundfarben -->
+    <!-- Base colors -->
     <SolidColorBrush x:Key="Chrome"      Color="#17272B"/>
     <SolidColorBrush x:Key="Chrome2"     Color="#1F343A"/>
     <SolidColorBrush x:Key="Rail"        Color="#121E21"/>
@@ -44,7 +43,7 @@
     <SolidColorBrush x:Key="Dim"         Color="#6C8085"/>
     <SolidColorBrush x:Key="Dimmer"      Color="#93A5A9"/>
 
-    <!-- Bedeutungstragende Farben -->
+    <!-- Colors that carry meaning -->
     <SolidColorBrush x:Key="Teal"        Color="#0B7C8B"/>
     <SolidColorBrush x:Key="TealSoft"    Color="#DDEFF1"/>
     <SolidColorBrush x:Key="V6"          Color="#5A4FCF"/>
@@ -55,7 +54,7 @@
     <SolidColorBrush x:Key="Crit"        Color="#AF382F"/>
     <SolidColorBrush x:Key="CritSoft"    Color="#FADEDB"/>
 
-    <!-- Konverter: sie tragen die Farbregel des Entwurfs -->
+    <!-- Converters: they implement the color rule of the design -->
     <conv:OnlineBrushConverter x:Key="OnlineBrush"/>
     <conv:Ipv4BrushConverter x:Key="V4Brush"/>
     <conv:Ipv6BrushConverter x:Key="V6Brush"/>
@@ -74,22 +73,23 @@
     <conv:SeverityForegroundConverter x:Key="SeverityFg"/>
 
     <!--
-        Die gewaehlte Zeile der Satellitenliste, blau wie nach einem Klick.
+        The selected row of the satellite list, blue as after a click.
 
-        Fluent kennt vier Zustaende einer gewaehlten Zeile und faerbt sie
-        unterschiedlich, je nachdem ob die Tabelle den Eingabefokus hat:
-        ohne Fokus bleibt ein blasses Grau. Genau das trifft hier zu, denn der
-        erste Satellit wird angewaehlt, ohne dass jemand hineingeklickt haette.
-        Alle vier Zustaende bekommen darum dieselbe Farbe.
+        Fluent knows four states of a selected row and colors them differently
+        depending on whether the table has input focus: without focus, the
+        selection stays a barely visible grey. That is the case here, because the
+        first satellite is selected without anyone clicking into the list, while
+        its data already shows on the right. All four states therefore get the
+        same color. Only this list, not the results table: that one selects
+        through its checkboxes and has nothing to do with row selection.
 
-        Als RowTheme und nicht als Style im Fenster: die Zeilen entstehen
-        innerhalb der Vorlage des DataGrid. Ein Selektor von aussen
-        ("DataGrid.satlist DataGridRow:selected") trifft sie deshalb nicht -
-        Nachfahren einer Vorlage sind von aussen nur ueber /template/
-        erreichbar, und das endet an der Grenze der naechsten Vorlage. Der
-        vorgesehene Weg dafuer ist DataGrid.RowTheme: ein eigenes Thema fuer
-        die Zeilen genau dieser Tabelle, aufgesetzt auf das vorhandene, damit
-        alles Uebrige bleibt, wie es ist.
+        A RowTheme and not a style in the window: the rows are created inside the
+        DataGrid template. An outside selector ("DataGrid.satlist
+        DataGridRow:selected") therefore does not reach them; descendants of a
+        template are reachable from outside only through /template/, which ends at
+        the boundary of the next template. The intended way is DataGrid.RowTheme:
+        a theme of its own for the rows of exactly this table, based on the
+        existing one so that everything else stays as it is.
     -->
     <ControlTheme x:Key="SatelliteRowTheme" TargetType="DataGridRow"
                   BasedOn="{StaticResource {x:Type DataGridRow}}">
@@ -113,7 +113,7 @@
   </Window.Resources>
 
   <Window.Styles>
-    <!-- Kompakte Masse: Fluent klemmt sonst alles auf MinHeight 32 hoch. -->
+    <!-- Compact dimensions: Fluent otherwise forces everything up to MinHeight 32. -->
     <Style Selector="TextBox">
       <Setter Property="MinHeight" Value="0"/>
       <Setter Property="Padding" Value="6,2"/>
@@ -123,22 +123,20 @@
     </Style>
 
     <!--
-        Die feste Hoehe oben trifft jedes TextBox - auch das, das im
-        NumericUpDown steckt. Dort schneidet sie die Ziffern oben und unten ab,
-        weil das Steuerelement seine eigene Umrandung und die beiden
-        Pfeilknoepfe darauf setzt und dem Feld darin weniger uebrig bleibt als
-        die 22 Punkte. Fuer diesen Fall die Hoehe wieder freigeben und sie am
-        NumericUpDown selbst setzen.
+        The fixed height above applies to every TextBox, including the one inside
+        NumericUpDown. There it cuts off the digits at the top and bottom, because
+        the control adds its own border and the two spin buttons, leaving the
+        field less than the 22 points. For this case the height is released again
+        and set on the NumericUpDown itself.
     -->
     <!--
-        Die Reiter der Satellitenansicht - dieselbe Sprache wie die
-        Navigationsleiste links: dunkler Grund, gedaempfte Schrift, und die
-        Auswahl traegt den tuerkisen Strich der Marke.
+        The tabs of the satellite view use the same language as the navigation
+        rail on the left: dark background, muted text, and the selection carries
+        the teal accent stroke.
 
-        Mit eigener Vorlage statt nur ein paar Settern: Fluent zeichnet unter
-        dem gewaehlten Reiter eine blaue Markierung (den "Pipe"), die sich
-        ueber Eigenschaften nicht zuverlaessig wegbekommen laesst. Die Vorlage
-        hat sie gar nicht erst.
+        A template of its own instead of a few setters: Fluent draws a blue marker
+        (the "pipe") below the selected tab that cannot be removed reliably
+        through properties. This template does not have it at all.
     -->
     <Style Selector="TabItem">
       <Setter Property="FontSize" Value="12"/>
@@ -214,15 +212,14 @@
     </Style>
 
     <!--
-        Die Fluent-Vorlage deckelt jedes Ausklappmenue auf eine feste Breite
-        und steckt seinen Inhalt in einen ScrollViewer. Ein Menue, das breiter
-        sein will, waechst darum nicht - es bekommt einen Bildlaufbalken, und
-        was rechts steht, verschwindet. Genau das traf die Bereichsauswahl:
-        die Spalte "Description" war abgeschnitten und die Knoepfe oben rechts
-        gar nicht zu sehen.
+        The Fluent template caps every flyout menu at a fixed width and puts its
+        content into a ScrollViewer. A menu that wants to be wider therefore does
+        not grow; it gets a scroll bar, and whatever is on the right disappears.
+        In the range selection this cuts off the "Description" column and hides
+        the buttons at the top right.
 
-        Die Grenze wird hier aufgehoben; die Menues setzen sich ihre eigene
-        ueber MaxWidth, damit sie das Fenster nicht verlassen.
+        The limit is lifted here; the menus set their own through MaxWidth so that
+        they do not leave the window.
     -->
     <Style Selector="FlyoutPresenter">
       <Setter Property="MaxWidth" Value="4000"/>
@@ -242,7 +239,7 @@
       <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
 
-    <!-- Kommandobalken: dunkle Schaltflaechen -->
+    <!-- Command bar: dark buttons -->
     <Style Selector="Button.cmd">
       <Setter Property="Background" Value="#29424A"/>
       <Setter Property="Foreground" Value="#DCE9EB"/>
@@ -255,11 +252,11 @@
     </Style>
 
     <!--
-        Der Spendenknopf im Gold von PayPal (#FFC439), als Glasknopf: der harte
-        Farbsprung in der Mitte macht den Glanz - obere Haelfte hell, untere
-        dunkler und nach unten wieder aufhellend, wie eine gewoelbte Flaeche.
-        Schrift schwarz, das Herz rot; beides steht als eigener Run in der
-        Beschriftung, weil ein Knopf nur eine Schriftfarbe kennt.
+        The donate button in PayPal gold (#FFC439), as a glass button: the hard
+        color step in the middle creates the gloss, with the upper half light and
+        the lower half darker and lightening again towards the bottom, like a
+        curved surface. Text black, the heart red; both are separate TextBlocks in
+        the label, because a button has only one text color.
     -->
     <Style Selector="Button.donate">
       <Setter Property="Foreground" Value="Black"/>
@@ -299,9 +296,9 @@
     </Style>
 
     <!--
-        Eine Schaltflaeche, die wie die ComboBox daneben aussieht. Noetig, weil
-        die Bereichsauswahl mehrere Haken zugleich haelt und beim Anhaken offen
-        bleiben muss - eine echte ComboBox schliesst sich beim ersten Klick.
+        A button that looks like the ComboBox next to it. Required because the
+        range selection holds several checkmarks at once and must stay open while
+        checking; a real ComboBox closes on the first click.
     -->
     <Style Selector="Button.combo">
       <Setter Property="Background" Value="#233A41"/>
@@ -340,7 +337,7 @@
       <Setter Property="Foreground" Value="White"/>
     </Style>
 
-    <!-- Beschriftungen im Kommandobalken -->
+    <!-- Labels in the command bar -->
     <Style Selector="TextBlock.cmdLabel">
       <Setter Property="Foreground" Value="#7E979C"/>
       <Setter Property="FontSize" Value="10"/>
@@ -348,7 +345,7 @@
       <Setter Property="Margin" Value="6,0,2,0"/>
     </Style>
 
-    <!-- Navigationsleiste -->
+    <!-- Navigation rail -->
     <Style Selector="RadioButton.nav">
       <Setter Property="Foreground" Value="#8DA5AA"/>
       <Setter Property="FontSize" Value="12"/>
@@ -383,7 +380,7 @@
       <Setter Property="Margin" Value="12,10,0,3"/>
     </Style>
 
-    <!-- Ergebnistabelle: WPF-nahe Zeilenhoehe statt Fluent-Grosszuegigkeit -->
+    <!-- Results table: compact row height instead of the generous Fluent spacing -->
     <Style Selector="DataGrid">
       <Setter Property="Background" Value="White"/>
       <Setter Property="BorderThickness" Value="0"/>
@@ -401,20 +398,9 @@
       <Setter Property="FontSize" Value="11.5"/>
     </Style>
 
-    <!--
-        Die gewaehlte Zeile der Satellitenliste, blau wie nach einem Klick.
-
-        Fluent faerbt eine Auswahl nur kraeftig, solange die Tabelle den
-        Eingabefokus hat; ohne Fokus bleibt ein kaum sichtbares Grau. Genau
-        das trifft hier zu, denn der erste Satellit wird angewaehlt, ohne dass
-        jemand hineingeklickt haette - die Auswahl war praktisch unsichtbar,
-        waehrend rechts schon seine Daten standen. Beide Zustaende bekommen
-        darum dieselbe Farbe. Nur diese Liste, nicht die Ergebnistabelle: die
-        waehlt ueber ihre Haken aus und hat mit Zeilenauswahl nichts zu tun.
-    -->
-    <!-- Die Auswahlfarbe der Satellitenliste steht als RowTheme
-         "SatelliteRowTheme" bei den Ressourcen; hier waere sie am
-         falschen Ort, siehe die Begruendung dort. -->
+    <!-- The selection color of the satellite list is defined as the RowTheme
+         "SatelliteRowTheme" in the resources; here it would be in the wrong
+         place, see the reasoning there. -->
     <Style Selector="DataGridColumnHeader">
       <Setter Property="MinHeight" Value="0"/>
       <Setter Property="Height" Value="26"/>
@@ -425,7 +411,7 @@
       <Setter Property="SeparatorBrush" Value="#D3DFE0"/>
     </Style>
 
-    <!-- Abschnittsueberschrift im Detailpanel -->
+    <!-- Section heading in the detail panel -->
     <Style Selector=":is(TextBlock).sectionHead">
       <Setter Property="FontSize" Value="9.5"/>
       <Setter Property="Foreground" Value="#7E9095"/>
@@ -448,13 +434,13 @@
     </Style>
 
     <!--
-        Im Detailpanel laesst sich jeder Wert markieren und kopieren. Eine
-        MAC-Adresse abzuschreiben, weil man sie nur ansehen darf, ist genau
-        die Art Reibung, die eine Oberflaeche vermeiden soll.
+        Every value in the detail panel can be selected and copied. Having to
+        retype a MAC address because it can only be viewed is exactly the kind of
+        friction a user interface should avoid.
 
-        Das Kontextmenue kommt an alle SelectableTextBlock auf einmal - an
-        siebenunddreissig Stellen einzeln waere es beim naechsten neuen Feld
-        vergessen.
+        The context menu is attached to all SelectableTextBlocks at once; added to
+        thirty-seven places individually, it would be forgotten with the next new
+        field.
     -->
     <Style Selector="SelectableTextBlock">
       <Setter Property="Cursor" Value="Ibeam"/>
@@ -466,7 +452,7 @@
       </Setter>
     </Style>
 
-    <!-- Einstellungsseite -->
+    <!-- Settings page -->
     <Style Selector="TextBlock.settingsHead">
       <Setter Property="FontSize" Value="10"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
@@ -480,9 +466,9 @@
     </Style>
 
     <!--
-        Der erklaerende Satz unter jeder Einstellung. Bewusst schmal gehalten,
-        damit er sich als Beiwerk liest und nicht mit der Einstellung selbst
-        um Aufmerksamkeit streitet.
+        The explanatory sentence below each setting. Deliberately kept narrow so
+        that it reads as supplementary and does not compete with the setting
+        itself for attention.
     -->
     <Style Selector="TextBlock.settingHint">
       <Setter Property="FontSize" Value="10.5"/>
@@ -496,7 +482,7 @@
       <Setter Property="FontSize" Value="12"/>
     </Style>
 
-    <!-- Fluent gibt dem Schieberegler sonst 32 Pixel Hoehe -->
+    <!-- Fluent otherwise gives the slider a height of 32 pixels -->
     <Style Selector="Slider">
       <Setter Property="MinHeight" Value="0"/>
       <Setter Property="Height" Value="22"/>
@@ -505,25 +491,24 @@
 
   <DockPanel LastChildFill="True">
 
-    <!-- ================= KOMMANDOBALKEN ================= -->
+    <!-- ================= COMMAND BAR ================= -->
     <Border DockPanel.Dock="Top" Background="{StaticResource Chrome2}"
             BorderBrush="#0F1C1F" BorderThickness="0,0,0,1">
       <StackPanel>
 
-        <!-- Zeile: Quelle, Umfang, Start, Fortschritt -->
+        <!-- Row: source, scope, start, progress -->
         <Grid Margin="10,7" ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,*,Auto">
 
           <TextBlock Grid.Column="0" Classes="cmdLabel" Text="SOURCE" Margin="0,0,4,0"/>
 
           <!--
-              Mehrfachauswahl mit Kaestchen, an der Stelle der frueheren
-              Einzel-IP. Sieht aus wie die Umfangsauswahl daneben und
-              verhaelt sich auch so - nur bleibt sie beim Anhaken offen,
-              was eine echte ComboBox nicht kann.
+              Multiple selection with checkboxes. Looks like the scope selection
+              next to it and behaves the same, except that it stays open while
+              checking, which a real ComboBox cannot do.
 
-              Aufgeklappt steht je Bereich, was ihn ausmacht: von/bis und
-              wozu er gehoert. Der Name allein ("Buero 2. OG") sagt nicht,
-              welche Adressen gescannt werden.
+              When open, each range shows what defines it: from/to and what it
+              belongs to. The name alone ("Office 2nd floor") does not tell which
+              addresses are scanned.
           -->
           <Button Grid.Column="1" x:Name="bt_Scopes" Classes="combo" MinWidth="280"
                   HorizontalContentAlignment="Left">
@@ -536,18 +521,16 @@
             <Button.Flyout>
               <Flyout Placement="BottomEdgeAlignedLeft">
                 <!--
-                    Keine feste Breite: die Tabelle darunter misst ihre Spalten
-                    am Inhalt, und der Rahmen richtet sich danach. MaxWidth
-                    deckelt das am Fenster, damit ein Bereich mit sehr langer
-                    Beschreibung das Menue nicht ueber den Bildschirmrand
-                    hinaus zieht.
+                    No fixed width: the table below sizes its columns to their
+                    content, and the border follows. MaxWidth caps it at the
+                    window so that a range with a very long description does not
+                    pull the menu beyond the edge of the screen.
                 -->
                 <!--
-                    Keine Breitenangabe: das Grid darin misst sich an seinem
-                    Inhalt, und der Rahmen folgt. Die Obergrenze setzt
-                    BuildScopeRows anhand der Fensterbreite - gebunden liesse
-                    sie sich hier nicht, weil das Popup einen eigenen
-                    Namensraum hat und #ShellRoot darin nicht aufloest.
+                    No width: the grid inside sizes itself to its content, and the
+                    border follows. BuildScopeRows sets the upper limit from the
+                    window width; it cannot be bound here because the popup has
+                    its own name scope and does not resolve #ShellRoot.
                 -->
                 <Border x:Name="bd_ScopeFlyout" MinWidth="620"
                         Background="{StaticResource Panel}" CornerRadius="4">
@@ -578,10 +561,9 @@
                     </StackPanel>
 
                     <!--
-                        Eigene Eingabe. Sie wirkt zusaetzlich zu den Haken -
-                        und ist, wenn keiner gesetzt ist, die ganze Auswahl.
-                        Ohne sie liesse sich nichts nachsehen, ohne erst
-                        einen Bereich anzulegen.
+                        Custom input. It applies in addition to the checkmarks
+                        and, if none is set, is the whole selection. Without it,
+                        nothing could be looked up without creating a range first.
                     -->
                     <Border DockPanel.Dock="Bottom" Background="#F6F9F9"
                             BorderBrush="{StaticResource LineSoft}" BorderThickness="0,1,0,0"
@@ -590,13 +572,13 @@
                         <TextBlock Text="OWN ENTRY" FontSize="9" Foreground="{StaticResource Dim}"/>
 
                         <!--
-                            Der Adapter links vom Feld: ein einzelnes Ziel hat
-                            keinen Bereich, aus dem sich der Adapter ableiten
-                            liesse, also faellt es sonst immer auf den mit dem
-                            Standardgateway zurueck. Haengt der Rechner in
-                            mehreren Netzen, gibt es damit keine Moeglichkeit,
-                            das andere anzusprechen. "automatic" ist die
-                            Vorgabe und aendert nichts am bisherigen Verhalten.
+                            The adapter to the left of the field: a single target
+                            has no range from which the adapter could be derived,
+                            so it would always fall back to the one with the
+                            default gateway. On a machine connected to several
+                            networks there would be no way to reach the other one.
+                            "automatic" is the default and keeps exactly that
+                            behavior.
                         -->
                         <Grid ColumnDefinitions="150,*" ColumnSpacing="6">
                           <ComboBox Grid.Column="0" x:Name="cb_CustomAdapter"
@@ -626,15 +608,15 @@
                     </Border>
 
                     <!--
-                        Ein gewoehnliches Grid mit Auto-Spalten statt eines
-                        DataGrid. Der Unterschied ist genau der, auf den es
-                        hier ankommt: ein Grid misst sich an seinem Inhalt und
-                        laesst den Rahmen darum mitwachsen, ein DataGrid nimmt
-                        den angebotenen Platz und scrollt intern, wenn er nicht
-                        reicht - der Rahmen erfaehrt nie, dass er zu schmal ist.
+                        An ordinary Grid with Auto columns instead of a DataGrid.
+                        The difference is exactly what matters here: a Grid sizes
+                        itself to its content and lets the border grow with it; a
+                        DataGrid takes the space offered and scrolls internally
+                        when it is not enough, so the border never learns that it
+                        is too narrow.
 
-                        Die Zeilen entstehen in BuildScopeRows, weil ihre Zahl
-                        von den vorhandenen Bereichen abhaengt.
+                        The rows are created in BuildScopeRows because their
+                        number depends on the existing ranges.
                     -->
                     <ScrollViewer MaxHeight="360" HorizontalScrollBarVisibility="Disabled">
                       <Grid x:Name="grd_Scopes" Margin="0,2"/>
@@ -676,7 +658,7 @@
                   Command="{Binding StopCommand}"
                   IsEnabled="{Binding IsRunning}"/>
 
-          <!-- Fortschritt: nur waehrend eines Laufs sichtbar -->
+          <!-- Progress: visible only during a run -->
           <Grid Grid.Column="7" Margin="14,0" ColumnDefinitions="Auto,*,Auto"
                 IsVisible="{Binding IsRunning}" VerticalAlignment="Center">
             <TextBlock Grid.Column="0" Text="{Binding CurrentMethodName}"
@@ -686,10 +668,9 @@
                          Value="{Binding ProgressFraction}" Height="4"
                          Background="#2A4048" Foreground="#17A38A"
                          VerticalAlignment="Center"/>
-            <!-- Gesendet / geantwortet / gesamt. Die mittlere Zahl ist die
-                 eigentliche Nachricht und darum hervorgehoben; an ihr sieht
-                 man, dass ein Lauf noch etwas bringt, waehrend die erste
-                 laengst am Ende steht. -->
+            <!-- Sent / answered / total. The middle number is the actual message
+                 and therefore highlighted: it shows that a run still yields
+                 results while the first number has long reached the end. -->
             <TextBlock Grid.Column="2" Classes="mono" FontSize="10" Foreground="#93ADB2"
                        VerticalAlignment="Center" Margin="8,0,0,0"
                        ToolTip.Tip="Sent / answered / total">
@@ -699,7 +680,7 @@
             </TextBlock>
           </Grid>
 
-          <!-- Platz fuer den kuenftigen Dauerbetrieb (RA-/MLD-Listener) -->
+          <!-- Placeholder for a planned continuous watch mode (RA/MLD listener) -->
           <Border Grid.Column="8" Background="#243940" BorderBrush="#33505A" BorderThickness="1"
                   CornerRadius="3" Padding="9,0" Height="22" VerticalAlignment="Center">
             <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
@@ -710,7 +691,7 @@
           </Border>
         </Grid>
 
-        <!-- ================= VERFAHREN-SCHUBLADE ================= -->
+        <!-- ================= METHOD DRAWER ================= -->
         <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
                 BorderThickness="0,1,0,0" Padding="12,9"
                 IsVisible="{Binding IsDrawerOpen}">
@@ -725,9 +706,9 @@
             <StackPanel Grid.Column="1" Margin="0,0,12,0">
               <TextBlock Text="IDENTIFY DEVICE" Classes="sectionHead"/>
               <Border Height="1" Background="{StaticResource LineSoft}" Margin="0,0,0,6"/>
-              <!-- Der DNS-Quervergleich haengt als Unterfunktion mitten in
-                   dieser Liste, zwischen Rueckwaertsaufloesung und Hostname.
-                   Eingesetzt wird er in BuildMethodDrawer. -->
+              <!-- The DNS cross-check sits as a sub-function in the middle of
+                   this list, between reverse lookup and host name.
+                   BuildMethodDrawer inserts it. -->
               <ItemsControl x:Name="ic_Identification"/>
             </StackPanel>
 
@@ -749,16 +730,16 @@
       </StackPanel>
     </Border>
 
-    <!-- ================= STATUSLEISTE ================= -->
+    <!-- ================= STATUS BAR ================= -->
     <Border DockPanel.Dock="Bottom" Background="{StaticResource Chrome2}"
             BorderBrush="#0F1C1F" BorderThickness="0,1,0,0">
       <StackPanel>
 
         <!--
-            Was fertig ist und was noch kommt. Ein Lauf besteht aus mehreren
-            Verfahren nacheinander; ohne diese Zeile sieht man nur das gerade
-            laufende und weiss nicht, ob nach ARP noch eine halbe Stunde
-            Diensterkennung folgt.
+            What is done and what is still to come. A run consists of several
+            methods in sequence; without this line only the running one is
+            visible, with no way of telling whether half an hour of service
+            detection follows after ARP.
         -->
         <Border Background="#1A2C32" BorderBrush="#0F1C1F" BorderThickness="0,1,0,0"
                 Padding="10,3" IsVisible="{Binding HasScanPlan}">
@@ -773,8 +754,8 @@
           </StackPanel>
         </Border>
 
-        <!-- Etwas hoeher als die reine Textzeile, damit die Knoepfe rechts
-             nicht bis an den Rand stossen. -->
+        <!-- Slightly taller than a plain text line so that the buttons on the
+             right do not touch the edge. -->
         <Grid Margin="10,0" Height="30" ColumnDefinitions="Auto,*,Auto">
           <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
             <TextBlock Classes="mono" FontSize="10.5" Foreground="#93ADB2">
@@ -800,17 +781,15 @@
                     Click="bt_Export_Click"/>
             <Button x:Name="bt_Clear" Classes="cmd" Content="Clear" Height="21" FontSize="10"
                     Command="{Binding ClearResultsCommand}"/>
-            <!-- Das Spendenfenster hing bisher am alten Fenster und war mit
-                 ihm nicht mehr erreichbar. -->
+            <!-- Opens the donation window. -->
             <Button x:Name="bt_Donate" Classes="donate" Height="21" FontSize="10"
                     Padding="10,0" Click="bt_Donate_Click">
               <!--
-                  Das Herz auf rund drei Viertel der Knopfhoehe (21), die
-                  Beschriftung bleibt bei der Groesse der Nachbarknoepfe.
-                  Bewusst zwei Textblöcke nebeneinander statt zweier Runs in
-                  einem: Runs teilen sich eine Grundlinie, und an der grossen
-                  Herzschrift ausgerichtet saesse "Donate" zu tief. So wird
-                  jedes fuer sich mittig gesetzt.
+                  The heart at about three quarters of the button height (21); the
+                  label keeps the size of the neighboring buttons. Deliberately
+                  two TextBlocks side by side instead of two runs in one: runs
+                  share a baseline, and aligned to the large heart, "Donate" would
+                  sit too low. This way each one is centered on its own.
               -->
               <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                 <TextBlock Text="♥" Foreground="#D62B3A" FontSize="21" VerticalAlignment="Center"/>
@@ -822,7 +801,7 @@
       </StackPanel>
     </Border>
 
-    <!-- ================= RAIL + ARBEITSBEREICH ================= -->
+    <!-- ================= RAIL + WORKSPACE ================= -->
     <Grid ColumnDefinitions="136,*">
 
       <Border Grid.Column="0" Background="{StaticResource Rail}">
@@ -856,13 +835,13 @@
         </StackPanel>
       </Border>
 
-      <!-- Arbeitsbereich -->
+      <!-- Workspace -->
       <Grid Grid.Column="1" Background="{StaticResource Workspace}">
 
-        <!-- ========== Ansicht: Geraete ========== -->
+        <!-- ========== View: Devices ========== -->
         <DockPanel x:Name="view_Devices" LastChildFill="True">
 
-          <!-- Filterzeile -->
+          <!-- Filter row -->
           <Border DockPanel.Dock="Top" Background="{StaticResource Panel}"
                   BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1" Padding="8,6">
             <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,*,Auto">
@@ -873,7 +852,7 @@
               <TextBox Grid.Column="1" x:Name="tb_Search2" Width="120" Margin="4,0,0,0"
                        Watermark="and ..." Text="{Binding Devices.Filter.Text2}"/>
 
-              <!-- Dienstauswahl: entsteht aus den tatsaechlichen Funden -->
+              <!-- Service selection: built from the actual findings -->
               <Button Grid.Column="2" x:Name="bt_ServiceFilter" Margin="8,0,0,0" MinWidth="106"
                       HorizontalContentAlignment="Left"
                       Background="White" BorderBrush="#C3D2D4" BorderThickness="1">
@@ -894,9 +873,9 @@
                                     Click="bt_ServicesNone_Click"/>
                           </Grid>
                         </Border>
-                        <!-- Ohne den Roller endet die Liste bei der Hoehe der
-                             Flyouts, und die Dienste darunter sind weder zu
-                             sehen noch anzuhaken. -->
+                        <!-- Without the scroll viewer the list ends at the height
+                             of the flyout, and the services below can neither be
+                             seen nor checked. -->
                         <ScrollViewer MaxHeight="360" VerticalScrollBarVisibility="Auto"
                                       HorizontalScrollBarVisibility="Disabled">
                           <ItemsControl x:Name="ic_ServiceFacets" Margin="0,3"/>
@@ -907,9 +886,9 @@
                 </Button.Flyout>
               </Button>
 
-              <!-- Bereichsauswahl: entsteht aus den Bereichen, aus denen die
-                   gefundenen Geraete stammen - nicht aus einer festen Liste,
-                   weil sich die Bereiche je nach Arbeitsort aendern. -->
+              <!-- Range selection: built from the ranges the found devices come
+                   from, not from a fixed list, because the ranges change with the
+                   work location. -->
               <Button Grid.Column="3" x:Name="bt_ScopeFilter" Margin="4,0,0,0" MinWidth="100"
                       HorizontalContentAlignment="Left"
                       Background="White" BorderBrush="#C3D2D4" BorderThickness="1">
@@ -944,7 +923,7 @@
                        Watermark="Port" ToolTip.Tip="445 · 80,443 · 5000-5100"
                        Text="{Binding Devices.Filter.Ports}"/>
 
-              <!-- Familienschalter: Tuerkis fuer v4, Indigo fuer v6 -->
+              <!-- Family switch: teal for v4, indigo for v6 -->
               <ToggleButton Grid.Column="5" x:Name="tg_V4" Margin="8,0,0,0"
                             IsChecked="{Binding Devices.Filter.ShowIPv4}"
                             Background="{StaticResource TealSoft}" BorderBrush="#77BAC3"
@@ -983,7 +962,7 @@
             </Grid>
           </Border>
 
-          <!-- Tabelle und Detailpanel -->
+          <!-- Table and detail panel -->
           <Grid ColumnDefinitions="*,4,340">
 
             <DataGrid Grid.Column="0" x:Name="dg_Devices"
@@ -993,9 +972,9 @@
                       CanUserResizeColumns="True" SelectionMode="Extended"
                       SelectionChanged="dg_Devices_SelectionChanged">
               <!--
-                  Erneut scannen gehoert an die Zeile, nicht nur in den
-                  Kommandobalken: wer ein einzelnes Geraet nachprueft, will
-                  nicht das halbe Netz noch einmal abfragen.
+                  Rescanning belongs on the row, not only in the command bar:
+                  checking a single device should not query half the network
+                  again.
               -->
               <DataGrid.ContextMenu>
                 <ContextMenu>
@@ -1004,9 +983,9 @@
 
                   <Separator/>
 
-                  <!-- Die Dienstliste entsteht im Code: sie kommt aus der
-                       Aufzaehlung der Dienste, und jeder Eintrag muss seinen
-                       Dienst als Parameter mitgeben. -->
+                  <!-- The service list is built in code: it comes from the
+                       enumeration of services, and each entry must pass its
+                       service as a parameter. -->
                   <MenuItem x:Name="mi_FindServicePort"
                             Header="Find port of one service (all 65536 ports)"
                             ToolTip.Tip="Searches the whole port range for a single service - for a service that runs on an unusual port and is therefore never found by the regular scan. Takes a while, so it runs for one device at a time."/>
@@ -1028,9 +1007,9 @@
                   </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
 
-                <!-- Doppelbelegung. Steht direkt neben dem Namen, weil sie
-                     genau dort interessiert: der Name sieht harmlos aus, und
-                     erst das Kaestchen sagt, dass es ihn zweimal gibt. -->
+                <!-- Duplicate. Right next to the name because that is where it
+                     matters: the name looks harmless, and only the badge says
+                     that it exists twice. -->
                 <DataGridTemplateColumn Header="!" Width="Auto" MinWidth="62">
                   <DataGridTemplateColumn.CellTemplate>
                     <DataTemplate x:DataType="model:Device">
@@ -1090,11 +1069,10 @@
                 <DataGridTextColumn Header="VENDOR" Binding="{Binding Vendor}" Width="Auto" MinWidth="90"/>
 
                 <!--
-                    Die laufenden Dienste als Kaestchen statt als Fliesstext -
-                    so liest man auf einen Blick, was auf einem Geraet
-                    tatsaechlich antwortet. Wurde nichts erkannt, bleibt die
-                    Zelle leer; ein "keine erkannt" in jeder Zeile waere
-                    Rauschen, das die wenigen Funde erschlaegt.
+                    The running services as badges instead of running text, so
+                    what actually answers on a device can be read at a glance. If
+                    nothing was detected, the cell stays empty; a "none detected"
+                    in every row would be noise that drowns out the few findings.
                 -->
                 <DataGridTemplateColumn Header="RUNNING SERVICES" Width="Auto" MinWidth="170">
                   <DataGridTemplateColumn.CellTemplate>
@@ -1127,11 +1105,11 @@
             <GridSplitter Grid.Column="1" Background="{StaticResource Line}" Width="4"
                           ResizeDirection="Columns"/>
 
-            <!-- ========== Detailpanel ========== -->
+            <!-- ========== Detail panel ========== -->
             <Border Grid.Column="2" Background="{StaticResource PanelAlt}"
                     BorderBrush="{StaticResource Line}" BorderThickness="1,0,0,0">
 
-              <!-- Ohne Auswahl ein Hinweis statt eines leeren Kastens -->
+              <!-- Without a selection, a hint instead of an empty box -->
               <Panel>
                 <TextBlock Text="Select a row to see details"
                            Foreground="{StaticResource Dimmer}" FontSize="11"
@@ -1139,18 +1117,18 @@
                            IsVisible="{Binding Devices.Selected, Converter={x:Static ObjectConverters.IsNull}}"/>
 
                 <!--
-                    Sichtbarkeit und DataContext duerfen nicht am selben
-                    Element haengen: sobald der DataContext auf die Auswahl
-                    (und damit auf null) zeigt, laesst sich der Pfad
-                    Devices.Selected der Sichtbarkeitsbindung nicht mehr
-                    aufloesen - die Bindung scheitert still und der Abschnitt
-                    bleibt sichtbar. Darum die Sichtbarkeit eine Ebene hoeher.
+                    Visibility and DataContext must not be set on the same
+                    element: as soon as the DataContext points to the selection
+                    (and thus to null), the path Devices.Selected of the
+                    visibility binding can no longer be resolved; the binding
+                    fails silently and the section stays visible. Hence the
+                    visibility one level higher.
                 -->
                 <Border IsVisible="{Binding Devices.Selected, Converter={x:Static ObjectConverters.IsNotNull}}">
                 <ScrollViewer DataContext="{Binding Devices.Selected}">
                   <StackPanel>
 
-                    <!-- Kopf -->
+                    <!-- Header -->
                     <Border Background="{StaticResource Panel}" Padding="12,10"
                             BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1">
                       <StackPanel Spacing="2">
@@ -1167,9 +1145,9 @@
                       </StackPanel>
                     </Border>
 
-                    <!-- Doppelbelegung. Steht vor allem anderen: wenn eine
-                         Adresse zweimal vergeben ist, ist das die erste
-                         Nachricht, nicht eine Fussnote unter den Diensten. -->
+                    <!-- Duplicate. Comes before everything else: an address
+                         assigned twice is the first message, not a footnote below
+                         the services. -->
                     <Border Padding="12,9" IsVisible="{Binding HasConflict}"
                             Background="{Binding Conflicts, Converter={StaticResource DupBg}}"
                             BorderBrush="#E3EBEC" BorderThickness="0,0,0,1">
@@ -1182,8 +1160,8 @@
                       </StackPanel>
                     </Border>
 
-                    <!-- Was der Namensdienst sagt. Ohne diesen Abschnitt liesse
-                         sich ein DNS-Befund oben nicht nachvollziehen. -->
+                    <!-- What the name service says. Without this section a DNS
+                         finding above could not be traced. -->
                     <Border Padding="12,9" BorderBrush="#E3EBEC" BorderThickness="0,0,0,1"
                             IsVisible="{Binding WasLookedUp}">
                       <StackPanel>
@@ -1199,9 +1177,9 @@
                       </StackPanel>
                     </Border>
 
-                    <!-- Wo das Geraet steckt. Steht weit oben, weil es die
-                         Angabe ist, mit der man tatsaechlich hingehen kann -
-                         alles Uebrige beschreibt nur, was es tut. -->
+                    <!-- Where the device is connected. Near the top because it is
+                         the information that allows actually going there;
+                         everything else only describes what the device does. -->
                     <Border Padding="12,9" BorderBrush="#E3EBEC" BorderThickness="0,0,0,1"
                             IsVisible="{Binding HasSwitchInfo}">
                       <StackPanel>
@@ -1219,8 +1197,8 @@
                       </StackPanel>
                     </Border>
 
-                    <!-- Die Weboberflaeche. Der Seitentitel ist oft die einzige
-                         Stelle, an der ein Geraet seinen Modellnamen nennt. -->
+                    <!-- The web interface. The page title is often the only place
+                         where a device states its model name. -->
                     <Border Padding="12,9" BorderBrush="#E3EBEC" BorderThickness="0,0,0,1"
                             IsVisible="{Binding HasWebInfo}">
                       <StackPanel>
@@ -1236,8 +1214,8 @@
                           <SelectableTextBlock Grid.Row="2" Grid.Column="1" Text="{Binding CertificateIssuer}"
                                      Classes="kvValue" TextWrapping="Wrap"/>
 
-                          <!-- Abgelaufen wird rot: das ist der Fall, um den es
-                               hier ueberhaupt geht. -->
+                          <!-- Expired turns red: that is the case this line
+                               exists for. -->
                           <SelectableTextBlock Grid.Row="3" Grid.Column="0" Text="Valid until" Classes="kvKey"/>
                           <SelectableTextBlock Grid.Row="3" Grid.Column="1" Classes="kvValue"
                                      Text="{Binding CertificateExpires, StringFormat={}{0:dd.MM.yyyy}}"
@@ -1246,7 +1224,7 @@
                       </StackPanel>
                     </Border>
 
-                    <!-- Identitaet -->
+                    <!-- Identity -->
                     <Border Padding="12,9" BorderBrush="#E3EBEC" BorderThickness="0,0,0,1">
                       <StackPanel>
                         <SelectableTextBlock Text="IDENTITY" Classes="sectionHead"/>
@@ -1257,12 +1235,11 @@
                           <SelectableTextBlock Grid.Row="1" Grid.Column="1" Text="{Binding MacText}" Classes="kvValue"/>
 
                           <!--
-                              Die Vermutung aus der Ping-TTL. Ausdruecklich als
-                              "Probably" beschriftet: die Anfangs-TTL laesst
-                              sich verstellen, und hinter einem NAT-Gateway kann
-                              eine fremde stehen. Als Feststellung waere die
-                              Zeile irrefuehrend, als Anhaltspunkt ist sie es
-                              nicht - und sie kostet kein einziges Paket.
+                              The guess from the ping TTL. Explicitly labeled
+                              "Probably": the initial TTL can be changed, and
+                              behind a NAT gateway a different one can appear. As
+                              a statement the line would be misleading, as a hint
+                              it is not, and it costs not a single packet.
                           -->
                           <SelectableTextBlock Grid.Row="2" Grid.Column="0" Text="Probably" Classes="kvKey"
                                      IsVisible="{Binding HasOsGuess}"/>
@@ -1281,7 +1258,7 @@
                       </StackPanel>
                     </Border>
 
-                    <!-- Adressen: der Grund, warum es das Panel gibt -->
+                    <!-- Addresses: the reason the panel exists -->
                     <Border Padding="12,9" BorderBrush="#E3EBEC" BorderThickness="0,0,0,1">
                       <StackPanel>
                         <StackPanel Orientation="Horizontal" Spacing="6">
@@ -1319,7 +1296,7 @@
                       </StackPanel>
                     </Border>
 
-                    <!-- Dienste mit v4/v6 nebeneinander -->
+                    <!-- Services with v4/v6 side by side -->
                     <Border Padding="12,9" BorderBrush="#E3EBEC" BorderThickness="0,0,0,1"
                             IsVisible="{Binding HasServices}">
                       <StackPanel>
@@ -1335,10 +1312,10 @@
                         </Grid>
 
                         <!--
-                            Nur die Dienste, die geantwortet haben. Gescannt
-                            wird gegen mehrere hundert Definitionen - stuenden
-                            die geschlossenen mit darin, muesste man die zwei
-                            Funde in einer Liste von dreihundert "zu" suchen.
+                            Only the services that answered. The scan runs against
+                            several hundred definitions; if the closed ones were
+                            listed too, the two findings would have to be picked
+                            out of a list of three hundred "closed".
                         -->
                         <ItemsControl ItemsSource="{Binding OpenServices}">
                           <ItemsControl.ItemTemplate>
@@ -1368,7 +1345,7 @@
                       </StackPanel>
                     </Border>
 
-                    <!-- Freitext der Module -->
+                    <!-- Free text of the modules -->
                     <Border Padding="12,9" IsVisible="{Binding HasDetails}">
                       <StackPanel>
                         <SelectableTextBlock Text="MORE DETAILS" Classes="sectionHead"/>
@@ -1393,11 +1370,10 @@
           </Grid>
         </DockPanel>
 
-        <!-- ========== Ansicht: Bereiche ========== -->
+        <!-- ========== View: Ranges ========== -->
         <!--
-            Liste links, Maske rechts - dieselbe Aufteilung wie im bisherigen
-            Fenster, damit niemand umlernen muss. Gespeichert wird nach jeder
-            Aenderung; es gibt bewusst keinen Speichern-Knopf.
+            List on the left, form on the right. Changes are saved immediately;
+            there is deliberately no Save button.
         -->
         <Grid x:Name="view_Scopes" IsVisible="False" ColumnDefinitions="380,1,*"
               Background="{StaticResource Workspace}">
@@ -1468,7 +1444,7 @@
               <StackPanel MaxWidth="620" HorizontalAlignment="Left" Spacing="14"
                           DataContext="{Binding ScopeEditor}">
 
-                <!-- Der Adapter-Bereich wird erzeugt, nicht gespeichert -->
+                <!-- The adapter range is generated, not stored -->
                 <Border Background="#FFF6E6" BorderBrush="#E8CE9B" BorderThickness="1"
                         CornerRadius="4" Padding="12,9"
                         IsVisible="{Binding !IsEditable}">
@@ -1532,9 +1508,8 @@
                                Text="Used to resolve hostnames for this range. Several servers separated by comma. A DNS server set under Settings overrides all of these."/>
 
                     <!--
-                        Ein Name statt einer IP laesst die ganze Liste unter den
-                        Tisch fallen - das passiert sonst lautlos, darum steht
-                        die Warnung direkt unter dem Feld.
+                        A name instead of an IP address makes the whole list drop
+                        out, silently; hence the warning directly below the field.
                     -->
                     <Border Background="{StaticResource CritSoft}" CornerRadius="3"
                             Padding="9,6" HorizontalAlignment="Left" MaxWidth="460"
@@ -1572,12 +1547,10 @@
                                Text="The router of this network. Used as the reference point for hop distance, for the topology and as the name server of last resort. Leave it empty to use the gateway of the adapter this range is scanned through - that is the normal case."/>
 
                     <!--
-                        Das Feld steht schon hier, obwohl der Satellitenbetrieb
-                        noch nicht gebaut ist: der Wert wird bereits gespeichert
-                        und mit dem Bereich durchgereicht, und wer seine
-                        Bereiche vorbereiten will, kann das tun. Solange kein
-                        Satellit verbunden ist, laeuft alles von hier aus.
-                        Siehe SATELLIT.md.
+                        Assigns the range to a satellite. The value is stored with
+                        the range and passed on with it; without a connected
+                        satellite, everything runs from this machine. See
+                        SATELLIT.md.
                     -->
                     <Grid ColumnDefinitions="130,*" RowDefinitions="Auto"
                           ColumnSpacing="10">
@@ -1585,23 +1558,22 @@
                                  Classes="settingLabel" TextWrapping="Wrap"/>
 
                       <!--
-                          Auswahl statt Textfeld: ein vertippter Name zeigt auf
-                          keinen Satelliten, und der Bereich wuerde beim Lauf
-                          als "nicht gescannt" ausgewiesen, ohne dass man den
-                          Grund saehe. Der erste Eintrag bedeutet "von diesem
-                          Rechner aus".
+                          A selection instead of a text field: a mistyped name
+                          points to no satellite, and the range would be reported
+                          as "not scanned" during the run without the reason being
+                          visible. The first entry means "from this machine".
 
-                          Angezeigt wird Name und Netz, gespeichert wird die
-                          Kennung - darum SelectedValue und nicht SelectedItem.
-                          Ohne diese Trennung stuende der Name im Bereich, und
-                          eine Umbenennung des Satelliten liesse die Zuordnung
-                          stumm ins Leere laufen.
+                          Name and network are displayed, the identifier is
+                          stored, hence SelectedValue and not SelectedItem.
+                          Without this separation the name would be stored in the
+                          range, and renaming the satellite would silently break
+                          the assignment.
 
-                          Die Liste haengt am Fenster und nicht an diesem
-                          Bereich: der DataContext ist hier der ScopeEditor, und
-                          der kennt die Satelliten nicht. Ohne den Umweg ueber
-                          ShellRoot bliebe die Auswahl leer, obwohl Satelliten
-                          verbunden sind.
+                          The list is bound to the window, not to this range: the
+                          DataContext here is the ScopeEditor, which does not know
+                          the satellites. Without the detour through ShellRoot the
+                          selection would stay empty although satellites are
+                          connected.
                       -->
                       <ComboBox Grid.Row="0" Grid.Column="1" Width="260"
                                 HorizontalAlignment="Left"
@@ -1647,12 +1619,12 @@
           </Panel>
         </Grid>
 
-        <!-- ========== Ansicht: Ports ========== -->
+        <!-- ========== View: Ports ========== -->
         <!--
-            Eine Tabelle statt einer Maske: hier wird nicht ein Eintrag
-            bearbeitet, sondern in Serie abgehakt. Die Knoepfe "all TCP" und
-            "none" wirken bewusst nur auf die gefilterten Zeilen - wer nach
-            "SQL" sucht und dann alles anhakt, meint die SQL-Ports.
+            A table instead of a form: entries are not edited one at a time but
+            checked in series. The "all TCP" and "none" buttons deliberately
+            affect only the filtered rows: searching for "SQL" and then checking
+            all means the SQL ports.
         -->
         <DockPanel x:Name="view_Ports" IsVisible="False" LastChildFill="True"
                    Background="{StaticResource Workspace}">
@@ -1724,7 +1696,7 @@
           </DataGrid>
         </DockPanel>
 
-        <!-- ========== Ansicht: Dienste ========== -->
+        <!-- ========== View: Services ========== -->
         <DockPanel x:Name="view_Services" IsVisible="False" LastChildFill="True"
                    Background="{StaticResource Workspace}">
 
@@ -1757,7 +1729,7 @@
                   <Run Text="{Binding ServiceEditor.SelectedCount}" Foreground="#0B7C8B"/><Run Text=" of "/><Run Text="{Binding ServiceEditor.TotalCount}"/><Run Text=" services selected"/>
                 </TextBlock>
 
-                <!-- Leere Auswahl heisst "alle" - das gehoert gesagt -->
+                <!-- An empty selection means "all"; that needs to be said -->
                 <TextBlock FontSize="10.5" Foreground="{StaticResource Warn}"
                            IsVisible="{Binding ServiceEditor.ScansEverything}"
                            Text="Nothing selected - a scan then looks for every service."/>
@@ -1779,11 +1751,10 @@
               <DataGridTextColumn Header="PORTS" Binding="{Binding Ports}" Width="220"/>
 
               <!--
-                  Aktiv nachfragen: nur dort ein Kaestchen, wo es etwas
-                  bedeutet - bei SECS/GEM. Die Frage holt Modell und
-                  Softwarestand auch aus einer Anlage, die von sich aus
-                  schweigt, versetzt sie dabei aber kurz in den
-                  kommunizierenden Zustand. Darum aus als Vorgabe.
+                  Active query: a checkbox only where it means something, for
+                  SECS/GEM. The query retrieves model and software revision even
+                  from equipment that stays silent on its own, but briefly puts it
+                  into the communicating state. Therefore off by default.
               -->
               <DataGridTemplateColumn Header="ASK ACTIVELY" Width="110">
                 <DataGridTemplateColumn.CellTemplate>
@@ -1797,10 +1768,9 @@
               </DataGridTemplateColumn>
 
               <!--
-                  Das Erkennungspaket wird gezeigt, nicht bearbeitet. Es ist das
-                  Herz der Diensterkennung - ein Byte daran geaendert, und ein
-                  Dienst wird nicht mehr gefunden, ohne dass die Ursache
-                  erkennbar waere.
+                  The detection packet is shown, not edited. It is the heart of
+                  service detection: change one byte, and a service is no longer
+                  found without the cause being recognizable.
               -->
               <DataGridTemplateColumn Header="DETECTION PACKET" Width="*">
                 <DataGridTemplateColumn.CellTemplate>
@@ -1816,30 +1786,30 @@
           </DataGrid>
         </DockPanel>
 
-        <!-- ========== Ansicht: Satelliten ========== -->
+        <!-- ========== View: Satellites ========== -->
         <!--
-            Zwei Betriebsarten, zwei Reiter - und in jedem der Ablauf von oben
-            nach unten durchnummeriert.
+            Two modes, two tabs, and in each the workflow numbered from top to
+            bottom.
 
-            Der Grund fuer die Trennung: dieselbe Anwendung ist einmal der
-            Hauptscanner, der Ergebnisse einsammelt, und einmal der Satellit,
-            der sie liefert. Beides in einer Maske nebeneinander hat verwirrt -
-            der Freigabeknopf etwa gehoert ausschliesslich auf die Hauptscanner-
-            Seite, denn am Satelliten gibt es nichts freizugeben. Auf einer
-            Anlage braucht man ohnehin fast immer nur einen der beiden Reiter.
+            The reason for the separation: the same application is the main
+            scanner that collects results and the satellite that delivers them.
+            Both side by side in one form are confusing; the approve button, for
+            example, belongs exclusively on the main scanner side, because there
+            is nothing to approve on the satellite. A machine almost always needs
+            only one of the two tabs anyway.
 
-            Siehe SATELLIT.md.
+            See SATELLIT.md.
         -->
         <!--
-            Der Grund des TabControl ist der dunkle Ton der Navigationsleiste -
-            damit traegt der Reiterstreifen oben dieselbe Farbe. Die Flaeche
-            darunter bekommt ihren hellen Grund von den beiden DockPanels, sonst
-            waere auch der Arbeitsbereich dunkel.
+            The TabControl background is the dark tone of the navigation rail, so
+            the tab strip at the top has the same color. The area below gets its
+            light background from the two DockPanels; otherwise the workspace
+            would be dark as well.
         -->
         <TabControl x:Name="view_Satellites" IsVisible="False"
                     Background="{StaticResource Rail}" BorderThickness="0" Padding="0">
 
-          <!-- ================================================== HAUPTSCANNER -->
+          <!-- ================================================== MAIN SCANNER -->
           <TabItem Header="Host mode  ·  collect results">
             <DockPanel LastChildFill="True" Background="{StaticResource Workspace}">
 
@@ -1860,28 +1830,26 @@
               </Border>
 
               <!--
-                  Die linke Spalte ist breiter als die urspruenglichen 450:
-                  am Port stehen jetzt die beiden Regelknoepfe, und die
-                  brauchen die Breite. Schmaler umgebrochen saehe die Zeile
-                  aus, als gehoerten sie nicht mehr zum Feld.
+                  The left column is wider than 450: the two rule buttons sit next
+                  to the port and need the width. Wrapped narrower, the row would
+                  look as if they no longer belonged to the field.
               -->
               <Grid ColumnDefinitions="520,1,*">
 
                 <!--
-                    Schritt 1 und 2: horchen, dann freigeben.
+                    Steps 1 and 2: listen, then approve.
 
-                    Rollende Spalte mit einem Raster darin: die Bloecke nehmen
-                    sich ihre Hoehe (Auto), die Tabelle bekommt den Rest (*).
+                    A scrolling column with a grid inside: the blocks take their
+                    height (Auto), the table gets the rest (*).
 
-                    Beides zusammen ist noetig. Nur das Raster - der fruehere
-                    Aufbau - gab der Tabelle als Letztem, was uebrig blieb, und
-                    das war bei kleinem Fenster nichts. Nur die Rolle liess sie
-                    dagegen nicht mehr mitwachsen, weil es in einer rollenden
-                    Liste keinen "Rest" gibt.
+                    Both together are needed. A grid alone gives the table, as the
+                    last element, whatever is left, which is nothing in a small
+                    window. A scroll viewer alone stops the table from growing,
+                    because a scrolling list has no "rest".
 
-                    So gilt beides: ist Platz da, waechst die Tabelle mit dem
-                    Fenster; ist keiner da, behaelt sie ihre Mindesthoehe, und
-                    die Spalte bekommt ihren Rollbalken.
+                    This way both hold: with space available, the table grows with
+                    the window; without, it keeps its minimum height and the
+                    column gets its scroll bar.
                 -->
                 <ScrollViewer Grid.Column="0" Padding="14,14,14,14"
                               VerticalScrollBarVisibility="Auto"
@@ -1891,11 +1859,10 @@
                   <StackPanel Grid.Row="0">
 
                   <!--
-                      Was drueben am Satelliten in die Empfaengerliste
-                      einzutragen ist, steht hier - Name, Domaene und Adressen
-                      dieser Anlage. Ohne das muesste man auf einem Rechner,
-                      an dem man vielleicht gar nicht sitzt, ipconfig
-                      aufrufen, nur um den Eintrag anlegen zu koennen.
+                      What to enter in the receiver list on the satellite is shown
+                      here: name, domain and addresses of this machine. Without
+                      it, ipconfig would have to be run on a machine that may not
+                      even be at hand, just to create the entry.
                   -->
                   <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
                           BorderThickness="1" CornerRadius="4" Padding="16,14" Margin="0,0,0,14">
@@ -1945,12 +1912,12 @@
                                 IsChecked="{Binding Settings.SatelliteListenEnabled}"/>
 
                       <!--
-                          Die offenen Ports als Auswahl und nicht in einer
-                          Schublade: wer keine Regel anlegen darf, muss einen
-                          Port nehmen, der ohnehin offen ist - und diese
-                          Entscheidung faellt genau hier, direkt ueber dem Feld,
-                          in das sie geht. Das Auffrischen steht daneben, weil
-                          es zu dieser Liste gehoert und zu nichts sonst.
+                          The open ports as a selection and not in a drawer:
+                          without permission to create a rule, a port that is
+                          already open must be used, and that decision is made
+                          exactly here, right above the field it goes into.
+                          Refresh sits next to it because it belongs to this list
+                          and nothing else.
                       -->
                       <StackPanel Orientation="Horizontal" Spacing="6">
                         <ComboBox x:Name="cb_AllowedPorts" Width="230"
@@ -1966,10 +1933,9 @@
                       </StackPanel>
 
                       <!--
-                          Die beiden Regelknoepfe stehen am Zahlenfeld, weil sie
-                          sich auf genau diesen Port beziehen - vorher lagen sie
-                          eingeklappt weiter unten, und der Bezug war nur zu
-                          erraten. Darum heissen sie jetzt auch "that port".
+                          The two rule buttons sit at the number field because
+                          they refer to exactly this port, which is also why they
+                          are labeled "that port".
                       -->
                       <Grid ColumnDefinitions="90,Auto,Auto,Auto" ColumnSpacing="6">
                         <TextBlock Grid.Column="0" Text="Port" Classes="settingLabel"/>
@@ -2034,12 +2000,12 @@
                           Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
                           BorderThickness="1,0,1,1" CornerRadius="0,0,4,4">
                     <!--
-                        Feste Untergrenze: darunter reichte es gerade fuer die
-                        Kopfzeile, und es sah aus, als haette sich kein Satellit
-                        gemeldet. 150 traegt Kopfzeile und vier Zeilen (26 + 4 x
-                        30) - so viel steht immer da, auch im kleinsten Fenster.
-                        Nach oben keine Grenze: in der Zeile mit * waechst die
-                        Tabelle mit dem Fenster nach unten mit.
+                        Fixed lower limit: below it there would be just enough
+                        room for the header, and it would look as if no satellite
+                        had reported. 150 holds the header and four rows (26 + 4 x
+                        30), always visible even in the smallest window. No upper
+                        limit: in the row with *, the table grows downwards with
+                        the window.
                     -->
                     <DataGrid x:Name="dg_Satellites"
                               RowTheme="{StaticResource SatelliteRowTheme}"
@@ -2051,19 +2017,18 @@
                               ScrollViewer.HorizontalScrollBarVisibility="Auto">
                       <DataGrid.Columns>
                         <!--
-                            Der Name bekommt eine feste Untergrenze statt "*":
-                            mit * teilt er sich den vorhandenen Platz und
-                            schrumpft, sobald der Zustand lang wird. Beide
-                            Spalten stehen jetzt auf ihrer Wunschbreite, und
-                            reicht der Platz nicht, schiebt der Balken unten
-                            den Blick nach rechts.
+                            The name gets a fixed minimum width instead of "*":
+                            with * it shares the available space and shrinks as
+                            soon as the state text gets long. Both columns use
+                            their preferred width, and if space runs short, the
+                            scroll bar at the bottom shifts the view to the right.
                         -->
                         <DataGridTextColumn Header="SATELLITE" Binding="{Binding Name}"
                                             Width="Auto" MinWidth="160"/>
-                        <!-- Waehrend eines Laufs steht hier die volle Zeile
-                             "Ping 40 %  ·  102 / 17 / 254  ·  step 2 / 12".
-                             Sie darf breiter werden als das Fenster - lieber
-                             scrollen als den Zustand abschneiden. -->
+                        <!-- During a run this shows the full line "Ping 40 %  ·
+                             102 / 17 / 254  ·  step 2 / 12". It may become wider
+                             than the window; scrolling is better than cutting off
+                             the state. -->
                         <DataGridTextColumn Header="STATE" Binding="{Binding StatusText}"
                                             Width="Auto" MinWidth="260"/>
                       </DataGrid.Columns>
@@ -2074,16 +2039,15 @@
 
                 <Border Grid.Column="1" Background="{StaticResource Line}"/>
 
-                <!-- Schritt 3 und 4: zuweisen, dann zusehen -->
+                <!-- Steps 3 and 4: assign, then watch -->
                 <ScrollViewer Grid.Column="2" Padding="16,14">
                   <StackPanel Spacing="14" MaxWidth="560" HorizontalAlignment="Left">
 
                     <!--
-                        Die Schritte 3 bis 5 stehen immer da, auch ohne
-                        gewaehlten Satelliten - dann leer und ausgegraut.
-                        Vorher waren sie ausgeblendet: die halbe Seite war
-                        weiss, und dass dahinter etwas liegt, sobald man in der
-                        Liste eine Zeile anklickt, war nicht zu erkennen.
+                        Steps 3 to 5 are always shown, even without a selected
+                        satellite, then empty and greyed out. Hidden, they would
+                        leave half the page white, with nothing to indicate that
+                        content appears once a row in the list is clicked.
                     -->
                     <Border Background="{StaticResource CritSoft}" CornerRadius="3" Padding="9,6"
                             IsVisible="{Binding SatelliteEditor.Selected, Converter={x:Static ObjectConverters.IsNull}}">
@@ -2101,10 +2065,10 @@
                         <Grid ColumnDefinitions="130,*" RowDefinitions="Auto,Auto"
                               ColumnSpacing="10" RowSpacing="8">
                           <!--
-                              Der Name kommt vom Satelliten selbst und ist darum
-                              Anzeige, kein Eingabefeld: haende man ihn hier um,
-                              zeigte er beim naechsten Verbinden wieder seinen
-                              eigenen, und die Bereiche zeigten ins Leere.
+                              The name comes from the satellite itself and is
+                              therefore display, not input: changed here, the
+                              satellite would report its own name again on the
+                              next connection, and the ranges would point nowhere.
                           -->
                           <TextBlock Grid.Row="0" Grid.Column="0" Text="Name" Classes="settingLabel"/>
                           <TextBlock Grid.Row="0" Grid.Column="1" VerticalAlignment="Center"
@@ -2169,17 +2133,16 @@
                     </Border>
 
                     <!--
-                        Der Scan-Umfang gehoert je Satellit und nicht einmal
-                        fuer alle: ob es sich lohnt, ein Verfahren auf die schon
-                        gefundenen Geraete zu beschraenken, haengt am Segment.
-                        In einem Bereich voller unbelegter Adressen kostet die
-                        Diensterkennung an jeder toten Adresse das volle
-                        Zeitlimit je Port - anderswo waere dieselbe
-                        Einschraenkung ein Verlust.
+                        The scan scope is set per satellite and not once for all:
+                        whether limiting a method to devices already found pays
+                        off depends on the segment. In a range full of unused
+                        addresses, service detection costs the full timeout per
+                        port at every dead address; elsewhere the same limitation
+                        would be a loss.
 
-                        Vorbelegt aus den Haupteinstellungen, aber nur beim
-                        Anlegen: eine spaetere Aenderung dort soll nicht
-                        stillschweigend jeden Satelliten mitaendern.
+                        Pre-filled from the main settings, but only on creation: a
+                        later change there must not silently change every
+                        satellite as well.
                     -->
                     <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
                             BorderThickness="1" CornerRadius="4" Padding="16,14"
@@ -2210,10 +2173,10 @@
                           </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <!-- Kein Verfahren, sondern die Unterfunktion des
-                             Namensscans - steht aber hier, weil sie dieselbe
-                             Frage beantwortet und dieselbe Zeit spart. Genau
-                             wie im Kasten der Haupteinstellungen. -->
+                        <!-- Not a method but the sub-function of the name scan;
+                             it sits here because it answers the same question and
+                             saves the same time, just as in the box of the main
+                             settings. -->
                         <CheckBox Content="DNS cross-check" FontSize="11"
                                   IsChecked="{Binding SatelliteEditor.Selected.CrossCheckOnlyKnownTargets}"
                                   ToolTip.Tip="Compares only the devices that answered in this satellite's run. Off, it also checks every old row - which is how you find names that still resolve although the device is long gone."/>
@@ -2233,22 +2196,22 @@
                                    Text="Start the scan as usual from the command bar at the top. Ranges with a satellite go to that satellite in one single job; everything else runs from here."/>
 
                         <!--
-                            Drei Zeilen, in der Reihenfolge des Ablaufs: was
-                            durch ist, was gerade laeuft, was noch kommt. Das
-                            laufende Verfahren steht in der Mitte, direkt
-                            ueber seinem Balken - dorthin schaut man, und
-                            Erledigtes wie Ausstehendes ordnet sich darum.
+                            Three lines in the order of the workflow: what is
+                            done, what is running, what is still to come. The
+                            running method is in the middle, right above its bar;
+                            that is where the eye goes, and done and pending
+                            arrange themselves around it.
 
-                            Die Zahlen ohne Beschriftung: "102 / 17 / 254"
-                            steht fuer sich, sobald man einmal weiss, was es
-                            ist. Das sagt der Tooltip, und daneben steht
-                            ohnehin dasselbe wie im Kommandobalken oben.
+                            The numbers without labels: "102 / 17 / 254" speaks
+                            for itself once its meaning is known. The tooltip
+                            explains it, and the command bar at the top shows the
+                            same anyway.
                         -->
                         <Grid IsVisible="{Binding SatelliteEditor.Selected.IsBusy}"
                               ColumnDefinitions="66,*,Auto"
                               RowDefinitions="Auto,10,Auto,3,Auto,10,Auto">
 
-                          <!-- Zeile 1: erledigt -->
+                          <!-- Line 1: done -->
                           <TextBlock Grid.Row="0" Grid.Column="0" Text="Done:"
                                      Classes="settingLabel" VerticalAlignment="Top"/>
                           <TextBlock Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="2"
@@ -2256,16 +2219,15 @@
                                      Foreground="{StaticResource Dim}"
                                      Text="{Binding SatelliteEditor.Selected.ProgressDone}"/>
 
-                          <!-- Zeile 2: laufendes Verfahren mit seinen Zahlen -->
+                          <!-- Line 2: running method with its counters -->
                           <TextBlock Grid.Row="2" Grid.Column="0" Text="Current:"
                                      Classes="settingLabel" VerticalAlignment="Center"/>
                           <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal"
                                       Spacing="10" VerticalAlignment="Center">
                             <TextBlock FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"
                                        Text="{Binding SatelliteEditor.Selected.ProgressCurrent}"/>
-                            <!-- Gesendet / geantwortet / gesamt. Die mittlere
-                                 Zahl ist die eigentliche Nachricht und darum
-                                 hervorgehoben. -->
+                            <!-- Sent / answered / total. The middle number is the
+                                 actual message and therefore highlighted. -->
                             <TextBlock Classes="mono" FontSize="10.5" VerticalAlignment="Center"
                                        Foreground="{StaticResource Dim}"
                                        IsVisible="{Binding SatelliteEditor.Selected.HasCounts}"
@@ -2278,9 +2240,9 @@
                           </StackPanel>
                           <StackPanel Grid.Row="2" Grid.Column="2" Orientation="Horizontal"
                                       Spacing="8" VerticalAlignment="Center">
-                            <!-- Der Satellit meldet sich auch, wenn sich nichts
-                                 aendert. Bleibt diese Zeit stehen, haengt die
-                                 Verbindung und nicht der Scan. -->
+                            <!-- The satellite reports even when nothing changes.
+                                 If this time stops advancing, the connection
+                                 hangs, not the scan. -->
                             <TextBlock FontSize="10" VerticalAlignment="Center"
                                        Foreground="{StaticResource Dimmer}"
                                        ToolTip.Tip="When the last update arrived from this satellite"
@@ -2291,12 +2253,12 @@
                             </TextBlock>
                           </StackPanel>
 
-                          <!-- Zeile 3: der Balken zum laufenden Verfahren -->
+                          <!-- Line 3: the bar of the running method -->
                           <ProgressBar Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="2"
                                        Minimum="0" Maximum="100" Height="6"
                                        Value="{Binding SatelliteEditor.Selected.ProgressPercent}"/>
 
-                          <!-- Zeile 4: was noch aussteht -->
+                          <!-- Line 4: what is still pending -->
                           <TextBlock Grid.Row="6" Grid.Column="0" Text="Pending:"
                                      Classes="settingLabel" VerticalAlignment="Top"/>
                           <TextBlock Grid.Row="6" Grid.Column="1" Grid.ColumnSpan="2"
@@ -2310,8 +2272,8 @@
                                    Text="No job running on this satellite."/>
 
                         <!--
-                            Stoppt genau diesen Satelliten. Der Stopp-Knopf im
-                            Kommandobalken betrifft nur den oertlichen Lauf.
+                            Stops exactly this satellite. The stop button in the
+                            command bar affects only the local run.
                         -->
                         <Button Content="Stop this satellite's job" HorizontalAlignment="Left"
                                 Command="{Binding SatelliteEditor.StopJobCommand}"
@@ -2330,7 +2292,7 @@
             </DockPanel>
           </TabItem>
 
-          <!-- ==================================================== SATELLIT -->
+          <!-- ==================================================== SATELLITE -->
           <TabItem Header="Satellite mode  ·  scan for others">
             <DockPanel LastChildFill="True" Background="{StaticResource Workspace}">
 
@@ -2341,12 +2303,12 @@
               </Border>
 
               <!--
-                  Der laufende Auftrag steht ganz oben und immer sichtbar, auch
-                  wenn keiner laeuft: die Frage "arbeitet die Anlage gerade, und
-                  fuer wen" ist beim Satelliten die wichtigste. Bei mehreren
-                  Empfaengern nimmt er nur einen Auftrag zur Zeit an - ohne diese
-                  Zeile bliebe unerklaerlich, warum der zweite Hauptscanner ein
-                  "busy" bekommt.
+                  The running job is at the very top and always visible, even when
+                  none is running: "is this machine working right now, and for
+                  whom" is the most important question on the satellite. With
+                  several main scanners it accepts only one job at a time; without
+                  this line it would be unexplained why the second main scanner
+                  gets a "busy".
               -->
               <Border DockPanel.Dock="Top" Padding="14,12"
                       Background="{StaticResource Panel}"
@@ -2357,10 +2319,9 @@
                       <TextBlock Text="CURRENT JOB" Classes="settingsHead" VerticalAlignment="Center"/>
 
                       <!--
-                          Woher die Zahlen stammen. Ohne das saehe ein Auftrag
-                          des Dienstes so aus, als haette dieses Fenster ihn
-                          angenommen - und der Stopp-Knopf griffe scheinbar
-                          ins Leere.
+                          Where the numbers come from. Without this, a job of the
+                          service would look as if this window had accepted it,
+                          and the stop button would seem to have no effect.
                       -->
                       <Border Background="{StaticResource TealSoft}" CornerRadius="2" Padding="6,1"
                               VerticalAlignment="Center"
@@ -2426,17 +2387,17 @@
 
                 <ScrollViewer Grid.Column="0" Padding="16,14">
                   <!--
-                      Begrenzt, weil die Eingabezeile sonst auf einem breiten
-                      Schirm ueber anderthalb Meter Tabelle laeuft und das Auge
-                      zwischen Beschriftung und Feld den Faden verliert.
+                      Limited because on a wide screen the input row would
+                      otherwise run across a meter and a half of table, and the
+                      eye loses track between label and field.
                   -->
                   <StackPanel Spacing="14" MaxWidth="1200" HorizontalAlignment="Left">
 
                     <!--
-                        Was diese Anlage dem Hauptscanner ueber sich meldet.
-                        Steht hier, damit man am Satelliten nachsehen kann, was
-                        drueben ankommt - und damit sichtbar ist, dass es
-                        uebertragen wird.
+                        What this machine reports about itself to the main
+                        scanner. Shown here so that the satellite shows what
+                        arrives on the other side, and so that it is visible that
+                        the information is transmitted.
                     -->
                     <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
                             BorderThickness="1" CornerRadius="4" Padding="16,14">
@@ -2483,11 +2444,11 @@
                         <TextBlock Text="1   THIS MACHINE" Classes="settingsHead"/>
 
                         <!--
-                            Aenderbar, seit der Rechnername nicht mehr immer
-                            taugt: zwei Anlagen koennen gleich heissen, und
-                            drueben unterscheidet der Bereich sie allein an
-                            diesem Namen. Die Vorgabe bleibt der Rechnername,
-                            und der Knopf holt ihn zurueck.
+                            Editable because the machine name is not always
+                            suitable: two machines can have the same name, and the
+                            main scanner tells them apart in the range by this
+                            name alone. The default remains the machine name, and
+                            the button restores it.
                         -->
                         <Grid ColumnDefinitions="110,300,Auto" ColumnSpacing="10"
                               HorizontalAlignment="Left">
@@ -2526,13 +2487,11 @@
                                    Text="More than one is normal and intended - a laptop and a server, for example. This machine holds a connection to every one of them at the same time, each approved separately and each reconnecting on its own. If one is switched off, the others carry on."/>
 
                         <!--
-                            Eingabezeile ueber der Tabelle, nicht daneben: die
-                            vier Angaben eines Empfaengers stehen damit in
-                            derselben Spaltenordnung wie die Tabelle darunter,
-                            und man liest sie in einer Zeile statt in einem
-                            zweiten Block rechts. Add und Remove stehen ueber
-                            beide Zeilen, weil sie zur ganzen Eingabe gehoeren
-                            und nicht zu einem einzelnen Feld.
+                            Input row above the table, not next to it: the four
+                            fields of a receiver are in the same column order as
+                            the table below and read as one row instead of a
+                            second block on the right. Add and Remove belong to
+                            the whole input, not to a single field.
                         -->
                         <Grid ColumnDefinitions="*,180,130,*,Auto,Auto"
                               RowDefinitions="Auto,Auto"
@@ -2570,10 +2529,9 @@
                                    Watermark="e.g. laptop, server"/>
 
                           <!--
-                              Auf der Hoehe der Eingabefelder und nicht ueber
-                              beide Zeilen: die Beschriftungszeile bleibt damit
-                              eine durchgehende Linie, und die Knoepfe stehen
-                              in einer Flucht mit dem, worauf sie wirken.
+                              At the height of the input fields and not spanning
+                              both rows: the label row stays one continuous line,
+                              and the buttons are aligned with what they act on.
                           -->
                           <Button Grid.Row="1" Grid.Column="4"
                                   Content="Add" MinWidth="72"
@@ -2588,11 +2546,11 @@
                         </Grid>
 
                         <!--
-                            Die Tabelle traegt dieselbe Breite wie die
-                            Eingabezeile - sie steht im selben StackPanel und
-                            dehnt sich mit. Doppelt so hoch wie zuvor, weil
-                            mehr als drei Empfaenger der Normalfall sind und
-                            man beim Zuordnen alle zugleich sehen will.
+                            The table has the same width as the input row: it sits
+                            in the same StackPanel and stretches with it. Tall,
+                            because more than three receivers are the normal case
+                            and all of them should be visible at once while
+                            assigning.
                         -->
                         <Border BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="3">
                           <DataGrid x:Name="dg_Hosts" Height="240"
@@ -2603,9 +2561,9 @@
                                     FontSize="10.5" Background="Transparent">
                             <DataGrid.Columns>
                               <!--
-                                  Gefuellt = verbunden und freigegeben, hohl =
-                                  verbunden, wartet noch auf die Freigabe,
-                                  nichts = keine Verbindung.
+                                  Filled = connected and approved, hollow =
+                                  connected and still waiting for approval,
+                                  nothing = no connection.
                               -->
                               <DataGridTemplateColumn Header="" Width="28">
                                 <DataGridTemplateColumn.CellTemplate>
@@ -2622,9 +2580,9 @@
                                 </DataGridTemplateColumn.CellTemplate>
                               </DataGridTemplateColumn>
 
-                              <!-- Der Haken bleibt bedienbar, obwohl die
-                                   Tabelle sonst nur anzeigt: er ist ein
-                                   Schalter, kein Eingabefeld. -->
+                              <!-- The checkbox stays operable although the table
+                                   otherwise only displays: it is a switch, not an
+                                   input field. -->
                               <DataGridTemplateColumn Header="ON" Width="60">
                                 <DataGridTemplateColumn.CellTemplate>
                                   <DataTemplate>
@@ -2646,9 +2604,9 @@
                         </Border>
 
                         <!--
-                            Rechtsbuendig, unter Add und Remove: die Knoepfe,
-                            die auf die Tabelle wirken, stehen damit auf
-                            derselben Kante wie die, die ihre Zeilen anlegen.
+                            Right-aligned, below Add and Remove: the buttons that
+                            act on the table share the same edge as those that
+                            create its rows.
                         -->
                         <StackPanel Orientation="Horizontal" Spacing="6"
                                     HorizontalAlignment="Right">
@@ -2774,16 +2732,15 @@
           </TabItem>
         </TabControl>
 
-        <!-- ========== Ansicht: Einstellungen ========== -->
+        <!-- ========== View: Settings ========== -->
         <!--
-            Zwei Spalten statt der frueheren Streuung ueber sechs Reiter. Was
-            den Scan betrifft, steht links; was Ablage und Umgebung betrifft,
-            rechts. Jede Einstellung traegt einen Satz, der sagt, was sie
-            bewirkt - ein Schieberegler namens "TimeOut" allein sagt niemandem,
-            ob gross oder klein besser ist.
+            Two columns. Everything about the scan is on the left; storage and
+            environment on the right. Each setting carries a sentence saying what
+            it does; a slider called "TimeOut" alone tells nobody whether larger
+            or smaller is better.
 
-            Jede Aenderung wird sofort gespeichert; es gibt bewusst keinen
-            Speichern-Knopf, den man vergessen kann.
+            Every change is saved immediately; there is deliberately no Save
+            button that could be forgotten.
         -->
         <ScrollViewer x:Name="view_Settings" IsVisible="False"
                       Background="{StaticResource Workspace}" Padding="18">
@@ -2821,9 +2778,9 @@
                                Text="Ignores the port collection and tries every port. Finds services on unusual ports - and takes hours instead of minutes."/>
                   </StackPanel>
 
-                  <!-- Ohne die richtige Kennung bleibt die Switchport-Abfrage
-                       ohne Ergebnis, und zwar stumm - darum steht der Hinweis
-                       darunter und nicht in einer Fehlermeldung. -->
+                  <!-- Without the right community string, the switch port query
+                       returns nothing, and silently; hence the hint below instead
+                       of an error message. -->
                   <StackPanel Spacing="3">
                     <TextBlock Text="SNMP community" Classes="settingLabel"/>
                     <TextBox Text="{Binding Settings.SnmpCommunity, Mode=TwoWay}"
@@ -2832,9 +2789,9 @@
                                Text="The read password for switches and managed devices. Needed by &quot;Switch port and VLAN&quot; to ask which device hangs on which port. Factory default is &quot;public&quot;; where that has been changed, the query stays empty."/>
                   </StackPanel>
 
-                  <!-- Je Verfahren einzeln, nicht fuer den ganzen Lauf: Ping,
-                       ARP und SNMP sollen den Bereich abklopfen, Port- und
-                       Dienstscan danach nur noch, was geantwortet hat. -->
+                  <!-- Per method, not for the whole run: ping, ARP and SNMP sweep
+                       the range, port and service scan afterwards only what
+                       answered. -->
                   <Border BorderBrush="{StaticResource Line}" BorderThickness="1"
                           CornerRadius="4" Padding="12,10">
                     <StackPanel Spacing="6">
@@ -2857,9 +2814,9 @@
                           </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <!-- Kein Verfahren, sondern die Unterfunktion des
-                             Namensscans - steht aber hier, weil sie dieselbe
-                             Frage beantwortet und dieselbe Zeit spart. -->
+                        <!-- Not a method but the sub-function of the name scan;
+                             it sits here because it answers the same question and
+                             saves the same time. -->
                         <CheckBox Content="DNS cross-check" FontSize="11"
                                   MinHeight="22" Margin="0,0,0,1"
                                   IsChecked="{Binding Settings.CrossCheckOnlyKnownTargets}"
@@ -2868,12 +2825,11 @@
                     </StackPanel>
                   </Border>
 
-                  <!-- Gruppenrahmen mit Schalter auf der Rahmenlinie.
-                       Das Kaestchen behaelt seine natuerliche Hoehe - eine
-                       feste Hoehe schneidet es unten ab, weil Fluent
-                       Kaestchen und Beschriftung darin zentriert. Statt
-                       dessen faengt der Rahmen auf halber Kaestchenhoehe an,
-                       dann liegt die Linie durch beides hindurch. -->
+                  <!-- Group frame with the switch on the frame line. The checkbox
+                       keeps its natural height: a fixed height cuts it off at the
+                       bottom, because Fluent centers box and label inside it.
+                       Instead, the frame starts at half the checkbox height, so
+                       the line runs through both. -->
                   <Grid Margin="0,4,0,0">
                     <Border BorderBrush="{StaticResource Line}" BorderThickness="1"
                             CornerRadius="4" Padding="12,24,12,10" Margin="0,16,0,0">
@@ -2881,13 +2837,12 @@
                         <TextBlock Classes="settingHint"
                                    Text="Ticked services are folded into the &quot;+n&quot; badge in the Running services column; everything else is listed by name. With the switch off, every service is listed - which is the point of the column."/>
 
-                        <!-- Der Roller darf nicht mit abgeschaltet werden:
-                             sonst laesst sich bei ausgeschaltetem Schalter
-                             nicht einmal nachsehen, was ausgewaehlt ist. -->
-                        <!-- Zwei Spalten, die jede fuer sich untereinander
-                             wachsen. Ein Gitter mit gleich hohen Zellen
-                             richtet sich an der groessten Rubrik aus und
-                             reisst zwischen den kleinen Luecken auf. -->
+                        <!-- The scroll viewer must not be disabled as well:
+                             otherwise, with the switch off, not even the current
+                             selection could be viewed. -->
+                        <!-- Two columns, each growing downwards on its own. A
+                             grid with equally tall cells aligns to the largest
+                             group and leaves gaps between the small ones. -->
                         <ScrollViewer MaxHeight="300" VerticalScrollBarVisibility="Visible"
                                       HorizontalScrollBarVisibility="Disabled">
                           <Grid ColumnDefinitions="*,*">
@@ -2940,9 +2895,9 @@
                       </StackPanel>
                     </Border>
 
-                    <!-- MinHeight 0 nimmt Fluent die eingebauten 32 Pixel;
-                         die Hoehe ergibt sich dann aus Kaestchen und Schrift,
-                         die darin ohnehin zueinander mittig stehen. -->
+                    <!-- MinHeight 0 removes the built-in 32 pixels of Fluent; the
+                         height then results from box and text, which are centered
+                         relative to each other anyway. -->
                     <CheckBox Content="Group services" FontWeight="SemiBold" FontSize="11.5"
                               VerticalAlignment="Top" HorizontalAlignment="Left"
                               MinHeight="0" Margin="10,0,0,0" Padding="7,0,8,0"
@@ -2966,7 +2921,7 @@
                 </StackPanel>
               </Border>
 
-              <!-- MAC-Herstellerliste -->
+              <!-- MAC vendor list -->
               <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
                       BorderThickness="1" CornerRadius="4" Padding="16,14">
                 <StackPanel Spacing="10">
@@ -2974,9 +2929,9 @@
 
                   <StackPanel Spacing="5">
                     <!--
-                        Keine eigene Hoehe/Polsterung: der Button-Stil setzt
-                        Height 22, und ein groesseres Padding liess die
-                        Beschriftung unten abschneiden.
+                        No height or padding of its own: the button style sets
+                        Height 22, and a larger padding cuts off the label at the
+                        bottom.
                     -->
                     <Button Content="Update from Wireshark" HorizontalAlignment="Left"
                             Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
@@ -2988,7 +2943,7 @@
                 </StackPanel>
               </Border>
 
-              <!-- Namensaufloesung -->
+              <!-- Name resolution -->
               <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
                       BorderThickness="1" CornerRadius="4" Padding="16,14">
                 <StackPanel Spacing="10">
@@ -3018,11 +2973,10 @@
                                Text="How many addresses the reverse lookup asks for at the same time. A company name server handles 32 or 64 without trouble and finishes a large range in a fraction of the time. A home router does not: under a burst it silently drops most requests and devices that do have a name come back as unknown. Raise it only where a real name server answers - if results start going missing, go back down."/>
                   </StackPanel>
 
-                  <!-- Der Quervergleich der DNS-Server steht bewusst nicht
-                       hier, sondern als Unterfunktion beim Namensscan in der
-                       Verfahren-Schublade: er ist Teil des Laufs und keine
-                       Grundeinstellung, und man entscheidet ihn dort, wo man
-                       auch die Verfahren anhakt. -->
+                  <!-- The DNS server cross-check is deliberately not here but a
+                       sub-function of the name scan in the method drawer: it is
+                       part of the run, not a basic setting, and is decided where
+                       the methods are checked. -->
                 </StackPanel>
               </Border>
             </StackPanel>
@@ -3042,7 +2996,7 @@
                 </StackPanel>
               </Border>
 
-              <!-- Ablage -->
+              <!-- Storage -->
               <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
                       BorderThickness="1" CornerRadius="4" Padding="16,14">
                 <StackPanel Spacing="12">
@@ -3074,7 +3028,7 @@
                 </StackPanel>
               </Border>
 
-              <!-- Was hier noch nicht steht -->
+              <!-- What is not here yet -->
               <Border Background="#F4F8F8" BorderBrush="{StaticResource Line}"
                       BorderThickness="1" CornerRadius="4" Padding="16,14">
                 <StackPanel Spacing="7">
@@ -3089,7 +3043,7 @@
           </Grid>
         </ScrollViewer>
 
-        <!-- ========== Netz: die Adapter dieses Rechners ========== -->
+        <!-- ========== Network: the adapters of this machine ========== -->
         <DockPanel x:Name="view_Network" IsVisible="False" LastChildFill="True"
                    Background="{StaticResource Workspace}">
 
@@ -3107,8 +3061,8 @@
             </StackPanel>
           </Border>
 
-          <!-- Der Hinweis steht unter der Liste, nicht darueber: er ergibt
-               sich aus ihr und soll die Tabelle nicht wegdruecken. -->
+          <!-- The hint is below the list, not above: it follows from the list and
+               should not push the table down. -->
           <Border DockPanel.Dock="Bottom" Padding="12,8"
                   Background="{StaticResource CritSoft}"
                   IsVisible="{Binding NetworkView.HasDnsWarning}">
@@ -3124,8 +3078,8 @@
               <DataGridTextColumn Header="ADAPTER" Binding="{Binding Name}" Width="Auto" MinWidth="130"/>
               <DataGridTextColumn Header="STATE" Binding="{Binding ConfigurationText}" Width="Auto" MinWidth="60"/>
 
-              <!-- Die Zahl steht vor der Aufzaehlung, damit ein Ausreisser
-                   auffaellt, ohne dass man 25 Adressen lesen muss. -->
+              <!-- The count comes before the list so that an outlier stands out
+                   without reading 25 addresses. -->
               <DataGridTemplateColumn Header="DNS" Width="Auto" MinWidth="50">
                 <DataGridTemplateColumn.CellTemplate>
                   <DataTemplate x:DataType="net:AdapterInfo">
@@ -3145,7 +3099,7 @@
           </DataGrid>
         </DockPanel>
 
-        <!-- ========== Befunde ========== -->
+        <!-- ========== Findings ========== -->
         <DockPanel x:Name="view_Findings" IsVisible="False" LastChildFill="True"
                    Background="{StaticResource Workspace}">
 
@@ -3156,8 +3110,8 @@
               <TextBlock Text="FINDINGS" FontSize="10.5" FontWeight="SemiBold"
                          Foreground="{StaticResource Dim}" VerticalAlignment="Center"/>
 
-              <!-- Die Zaehler stehen vorn: wie viele und wie schlimm ist die
-                   erste Frage, die Liste beantwortet erst die zweite. -->
+              <!-- The counters come first: how many and how severe is the first
+                   question; the list answers only the second. -->
               <Border Background="{StaticResource CritSoft}" CornerRadius="3" Padding="6,1">
                 <TextBlock FontSize="10.5" Foreground="{StaticResource Crit}">
                   <Run Text="{Binding FindingsView.CriticalCount}"/><Run Text=" critical"/>
@@ -3206,9 +3160,9 @@
                 </DataGridTemplateColumn.CellTemplate>
               </DataGridTemplateColumn>
 
-              <!-- Adressfamilie in der Farbe des Entwurfs. Heute fast immer
-                   leer; sobald die IPv6-Regeln stehen, ist an dieser Spalte
-                   auf einen Blick zu sehen, was davon v6 betrifft. -->
+              <!-- Address family in the color of the design. Empty for findings
+                   that concern no single family; shows at a glance which findings
+                   concern IPv6. -->
               <DataGridTemplateColumn Header="" Width="Auto" MinWidth="30">
                 <DataGridTemplateColumn.CellTemplate>
                   <DataTemplate x:DataType="vm:Finding">
@@ -3230,7 +3184,7 @@
           </DataGrid>
         </DockPanel>
 
-        <!-- ========== Topologie ========== -->
+        <!-- ========== Topology ========== -->
         <DockPanel x:Name="view_Topology" IsVisible="False" LastChildFill="True"
                    Background="{StaticResource Workspace}">
 
@@ -3259,16 +3213,16 @@
           </Border>
 
           <!--
-              Die Webansicht wird bewusst im Code eingehaengt, nicht hier.
-              NativeWebView setzt unter Linux auf WPE WebKit auf; fehlt das,
-              reisst schon das Erzeugen des Controls den Prozess mit. Was hier
-              steht, entsteht aber beim Laden des XAML - also bevor irgendetwas
-              geprueft werden koennte. Siehe PrepareTopologyView.
+              The web view is deliberately attached in code, not here. On Linux,
+              NativeWebView is based on WPE WebKit; if that is missing, merely
+              creating the control takes down the process. Whatever is declared
+              here is created when the XAML loads, before anything could be
+              checked. See PrepareTopologyView.
           -->
           <Panel x:Name="host_Topology"/>
         </DockPanel>
 
-        <!-- ========== Noch nicht gebaute Ansichten ========== -->
+        <!-- ========== Views not available yet ========== -->
         <Border x:Name="view_Placeholder" IsVisible="False"
                 Background="{StaticResource Workspace}">
           <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6">

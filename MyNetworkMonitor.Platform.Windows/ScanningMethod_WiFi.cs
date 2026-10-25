@@ -9,10 +9,9 @@ using System.Diagnostics;
 using System.Net.NetworkInformation;
 using MyNetworkMonitor.Core.Models;
 using MyNetworkMonitor.Core.Services;
-//Signal
 namespace MyNetworkMonitor
 {
-    /// <summary>Windows-Implementierung von <see cref="IWifiProvider"/> (native wlanapi.dll).</summary>
+    /// <summary>Windows implementation of <see cref="IWifiProvider"/> (native wlanapi.dll).</summary>
     public class ScanningMethod_WiFi : IWifiProvider
     {
         public event EventHandler<WiFiSignalResult> WiFiSignalStrengthUpdated;

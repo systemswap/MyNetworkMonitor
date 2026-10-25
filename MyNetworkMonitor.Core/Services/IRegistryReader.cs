@@ -1,6 +1,6 @@
 namespace MyNetworkMonitor.Core.Services
 {
-    /// <summary>Registry-Wurzelschlüssel (plattformneutrale Entsprechung von Microsoft.Win32.RegistryHive).</summary>
+    /// <summary>Registry root key (platform-neutral equivalent of Microsoft.Win32.RegistryHive).</summary>
     public enum RegistryHiveKind
     {
         ClassesRoot,
@@ -11,17 +11,24 @@ namespace MyNetworkMonitor.Core.Services
     }
 
     /// <summary>
-    /// Kapselt lesenden Zugriff auf die Windows-Registry hinter einer neutralen
-    /// Schnittstelle. Die Windows-Implementierung nutzt Microsoft.Win32.Registry;
-    /// unter Linux (wo es keine Registry gibt) kann eine Implementierung injiziert
-    /// werden, die schlicht "nicht vorhanden" liefert.
+    /// Encapsulates read access to the Windows registry behind a neutral
+    /// interface. The Windows implementation uses Microsoft.Win32.Registry;
+    /// on Linux, which has no registry, the implementation reports every key
+    /// and value as missing.
     /// </summary>
     public interface IRegistryReader
     {
-        /// <summary>true, wenn der Unterschlüssel existiert.</summary>
+        /// <summary>Whether the subkey exists.</summary>
+        /// <param name="hive">The root key.</param>
+        /// <param name="subKeyPath">The path of the subkey below the root key.</param>
+        /// <returns><c>true</c> if the subkey exists.</returns>
         bool KeyExists(RegistryHiveKind hive, string subKeyPath);
 
-        /// <summary>Liest einen String-Wert oder null, wenn Schlüssel/Wert fehlt.</summary>
+        /// <summary>Reads a string value.</summary>
+        /// <param name="hive">The root key.</param>
+        /// <param name="subKeyPath">The path of the subkey below the root key.</param>
+        /// <param name="valueName">The name of the value.</param>
+        /// <returns>The value, or null if the key or value is missing.</returns>
         string? GetString(RegistryHiveKind hive, string subKeyPath, string valueName);
     }
 }

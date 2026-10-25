@@ -6,86 +6,89 @@ using System.Net.Sockets;
 namespace MyNetworkMonitor.Core.Network
 {
     /// <summary>
-    /// Wie ein ICMPv6-Kanal zustande gekommen ist. Bestimmt, was mit ihm geht -
-    /// und was der Nutzer als Grund zu sehen bekommt, wenn wenig dabei
-    /// herauskommt.
+    /// How an ICMPv6 channel was established. Determines what it can do - and
+    /// which reason is displayed when little comes of it.
     /// </summary>
     public enum Icmpv6Access
     {
-        /// <summary>Nicht verfuegbar - fehlende Rechte oder kein IPv6.</summary>
+        /// <summary>Not available - missing privileges or no IPv6.</summary>
         None,
 
         /// <summary>
-        /// Datagramm-Socket (<c>SOCK_DGRAM</c> auf <c>IPPROTO_ICMPV6</c>).
-        /// Linux erlaubt das ohne Sonderrechte, sofern die Gruppe des Nutzers in
-        /// <c>net.ipv4.ping_group_range</c> liegt - auf den gaengigen
-        /// Distributionen ist das der Fall. Reicht fuer Echo und Echo-Antwort,
-        /// nicht fuer Router Advertisements. Unter Windows gibt es das nicht.
+        /// Datagram socket (<c>SOCK_DGRAM</c> on <c>IPPROTO_ICMPV6</c>).
+        /// Linux allows this without special privileges as long as the user's
+        /// group lies within <c>net.ipv4.ping_group_range</c> - the case on common
+        /// distributions. Sufficient for echo and echo reply, not for router
+        /// advertisements. Not available on Windows.
         /// </summary>
         Datagram,
 
         /// <summary>
-        /// Rohsocket. Sieht jedes ICMPv6-Paket, also auch Router
-        /// Advertisements und MLD. Braucht Administratorrechte bzw.
-        /// <c>CAP_NET_RAW</c>.
+        /// Raw socket. Sees every ICMPv6 packet, including router advertisements
+        /// and MLD. Requires administrator rights or <c>CAP_NET_RAW</c>.
         /// </summary>
         Raw
     }
 
     /// <summary>
-    /// Ein ICMPv6-Socket samt der Frage, wie weit er reicht.
+    /// An ICMPv6 socket together with the answer to how far it reaches.
     /// <para>
-    /// Der Kern der Rechtefrage steckt hier und nicht in den Verfahren: ein
-    /// Rohsocket ist der beste Fall, ein Datagramm-Socket der zweitbeste, und
-    /// wenn beides ausfaellt, muss das Verfahren einen anderen Weg gehen statt
-    /// eine Ausnahme nach oben zu reichen. Alle drei Faelle an einer Stelle
-    /// entschieden zu haben, haelt das aus den Verfahren heraus.
+    /// The privilege question is settled here and not in the scan methods: a raw
+    /// socket is the best case, a datagram socket the second best, and if both
+    /// fail, the method must take another path instead of passing an exception
+    /// up. Deciding all three cases in one place keeps this out of the methods.
     /// </para>
     /// <para>
-    /// <b>Zwei Fallen, beide am 2026-08-09 nachgemessen</b> - sie kosten sonst
-    /// jeweils einen stillen Fehlschlag:
+    /// <b>Two pitfalls, both verified by measurement</b> - each would otherwise
+    /// cause a silent failure:
     /// </para>
     /// <list type="number">
     /// <item>
-    /// <b>Windows laesst einen Rohsocket ohne Administratorrechte anlegen</b>,
-    /// und erst danach kommt nie ein Paket an. Kein Fehler, keine Ausnahme -
-    /// nur Stille. Ein Verfahren, das sich auf das gelungene
-    /// <c>new Socket(...)</c> verlaesst, meldet dann "nichts gefunden", wo in
-    /// Wahrheit die Rechte fehlen. Darum wird unter Windows <b>vorher</b> auf
-    /// erhoehte Rechte geprueft.
+    /// <b>Windows allows creating a raw socket without administrator rights</b>,
+    /// but then no packet ever arrives. No error, no exception - only silence.
+    /// A method relying on the successful <c>new Socket(...)</c> would then
+    /// report "nothing found" when in fact privileges are missing. Therefore
+    /// elevated rights are checked <b>beforehand</b> on Windows.
     /// </item>
     /// <item>
-    /// <b>Die Pruefsumme rechnet unter Windows niemand.</b> RFC 3542 sieht vor,
-    /// dass der Kernel sie bei <c>IPPROTO_ICMPV6</c> selbst eintraegt - Linux
-    /// tut das, Windows nicht. Ein Paket mit Pruefsumme 0 verwirft jeder
-    /// Empfaenger stillschweigend. Sie wird darum hier gerechnet; wo der Kernel
-    /// sie ohnehin ueberschreibt, schadet das nicht.
+    /// <b>Windows does not compute the checksum.</b> RFC 3542, section 3.1,
+    /// specifies that the kernel fills it in for <c>IPPROTO_ICMPV6</c> sockets -
+    /// Linux does, Windows does not. Every receiver silently discards a packet
+    /// with checksum 0. It is therefore computed here; where the kernel
+    /// overwrites it anyway, this does no harm.
     /// </item>
     /// </list>
     /// </summary>
     public sealed class Icmpv6Channel : IDisposable
     {
-        /// <summary>Alle Knoten im Segment (RFC 4291).</summary>
+        /// <summary>All nodes on the segment (RFC 4291, section 2.7.1).</summary>
         public static readonly IPAddress AllNodes = IPAddress.Parse("ff02::1");
 
-        /// <summary>Alle Router im Segment.</summary>
+        /// <summary>All routers on the segment (RFC 4291, section 2.7.1).</summary>
         public static readonly IPAddress AllRouters = IPAddress.Parse("ff02::2");
 
+        /// <summary>ICMPv6 type Echo Request (RFC 4443, section 4.1).</summary>
         public const int EchoRequest = 128;
+        /// <summary>ICMPv6 type Echo Reply (RFC 4443, section 4.2).</summary>
         public const int EchoReply = 129;
+        /// <summary>ICMPv6 type Router Solicitation (RFC 4861, section 4.1).</summary>
         public const int RouterSolicitation = 133;
+        /// <summary>ICMPv6 type Router Advertisement (RFC 4861, section 4.2).</summary>
         public const int RouterAdvertisement = 134;
+        /// <summary>ICMPv6 type Neighbor Solicitation (RFC 4861, section 4.3).</summary>
         public const int NeighborSolicitation = 135;
+        /// <summary>ICMPv6 type Neighbor Advertisement (RFC 4861, section 4.4).</summary>
         public const int NeighborAdvertisement = 136;
 
-        /// <summary>MLDv1: Abfrage und Bericht.</summary>
+        /// <summary>MLDv1 query (RFC 2710, section 3); also used by MLDv2 (RFC 3810, section 5.1).</summary>
         public const int MulticastListenerQuery = 130;
+        /// <summary>MLDv1 report (RFC 2710, section 3).</summary>
         public const int MulticastListenerReportV1 = 131;
 
-        /// <summary>MLDv2-Bericht - die Antwort auf eine Multicast-Listener-Abfrage.</summary>
+        /// <summary>MLDv2 report - the answer to a multicast listener query (RFC 3810, section 5.2).</summary>
         public const int MulticastListenerReportV2 = 143;
 
-        /// <summary>Kennzahl von ICMPv6 im Pseudokopf der Pruefsumme.</summary>
+        /// <summary>Next-header value of ICMPv6 in the checksum pseudo-header.</summary>
         private const byte NextHeaderIcmpv6 = 58;
 
         private readonly Socket _socket;
@@ -98,33 +101,37 @@ namespace MyNetworkMonitor.Core.Network
             InterfaceIndex = interfaceIndex;
         }
 
+        /// <summary>How the channel was established.</summary>
         public Icmpv6Access Access { get; }
 
-        /// <summary>Die Link-Local-Adresse, an die gebunden wurde - die Quelle der Pakete.</summary>
+        /// <summary>The link-local address the socket is bound to - the source of the packets.</summary>
         public IPAddress LocalAddress { get; }
 
+        /// <summary>Index of the adapter the channel sends on.</summary>
         public int InterfaceIndex { get; }
 
+        /// <summary>The underlying socket, for receiving.</summary>
         public Socket Socket => _socket;
 
-        // ------------------------------------------------------------- Oeffnen
+        // ------------------------------------------------------------- Opening
 
         /// <summary>
-        /// Oeffnet den bestmoeglichen Kanal auf einem Adapter. Liefert
-        /// <c>null</c>, wenn weder Roh- noch Datagramm-Socket moeglich sind -
-        /// der Aufrufer entscheidet dann, ob er einen Ersatzweg geht oder das
-        /// Verfahren als blockiert meldet.
+        /// Opens the best possible channel on an adapter. Returns <c>null</c> if
+        /// neither a raw nor a datagram socket is possible - the caller then
+        /// decides whether to take a fallback path or report the method as
+        /// blocked.
         /// </summary>
         /// <param name="nic">
-        /// Der Adapter. Aus ihm kommt die Link-Local-Adresse, die als Quelle
-        /// gebunden wird - ohne sie laesst sich die Pruefsumme nicht rechnen.
+        /// The adapter. It provides the link-local address that is bound as the
+        /// source - without it the checksum cannot be computed.
         /// </param>
-        /// <param name="interfaceIndex">Adapterindex fuer den Multicast-Versand.</param>
+        /// <param name="interfaceIndex">Adapter index for multicast sending.</param>
         /// <param name="wantRaw">
-        /// Rohsocket verlangt. Verfahren, die mithoeren statt zu fragen - RA
-        /// und MLD -, kommen mit einem Datagramm-Socket nicht aus: der liefert
-        /// nur Echo-Antworten.
+        /// Raw socket required. Methods that listen instead of asking - RA and
+        /// MLD - cannot work with a datagram socket: it only delivers echo
+        /// replies.
         /// </param>
+        /// <returns>The channel, or <c>null</c> if none can be opened.</returns>
         public static Icmpv6Channel? TryOpen(NetworkInterface nic, int interfaceIndex, bool wantRaw = false)
         {
             ArgumentNullException.ThrowIfNull(nic);
@@ -134,8 +141,8 @@ namespace MyNetworkMonitor.Core.Network
             IPAddress? local = LinkLocalAddressOf(nic, interfaceIndex);
             if (local is null) return null;
 
-            // Wer mithoeren will, bekommt dort keinen Kanal, wo der Empfang
-            // nicht funktioniert - lieber gar keinen als einen stummen.
+            // A listener gets no channel where receiving does not work -
+            // better none than a silent one.
             if (wantRaw && !RawReceiveSupported) return null;
 
             if (RawSocketsUsable)
@@ -148,35 +155,34 @@ namespace MyNetworkMonitor.Core.Network
         }
 
         /// <summary>
-        /// Laesst sich auf einem Rohsocket ueberhaupt <b>empfangen</b>?
+        /// Can a raw socket <b>receive</b> at all?
         /// <para>
-        /// Unter Windows nein - und zwar unabhaengig von den Rechten. Am
-        /// 2026-08-09 nachgemessen, mit Administratorrechten und in vier
-        /// Varianten: gebunden an die Link-Local-Adresse und an <c>::</c>,
-        /// jeweils mit und ohne Beitritt zu <c>ff02::1</c>, <c>ff02::2</c>,
-        /// <c>ff02::16</c> und <c>ff02::1:2</c>. In allen vier Faellen kamen
-        /// <b>null</b> Pakete an, obwohl im Segment zwoelf aktive IPv6-Geraete
-        /// standen. Der Windows-Netzwerkstapel verbraucht ICMPv6 selbst; es
-        /// mitzulesen setzt einen Mitschnitttreiber wie Npcap voraus, und der
-        /// soll ausdruecklich nicht noetig sein.
+        /// Not on Windows - regardless of privileges. Measured with administrator
+        /// rights in four variants: bound to the link-local address and to
+        /// <c>::</c>, each with and without joining <c>ff02::1</c>, <c>ff02::2</c>,
+        /// <c>ff02::16</c> and <c>ff02::1:2</c>. In all four cases <b>zero</b>
+        /// packets arrived, although twelve active IPv6 devices were on the
+        /// segment. The Windows network stack consumes ICMPv6 itself; reading
+        /// along requires a capture driver such as Npcap, which is deliberately
+        /// not a requirement.
         /// </para>
         /// <para>
-        /// Senden geht unter Windows weiterhin - der Rueckgabewert betrifft
-        /// nur das Zuhoeren. Verfahren, die mithoeren, muessen unter Windows
-        /// einen anderen Weg gehen (siehe <see cref="Ipv6StackInfo"/>) oder
-        /// sich als dort nicht verfuegbar melden.
+        /// Sending still works on Windows - the return value only concerns
+        /// listening. Methods that listen must take another path on Windows
+        /// (see <see cref="Ipv6StackInfo"/>) or report themselves as unavailable
+        /// there.
         /// </para>
         /// </summary>
         public static bool RawReceiveSupported => !OperatingSystem.IsWindows();
 
         /// <summary>
-        /// Hat das <b>Anlegen</b> eines Rohsockets hier Aussicht auf Erfolg?
+        /// Does <b>creating</b> a raw socket have a chance of success here?
         /// <para>
-        /// Unter Windows nur mit erhoehten Rechten - und das muss vorher
-        /// feststehen, weil das Anlegen sonst gelingt und der Socket
-        /// anschliessend stumm bleibt (siehe Klassenkommentar). Unter Linux
-        /// scheitert das Anlegen ohne <c>CAP_NET_RAW</c> ehrlich mit
-        /// <c>EPERM</c>, dort genuegt der Versuch.
+        /// On Windows only with elevated rights - and that must be known
+        /// beforehand, because otherwise creation succeeds and the socket then
+        /// stays silent (see class remarks). On Linux, creation without
+        /// <c>CAP_NET_RAW</c> fails honestly with <c>EPERM</c>, so the attempt
+        /// suffices there.
         /// </para>
         /// </summary>
         public static bool RawSocketsUsable
@@ -195,8 +201,8 @@ namespace MyNetworkMonitor.Core.Network
                 }
                 catch (Exception)
                 {
-                    // Laesst sich das nicht feststellen, lieber den Ersatzweg
-                    // gehen als auf einen stummen Socket zu setzen.
+                    // If this cannot be determined, take the fallback path rather
+                    // than rely on a silent socket.
                     return false;
                 }
             }
@@ -210,29 +216,26 @@ namespace MyNetworkMonitor.Core.Network
             {
                 socket = new Socket(AddressFamily.InterNetworkV6, type, ProtocolType.IcmpV6);
 
-                // Ohne diese Bindung sucht der Kernel den Adapter selbst aus.
-                // Bei Link-Local-Multicast ist das regelmaessig der falsche -
-                // auf einem Arbeitsplatz stehen VPN- und Hypervisor-Adapter
-                // davor.
+                // Without this binding the kernel picks the adapter itself.
+                // For link-local multicast that is regularly the wrong one -
+                // on a workstation, VPN and hypervisor adapters come first.
                 socket.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.MulticastInterface, interfaceIndex);
 
-                // Hoehere Sprungzahl waere falsch: ff02:: ist link-lokal und
-                // darf das Segment nicht verlassen.
+                // A higher hop limit would be wrong: ff02:: is link-local and
+                // must not leave the segment.
                 socket.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.MulticastTimeToLive, 1);
                 socket.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.MulticastLoopback, false);
 
-                // Empfangen geht nur ueber einen gebundenen Socket, und die
-                // gebundene Adresse ist zugleich die Quelle im Pseudokopf der
-                // Pruefsumme.
+                // Receiving only works on a bound socket, and the bound
+                // address is also the source in the checksum pseudo-header.
                 socket.Bind(new IPEndPoint(local, 0));
 
                 return new Icmpv6Channel(socket, access, local, interfaceIndex);
             }
             catch (SocketException)
             {
-                // AccessDenied ohne Rechte, ProtocolNotSupported fuer
-                // SOCK_DGRAM unter Windows. Beides ist eine Antwort, kein
-                // Fehler.
+                // AccessDenied without privileges, ProtocolNotSupported for
+                // SOCK_DGRAM on Windows. Both are an answer, not an error.
                 socket?.Dispose();
                 return null;
             }
@@ -244,10 +247,13 @@ namespace MyNetworkMonitor.Core.Network
         }
 
         /// <summary>
-        /// Die Link-Local-Adresse des Adapters, mit gesetzter Zone. Ohne sie
-        /// ist im Segment nichts zu machen - fe80::1 gibt es an jedem Adapter
-        /// einmal, erst die Zone macht daraus ein Ziel.
+        /// The link-local address of the adapter, with the zone set. Nothing can
+        /// be done on the segment without it - fe80::1 exists once on every
+        /// adapter; only the zone turns it into a destination.
         /// </summary>
+        /// <param name="nic">The adapter.</param>
+        /// <param name="interfaceIndex">The zone to set if the address carries none.</param>
+        /// <returns>The scoped link-local address, or <c>null</c> if the adapter has none.</returns>
         public static IPAddress? LinkLocalAddressOf(NetworkInterface nic, int interfaceIndex)
         {
             try
@@ -262,22 +268,25 @@ namespace MyNetworkMonitor.Core.Network
                         : new IPAddress(unicast.Address.GetAddressBytes(), interfaceIndex);
                 }
             }
-            catch (NetworkInformationException) { /* Adapter verschwunden */ }
-            catch (PlatformNotSupportedException) { /* keine IPv6-Angaben */ }
+            catch (NetworkInformationException) { /* adapter disappeared */ }
+            catch (PlatformNotSupportedException) { /* no IPv6 information */ }
 
             return null;
         }
 
-        /// <summary>Eine Multicast-Adresse mit der Zone dieses Kanals.</summary>
+        /// <summary>A multicast address with the zone of this channel.</summary>
         public IPAddress Scoped(IPAddress multicast) =>
             new(multicast.GetAddressBytes(), InterfaceIndex);
 
-        // ------------------------------------------------------------- Senden
+        // ------------------------------------------------------------- Sending
 
         /// <summary>
-        /// Sendet eine Echo-Anforderung an ein Ziel und traegt dabei die
-        /// Pruefsumme ein.
+        /// Sends an echo request to a destination and fills in the checksum.
         /// </summary>
+        /// <param name="destination">The destination address, scoped for link-local destinations.</param>
+        /// <param name="identifier">Echo identifier for matching replies.</param>
+        /// <param name="sequence">Echo sequence number.</param>
+        /// <param name="cancellationToken">Cancels the send.</param>
         public async Task SendEchoAsync(
             IPAddress destination,
             ushort identifier,
@@ -291,24 +300,28 @@ namespace MyNetworkMonitor.Core.Network
         }
 
         /// <summary>
-        /// Baut eine Echo-Anforderung. Die Pruefsumme bleibt zunaechst null und
-        /// wird von <see cref="WriteChecksum"/> nachgetragen, sobald das Ziel
-        /// feststeht - sie haengt an Quelle und Ziel.
+        /// Builds an echo request. The checksum stays zero for now and is filled
+        /// in by <see cref="WriteChecksum"/> once the destination is known - it
+        /// depends on source and destination.
         /// </summary>
+        /// <param name="identifier">Echo identifier.</param>
+        /// <param name="sequence">Echo sequence number.</param>
+        /// <param name="payloadBytes">Length of the payload.</param>
+        /// <returns>The ICMPv6 message without IPv6 header.</returns>
         public static byte[] BuildEchoRequest(ushort identifier, ushort sequence, int payloadBytes = 32)
         {
             byte[] packet = new byte[8 + payloadBytes];
 
             packet[0] = EchoRequest;
             packet[1] = 0;                  // Code
-            packet[2] = 0;                  // Pruefsumme
+            packet[2] = 0;                  // Checksum
             packet[3] = 0;
 
             BinaryPrimitives.WriteUInt16BigEndian(packet.AsSpan(4), identifier);
             BinaryPrimitives.WriteUInt16BigEndian(packet.AsSpan(6), sequence);
 
-            // Erkennbarer Inhalt: wer mitschneidet, sieht sofort, woher das
-            // Paket kommt. Dasselbe macht ping seit jeher mit dem Alphabet.
+            // Recognizable content: a packet capture immediately shows where the
+            // packet comes from. ping does the same with the alphabet.
             for (int i = 0; i < payloadBytes; i++)
             {
                 packet[8 + i] = (byte)('a' + (i % 26));
@@ -318,12 +331,15 @@ namespace MyNetworkMonitor.Core.Network
         }
 
         /// <summary>
-        /// Traegt die ICMPv6-Pruefsumme in Byte 2 und 3 ein. Sie laeuft ueber
-        /// einen Pseudokopf aus Quelle, Ziel, Laenge und Protokollkennzahl -
-        /// deshalb muss die Quelladresse feststehen, und deshalb bindet der
-        /// Kanal sich an eine feste Adresse, statt sie den Kernel waehlen zu
-        /// lassen.
+        /// Writes the ICMPv6 checksum into bytes 2 and 3 (RFC 4443, section 2.3).
+        /// It covers a pseudo-header of source, destination, length and next
+        /// header (RFC 8200, section 8.1) - therefore the source address must be
+        /// known, and therefore the channel binds to a fixed address instead of
+        /// letting the kernel choose it.
         /// </summary>
+        /// <param name="message">The ICMPv6 message; bytes 2 and 3 are overwritten.</param>
+        /// <param name="source">The source address.</param>
+        /// <param name="destination">The destination address.</param>
         public static void WriteChecksum(byte[] message, IPAddress source, IPAddress destination)
         {
             ArgumentNullException.ThrowIfNull(message);
@@ -349,12 +365,14 @@ namespace MyNetworkMonitor.Core.Network
         }
 
         /// <summary>
-        /// Der ICMPv6-Typ eines empfangenen Pakets. Bei einem Rohsocket steht
-        /// der ICMPv6-Kopf am Anfang der Nutzlast - der IPv6-Kopf wird unter
-        /// IPv6 nicht mitgeliefert, anders als bei IPv4.
+        /// The ICMPv6 type of a received packet. On a raw socket the ICMPv6 header
+        /// is at the start of the payload - under IPv6 the IPv6 header is not
+        /// delivered, unlike IPv4.
         /// </summary>
+        /// <returns>The type, or -1 if the buffer is empty.</returns>
         public static int TypeOf(byte[] buffer, int length) => length < 1 ? -1 : buffer[0];
 
+        /// <summary>Closes the socket.</summary>
         public void Dispose() => _socket.Dispose();
     }
 }

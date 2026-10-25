@@ -65,12 +65,12 @@ namespace MyNetworkMonitor.Avalonia.Views
         }
 
         /// <summary>
-        /// Whether the window should open at start: a required program is missing, or an optional one the user has not
-        /// dismissed with "Don't show again".
+        /// Whether the window should open at start: a required program is missing, or an optional one is missing that
+        /// has not been dismissed with "Don't show again".
         /// </summary>
         /// <param name="shell">Where "don't show again" is stored.</param>
         /// <param name="results">The result of <see cref="SystemRequirements.Check"/>.</param>
-        /// <returns>True if something needs the user's attention.</returns>
+        /// <returns>True if something needs attention.</returns>
         public static bool NeedsAttention(ShellViewModel shell, IReadOnlyList<SystemCheckResult> results) =>
             results.Any(r => !r.Present && (r.Requirement.Required || !shell.IsSystemCheckHidden(r.Requirement.Id)));
 

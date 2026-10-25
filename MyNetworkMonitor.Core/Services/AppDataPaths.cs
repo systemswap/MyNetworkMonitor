@@ -1,40 +1,39 @@
 namespace MyNetworkMonitor.Core.Services
 {
     /// <summary>
-    /// Wohin die Anwendung Daten schreibt, die sie waehrend des Betriebs
-    /// erneuert.
+    /// Where the application writes data that it refreshes during operation.
     /// <para>
-    /// Nicht neben das Programm: unter Linux liegt eine installierte Anwendung
-    /// in einem Verzeichnis, das dem Systemverwalter gehoert. Ein Schreibversuch
-    /// dorthin endet mit "Permission denied" - genau daran ist das Erneuern der
-    /// MAC-Herstellerliste gescheitert. Unter Windows fiel es nicht auf, weil
-    /// das Programm dort ueblicherweise aus einem eigenen Ordner laeuft.
+    /// Not next to the executable: on Linux an installed application resides in a
+    /// directory owned by the administrator, and a write attempt there fails with
+    /// "Permission denied" - which makes refreshing the MAC vendor list fail. On
+    /// Windows this does not surface because the program usually runs from its own
+    /// folder.
     /// </para>
     /// <para>
-    /// Der Ort ist der, den das Betriebssystem dafuer vorsieht: unter Windows
-    /// <c>%AppData%</c>, unter Linux <c>~/.config</c> (bzw. was
-    /// <c>XDG_CONFIG_HOME</c> sagt). Beides gehoert dem angemeldeten Benutzer,
-    /// beides braucht keine erhoehten Rechte.
+    /// The location is the one the operating system provides for this purpose:
+    /// <c>%AppData%</c> on Windows, <c>~/.config</c> on Linux (or whatever
+    /// <c>XDG_CONFIG_HOME</c> specifies). Both belong to the signed-in user and
+    /// neither requires elevated privileges.
     /// </para>
     /// </summary>
     public static class AppDataPaths
     {
-        /// <summary>Der eigene Ordner unterhalb des Benutzerverzeichnisses.</summary>
+        /// <summary>The application's own folder below the user profile.</summary>
         public static string Root => Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "MyNetworkMonitor");
 
         /// <summary>
-        /// Die erneuerte MAC-Herstellerliste. Die mitgelieferte bleibt neben dem
-        /// Programm liegen und dient als Rueckfall - siehe
+        /// The refreshed MAC vendor list. The bundled list stays next to the
+        /// program and serves as fallback - see
         /// <see cref="MacVendorCsvCandidates"/>.
         /// </summary>
         public static string MacVendorCsv => Path.Combine(Root, "MacVendors", "mac_vendors.csv");
 
         /// <summary>
-        /// Wo nach der Herstellerliste gesucht wird, in dieser Reihenfolge:
-        /// erst die selbst erneuerte im Benutzerverzeichnis, dann die
-        /// mitgelieferte neben dem Programm, zuletzt das Arbeitsverzeichnis.
+        /// Where the vendor list is looked up, in this order: first the refreshed
+        /// copy in the user profile, then the bundled copy next to the program,
+        /// finally the working directory.
         /// </summary>
         public static IEnumerable<string> MacVendorCsvCandidates
         {
