@@ -59,11 +59,8 @@ jobs:
             echo "changed=false" >> "$GITHUB_OUTPUT"
           fi
 
-  # Muss auf einem echten Windows-Runner laufen: die csproj waehlt TargetFramework
-  # und die Windows-Provider (MyNetworkMonitor.Platform.Windows) ueber
-  # $([MSBuild]::IsOSPlatform('Windows')) - das prueft das Build-Betriebssystem,
-  # nicht die Ziel-RID. Cross-Publishing von Linux aus wuerde die Windows-Provider
-  # stillschweigend weglassen.
+  # Runs on a Windows runner; the csproj also selects the Windows providers for a win-* runtime built on
+  # Linux (publish.sh), so both give the same program.
   build-windows:
     needs: check-version
     if: needs.check-version.outputs.changed == 'true'
@@ -91,6 +88,9 @@ jobs:
         shell: pwsh
         run: |
           Rename-Item -Path "publish\win-x64\MyNetworkMonitor.Avalonia.exe" -NewName "MyNetworkMonitor.exe"
+          # License, notices on third-party components and their license texts next to the program
+          Copy-Item LICENSE, THIRD-PARTY-NOTICES.md publish\win-x64\
+          Copy-Item licenses publish\win-x64\licenses -Recurse
           $zipName = "MyNetworkMonitor_v${{ needs.check-version.outputs.version }}_windows-x64.zip"
           Compress-Archive -Path publish\win-x64\* -DestinationPath $zipName
           echo "zipname=$zipName" >> $env:GITHUB_OUTPUT
@@ -123,43 +123,38 @@ jobs:
 
       - name: AppDir aufbauen
         run: |
-          mv publish/linux-x64/MyNetworkMonitor.Avalonia publish/linux-x64/MyNetworkMonitor
-
+          # Same layout as publish.sh: program, the data it reads next to itself, license texts,
+          # menu entry with the window class MyNetworkMonitor.Avalonia
           APPDIR="$PWD/AppDir"
           mkdir -p "$APPDIR/usr/bin"
           cp -r publish/linux-x64/* "$APPDIR/usr/bin/"
-          chmod +x "$APPDIR/usr/bin/MyNetworkMonitor"
+          chmod +x "$APPDIR/usr/bin/MyNetworkMonitor.Avalonia"
+          cp LICENSE THIRD-PARTY-NOTICES.md "$APPDIR/usr/bin/"
+          cp -r licenses "$APPDIR/usr/bin/licenses"
 
           cat > "$APPDIR/AppRun" <<'EOF'
           #!/bin/sh
           HERE="$(dirname "$(readlink -f "$0")")"
-          exec "$HERE/usr/bin/MyNetworkMonitor" "$@"
+          exec "$HERE/usr/bin/MyNetworkMonitor.Avalonia" "$@"
           EOF
           chmod +x "$APPDIR/AppRun"
 
-          cat > "$APPDIR/MyNetworkMonitor.desktop" <<'EOF'
-          [Desktop Entry]
-          Type=Application
-          Name=MyNetworkMonitor
-          Exec=MyNetworkMonitor
-          Icon=MyNetworkMonitor
-          Categories=Network;System;
-          Terminal=false
-          EOF
-
-          cp MyNetworkMonitor.Avalonia/Images/MyNetworkMonitor.png "$APPDIR/MyNetworkMonitor.png"
+          cp packaging/linux/MyNetworkMonitor.Avalonia.desktop "$APPDIR/MyNetworkMonitor.Avalonia.desktop"
+          cp packaging/linux/mynetworkmonitor.png "$APPDIR/mynetworkmonitor.avalonia.png"
 
       - name: appimagetool laden
         run: |
+          # Fixed version with checksum (same tool as publish.sh)
           curl -L -o appimagetool.AppImage \
-            https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+            https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage
+          echo "ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0  appimagetool.AppImage" | sha256sum -c -
           chmod +x appimagetool.AppImage
 
       - name: AppImage bauen
         id: appimage
         run: |
           file="MyNetworkMonitor_v${{ needs.check-version.outputs.version }}_x86_64.AppImage"
-          ARCH=x86_64 ./appimagetool.AppImage --appimage-extract-and-run AppDir "$file"
+          ARCH=x86_64 ./appimagetool.AppImage --appimage-extract-and-run --no-appstream AppDir "$file"
           echo "file=$file" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@v4

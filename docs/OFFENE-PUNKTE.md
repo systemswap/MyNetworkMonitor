@@ -34,10 +34,9 @@ im Fehlergedächtnis). Grundlage ist die Prüfung gegen die gemeinsamen Regeln v
 
 ### Bauen und Ausliefern
 
-- **Lizenztexte in die Pakete:** Der GitHub-Bau legt `licenses/` und `THIRD-PARTY-NOTICES.md` noch nicht ins
-  AppImage und ins Windows-Zip.
-- **appimagetool** im GitHub-Bau aus dem aktuellen Projekt (`AppImage/appimagetool`) mit fester Version und
-  Prüfsumme laden; die Fremd-Action `softprops/action-gh-release` auf eine feste Commit-Kennung festlegen.
+- Die Fremd-Action `softprops/action-gh-release` im GitHub-Bau auf eine feste Commit-Kennung festlegen (die
+  Actions von GitHub selbst hängen ebenfalls nur an Tags).
+
 ### Startprüfung
 
 - Der Hinweis zu fehlenden WebKit-Paketen nennt nur `apt` – Befehle für Fedora ergänzen.
