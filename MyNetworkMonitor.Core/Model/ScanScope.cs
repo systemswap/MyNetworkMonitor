@@ -358,10 +358,8 @@ namespace MyNetworkMonitor.Core.Model
         /// oktettweise. Damit umfasst 10.20.4.200 bis 10.20.5.50 auch
         /// tatsaechlich die 107 Adressen dazwischen.
         /// <para>
-        /// Bewusst nicht ueber <c>IpRanges.IPRange</c>: das zaehlt je Oktett
-        /// getrennt hoch und liefert bei einem Bereich ueber eine
-        /// Oktettgrenze hinweg ein falsches Ergebnis. Die Klasse bleibt fuer
-        /// ihre bisherigen Aufrufer unveraendert.
+        /// Bewusst nicht je Oktett getrennt hochgezaehlt: das liefert bei
+        /// einem Bereich ueber eine Oktettgrenze hinweg ein falsches Ergebnis.
         /// </para>
         /// </summary>
         public IEnumerable<IPAddress> EnumerateIPv4Range()

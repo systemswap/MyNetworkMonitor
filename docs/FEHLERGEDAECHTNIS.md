@@ -162,3 +162,18 @@ deshalb die Prüfung im Testnetz.
 - **Nicht tun:** Bilder aus dem Netz ohne Herkunft und Lizenz einbauen; vor dem Einchecken die Metadaten
   ansehen (`THIRD-PARTY-NOTICES.md`, gemeinsame Regel „Fremder Code und Bibliotheken“).
 - **Im Code:** `MyNetworkMonitor.Avalonia.csproj`, `.github/workflows/build-and-release.yml`.
+
+## Nr. 12 – Lizenz: übernommener Code ohne Herkunftsangabe
+
+- **Entdeckt:** 25.10.2026, Version 7.3.0.11 (Prüfung des ganzen Codes auf übernommenen Code).
+  **Behoben:** 7.3.0.13 (unbenutzter Code entfernt); offen: NetBIOS (`docs/OFFENE-PUNKTE.md`).
+- **Was passiert ist:** Mehrere Stellen waren aus fremden Quellen übernommen, ohne Herkunft und Lizenz:
+  eine UDP-Klasse aus einem Gist ohne Lizenz, ein Beispiel aus der .NET-Dokumentation, eine IP-Bereichs-Klasse
+  und eine Abfrage der lokalen Adresse von Stack Overflow (CC BY-SA), auskommentierte Hilfsklassen aus einer
+  fremden Bibliothek – alle nicht benutzt. In Gebrauch: die NetBIOS-Namensabfrage (Stack Overflow).
+- **Warum:** Beim Übernehmen wurde die Herkunft nicht festgehalten; toter Code blieb liegen.
+- **Lösung:** Nicht benutzte Stellen entfernt (`Support/SendReceiveDataUDP.cs`, `Support/SupportMethodes_IPRanges.cs`,
+  `Support/Supporter_NetworkInterfaces.cs`, Reste in `Support/SupportMethods.cs`); was bleibt, steht in
+  `THIRD-PARTY-NOTICES.md`, Abschnitt „Übertragener Code“.
+- **Nicht tun:** Code aus Foren, Gists oder Artikeln ohne Eintrag in `THIRD-PARTY-NOTICES.md` und ohne Lizenzprüfung
+  übernehmen; CC-BY-SA- oder lizenzlosen Code in ein Programm mit eigener Lizenz einbauen.

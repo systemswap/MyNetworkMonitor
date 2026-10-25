@@ -34,10 +34,6 @@ offen ist (neu schreiben oder entfernen), steht in `docs/OFFENE-PUNKTE.md`.
 | Eigene Stelle | Herkunft | Lizenz | Stand |
 |---|---|---|---|
 | `MyNetworkMonitor.Core/Scanning/ScanningMethod_NetBios.cs`, `GetRemoteNetBiosName` | Antwort auf Stack Overflow, Frage 2174834 „How do I get the NetBIOS name of a machine from IP in C#?“ (https://stackoverflow.com/questions/2174834), angepasst | CC BY-SA | in Gebrauch – neu schreiben nach RFC 1002 |
-| `MyNetworkMonitor.Core/Support/SendReceiveDataUDP.cs`, `UDPSocket` | Gist https://gist.github.com/louis-e/888d5031190408775ad130dde353e0fd, nahezu wörtlich | keine Lizenz angegeben (alle Rechte vorbehalten) | nicht benutzt – entfernen |
-| `MyNetworkMonitor.Core/Support/SendReceiveDataUDP.cs`, `SimpleSample` | Beispiel zur Klasse `UdpClient` in der .NET-Dokumentation (https://learn.microsoft.com/dotnet/api/system.net.sockets.udpclient) | MIT (dotnet-api-docs) | nicht benutzt – entfernen |
-| `MyNetworkMonitor.Core/Support/SupportMethodes_IPRanges.cs`, `IPRange` | Antwort auf Stack Overflow „C#: Enumerate IP addresses in a range“, wörtlich | CC BY-SA | nicht benutzt – entfernen |
-| `MyNetworkMonitor.Core/Support/Supporter_NetworkInterfaces.cs`, `GetLocalIPv4` | Antwort auf Stack Overflow, Frage 6803073 „Get local IP address“ (https://stackoverflow.com/questions/6803073), wörtlich | CC BY-SA | nicht benutzt – entfernen |
 | `MyNetworkMonitor.Core/Scanning/ScanningMethod_ARP.cs`, Texte und `MacAddresstoString` | Klasse IPInfo aus einem Blogbeitrag (https://www.pietschsoft.com/post/2009/11/08/resolve_ip_address_and_host_name_from_mac_address_using_csharp_and_windows_arp_utility); die Logik ist ersetzt, nur Texte und eine Hilfsmethode stehen noch | unklar | Reste ersetzen |
 | `MyNetworkMonitor.Core/Support/SupportMethods.cs` (`IsAdministrator`, CSV-Regex, IPv4-Regex, `GetEnumDescription`) | übliche kurze Muster, wie auf Stack Overflow verbreitet | ohne Schöpfungshöhe | in Gebrauch |
 | `MyNetworkMonitor.Platform.Windows/WindowsArpProvider.cs`, `SendARP`-Deklaration | Signatur nach der Windows-API-Dokumentation (Schreibweise wie auf pinvoke.net) | ohne Schöpfungshöhe | in Gebrauch |
