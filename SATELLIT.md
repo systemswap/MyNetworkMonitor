@@ -1,4 +1,4 @@
-# Satellitenbetrieb — Entwurf
+# Satellitenbetrieb — Entwurf und Stand
 
 Vorhaben: dieselbe Anwendung als Dienst in einem anderen Netzsegment laufen
 lassen. Sie meldet sich beim Hauptscanner, wartet auf einen Scan-Auftrag,
@@ -13,14 +13,12 @@ der Weg kurz ist und keine Firewall dazwischen steht.
 Anwendung ferngesteuert. Jede Option, die örtlich einstellbar ist, muss sich
 auch aus der Ferne auslösen lassen.
 
-Stand: gebaut sind Transport, Anmeldung, Auftragsausfuehrung, die Liste der
-Hauptscanner je Satellit, der Betrieb als Windows-Dienst und die Steuerpipe,
-ueber die die Oberflaeche dem Dienst zusieht. Ueber die Leitung geht jetzt
-auch, welche Verfahren sich auf schon gefundene Geraete beschraenken sollen.
-Offen sind das Zwischenlagern eines Ergebnisses auf der Platte (Abschnitt 5),
-Lebenszeichen und `ListenPortChanged` (Abschnitt 6), die Bestandshoheit beim
-Hauptscanner (Abschnitt 7) und der Zeitplan (Abschnitt 10).
-Version 7.0.0.1.
+Stand (Version 7.3.0.31): gebaut sind Transport samt Grenzen je Nachricht,
+Anmeldung, Auftragsausführung, Lebenszeichen, die Liste der Hauptscanner je
+Satellit, der Betrieb als Windows-Dienst und die Steuerpipe, über die die
+Oberfläche dem Dienst zusieht. Über die Leitung geht auch, welche Verfahren
+sich auf schon gefundene Geräte beschränken sollen. Was noch fehlt, steht in
+Abschnitt 10.
 
 ---
 
@@ -252,8 +250,9 @@ Eine TCP-Verbindung, TLS darüber, Nachrichten als:
 [4 Byte Länge, big-endian][UTF-8 JSON, ab 4 KiB mit gzip gepackt]
 ```
 
-Obergrenze je Nachricht 32 MiB — schützt vor einer kaputten Längenangabe und
-reicht für ein vollständiges Ergebnis mit Reserve.
+Obergrenze je Nachricht 32 MiB gepackt und 128 MiB entpackt — schützt vor
+einer kaputten Längenangabe und vor einer Nachricht, die beim Entpacken den
+Speicher füllt, und reicht für ein vollständiges Ergebnis mit Reserve.
 
 ### Ports sind einstellbar, nicht fest im Quelltext
 
@@ -305,8 +304,10 @@ Hauptscanner → Satellit:
 Grundsatzes, dass jede örtliche Option auch fernauslösbar ist.
 
 **Wiederverbinden:** Der Satellit versucht es nach einem Abbruch erneut, mit
-wachsendem Abstand bis höchstens eine Minute. `Ping`/`Pong` hält die
-Verbindung offen und erkennt stille Abbrüche.
+wachsendem Abstand bis höchstens eine Minute. Als Lebenszeichen schickt er alle
+20 Sekunden `Ping`; hört er 70 Sekunden lang nichts vom Hauptscanner, gilt die
+Verbindung als abgerissen und er verbindet neu. So werden auch stille Abbrüche
+erkannt, bei denen keine Seite ein Ende meldet.
 
 **Protokollversion:** starr. Passt sie nicht, sagt der Hauptscanner es im
 Klartext und lehnt ab — halb verstandene Aufträge sind schlimmer als eine
@@ -344,9 +345,10 @@ Offene Punkte dazu, die beim Bauen zu entscheiden sind:
   etwas nachzuholen — die Nachholregel aus Abschnitt 9 greift dann nur noch,
   wenn der Rechner selbst aus war.
 
-## 9. Betrieb als Dienst
+## 8. Betrieb als Dienst
 
-- Start mit `--satellite` (Windows-Dienst bzw. systemd unter Linux).
+- Start mit `--satellite` als Windows-Dienst. Unter Linux gibt es den Dienst
+  noch nicht (Abschnitt 10).
 - Ohne Oberfläche, Protokoll in eine Datei.
 - Konfiguration: die **Liste der Hauptscanner** (je Eintrag Name/Adresse und
   Port), ein eigener Anzeigename und `AllowCancelFromAnyReceiver` (Vorgabe
@@ -357,7 +359,7 @@ Offene Punkte dazu, die beim Bauen zu entscheiden sind:
 
 ---
 
-## 10. Automatischer Scan
+## 9. Automatischer Scan
 
 Bereiche haben `AutomaticScan` samt Intervall. Der Zeitplan läuft beim
 **Hauptscanner** — der Satellit braucht keine eigene Bereichsverwaltung und
@@ -373,8 +375,20 @@ ausdrücklich flüchtig (`ScanScope.LastScanned`, „Nicht gespeichert").
 
 ---
 
-## 11. Offen
+## 10. Offen
 
-- Nichts mehr. Bei Baubeginn zu prüfen: ob die Bündelung „ein Auftrag je
-  Satellit" mit der bestehenden Fortschrittsanzeige zusammengeht, die heute
-  je Verfahren zählt.
+- **Ergebnis auf der Platte** (Abschnitt 5): Der Satellit hält ein fertiges
+  Ergebnis nur im Speicher. Der Hauptscanner bestätigt den Empfang schon mit
+  `ResultAck`, der Satellit wertet die Bestätigung aber noch nicht aus – ein
+  Neustart des Dienstes verliert ein noch nicht abgeholtes Ergebnis.
+- **`ListenPortChanged`** (Abschnitt 6): Die Nachricht ist festgelegt, wird aber
+  weder gesendet noch ausgewertet. Ändert man den Port des Hauptscanners, muss
+  man ihn heute an jedem Satelliten nachtragen.
+- **Bestandshoheit beim Dienst des Hauptscanners** (Abschnitt 7): Der
+  Hauptscanner läuft noch nicht als Dienst; die Oberfläche nimmt die Ergebnisse
+  selbst entgegen.
+- **Zeitplan** (Abschnitt 9): `AutomaticScan` und das Intervall stehen am
+  Bereich, ausgelöst wird noch nichts, und `LastScanned` wird nicht gespeichert.
+- **Dienst unter Linux** (Abschnitt 8): etwa als systemd-Dienst.
+- Zu prüfen: ob die Bündelung „ein Auftrag je Satellit" mit der
+  Fortschrittsanzeige zusammengeht, die je Verfahren zählt.
