@@ -4,6 +4,7 @@ using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using MyNetworkMonitor.Core.Model;
 using MyNetworkMonitor.Core.Network;
+using MyNetworkMonitor.Core.Services;
 
 namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 {
@@ -333,9 +334,9 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             OperatingSystem.IsWindows()
                 ? $"Listening for {what} needs administrator rights - Windows hands out no " +
                   "raw sockets without them. Start the program as administrator to use this method."
-                : $"Listening for {what} needs the CAP_NET_RAW capability. Either start the " +
-                  "program with sudo, or grant it once with: " +
-                  "sudo setcap cap_net_raw+ep $(which MyNetworkMonitor.Avalonia)";
+                : $"Listening for {what} needs the CAP_NET_RAW capability. " +
+                  RawSocketRights.GrantHint(RawSocketRights.AppImagePath) + " " +
+                  RawSocketRights.GrantCommand(Environment.ProcessPath ?? "MyNetworkMonitor.Avalonia", RawSocketRights.AppImagePath);
 
         // ------------------------------------------------------------ Reporting
 

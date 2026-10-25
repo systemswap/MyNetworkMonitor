@@ -12,9 +12,6 @@ im Fehlergedächtnis). Grundlage ist die Prüfung gegen die gemeinsamen Regeln v
 
 ### Startprüfung
 
-- Rechte für das Mitlesen unter IPv6 (`cap_net_raw`) werden erst gemeldet, wenn ein Verfahren scheitert; eine
-  AppImage kann diese Rechte nicht bekommen (FUSE-Einhängung ohne setuid), nur die Paketform „einzeln“.
-
 ### Kommentare und Doku
 
 - Vergleiche mit fremden Programmen in Oberflächentexten prüfen (in Kommentaren erledigt).

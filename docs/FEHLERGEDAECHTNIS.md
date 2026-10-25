@@ -432,3 +432,22 @@ Automatische Tests stehen in `MyNetworkMonitor.Core.Tests` (`docs/PRUEFUNGEN.md`
 - **Abgesichert durch:** `ActiveDirectoryDetectorTests` (Resolver, Suffixe, darunter `company.local` und `company.lan`
   als geprüft); im Testnetz „kein Firmennetz“ nach 26 ms ohne Abfrage. Ein Firmennetz steht noch aus
   (`PLATFORM_TESTING_NOTES.md`).
+
+## Nr. 27 – Startprüfung: Rechte für Rohsockets erst beim Fehlschlag gemeldet, Befehl für die AppImage wirkungslos
+
+- **Entdeckt:** 25.10.2026, Version 7.3.0.21 (Prüfung gegen die gemeinsamen Regeln, Abschnitt Startprüfung).
+  **Behoben:** 7.3.0.30.
+- **Was passiert ist:** Dass die IPv6-Verfahren zum Mitlesen (Router Advertisement, MLD) `CAP_NET_RAW` brauchen, erfuhr
+  man erst, wenn sie nichts fanden. Die Meldung schlug `sudo setcap cap_net_raw+ep $(which MyNetworkMonitor.Avalonia)`
+  vor: `which` findet das Programm nicht, wenn es nicht im Suchpfad liegt, und bei der AppImage wirkt `setcap` nicht –
+  sie läuft aus einer FUSE-Einhängung, in der Datei-Rechte keine Wirkung haben.
+- **Lösung:** `RawSocketRights` liest das wirksame Recht aus `/proc/self/status` (Zeile `CapEff`, Bit 13) bzw. erkennt
+  root, und baut den Befehl für die Art, wie das Programm läuft: `setcap` auf `Environment.ProcessPath`, bei einer
+  AppImage (`APPIMAGE` gesetzt) erst `--appimage-extract` neben der AppImage und `setcap` auf das entpackte Programm.
+  Die Startprüfung zeigt den Punkt als optional (abschaltbar mit „Don't show again at start“), die Meldung der
+  Verfahren nimmt denselben Text.
+- **Nicht tun:** Befehle mit `$(which …)` vorschlagen; Datei-Rechte für eine AppImage empfehlen.
+- **Im Code:** `MyNetworkMonitor.Core/Services/RawSocketRights.cs`, `MyNetworkMonitor.Avalonia/Views/SystemCheckWindow.cs`,
+  `MyNetworkMonitor.Core/Scanning/Engine/Methods/Ipv6MethodBase.cs` (`NoRawSocketReason`).
+- **Abgesichert durch:** `RawSocketRightsTests` (Lesen von `CapEff`, Befehl für Programmdatei und AppImage,
+  Anführungszeichen im Pfad). Der ganze Weg mit der AppImage steht noch aus (`PLATFORM_TESTING_NOTES.md`).
