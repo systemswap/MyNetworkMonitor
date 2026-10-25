@@ -49,7 +49,14 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         /// confirms a successful detection but carries no information and
         /// does not belong under "MORE DETAILS".
         /// </summary>
-        public const string ProtocolMatched = "Antwort passt zum erwarteten Protokoll.";
+        public const string ProtocolMatched = "The answer matches the expected protocol.";
+
+        /// <summary>
+        /// The same text as stored by earlier versions in saved results
+        /// (<c>lastScanResult.json</c>), which the details view must still
+        /// recognise.
+        /// </summary>
+        public const string ProtocolMatchedGerman = "Antwort passt zum erwarteten Protokoll.";
 
         /// <summary>
         /// What the first answer reveals about the device: version, software,
@@ -111,7 +118,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                     if (await Task.WhenAny(connectTask, Task.Delay(context.TimeoutMs)) != connectTask)
                     {
                         portResult.Status = PortStatus.Filtered;
-                        logBuilder.AppendLine("Timeout: Port möglicherweise durch Firewall blockiert.");
+                        logBuilder.AppendLine("Timeout: the port may be blocked by a firewall.");
                         portResult.PortLog = logBuilder.ToString();
                         return portResult;
                     }
@@ -189,12 +196,12 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                             }
                             else
                             {
-                                logBuilder.AppendLine("Port offen, Antwort kam, passt aber nicht zum erwarteten Protokoll - vermutlich ein anderer Dienst auf demselben Port.");
+                                logBuilder.AppendLine("Port open and an answer came, but it does not match the expected protocol - probably another service on this port.");
                             }
                         }
                         else
                         {
-                            logBuilder.AppendLine("Port ist offen, aber keine Antwort von einer Anwendung.");
+                            logBuilder.AppendLine("Port open, but no answer from an application.");
                         }
                     }
                     catch (OperationCanceledException) when (!token.IsCancellationRequested)
@@ -202,7 +209,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                         // Only the answer timeout has expired. Cancellation of
                         // the whole run, in contrast, is passed up and not
                         // logged as "took too long".
-                        logBuilder.AppendLine("Antwort vom Server dauerte zu lange.");
+                        logBuilder.AppendLine("The server took too long to answer.");
                     }
 
                     portResult.PortLog = logBuilder.ToString();
@@ -213,7 +220,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                     if (ex.SocketErrorCode == SocketError.ConnectionRefused)
                     {
                         portResult.Status = PortStatus.Closed;
-                        logBuilder.AppendLine("Verbindung verweigert: Kein Dienst lauscht auf diesem Port.");
+                        logBuilder.AppendLine("Connection refused: no service listens on this port.");
                         portResult.PortLog = logBuilder.ToString();
                         return portResult;
                     }
@@ -221,7 +228,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                     if (attempt == context.RetryCount)
                     {
                         portResult.Status = PortStatus.NoResponse;
-                        logBuilder.AppendLine($"Fehler nach {context.RetryCount} Versuchen: {ex.Message}");
+                        logBuilder.AppendLine($"Failed after {context.RetryCount} attempts: {ex.Message}");
                     }
                 }
                 catch (IOException ex)
@@ -235,7 +242,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                     // Uncaught, the exception would propagate up to the run and
                     // end the whole service scan; every service after the
                     // affected one would never be checked.
-                    logBuilder.AppendLine($"Verbindung wurde von der Gegenseite geschlossen: {ex.Message}");
+                    logBuilder.AppendLine($"The connection was closed by the remote side: {ex.Message}");
 
                     portResult.PortLog = logBuilder.ToString();
                     return portResult;

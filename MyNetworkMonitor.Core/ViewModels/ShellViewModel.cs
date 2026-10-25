@@ -6,6 +6,7 @@ using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using MyNetworkMonitor.Core.Scanning.ServiceScans;
 using MyNetworkMonitor.Core.Model;
 using MyNetworkMonitor.Core.Network;
 using MyNetworkMonitor.Core.Persistence;
@@ -763,13 +764,13 @@ namespace MyNetworkMonitor.Core.ViewModels
         /// </summary>
         private static readonly Dictionary<string, string> ModuleServiceGroups = new(StringComparer.OrdinalIgnoreCase)
         {
-            ["SMB"] = "🗂️ Dateidienste",
-            ["ONVIF"] = "📷 Kameras",
-            ["NetBIOS"] = "🌍 Netzwerk-Dienste",
-            ["SNMP"] = "🌍 Netzwerk-Dienste"
+            ["SMB"] = "🗂️ File services",
+            ["ONVIF"] = "📷 Cameras",
+            ["NetBIOS"] = ServiceGroups.Network,
+            ["SNMP"] = ServiceGroups.Network
         };
 
-        private const string UngroupedServices = "· Ohne Rubrik";
+        private const string UngroupedServices = "· Without category";
 
         /// <summary>
         /// Rebuilds the selection list. Must run after the service definitions

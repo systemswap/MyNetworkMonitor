@@ -147,7 +147,7 @@ namespace MyNetworkMonitor
             }
             catch (OperationCanceledException)
             {
-                Debug.WriteLine("Ping-Scan wurde abgebrochen!");
+                Debug.WriteLine("Ping scan cancelled.");
             }
             finally
             {
@@ -245,11 +245,11 @@ namespace MyNetworkMonitor
             }
             catch (OperationCanceledException)
             {
-                Debug.WriteLine($"Ping für {ipToScan.IPorHostname} wurde abgebrochen.");
+                Debug.WriteLine($"Ping of {ipToScan.IPorHostname} cancelled.");
             }
             catch (Exception ex) when (ex is PingException || ex is SocketException)
             {
-                Console.WriteLine($"Ping Fehler für {ipToScan.IPorHostname}: {ex.Message}");
+                Console.WriteLine($"Ping of {ipToScan.IPorHostname} failed: {ex.Message}");
             }
             finally
             {

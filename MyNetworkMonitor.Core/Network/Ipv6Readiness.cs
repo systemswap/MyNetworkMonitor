@@ -168,7 +168,7 @@ namespace MyNetworkMonitor.Core.Network
                     return new Ipv6Readiness
                     {
                         Availability = Ipv6Availability.UniqueLocalOnly,
-                        Reason = "Nur lokal eindeutige Adresse (ULA) - kein Zugang zum globalen IPv6-Netz."
+                        Reason = "Only a unique local address (ULA) - no access to the global IPv6 internet."
                     };
                 }
 

@@ -117,6 +117,6 @@ namespace MyNetworkMonitor.Core.Services
 
         private static T Require<T>(T? instance, string name) where T : class
             => instance ?? throw new InvalidOperationException(
-                $"Kein {name} registriert. Das Startprojekt muss PlatformServices.Register... beim Start aufrufen.");
+                $"No {name} registered. The start project must call PlatformServices.Register... at startup.");
     }
 }

@@ -1,4 +1,4 @@
-﻿// SPDX-License-Identifier: LicenseRef-MyNetworkMonitor
+// SPDX-License-Identifier: LicenseRef-MyNetworkMonitor
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -483,12 +483,12 @@ public class ScanningMethod_Services
                             if (IsSupersededDefault(service, "Ports", tempRow["Ports"].ToString()))
                             {
                                 Console.WriteLine(
-                                    $"Ports für {service}: veraltete Vorgabe verworfen, es gilt {existingRow["Ports"]}");
+                                    $"Ports of {service}: outdated default replaced, now {existingRow["Ports"]}");
                             }
                             else
                             {
                                 existingRow["Ports"] = tempRow["Ports"];
-                                Console.WriteLine($"Ports für {service} aktualisiert: {existingRow["Ports"]}");
+                                Console.WriteLine($"Ports of {service} updated: {existingRow["Ports"]}");
                             }
                         }
 
@@ -631,11 +631,11 @@ public class ScanningMethod_Services
             }
 
             _dt_Servives.WriteXml(_serviceXMLPath, XmlWriteMode.WriteSchema);
-            Console.WriteLine("? XML-Datei erfolgreich gespeichert (mit formatierter Ports-, Hello- und Response-Spalte).");
+            Console.WriteLine("Service definitions saved.");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"? Fehler beim Speichern der XML-Datei: {ex.Message}");
+            Console.WriteLine($"Could not save the service definitions: {ex.Message}");
         }
     }
 
@@ -664,24 +664,24 @@ public class ScanningMethod_Services
         {
             // Network services
             ServiceType.WebServices or ServiceType.DNS_TCP or ServiceType.DNS_UDP or ServiceType.DHCP or ServiceType.SSH or ServiceType.FTP
-                => "🌍 Netzwerk-Dienste",
+                => ServiceGroups.Network,
 
             // Remote desktop and remote maintenance
             ServiceType.RDP or ServiceType.UltraVNC or ServiceType.BigFixRemote or ServiceType.TeamViewer or ServiceType.Anydesk or ServiceType.RustdeskServer or ServiceType.RustdeskClient
-                => "🖥️ Remote-Desktop & Fernwartung",
+                => ServiceGroups.Remote,
 
             // Databases
             ServiceType.MSSQLServer or ServiceType.PostgreSQL or ServiceType.MariaDB or ServiceType.MySQL or ServiceType.OracleDB
-                => "🗄️ SQL-Datenbanken",
+                => ServiceGroups.SqlDatabases,
 
             ServiceType.MongoDB or ServiceType.InfluxDB2
-                => "📦 NoSQL-Datenbanken",
+                => ServiceGroups.NoSqlDatabases,
 
             // Industrial protocols
             ServiceType.OPCUA or ServiceType.ModBus or ServiceType.S7 or ServiceType.BacNet or ServiceType.Wago or ServiceType.SecsGem
-                => "🏭 Industrieprotokolle",
+                => ServiceGroups.Industrial,
 
-            _ => "❓ Sonstige"
+            _ => ServiceGroups.Other
         };
     }
 

@@ -82,7 +82,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                     if (await Task.WhenAny(connect, Task.Delay(context.TimeoutMs, token)) != connect)
                     {
                         portResult.Status = PortStatus.Filtered;
-                        log.AppendLine("Timeout: Port möglicherweise durch Firewall blockiert.");
+                        log.AppendLine("Timeout: the port may be blocked by a firewall.");
                         portResult.PortLog = log.ToString();
                         return portResult;
                     }
@@ -97,7 +97,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
                     if (response is null || response.Length == 0)
                     {
-                        log.AppendLine("Port ist offen, aber keine Antwort von einer Anwendung.");
+                        log.AppendLine("Port open, but no answer from an application.");
                         portResult.PortLog = log.ToString();
                         return portResult;
                     }
@@ -109,7 +109,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                     }
                     else
                     {
-                        log.AppendLine("Port offen, Antwort kam, passt aber nicht zum erwarteten Protokoll - vermutlich ein anderer Dienst auf demselben Port.");
+                        log.AppendLine("Port open and an answer came, but it does not match the expected protocol - probably another service on this port.");
                         portResult.PortLog = log.ToString();
                     }
 
@@ -120,7 +120,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                     if (ex.SocketErrorCode == SocketError.ConnectionRefused)
                     {
                         portResult.Status = PortStatus.Closed;
-                        log.AppendLine("Verbindung verweigert: Kein Dienst lauscht auf diesem Port.");
+                        log.AppendLine("Connection refused: no service listens on this port.");
                         portResult.PortLog = log.ToString();
                         return portResult;
                     }
@@ -128,7 +128,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                     if (attempt == context.RetryCount)
                     {
                         portResult.Status = PortStatus.NoResponse;
-                        log.AppendLine($"Fehler nach {context.RetryCount} Versuchen: {ex.Message}");
+                        log.AppendLine($"Failed after {context.RetryCount} attempts: {ex.Message}");
                     }
                 }
                 catch (IOException ex)
@@ -136,7 +136,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                     // The remote side closed the connection while reading: a
                     // result of this port, not an error of the run. The
                     // connection was established, so the port stays "open".
-                    log.AppendLine($"Verbindung wurde von der Gegenseite geschlossen: {ex.Message}");
+                    log.AppendLine($"The connection was closed by the remote side: {ex.Message}");
                     portResult.PortLog = log.ToString();
                     return portResult;
                 }

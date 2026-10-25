@@ -169,7 +169,7 @@ public class ScanningMethod_SMBVersionCheck
                     var connectTask = socket.ConnectAsync(IPAddress.Parse(ipToScan.IPorHostname), port);
                     if (await Task.WhenAny(connectTask, Task.Delay(5000, cts.Token)) != connectTask) // Timeout after 5 s
                     {
-                        Console.WriteLine($"❌ Timeout: {ipToScan.IPorHostname} reagiert nicht.");
+                        Console.WriteLine($"Timeout: {ipToScan.IPorHostname} does not respond.");
                         socket.Close();
                         continue;
                     }
@@ -186,7 +186,7 @@ public class ScanningMethod_SMBVersionCheck
                         var readTask = stream.ReadAsync(tempResponse, 0, tempResponse.Length, cts.Token);
                         if (await Task.WhenAny(readTask, Task.Delay(2000, cts.Token)) != readTask) // Timeout for the answer
                         {
-                            Console.WriteLine($"⚠ Keine SMB-Antwort von {ipToScan.IPorHostname}");
+                            Console.WriteLine($"No SMB answer from {ipToScan.IPorHostname}");
                             continue;
                         }
 

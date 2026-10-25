@@ -142,7 +142,7 @@ public class ScanningMethod_NetBios
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"⚠ Fehler bei NetBIOS-Scan für {iPToScan.IPorHostname}: {ex.Message}");
+            Console.WriteLine($"NetBIOS scan of {iPToScan.IPorHostname} failed: {ex.Message}");
         }
     }
 

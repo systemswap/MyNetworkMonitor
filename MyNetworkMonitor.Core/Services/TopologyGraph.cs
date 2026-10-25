@@ -161,7 +161,7 @@ namespace MyNetworkMonitor.Core.Services
                     id: index.ToString(),
                     group: row["IPGroupDescription"].ToString() ?? string.Empty,
                     label: row["DeviceDescription"].ToString() ?? string.Empty,
-                    hostname: row.Table.Columns.Contains("Hostname") ? row["Hostname"].ToString() ?? "Unbekannt" : "Unbekannt",
+                    hostname: row.Table.Columns.Contains("Hostname") ? row["Hostname"].ToString() ?? "Unknown" : "Unknown",
                     ip: row["IP"].ToString() ?? string.Empty,
                     mac: row["Mac"].ToString() ?? string.Empty,
                     lookupIPs: row["LookUpIPs"] != DBNull.Value ? row["LookUpIPs"].ToString() ?? string.Empty : string.Empty))
@@ -277,7 +277,7 @@ namespace MyNetworkMonitor.Core.Services
 
             return $@"
 <!DOCTYPE html>
-<html lang=""de"">
+<html lang=""en"">
 <head>
     <meta charset=""UTF-8"">
     <title>Network DNS Topology</title>
@@ -299,9 +299,8 @@ namespace MyNetworkMonitor.Core.Services
             z-index: 10;
         }}
 
-        /* Die Netz-Beschriftungen liegen als HTML ueber der Zeichenflaeche und
-           nicht als Objekt in der Szene - so behalten sie beim Zoomen ihre
-           Groesse und bleiben lesbar. */
+        /* The network labels are HTML above the canvas, not objects in the
+           scene, so they keep their size when zooming and stay readable. */
         #net-labels {{
             position: absolute;
             top: 0;
@@ -354,9 +353,8 @@ namespace MyNetworkMonitor.Core.Services
     <script>
         const graphData = {graphJson};
 
-        // Eine Kante faellt auf, wenn sie etwas bedeutet - die blossen
-        // Gruppenkanten bleiben duenn und pfeillos, sonst geht der Befund
-        // zwischen ihnen unter.
+        // An edge stands out when it means something; plain group edges stay
+        // thin and without arrows, otherwise the finding gets lost among them.
         function notable(link) {{
             return link.isLookup || link.isDuplicatedIP || link.isDuplicatedHostname
                 || link.isDuplicatedMac || link.isDnsConflict;
@@ -385,9 +383,9 @@ namespace MyNetworkMonitor.Core.Services
                                      : link.isDnsConflict ? '#ff4fd8'
                                      : link.isLookup ? 'cyan' : 'white');
 
-        // Die gemeinsame Netzadresse einer Gruppe. Sie steht nirgends in den
-        // Daten, laesst sich aber aus den Adressen der Mitglieder ablesen -
-        // solange sie sich einig sind; sonst bleibt es bei der Beschreibung.
+        // The common network address of a group. It is nowhere in the data but
+        // can be read from the addresses of the members, as long as they agree;
+        // otherwise the description stays.
         function networkOf(members) {{
             const ips = members.map(n => n.ip).filter(ip => ip);
             if (!ips.length) return '';
@@ -402,8 +400,8 @@ namespace MyNetworkMonitor.Core.Services
                 return '';
             }}
 
-            // IPv6: der gemeinsame Blockanfang, ohne Praefixlaenge zu behaupten -
-            // die abgekuerzte Schreibweise laesst sich so nicht sicher zaehlen.
+            // IPv6: the common start of the blocks, without claiming a prefix
+            // length - the abbreviated notation cannot be counted reliably.
             const blocks = ips[0].split(':');
             let shared = 0;
             while (shared < blocks.length
@@ -415,7 +413,7 @@ namespace MyNetworkMonitor.Core.Services
             return shared > 0 ? blocks.slice(0, shared).join(':') + '::' : '';
         }}
 
-        // Ein Schild je Netz, aufgehaengt ueber dem obersten Knoten der Gruppe
+        // One label per network, hung above the topmost node of the group
         const labelLayer = document.getElementById('net-labels');
         const netLabels = [];
 
@@ -453,9 +451,9 @@ namespace MyNetworkMonitor.Core.Services
             }});
         }})();
 
-        // Jedes Schild folgt seiner Gruppe: waagerecht mittig, senkrecht ueber
-        // dem hoechsten Knoten. Knoten hinter der Kamera bleiben draussen,
-        // deren projizierte Lage waere gespiegelt.
+        // Every label follows its group: centred horizontally, above the highest
+        // node vertically. Nodes behind the camera are left out; their
+        // projected position would be mirrored.
         function updateNetLabels() {{
             if (netLabels.length && typeof Graph.graph2ScreenCoords === 'function') {{
                 const camera = Graph.cameraPosition();
@@ -500,7 +498,7 @@ namespace MyNetworkMonitor.Core.Services
 
         requestAnimationFrame(updateNetLabels);
 
-        // Verzoegerter Zoom, damit sich das Layout vorher stabilisiert
+        // Delayed zoom, so that the layout settles first
         setTimeout(() => {{
             Graph.zoomToFit(500, 100);
         }}, 1000);

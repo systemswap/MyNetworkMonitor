@@ -230,7 +230,7 @@ namespace MyNetworkMonitor.Core.Services
 
             return $@"
 <!DOCTYPE html>
-<html lang=""de"">
+<html lang=""en"">
 <head>
     <meta charset=""UTF-8"">
     <title>Service Topology</title>
@@ -252,8 +252,8 @@ namespace MyNetworkMonitor.Core.Services
             z-index: 10;
         }}
 
-        /* Die Schilder liegen als HTML ueber der Zeichenflaeche und nicht als
-           Objekt in der Szene - so behalten sie beim Zoomen ihre Groesse. */
+        /* The labels are HTML above the canvas, not objects in the scene, so
+           they keep their size when zooming. */
         #net-labels {{
             position: absolute;
             top: 0;
@@ -332,9 +332,9 @@ namespace MyNetworkMonitor.Core.Services
                     .linkWidth(1)
                     .linkColor(() => 'white');
 
-        // Ein Schild je Dienstwolke, aufgehaengt ueber dem obersten Knoten der
-        // Wolke - genau wie in der Netzansicht, nur dass die Wolke hier ein
-        // Dienst ist und kein Netz.
+        // One label per service cloud, hung above the topmost node of the
+        // cloud - as in the network view, only that a cloud here is a service
+        // and not a network.
         const labelLayer = document.getElementById('net-labels');
         const netLabels = [];
 
@@ -370,9 +370,9 @@ namespace MyNetworkMonitor.Core.Services
             }});
         }})();
 
-        // Jedes Schild folgt seiner Wolke: waagerecht mittig, senkrecht ueber
-        // dem hoechsten Knoten. Knoten hinter der Kamera bleiben draussen,
-        // deren projizierte Lage waere gespiegelt.
+        // Every label follows its cloud: centred horizontally, above the highest
+        // node vertically. Nodes behind the camera are left out; their
+        // projected position would be mirrored.
         function updateNetLabels() {{
             if (netLabels.length && typeof Graph.graph2ScreenCoords === 'function') {{
                 const camera = Graph.cameraPosition();
@@ -417,7 +417,7 @@ namespace MyNetworkMonitor.Core.Services
 
         requestAnimationFrame(updateNetLabels);
 
-        // Verzoegerter Zoom, damit sich das Layout vorher stabilisiert
+        // Delayed zoom, so that the layout settles first
         setTimeout(() => {{
             Graph.zoomToFit(500, 100);
         }}, 1000);

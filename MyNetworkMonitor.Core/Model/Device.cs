@@ -566,7 +566,7 @@ namespace MyNetworkMonitor.Core.Model
         }
 
         public override string ToString() =>
-            $"{DisplayName} [{IdentityKey}] {Addresses.Count} Adresse(n)";
+            $"{DisplayName} [{IdentityKey}] {Addresses.Count} address(es)";
     }
 
     /// <summary>

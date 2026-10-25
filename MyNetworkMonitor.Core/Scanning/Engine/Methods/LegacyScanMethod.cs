@@ -440,7 +440,8 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         /// </summary>
         internal static bool IsDeviceInfo(string? portLog) =>
             !string.IsNullOrWhiteSpace(portLog) &&
-            !portLog.Trim().Equals(ServiceProbeBase.ProtocolMatched, StringComparison.Ordinal);
+            !portLog.Trim().Equals(ServiceProbeBase.ProtocolMatched, StringComparison.Ordinal) &&
+            !portLog.Trim().Equals(ServiceProbeBase.ProtocolMatchedGerman, StringComparison.Ordinal);
 
         /// <summary>
         /// Maps ports and detected services. The state is set only for the

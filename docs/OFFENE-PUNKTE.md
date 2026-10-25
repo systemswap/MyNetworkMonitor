@@ -14,12 +14,7 @@ im Fehlergedächtnis). Grundlage ist die Prüfung gegen die gemeinsamen Regeln v
 
 ### Kommentare und Doku
 
-- Vergleiche mit fremden Programmen in Oberflächentexten prüfen (in Kommentaren erledigt).
 - `SATELLIT.md` auf den heutigen Stand bringen (Version, fehlender Abschnitt 8, widersprüchlicher Abschnitt 11).
-- Gemischte Sprache in Texten: einige Meldungen und Protokolltexte sind deutsch, die Oberfläche englisch
-  (`Ipv6Readiness`, `PlatformServices`, `MacVendorUpdater`, `ServiceGroups`, `ServiceProbeBase`, `WagoProbe`,
-  `SupportMethods.GetIPAddressByInterfaceName`, `PayPalDonationView`, `ScanningMethod_WiFi`); die erzeugten Seiten der
-  3D-Ansicht haben `lang="de"`, „Unbekannt“ und deutsche Kommentare im eingebetteten HTML/JS. Einheitlich machen.
 - Normabschnitte in den Kommentaren gegen die Texte prüfen (einige aus dem Gedächtnis: SEMI E5 S1F13, Modbus §6.13/§6.21,
   OPC UA Part 6 §5.2.2.x, ASHRAE 135 §20.1.2, RFC 4861/4291/3810).
 

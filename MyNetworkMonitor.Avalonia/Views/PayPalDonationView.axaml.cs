@@ -80,7 +80,7 @@ namespace MyNetworkMonitor.Avalonia.Views
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Fehler beim Öffnen der PayPal-Spendenseite: " + ex.Message);
+                Console.WriteLine("Could not open the PayPal donation page: " + ex.Message);
             }
         }
     }

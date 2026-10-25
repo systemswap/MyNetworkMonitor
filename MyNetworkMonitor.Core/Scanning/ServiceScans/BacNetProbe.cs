@@ -121,7 +121,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                         if (!IsBacNet(response))
                         {
                             portResult.Status = PortStatus.NoResponse;
-                            portResult.PortLog = "Antwort kam, ist aber kein BACnet (keine BVLC-Kennung 0x81).";
+                            portResult.PortLog = "An answer came, but it is not BACnet (no BVLC type 0x81).";
                             return portResult;
                         }
 
@@ -202,7 +202,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                 0x46 => "Model Name",
                 0x1C => "Description",
                 0x3A => "Location",
-                _ => $"Unbekannte Property (0x{propertyId:X2})"
+                _ => $"Unknown property (0x{propertyId:X2})"
             };
         }
 

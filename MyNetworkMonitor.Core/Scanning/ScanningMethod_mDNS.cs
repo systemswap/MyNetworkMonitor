@@ -47,7 +47,7 @@ namespace MyNetworkMonitor
         {
             var sb = new StringBuilder();
             sb.AppendLine($"ResponseTime:\t{Math.Round(LastResponse)}ms");
-            sb.AppendLine($"Dienst:\t{Service}");
+            sb.AppendLine($"Service:\t{Service}");
             sb.AppendLine($"Device:\t{DeviceName}");
             sb.AppendLine($"TargetHost:\t{TargetHost}");
             sb.AppendLine($"IP:\t{IP}");
@@ -115,7 +115,7 @@ namespace MyNetworkMonitor
                 }
             }
 
-            throw new Exception($"Keine IPv4-Adresse für Interface '{interfaceName}' gefunden.");
+            throw new Exception($"No IPv4 address found for interface '{interfaceName}'.");
         }
 
 
@@ -273,7 +273,7 @@ namespace MyNetworkMonitor
                         // unhandled exception in the parser (such as an IndexOutOfRangeException in
                         // ReadName) would stop the loop without mDNS_ScanStatus ever reporting
                         // "finished".
-                        Debug.WriteLine("Fehler beim Auswerten einer mDNS-Antwort: " + ex.Message);
+                        Debug.WriteLine("Could not evaluate an mDNS answer: " + ex.Message);
                     }
 
                     ProgressUpdated?.Invoke(remainingTime, foundDevices.Count, 0, ScanStatus.running);
@@ -294,7 +294,7 @@ namespace MyNetworkMonitor
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine("Fehler beim Senden der mDNS-Anfrage: " + ex.Message);
+                    Debug.WriteLine("Could not send the mDNS query: " + ex.Message);
                 }
 
                 try

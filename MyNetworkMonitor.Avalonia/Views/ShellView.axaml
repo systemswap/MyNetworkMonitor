@@ -2939,7 +2939,7 @@
                             Command="{Binding UpdateMacVendorsCommand}"
                             IsEnabled="{Binding !IsUpdatingMacVendors}"/>
                     <TextBlock Classes="settingHint"
-                               Text="The bundled list only covers the classic 24-bit vendor blocks (MA-L). Wireshark's manuf file adds the newer 28- and 36-bit blocks (MA-M, MA-S) that many smaller and IoT manufacturers use today, so more devices get a real vendor name instead of &quot;Unknown&quot;. Needs internet access; takes effect on the next scan."/>
+                               Text="The bundled list covers all registered vendor blocks (MA-L, MA-M, MA-S) as of the release. Updating fetches Wireshark's current manuf file, so devices of newly registered manufacturers also get a real vendor name instead of &quot;Unknown&quot;. Needs internet access; takes effect on the next scan."/>
                   </StackPanel>
                 </StackPanel>
               </Border>

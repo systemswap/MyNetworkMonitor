@@ -102,7 +102,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                         // The port accepts connections and sends something,
                         // but it does not answer the query in DNS.
                         portResult.Status = PortStatus.Open;
-                        portResult.PortLog = "Antwort kam, gehoert aber nicht zu dieser Anfrage.";
+                        portResult.PortLog = "An answer came, but it does not belong to this query.";
                         return portResult;
                     }
                 }

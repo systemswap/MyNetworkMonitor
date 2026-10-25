@@ -123,7 +123,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
 
             if (_methods.Any(m => string.Equals(m.Id, method.Id, StringComparison.OrdinalIgnoreCase)))
             {
-                throw new InvalidOperationException($"Ein Verfahren mit der Kennung \"{method.Id}\" ist bereits registriert.");
+                throw new InvalidOperationException($"A method with the ID \"{method.Id}\" is already registered.");
             }
 
             _methods.Add(method);
@@ -175,7 +175,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
 
             if (IsRunning)
             {
-                throw new InvalidOperationException("Es laeuft bereits ein Scan. Erst Stop aufrufen.");
+                throw new InvalidOperationException("A scan is already running. Call Stop first.");
             }
 
             _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -349,7 +349,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
                     MethodName = method.DisplayName,
                     Phase = method.Phase,
                     State = ScanMethodState.Available,
-                    Reason = "abgebrochen",
+                    Reason = "cancelled",
                     Duration = DateTimeOffset.Now - started
                 };
             }

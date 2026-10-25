@@ -63,10 +63,10 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         {
             if (query.Length < 3 || answer.Length < 3) return false;
 
-            bool gleicheKennung = answer[0] == query[0] && answer[1] == query[1];
-            bool istAntwort = (answer[2] & 0x80) != 0;
+            bool sameId = answer[0] == query[0] && answer[1] == query[1];
+            bool isResponse = (answer[2] & 0x80) != 0;
 
-            return gleicheKennung && istAntwort;
+            return sameId && isResponse;
         }
 
         /// <summary>

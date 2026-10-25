@@ -253,7 +253,7 @@ namespace MyNetworkMonitor
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"⚠ Fehler beim Parsen der ONVIF-Kamera-Antwort: {ex.Message}");
+                Console.WriteLine($"Could not parse the ONVIF camera answer: {ex.Message}");
                 return null;
             }
         }

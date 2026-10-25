@@ -112,7 +112,7 @@ namespace MyNetworkMonitor
                 }
                 catch (OperationCanceledException)
                 {
-                    Debug.WriteLine($"Scan für {ip.IPorHostname} wurde abgebrochen.");
+                    Debug.WriteLine($"Scan of {ip.IPorHostname} cancelled.");
                     return; // The whole scan was stopped.
                 }
 

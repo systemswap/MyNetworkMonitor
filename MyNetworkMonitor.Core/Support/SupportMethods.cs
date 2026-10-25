@@ -208,7 +208,7 @@ namespace MyNetworkMonitor
                     }
                 }
             }
-            throw new Exception($"Keine IPv4-Adresse für das Interface '{interfaceName}' gefunden oder Interface ist nicht aktiv.");
+            throw new Exception($"No IPv4 address found for interface '{interfaceName}', or the interface is not active.");
         }
 
         /// <summary>The network interface selected for scanning.</summary>

@@ -62,20 +62,20 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                         // and the status already set would remain, so the
                         // rejection itself would count as a running name
                         // service.
-                        byte[] antwort = receiveTask.Result.Buffer;
+                        byte[] answer = receiveTask.Result.Buffer;
 
                         // The answer must also belong to this query: same
                         // transaction ID and QR bit set. Otherwise every
                         // datagram arriving at this socket would count.
-                        if (DnsRequest.IsAnswerTo(query, antwort))
+                        if (DnsRequest.IsAnswerTo(query, answer))
                         {
                             portResult.Status = PortStatus.IsRunning;
-                            portResult.PortLog = Encoding.ASCII.GetString(antwort);
+                            portResult.PortLog = Encoding.ASCII.GetString(answer);
                             return portResult;
                         }
 
                         portResult.Status = PortStatus.Open;
-                        portResult.PortLog = "Antwort kam, gehoert aber nicht zu dieser Anfrage.";
+                        portResult.PortLog = "An answer came, but it does not belong to this query.";
                         return portResult;
                     }
                 }

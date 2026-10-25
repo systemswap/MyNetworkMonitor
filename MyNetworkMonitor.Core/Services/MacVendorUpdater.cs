@@ -72,7 +72,7 @@ namespace MyNetworkMonitor.Core.Services
                     return new MacVendorUpdateResult
                     {
                         Success = false,
-                        Error = "Die heruntergeladene Datei enthielt keine auswertbaren Einträge."
+                        Error = "The downloaded file contained no usable entries."
                     };
                 }
 
@@ -99,7 +99,7 @@ namespace MyNetworkMonitor.Core.Services
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
-                return new MacVendorUpdateResult { Success = false, Error = "Zeitlimit beim Herunterladen überschritten." };
+                return new MacVendorUpdateResult { Success = false, Error = "The download timed out." };
             }
             catch (Exception ex) when (ex is HttpRequestException or IOException or UnauthorizedAccessException)
             {

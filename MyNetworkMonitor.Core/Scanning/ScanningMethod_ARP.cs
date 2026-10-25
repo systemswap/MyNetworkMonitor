@@ -127,7 +127,7 @@ namespace MyNetworkMonitor
             }
             catch (TaskCanceledException)
             {
-                Debug.WriteLine("Task für GetIPsInSameVLANAsync wurde abgebrochen.");
+                Debug.WriteLine("GetIPsInSameVLANAsync was cancelled.");
                 return;
             }
 
@@ -157,7 +157,7 @@ namespace MyNetworkMonitor
             }
             catch (OperationCanceledException)
             {
-                Debug.WriteLine("Scan wurde abgebrochen!");
+                Debug.WriteLine("Scan cancelled.");
             }
             finally
             {
@@ -340,7 +340,7 @@ namespace MyNetworkMonitor
 
             List<IPToScan> reachable = [.. ipsToRefresh.Where(ip => IsReachableByArp(ip.IPorHostname, subnets, knownIps))];
 
-            Debug.WriteLine($"ARP: {reachable.Count} von {ipsToRefresh.Count} Zielen liegen an einem aktiven Adapter.");
+            Debug.WriteLine($"ARP: {reachable.Count} of {ipsToRefresh.Count} targets are on an active adapter.");
 
             return reachable;
         }

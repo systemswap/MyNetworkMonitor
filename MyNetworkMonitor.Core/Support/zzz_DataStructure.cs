@@ -79,7 +79,7 @@ namespace MyNetworkMonitor
             public override string ToString()
             {
                 if (Services == null || Services.Count == 0)
-                    return "Keine Services gefunden.";
+                    return "No services found.";
 
                 StringBuilder sb = new StringBuilder();
 
@@ -340,7 +340,7 @@ namespace MyNetworkMonitor
         /// <summary>Returns the detected SMB versions as a comma-separated list.</summary>
         public string SMBVersionsToString()
         {
-            return SMBVersions.Any() ? string.Join(", ", SMBVersions) : "Keine SMB-Versionen gefunden";
+            return SMBVersions.Any() ? string.Join(", ", SMBVersions) : "No SMB versions found";
         }
 
 
@@ -510,7 +510,7 @@ namespace MyNetworkMonitor
             dt_Ports.Rows.Add(117, false, true, "uucp-path File transfer between Unix systems");
             dt_Ports.Rows.Add(119, false, true, "nntp Transfer of messages in news groups");
             dt_Ports.Rows.Add(123, false, true, "ntp Time synchronization service");
-            dt_Ports.Rows.Add(135, true, false, "Transact-SQL-Debugger oder net send ersatz für 139");
+            dt_Ports.Rows.Add(135, true, false, "epmap DCE/RPC endpoint mapper (Windows RPC)");
             dt_Ports.Rows.Add(137, true, true, "netbios-ns NETBIOS name service");
             dt_Ports.Rows.Add(138, true, true, "netbios-dgm NETBIOS datagram service");
             dt_Ports.Rows.Add(139, true, true, "netbios-ssn NETBIOS session service");

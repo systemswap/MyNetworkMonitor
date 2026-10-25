@@ -451,3 +451,25 @@ Automatische Tests stehen in `MyNetworkMonitor.Core.Tests` (`docs/PRUEFUNGEN.md`
   `MyNetworkMonitor.Core/Scanning/Engine/Methods/Ipv6MethodBase.cs` (`NoRawSocketReason`).
 - **Abgesichert durch:** `RawSocketRightsTests` (Lesen von `CapEff`, Befehl für Programmdatei und AppImage,
   Anführungszeichen im Pfad). Der ganze Weg mit der AppImage steht noch aus (`PLATFORM_TESTING_NOTES.md`).
+
+## Nr. 28 – Texte: deutsche Meldungen in der englischen Oberfläche, veralteter Hinweis zur Herstellerliste
+
+- **Entdeckt:** 25.10.2026, Version 7.3.0.21 (Durchsicht der Kommentare; der Hinweis beim Prüfen der Oberflächentexte).
+  **Behoben:** 7.3.0.31.
+- **Was:** Rund 55 Meldungen waren deutsch, obwohl die Oberfläche englisch ist – vor allem die Protokolltexte der Sonden
+  („Port ist offen, aber keine Antwort …“), die im Portprotokoll erscheinen, dazu die Gruppen des Dienst-Managers, Fehler
+  beim Herunterladen der Herstellerliste und die Seiten der 3D-Ansicht (`lang="de"`, „Unbekannt“, deutsche Kommentare im
+  eingebetteten JavaScript). Der Hinweis neben „Update from Wireshark“ sagte, die mitgelieferte Liste enthalte nur
+  MA-L-Blöcke; seit 7.3.0.19 enthält sie auch MA-M und MA-S. Port 135 hieß „Transact-SQL-Debugger oder net send ersatz
+  für 139“ (IANA: epmap, DCE/RPC-Endpunktzuordnung).
+- **Lösung:** Alle Texte englisch, Gruppen nur noch in `ServiceGroups` (`GetServiceGroup` nimmt die Konstanten statt
+  eigener Texte). Die Detailansicht erkennt die bloße Bestätigung einer Sonde in beiden Fassungen
+  (`ProtocolMatched`, `ProtocolMatchedGerman`), weil gespeicherte Ergebnisse älterer Fassungen den deutschen Text tragen.
+  Die Gruppen werden beim Laden aus dem Code gesetzt, nicht aus `services.xml` – gespeicherte Dateien brauchen nichts.
+- **Nicht tun:** einen angezeigten Text zugleich als Schlüssel für einen Vergleich nehmen, ohne alte Fassungen
+  mitzudenken; Gruppennamen an zwei Stellen schreiben.
+- **Im Code:** u. a. `Scanning/ServiceScans/ServiceProbeBase.cs`, `WagoProbe.cs`, `ServiceGroups.cs`,
+  `Scanning/ScanningMethod_Services.cs`, `Scanning/Engine/Methods/LegacyScanMethod.cs` (`IsDeviceInfo`),
+  `Services/TopologyGraph.cs`, `ServiceTopologyGraph.cs`, `MyNetworkMonitor.Avalonia/Views/ShellView.axaml`.
+- **Abgesichert durch:** `PortLogTests` (beide Fassungen der Bestätigung), `TopologyPageTests` (Seiten vollständig,
+  englisch, ohne CDN-Verweis ab Werk).

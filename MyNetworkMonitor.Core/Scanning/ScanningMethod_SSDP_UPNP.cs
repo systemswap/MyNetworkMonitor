@@ -127,7 +127,7 @@ namespace MyNetworkMonitor
             /// <returns>The values, one per line.</returns>
             public override string ToString()
             {
-                return $"📡 SSDP-Gerät gefunden:\n" +
+                return $"SSDP device found:\n" +
                        $"IP: {IP}\nServer: {Server}\nLocation: {Location}\n" +
                        $"FriendlyName: {FriendlyName}\nManufacturer: {Manufacturer}\n" +
                        $"ModelDescription: {ModelDescription}\nModelName: {ModelName}\n" +
@@ -336,7 +336,7 @@ namespace MyNetworkMonitor
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"⚠ Fehler beim Abrufen oder Parsen der XML: {ex.Message}");
+                Console.WriteLine($"Could not fetch or parse the device description: {ex.Message}");
             }
         }
 
@@ -379,7 +379,7 @@ public class AsyncTimer
         }
         catch (TaskCanceledException)
         {
-            Console.WriteLine("⏹ Timer gestoppt.");
+            Console.WriteLine("Timer stopped.");
         }
         finally
         {

@@ -73,7 +73,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         public static IServiceProbe Create(ServiceType service) =>
             Factories.TryGetValue(service, out Func<IServiceProbe>? create)
                 ? create()
-                : throw new KeyNotFoundException($"Fuer {service} gibt es keine Sonde.");
+                : throw new KeyNotFoundException($"There is no probe for {service}.");
 
         /// <summary>The shared probe for metadata, not for a run; see <see cref="Create"/>.</summary>
         /// <param name="service">The service.</param>
@@ -81,7 +81,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         /// <exception cref="KeyNotFoundException">No probe exists for <paramref name="service"/>.</exception>
         public static IServiceProbe For(ServiceType service) =>
             Shared.Value.FirstOrDefault(p => p.Service == service)
-            ?? throw new KeyNotFoundException($"Fuer {service} gibt es keine Sonde.");
+            ?? throw new KeyNotFoundException($"There is no probe for {service}.");
 
         /// <summary>All probes, for metadata.</summary>
         public static IReadOnlyList<IServiceProbe> All => Shared.Value;
