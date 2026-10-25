@@ -83,3 +83,16 @@ Zeitlich geordnet, neue ans Ende.
   verweist sie stattdessen auf cdn.jsdelivr.net.
 - **Warum:** Offline und ohne Anfrage an Dritte als Vorgabe; der CDN-Verweis erlaubt, eine erzeugte Seite
   allein weiterzugeben. Gerätedaten gehen in keinem Fall hinaus.
+
+### 25.10.2026 – Lizenz: Source Available, für Firmen kostenpflichtig
+
+- **Entschieden:** Eigene Lizenz (`LICENSE`, `LicenseRef-MyNetworkMonitor`) statt MIT mit Commons Clause. Kostenlos für
+  Privatleute, Vereine ohne hauptberufliche Kräfte, Schulen, Hochschulen und Gemeinnützige; Unternehmen, Selbständige
+  und Behörden brauchen für jede Nutzung eine Lizenz, auch nur im eigenen Netz. Unverändert weitergeben ist frei,
+  veränderte Fassungen veröffentlichen und verkaufen nicht.
+- **Warum:** Wer das Programm beruflich einsetzt, soll dafür eine Lizenz erwerben; die Commons Clause verbot nur den
+  Verkauf und erlaubte Firmen die freie Nutzung.
+- **Im Programm:** Hinweis beim Start im Firmennetz (`EnterpriseMessageView`, Erkennung über `IEnterpriseEnvironment`),
+  Kurzfassung und Lizenztext in den Einstellungen (`LicenseWindow`). Kein Lizenzschlüssel; die Lizenz wirkt rechtlich.
+- **Folge:** Alte Veröffentlichungen unter MIT mit Commons Clause behalten für ihre Empfänger diese Rechte; die neue
+  Lizenz gilt für Fassungen ab 7.3.0.22.

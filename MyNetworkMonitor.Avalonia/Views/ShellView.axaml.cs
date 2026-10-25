@@ -1434,6 +1434,9 @@ public partial class ShellView : Window
     private void bt_OpenAppFolder_Click(object? sender, RoutedEventArgs e) =>
         OpenFolder(_shell.ApplicationFolder);
 
+    private void bt_ShowLicense_Click(object? sender, RoutedEventArgs e) =>
+        new LicenseWindow().ShowDialog(this);
+
     /// <summary>
     /// Opens a folder in the file manager of the system.
     /// <para>

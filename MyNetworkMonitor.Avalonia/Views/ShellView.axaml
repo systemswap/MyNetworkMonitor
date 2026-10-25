@@ -3028,6 +3028,24 @@
                 </StackPanel>
               </Border>
 
+              <!-- License: who may use the program for free, and the liability
+                   in short. The full text is the file LICENSE next to the
+                   program. -->
+              <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}"
+                      BorderThickness="1" CornerRadius="4" Padding="16,14">
+                <StackPanel Spacing="5">
+                  <TextBlock Text="LICENSE" Classes="settingsHead"/>
+                  <TextBlock Classes="settingHint"
+                             Text="Free for private use, non-profit clubs, schools, universities and charities. Companies, the self-employed and public authorities need a license for any use - also to use it only in their own network."/>
+                  <TextBlock Classes="settingHint"
+                             Text="Provided without warranty; liability only as set out in the license. Port scans and queries can disturb sensitive devices such as controllers - scan only networks you are permitted to scan."/>
+                  <Button x:Name="bt_ShowLicense" Content="Show license" HorizontalAlignment="Left"
+                          Margin="0,3,0,0"
+                          Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
+                          Click="bt_ShowLicense_Click"/>
+                </StackPanel>
+              </Border>
+
               <!-- What is not here yet -->
               <Border Background="#F4F8F8" BorderBrush="{StaticResource Line}"
                       BorderThickness="1" CornerRadius="4" Padding="16,14">

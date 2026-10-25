@@ -269,3 +269,21 @@ deshalb die Prüfung im Testnetz.
   Nachrichten von Zweig und Tags ohne Fund.
 - **Nicht tun:** Veröffentlichungsprofile (`*.pubxml`) einchecken; mit persönlicher Git-Identität committen
   (`git config user.name/user.email` je Repository neutral).
+
+## Nr. 19 – Lizenz: Hinweis im Programm und Lizenzdatei widersprachen sich
+
+- **Entdeckt:** 25.10.2026, Version 7.3.0.21 (Lizenzprüfung vor einem möglichen Angebot an Firmen). **Behoben:** 7.3.0.22.
+- **Was passiert ist:** Der Hinweis im Firmennetz sagte „free for private use only … a license is required“, die
+  `LICENSE` (MIT mit Commons Clause) und die README erlaubten Firmen dagegen die freie Nutzung und verboten nur den
+  Verkauf. Rechtlich gilt die Lizenzdatei – eine Firma hätte das Programm ohne Lizenz einsetzen dürfen. Der Hinweis
+  sprach außerdem von „Open-Source developers“.
+- **Warum:** Die Lizenzdatei wurde nach einer allgemeinen Vorgabe für kostenlose Programme gewählt, ohne den Hinweis im
+  Programm mit ihr abzugleichen.
+- **Lösung:** Eigene Lizenz (`docs/Architektur.md`, Entscheidung „Lizenz“): Firmen, Selbständige und Behörden brauchen
+  für jede Nutzung eine Lizenz, auch nur im eigenen Netz. Hinweis, README und eine Kurzfassung in den Einstellungen
+  sagen dasselbe; der volle Text ist über „Show license“ erreichbar.
+- **Nicht tun:** Lizenzdatei, README und Texte im Programm getrennt ändern; das Programm „Open Source“ nennen.
+- **Im Code:** `LICENSE`, `README.md`, `MyNetworkMonitor.Avalonia/Views/EnterpriseMessageView.axaml`, `LicenseWindow.cs`,
+  `ShellView.axaml` (Einstellungen, Block „LICENSE“).
+- **Abgesichert durch:** Testprogramm im lokalen Testordner, das den Hinweis öffnet und die Lage der Texte misst (der
+  OK-Knopf endet bei 266 von 311 Bildpunkten, alle drei Zeilen sichtbar).

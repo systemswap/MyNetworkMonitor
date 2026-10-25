@@ -1,39 +1,131 @@
-"Commons Clause" License Condition v1.0
+MyNetworkMonitor – Lizenz (Source Available)
+SPDX-License-Identifier: LicenseRef-MyNetworkMonitor
 
-The Software is provided to you by the Licensor under the License, as defined below, subject to the
-following condition.
+Copyright (c) 2022-2026 the author of MyNetworkMonitor (owner of the project's GitHub account)
 
-Without limiting other conditions in the License, the grant of rights under the License will not
-include, and the License does not grant to you, the right to Sell the Software.
+ENTWURF – vor dem ersten Verkauf von einem Anwalt für IT-Recht prüfen lassen. Mit [OFFEN] markierte Stellen sind
+noch zu entscheiden. Maßgeblich ist der deutsche Text; die englische Fassung unten dient dem Verständnis.
 
-For purposes of the foregoing, "Sell" means practicing any or all of the rights granted to you under
-the License to provide to third parties, for a fee or other consideration (including without
-limitation fees for hosting or consulting/support services related to the Software), a product or
-service whose value derives, entirely or substantially, from the functionality of the Software. Any
-license notice or attribution required by the License must also include this Commons Clause License
-Condition notice.
+Der Quelltext von MyNetworkMonitor ist einsehbar. MyNetworkMonitor ist keine „Open Source“-Software im Sinne der Open
+Source Initiative, sondern „Source Available“: Die Nutzung durch Unternehmen und Behörden ist kostenpflichtig.
 
-Software: MyNetworkMonitor
-License: MIT
-Licensor: MyNetworkMonitor contributors
+1. Kostenlose Nutzung
 
----
+   Kostenlos nutzen dürfen MyNetworkMonitor:
+   a) Privatpersonen für private Zwecke, z. B. im eigenen Heimnetz;
+   b) Vereine, solange niemand dort hauptberuflich von der Vereinstätigkeit lebt und der Verein keinen
+      Geschäftsbetrieb unterhält;
+   c) Schulen und Hochschulen;
+   d) gemeinnützige Körperschaften (z. B. gemeinnützige GmbHs).
 
-MIT License
+2. Nutzung mit Lizenz
 
-Copyright (c) 2026 MyNetworkMonitor contributors
+   a) Unternehmen, Selbständige und Freiberufler bei ihrer beruflichen Tätigkeit, Behörden und Vereine, die nicht unter
+      Nummer 1 b fallen, benötigen für jede Nutzung eine kostenpflichtige Lizenz des Rechteinhabers. Ihr Umfang und
+      ihre Bedingungen richten sich nach dem gesonderten Lizenzvertrag.
+   b) Jede Nutzung heißt auch: das Programm nur im eigenen Netz einsetzen, um eigene Geräte zu finden, zu verwalten,
+      zu überwachen oder Fehler zu suchen, auch ohne Entgelt von Dritten und ohne Weitergabe des Programms.
+   c) Maßgeblich ist, für wen das Programm eingesetzt wird. Wer es für ein Unternehmen, eine Behörde oder einen
+      Verein nach Buchstabe a einsetzt – als Mitarbeiter, Dienstleister oder auf eigenem Gerät –, braucht eine Lizenz,
+      die diesen Einsatz abdeckt.
+   d) Ohne Lizenz des Rechteinhabers ist jede kommerzielle Nutzung verboten, auch Dienstleistungen für Dritte
+      (z. B. Netzaufnahme, Prüfung oder Betreuung von Netzen gegen Entgelt), die mit dem Programm erbracht werden.
+   e) In einem Firmennetz weist das Programm beim Start auf diese Lizenz hin. Das Umgehen oder Entfernen dieses
+      Hinweises ist ohne Lizenz nicht gestattet.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
-associated documentation files (the "Software"), to deal in the Software without restriction,
-including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
-and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so,
-subject to the following conditions:
+3. Weitergabe, Veränderung, Übernahme von Code
 
-The above copyright notice and this permission notice shall be included in all copies or substantial
-portions of the Software.
+   a) Das unveränderte Programm darf kostenlos an Dritte weitergegeben werden, zusammen mit dieser Lizenz, dem
+      Urheberhinweis und den Hinweisen zu fremden Bestandteilen (THIRD-PARTY-NOTICES.md, Ordner licenses/).
+   b) Weiterverkauf, Vermietung und jede entgeltliche Weitergabe sind ohne Lizenz des Rechteinhabers verboten. Das
+      gilt auch für Dienste, deren Wert im Wesentlichen aus MyNetworkMonitor stammt.
+   c) Veränderte Fassungen des Programms dürfen nicht veröffentlicht oder weitergegeben werden.
+   d) Privatpersonen dürfen einzelne Teile des Quelltexts in eigene, nicht-kommerzielle Projekte übernehmen, wenn sie
+      den Urheber nennen und auf diese Lizenz verweisen.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT
-LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
-NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+4. Ergebnisse
+
+   Scanergebnisse, Exporte und erzeugte Ansichten gehören dem Anwender. Wer eine Lizenz nach Nummer 2 braucht, darf
+   sie nur im Rahmen dieser Lizenz erzeugen und verwenden.
+
+5. Erlaubter Einsatz
+
+   a) Der Anwender prüft nur Netze und Geräte, für die er die Erlaubnis hat, und hält die dafür geltenden Gesetze
+      und Regeln des Netzbetreibers ein.
+   b) Abfragen und Portscans können empfindliche Geräte stören, insbesondere Steuerungen, Maschinen und ältere
+      Netzwerkgeräte. Der Anwender entscheidet, welche Verfahren er auf welche Geräte anwendet, und setzt Verfahren
+      an Anlagen im Betrieb nur nach Abstimmung mit deren Betreiber ein.
+
+6. Fremde Bestandteile
+
+   MyNetworkMonitor enthält Bestandteile Dritter (Bibliotheken, eine Schrift, eine Herstellerliste, bei Linux die
+   AppImage-Laufzeit). Für sie gelten ausschließlich deren eigene Lizenzen, aufgeführt in THIRD-PARTY-NOTICES.md; die
+   Lizenztexte liegen im Ordner licenses/. Diese Lizenz schränkt die Rechte an diesen Bestandteilen nicht ein.
+
+7. Haftung und Gewährleistung
+
+   a) Bei kostenloser Nutzung wird die Software unentgeltlich und ohne Gewähr („wie sie ist“) überlassen. Der
+      Rechteinhaber haftet nur für Vorsatz und grobe Fahrlässigkeit, bei Verletzung von Leben, Körper oder Gesundheit
+      und nach dem Produkthaftungsgesetz. Im Übrigen ist jede Haftung ausgeschlossen, insbesondere für Datenverlust,
+      entgangenen Gewinn, Ausfälle von Geräten oder Netzen und Folgeschäden.
+   b) Bei Nutzung mit Lizenz haftet der Rechteinhaber zusätzlich bei leichter Fahrlässigkeit nur für die Verletzung
+      wesentlicher Vertragspflichten, begrenzt auf den vertragstypischen, vorhersehbaren Schaden und höchstens auf
+      die in den letzten zwölf Monaten gezahlte Lizenzgebühr; für Datenverlust nur, soweit er bei üblicher
+      Datensicherung nicht vermieden worden wäre. Näheres regelt der Lizenzvertrag.
+   c) Für Störungen durch Verfahren, die der Anwender entgegen Nummer 5 einsetzt, haftet der Rechteinhaber nicht,
+      soweit das Gesetz es zulässt.
+
+8. Beiträge
+
+   Beiträge Dritter zum Quelltext werden nur aufgenommen, wenn ihre Urheber dem Rechteinhaber die nötigen Rechte
+   übertragen (Contributor License Agreement).
+
+9. Schlussbestimmungen
+
+   Es gilt deutsches Recht. [OFFEN: Gerichtsstand bei Verträgen mit Unternehmen.] Ist eine Bestimmung unwirksam,
+   bleiben die übrigen wirksam.
+
+-----------------------------------------------------------------------------------------------------------------------
+
+MyNetworkMonitor – Licence (Source Available) – English version for information; the German text above governs.
+
+DRAFT – to be reviewed by a lawyer before the first sale. Items marked [OPEN] are still to be decided.
+
+The source code of MyNetworkMonitor is available for inspection. MyNetworkMonitor is not "open source" as defined by
+the Open Source Initiative but "source available": use by businesses and public authorities requires a paid licence.
+
+1. Free use: private persons for private purposes, for example in their home network; clubs and associations as
+   long as nobody earns their main living from them and they run no business operation; schools and universities;
+   non-profit organisations.
+2. Licensed use: businesses, self-employed persons and freelancers in their work, public authorities and
+   associations not covered by 1 need a paid licence from the rights holder for any use, under the terms of a
+   separate licence agreement. Any use includes running the program only in their own network to find, manage or
+   monitor their own devices or to troubleshoot, even without payment from third parties and without passing the
+   program on. What counts is on whose behalf the program is used: whoever uses it for a business, an authority or
+   such an association - as an employee, a contractor or on their own device - needs a licence covering that use.
+   Without a licence any commercial use is prohibited, including services for third parties (for example surveying,
+   auditing or maintaining networks for payment) provided with the program. In a company network the program points
+   to this licence at start; circumventing or removing this notice without a licence is not permitted.
+3. Passing on, changes, reuse of code: the unchanged program may be passed on free of charge together with this
+   licence, the copyright notice and the third-party notices. Reselling, renting or any paid distribution, also as
+   a service whose value derives substantially from MyNetworkMonitor, is prohibited without a licence. Modified
+   versions may not be published or distributed. Private persons may reuse parts of the source code in their own
+   non-commercial projects, naming the author and referring to this licence.
+4. Results: scan results, exports and generated views belong to the user. Whoever needs a licence under 2 may only
+   create and use them within that licence.
+5. Permitted use: users only examine networks and devices they are authorised to examine and comply with the
+   applicable laws and the rules of the network operator. Queries and port scans can disturb sensitive devices, in
+   particular controllers, machines and older network equipment; users decide which methods they apply to which
+   devices and use them on plant in operation only after agreement with its operator.
+6. Third-party components are governed solely by their own licences, listed in THIRD-PARTY-NOTICES.md with the full
+   texts in the licenses/ folder; this licence does not restrict the rights to them.
+7. Liability: free use is provided free of charge and "as is"; the rights holder is liable only for intent and
+   gross negligence, for injury to life, body or health and under product liability law; any other liability, in
+   particular for data loss, lost profit, failure of devices or networks and consequential damage, is excluded. For
+   licensed use, liability for slight negligence is limited to breaches of essential contractual obligations, to
+   the typical foreseeable damage and to at most the licence fees paid in the last twelve months; details in the
+   licence agreement. The rights holder is not liable, as far as the law permits, for disturbances caused by methods
+   used contrary to 5.
+8. Contributions are accepted only with a transfer of the necessary rights (Contributor License Agreement).
+9. German law applies. [OPEN: place of jurisdiction for contracts with businesses.] If a provision is invalid, the
+   others remain valid.

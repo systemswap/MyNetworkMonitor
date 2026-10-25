@@ -80,12 +80,12 @@
                        TextAlignment="Center" HorizontalAlignment="Center" Margin="0,5,0,10"/>
 
             <!-- Main message -->
-            <TextBlock Text="This software is free for private use only.&#10;For companies and commercial usage, a license is required."
+            <TextBlock Text="Free for private use, non-profit clubs, schools and charities.&#10;Companies and public authorities need a license,&#10;also to use it only in their own network."
                        FontSize="14" Foreground="Black"
                        TextAlignment="Center" HorizontalAlignment="Center" Margin="0,5,0,15"/>
 
             <!-- Developer support -->
-            <TextBlock Text="This project has taken around 500 hours to develop until this version,&#10;and even Open-Source developers need coffee ☕."
+            <TextBlock Text="This project has taken around 500 hours to develop until this version,&#10;and even independent developers need coffee ☕."
                        FontSize="13" Foreground="Gray"
                        TextAlignment="Center" HorizontalAlignment="Center" Margin="0,5,0,15"/>
 

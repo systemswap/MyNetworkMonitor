@@ -30,10 +30,20 @@ ist, beim Laden der 3D-Bibliothek. Scanne nur Netze, für die du die Erlaubnis h
 
 ## Lizenz
 
-MIT mit „Commons Clause“ (`LICENSE`): Nutzen, weitergeben und verändern ist frei, auch für Firmen –
-verkaufen darf man das Programm nicht. Fremde Bestandteile und ihre Lizenzen: `THIRD-PARTY-NOTICES.md`.
+Eigene Lizenz, Quellcode einsehbar („Source Available“, `LICENSE`), kein Open Source:
 
-**Haftung:** Die Software wird unentgeltlich und ohne Gewähr („wie sie ist“) überlassen. Der Urheber
-haftet nur für Vorsatz und grobe Fahrlässigkeit, bei Verletzung von Leben, Körper oder Gesundheit und
-nach dem Produkthaftungsgesetz; im Übrigen ist jede Haftung ausgeschlossen, insbesondere für
-Datenverlust, entgangenen Gewinn und Folgeschäden.
+- **Kostenlos** für Privatleute, Vereine ohne hauptberufliche Kräfte, Schulen, Hochschulen und
+  gemeinnützige Einrichtungen.
+- **Mit Lizenz:** Unternehmen, Selbständige und Behörden – für jede Nutzung, auch nur im eigenen Netz.
+  Eine Lizenz gibt es auf Anfrage (Kontakt im Programm).
+- Das unveränderte Programm darf kostenlos weitergegeben werden; verkaufen und veränderte Fassungen
+  veröffentlichen ist nicht erlaubt.
+
+Fremde Bestandteile und ihre Lizenzen: `THIRD-PARTY-NOTICES.md`.
+
+**Haftung:** Bei kostenloser Nutzung wird die Software unentgeltlich und ohne Gewähr („wie sie ist“)
+überlassen. Der Urheber haftet nur für Vorsatz und grobe Fahrlässigkeit, bei Verletzung von Leben, Körper
+oder Gesundheit und nach dem Produkthaftungsgesetz; im Übrigen ist jede Haftung ausgeschlossen,
+insbesondere für Datenverlust, entgangenen Gewinn, Ausfälle von Geräten oder Netzen und Folgeschäden.
+Portscans und Abfragen können empfindliche Geräte wie Steuerungen stören – scanne nur, wofür du die
+Erlaubnis hast.
