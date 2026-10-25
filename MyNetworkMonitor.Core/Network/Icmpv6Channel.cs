@@ -81,12 +81,12 @@ namespace MyNetworkMonitor.Core.Network
         /// <summary>ICMPv6 type Neighbor Advertisement (RFC 4861, section 4.4).</summary>
         public const int NeighborAdvertisement = 136;
 
-        /// <summary>MLDv1 query (RFC 2710, section 3); also used by MLDv2 (RFC 3810, section 5.1).</summary>
+        /// <summary>MLDv1 query (RFC 2710, section 3); also used by MLDv2 (RFC 9777, section 5.1; same in RFC 3810).</summary>
         public const int MulticastListenerQuery = 130;
         /// <summary>MLDv1 report (RFC 2710, section 3).</summary>
         public const int MulticastListenerReportV1 = 131;
 
-        /// <summary>MLDv2 report - the answer to a multicast listener query (RFC 3810, section 5.2).</summary>
+        /// <summary>MLDv2 report - the answer to a multicast listener query (RFC 9777, section 5.2; same in RFC 3810).</summary>
         public const int MulticastListenerReportV2 = 143;
 
         /// <summary>Next-header value of ICMPv6 in the checksum pseudo-header.</summary>

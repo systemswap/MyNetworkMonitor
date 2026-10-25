@@ -303,7 +303,10 @@ public class ScanningMethod_SMBVersionCheck
     {
         List<byte> smb1NegotiatePackage = new List<byte>();
 
-        // NetBIOS session service header (RFC 1002, section 4.3.1)
+        // Transport header of direct TCP on port 445 ([MS-SMB2] 2.1): one zero
+        // byte, then the length in 3 bytes. For lengths below 64 KiB it is byte
+        // for byte the NetBIOS session message of RFC 1002, section 4.3.1
+        // (type, flags, 16-bit length).
         smb1NegotiatePackage.Add(0x00); // Message type
         smb1NegotiatePackage.AddRange(new byte[] { 0x00, 0x00, 0x31 }); // Length
 
@@ -350,7 +353,7 @@ public class ScanningMethod_SMBVersionCheck
     {
         List<byte> smbPacket = new List<byte>();
 
-        // NetBIOS session service header (RFC 1002, section 4.3.1)
+        // Transport header of direct TCP, as above ([MS-SMB2] 2.1)
         smbPacket.Add(0x00);            // Message Type
 
         if (dialects != SMBDialects.all)

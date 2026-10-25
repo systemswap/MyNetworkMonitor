@@ -41,7 +41,8 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                     // Check the protocol identifier (must be 0x00 0x00 for Modbus TCP)
                     bool isModbusTcp = response[2] == 0x00 && response[3] == 0x00;
 
-                    // Check the function code: valid Modbus function codes are 0x01 to 0x10
+                    // Check the function code: the common Modbus function codes 0x01 to 0x10
+                    // (the specification defines further ones, e.g. 0x17 and 0x2B, that are not accepted here)
                     // Examples:
                     // 0x01 - Read Coils
                     // 0x02 - Read Discrete Inputs

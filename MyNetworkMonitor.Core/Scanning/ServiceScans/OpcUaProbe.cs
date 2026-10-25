@@ -100,7 +100,8 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
         /// <summary>
         /// Opens a secure channel without encryption and requests the endpoints
-        /// (GetEndpoints, OPC UA Part 4, section 5.4.4). Without this detour an
+        /// (GetEndpoints, OPC UA Part 4, edition 1.05, section 5.5.4; 5.4.4 in
+        /// edition 1.04). Without this detour an
         /// OPC UA server does not reveal its identity; the Acknowledge of the
         /// connection setup does not carry it.
         /// </summary>

@@ -176,7 +176,7 @@ namespace MyNetworkMonitor.Core.Network
 
         /// <summary>
         /// Parses an MLD report - version 1 (type 131, RFC 2710) as well as
-        /// version 2 (type 143, RFC 3810). Both say the same in different form:
+        /// version 2 (type 143, RFC 9777, formerly RFC 3810). Both say the same in different form:
         /// version 1 names one group per message, version 2 any number.
         /// </summary>
         /// <param name="message">The ICMPv6 message, starting with the type byte.</param>

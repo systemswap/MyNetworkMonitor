@@ -24,7 +24,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
     /// which all devices would have to answer, could be sent. It requires the
     /// Router Alert option in the IPv6 header, however, which cannot be set
     /// with the sockets .NET provides, and receivers discard a query without
-    /// it (RFC 3810, section 6.2). Sending a packet that half the devices are
+    /// it (RFC 9777, section 6.2; same in RFC 3810). Sending a packet that half the devices are
     /// known to drop would only be noise. Instead the method listens: devices
     /// report on their own when they join a group, and they answer the
     /// router's periodic query. That is why the time window here is
@@ -175,8 +175,9 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
         {
             "ff02::fb" or "ff05::fb" => "mDNS (Bonjour/Avahi - Apple devices, printers, TVs)",
             "ff02::c" or "ff05::c" => "SSDP/UPnP (media servers, routers, smart home)",
-            // A device that joins these groups answers DHCPv6 requests; clients
-            // only send to them (RFC 8415, section 7.1).
+            // A device that joins these groups answers DHCPv6 requests: clients
+            // send to ff02::1:2, relay agents to ff05::1:3 (RFC 9915, section
+            // 7.1; same section in RFC 8415, which it replaces).
             "ff02::1:2" => "DHCPv6 server or relay agent",
             "ff05::1:3" => "DHCPv6 server",
             "ff02::1:3" => "LLMNR (Windows name resolution, RFC 4795)",
