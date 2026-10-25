@@ -44,7 +44,7 @@ gewonnen (Bytefolgen eines Protokolls); Programmcode anderer Werkzeuge ist darin
 
 | Daten | Herkunft | Lizenz |
 |---|---|---|
-| MAC-Herstellerliste `Assets/MacVendors/mac_vendors.csv` (mitgeliefert) | Auszug aus den öffentlichen Registern der IEEE Registration Authority (MA-L, MA-M, MA-S); woher die mitgelieferte CSV-Datei genau stammt, ist noch zu klären (`docs/OFFENE-PUNKTE.md`) | Fakten aus einem öffentlichen Register; Bedingungen der Quelle offen |
+| MAC-Herstellerliste `Assets/MacVendors/mac_vendors.csv` (mitgeliefert, Stand 25.10.2026, 58 575 Einträge) | erzeugt mit der Funktion „Update from Wireshark“ des Programms aus der Datei `manuf` von Wireshark (https://www.wireshark.org/download/automated/data/manuf), die die öffentlichen Register der IEEE Registration Authority (MA-L, MA-M, MA-S) zusammenfasst; übernommen ist der volle Herstellername aus dem Register | Fakten aus einem öffentlichen Register; die Datei `manuf` nennt keine eigenen Bedingungen |
 | Erneuerte Herstellerliste (auf Knopfdruck, wird nicht mitgeliefert) | wird zur Laufzeit aus der Datei `manuf` von Wireshark erzeugt: https://www.wireshark.org/download/automated/data/manuf | Daten aus den Registern der IEEE |
 | Bekannte Ports und Dienstnamen (`MyNetworkMonitor.Core/Support/zzz_DataStructure.cs`) | IANA Service Name and Transport Protocol Port Number Registry, `/etc/services`, eigene Beschreibungen | Registerangaben; einzelne Beschreibungen aus öffentlichen Portlisten (Prüfung offen) |
 | Protokollkonstanten, Adressbereiche, OIDs | RFCs und Normen der jeweiligen Protokolle | – |

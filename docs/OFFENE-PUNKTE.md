@@ -8,8 +8,6 @@ im Fehlergedächtnis). Grundlage ist die Prüfung gegen die gemeinsamen Regeln v
 
 ### Lizenz und Herkunft
 
-- **Herkunft der mitgelieferten Herstellerliste** `Assets/MacVendors/mac_vendors.csv` klären (Kopfzeile wie
-  der CSV-Export eines Online-Dienstes); sonst mit dem vorhandenen Erneuern aus der Datei `manuf` neu erzeugen.
 - **Portliste** `Support/zzz_DataStructure.cs`: einzelne Beschreibungen stammen aus öffentlichen Portlisten
   (u. a. Wikipedia, CC BY-SA) – eigene Beschreibungen schreiben. Dabei Fehler beheben: Port 7 „ICMP Echo“
   (gemeint ist der Dienst echo), Port 5060 „SID“ statt „SIP“.
