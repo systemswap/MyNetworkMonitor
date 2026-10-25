@@ -15,17 +15,24 @@ GitHub-Bau (`.github/workflows/build-and-release.yml`), sobald sich `<Version>` 
 
 ## Tests
 
-Es gibt noch keine automatischen Tests (`docs/OFFENE-PUNKTE.md`). Geprüft wird im Testnetz mit dem
-fertigen Programm; was nur auf einer Plattform geprüft ist, steht in `PLATFORM_TESTING_NOTES.md`.
+    dotnet test MyNetworkMonitor.Core.Tests -c Release -p:UseArtifactsOutput=true -p:ArtifactsPath=<testordner>/artifacts
+
+`MyNetworkMonitor.Core.Tests` (xUnit) prüft die Fachlogik ohne Netz: Pakete und Antworten bauen die Tests selbst,
+Namen und Adressen sind erfunden. Was ein echtes Netz braucht, wird im Testnetz mit dem fertigen Programm geprüft;
+was nur auf einer Plattform geprüft ist, steht in `PLATFORM_TESTING_NOTES.md`.
+
+| Testklasse | Was |
+|---|---|
+| `NetBiosNodeStatusTests` | Anfrage byte-gleich zur bekannten Form; Rechner/Gruppe, Gruppe zuerst, nur Browsergruppe, nur Workstation, leer; komprimierter Name; falsche Transaktionsnummer, Fehlercode, Anfrage statt Antwort; 200 000 verdorbene Antworten |
 
 ## Prüfprogramme
 
-Bis es ein Testprojekt gibt, laufen Prüfungen einzelner Teile als C#-Datei mit `dotnet run <datei>.cs` und der
+Einmalige Prüfungen, die nicht als Test bleiben, laufen als C#-Datei mit `dotnet run <datei>.cs` und der
 Zeile `#:project <pfad>/MyNetworkMonitor.Core/MyNetworkMonitor.Core.csproj` im lokalen Testordner:
 
 | Prüfung | Was |
 |---|---|
-| NetBIOS (`NetBiosNodeStatus`) | Anfrage byte-gleich zur bekannten Form; synthetische Antworten nach RFC 1002 (Rechner/Gruppe, Gruppe zuerst, nur Browsergruppe, nur Workstation, leer) gegen die frühere Auswertung; komprimierter Name; falsche Transaktionsnummer, Fehlercode, Anfrage statt Antwort; 200 000 verdorbene Antworten |
+| NetBIOS (`NetBiosNodeStatus`) | synthetische Antworten gegen die frühere Auswertung mit festen Stellen (die übrigen Fälle sind jetzt Tests) |
 | Sonden-Prüfsummen (`SupersededDefaults`) | alte Pakete mit dem Algorithmus von `Fingerprint` nachgerechnet |
 
 ## Testnetz

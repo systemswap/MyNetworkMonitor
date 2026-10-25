@@ -18,8 +18,8 @@ Regeln:
 - Die Einträge 1–8 sind am 25.10.2026 aus den früheren Testnotizen übernommen; ältere Fehler stehen
   nur in den Commit-Nachrichten.
 
-Das Projekt hat noch keine automatischen Tests (`docs/OFFENE-PUNKTE.md`); „Abgesichert durch“ nennt
-deshalb die Prüfung im Testnetz.
+Automatische Tests stehen in `MyNetworkMonitor.Core.Tests` (`docs/PRUEFUNGEN.md`); ältere Einträge nennen unter
+„Abgesichert durch“ die Prüfung im Testnetz.
 
 ---
 
@@ -224,7 +224,7 @@ deshalb die Prüfung im Testnetz.
 - **Abgesichert durch:** Prüfprogramm im lokalen Testordner (`docs/PRUEFUNGEN.md`): Anfrage byte-gleich zur
   bisherigen, fünf Namenslisten gleich ausgewertet wie bisher, komprimierter Name, falsche Nummer/Fehlercode/Anfrage
   abgelehnt, 200 000 verdorbene Antworten ohne Absturz; live gegen einen Samba-Namensdienst (7 Namen, Rechnername und
-  Arbeitsgruppe erkannt). Als Test übernehmen, sobald es ein Testprojekt gibt.
+  Arbeitsgruppe erkannt). Seit dem Testprojekt: `NetBiosNodeStatusTests`.
 
 ## Nr. 16 – Start: fehlende Programme unter Linux nur still bemerkbar
 

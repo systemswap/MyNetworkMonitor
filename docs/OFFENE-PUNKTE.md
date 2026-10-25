@@ -59,8 +59,8 @@ im Fehlergedächtnis). Grundlage ist die Prüfung gegen die gemeinsamen Regeln v
 
 ## Später
 
-- **Tests:** ein Testprojekt für die Fachlogik (zuerst die Prüfungen von `NetBiosNodeStatus` aus `docs/PRUEFUNGEN.md`) (Auswertung von `arp`/`ip`-Ausgaben, Sonden-Antworten,
-  Dubletten, Host/Domain-Trennung, Speichern und Laden) – heute gibt es keine automatischen Tests.
+- **Weitere Tests** in `MyNetworkMonitor.Core.Tests`: Auswertung von `arp`/`ip`-Ausgaben, Sonden-Antworten, Dubletten,
+  Host/Domain-Trennung, Speichern und Laden.
 - **Gespeicherte Daten mit Formatversion** (`lastScanResult.json`, `mainScanners.json`, `satellites.json`,
   `userSettings.txt`, IP-Gruppen).
 

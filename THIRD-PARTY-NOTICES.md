@@ -24,7 +24,9 @@ eingetragen, in dem sie hinzukommen.
 | 3d-force-graph (3D-Netzansicht), darin three.js, three-forcegraph, three-render-objects, d3-force-3d und weitere d3-Bausteine, ngraph, tween.js, polished, preact, tinycolor2 u. a. | 1.76.2 | MIT, ISC, BSD-3-Clause – alle Texte in `licenses/3d-force-graph-Bestandteile.txt` | https://github.com/vasturiano/3d-force-graph |
 | AppImage-Laufzeit (nur im Linux-Paket), darin musl, libfuse, squashfuse, zstd, zlib | type2 | MIT, LGPL-2.1, BSD-2/3-Clause, zlib – `licenses/AppImage-Laufzeit.txt` | https://github.com/AppImage/type2-runtime |
 
-Nur beim Entwickeln (nicht in den Paketen): AvaloniaUI.DiagnosticsSupport (nur im Debug-Bau).
+Nur beim Entwickeln (nicht in den Paketen): AvaloniaUI.DiagnosticsSupport (nur im Debug-Bau); für die Tests
+(`MyNetworkMonitor.Core.Tests`) xUnit 2.9.3 und xunit.runner.visualstudio 3.1.4 (Apache License 2.0,
+https://github.com/xunit/xunit) sowie Microsoft.NET.Test.Sdk 17.14.1 (MIT, https://github.com/microsoft/vstest).
 
 ## Übertragener Code
 
