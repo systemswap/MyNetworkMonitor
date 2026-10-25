@@ -2,14 +2,15 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <!--
-      Unter Windows wird gegen net10.0-windows gebaut, damit die vorhandenen
-      Windows-Provider (MyNetworkMonitor.Platform.Windows, TFM net10.0-windows)
-      referenziert werden koennen; unter Linux bleibt es beim neutralen net10.0
-      mit den Linux-Providern. Das SDK definiert bei net*-windows automatisch
-      das Symbol WINDOWS, ueber das App.axaml.cs die Registrierung auswaehlt.
+      Windows builds (built on Windows, or for a win-* runtime from Linux with EnableWindowsTargeting=true, see
+      publish.sh) target net10.0-windows so that the Windows providers (MyNetworkMonitor.Platform.Windows) can be
+      referenced; all others stay on the neutral net10.0 with the Linux providers. The SDK defines the symbol
+      WINDOWS for net*-windows, which App.axaml.cs uses to choose the registrations.
     -->
-    <TargetFramework Condition="$([MSBuild]::IsOSPlatform('Windows'))">net10.0-windows</TargetFramework>
-    <TargetFramework Condition="!$([MSBuild]::IsOSPlatform('Windows'))">net10.0</TargetFramework>
+    <MnmWindowsBuild>false</MnmWindowsBuild>
+    <MnmWindowsBuild Condition="$([MSBuild]::IsOSPlatform('Windows')) Or $(RuntimeIdentifier.StartsWith('win'))">true</MnmWindowsBuild>
+    <TargetFramework Condition="'$(MnmWindowsBuild)' == 'true'">net10.0-windows</TargetFramework>
+    <TargetFramework Condition="'$(MnmWindowsBuild)' != 'true'">net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <ApplicationManifest>app.manifest</ApplicationManifest>
@@ -21,9 +22,9 @@
       Setzt die Zaehlung des bisherigen WPF-Projekts fort (dort zuletzt 4.6.3.12),
       damit die veroeffentlichten Versionen aufsteigend bleiben.
     -->
-    <Version>7.3.0.14</Version>
-    <AssemblyVersion>7.3.0.14</AssemblyVersion>
-    <FileVersion>7.3.0.14</FileVersion>
+    <Version>7.3.0.15</Version>
+    <AssemblyVersion>7.3.0.15</AssemblyVersion>
+    <FileVersion>7.3.0.15</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -43,7 +44,7 @@
     <ProjectReference Include="..\MyNetworkMonitor.Core\MyNetworkMonitor.Core.csproj" />
   </ItemGroup>
 
-  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+  <ItemGroup Condition="'$(MnmWindowsBuild)' == 'true'">
     <ProjectReference Include="..\MyNetworkMonitor.Platform.Windows\MyNetworkMonitor.Platform.Windows.csproj" />
     <!--
       Damit sich dieselbe Anwendung im Satellitenbetrieb als Windows-Dienst

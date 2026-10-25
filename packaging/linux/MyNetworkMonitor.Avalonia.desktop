@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=MyNetworkMonitor
+GenericName=Netzwerk-Scanner
+Comment=Geräte im Netz finden, Ports und Dienste erkennen, Netz als 3D-Ansicht zeigen
+Exec=MyNetworkMonitor.Avalonia
+Icon=mynetworkmonitor.avalonia
+Categories=Network;Monitor;
+Keywords=Netzwerk;Scanner;Ping;ARP;Port;Dienst;SNMP;IPv6;
+Terminal=false
+StartupNotify=true
+StartupWMClass=MyNetworkMonitor.Avalonia

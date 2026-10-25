@@ -21,9 +21,6 @@ im Fehlergedächtnis). Grundlage ist die Prüfung gegen die gemeinsamen Regeln v
   - `MsSqlServerProbe.cs`: PRELOGIN mit einem echten Instanznamen und fester TraceID;
   - `MongoDbProbe.cs`: Handshake mit Programm-, Laufzeit- und Windows-Version des mitschneidenden Rechners;
   - `OpcUaProbe.cs`: Hello mit der öffentlichen Adresse eines fremden Servers in der Endpoint-URL.
-- **Lizenz des eigenen Programms:** `LICENSE` (MIT mit Commons Clause, gemeinsame Regeln `Regeln/Lizenzen.md`)
-  und README anlegen.
-
 ### Privatsphäre
 
 - **Protokoll des Satelliten:** `SatelliteLink/SatelliteRuntime.cs` schreibt Benutzer- und Rechnername in
@@ -41,8 +38,6 @@ im Fehlergedächtnis). Grundlage ist die Prüfung gegen die gemeinsamen Regeln v
   AppImage und ins Windows-Zip.
 - **appimagetool** im GitHub-Bau aus dem aktuellen Projekt (`AppImage/appimagetool`) mit fester Version und
   Prüfsumme laden; die Fremd-Action `softprops/action-gh-release` auf eine feste Commit-Kennung festlegen.
-- **Lokales Publish-Skript** nach den gemeinsamen Regeln (`Regeln/Veroeffentlichen.md`).
-
 ### Startprüfung
 
 - Der Hinweis zu fehlenden WebKit-Paketen nennt nur `apt` – Befehle für Fedora ergänzen.

@@ -363,3 +363,6 @@ MigrationBackup/
 FodyWeavers.xsd
 # JetBrains Rider IDE state
 .idea/
+
+# Fertige Programme (publish.sh)
+published/
