@@ -355,7 +355,7 @@ namespace MyNetworkMonitor.Core.Model
 
         /// <summary>
         /// Zaehlt die Adressen eines IPv4-Bereichs auf - linear, nicht
-        /// oktettweise. Damit umfasst 10.20.4.200 bis 10.20.5.50 auch
+        /// oktettweise. Damit umfasst 10.0.4.200 bis 10.0.5.50 auch
         /// tatsaechlich die 107 Adressen dazwischen.
         /// <para>
         /// Bewusst nicht je Oktett getrennt hochgezaehlt: das liefert bei
@@ -410,7 +410,7 @@ namespace MyNetworkMonitor.Core.Model
 
         // ------------------------------------------------------- Beschreibung
 
-        /// <summary>Einzeiler fuer Liste und Auswahl, etwa "10.20.4.1 - 10.20.4.254".</summary>
+        /// <summary>Einzeiler fuer Liste und Auswahl, etwa "192.0.2.1 - 192.0.2.254".</summary>
         public string DescribeAddressPart() => Kind switch
         {
             ScanScopeKind.IPv4Range => string.IsNullOrWhiteSpace(FirstIP) ? "-" : $"{FirstIP} - {LastIP}",
@@ -448,7 +448,7 @@ namespace MyNetworkMonitor.Core.Model
         ///   <item><c>192.168.1.1-192.168.1.254</c> - von/bis</item>
         ///   <item><c>192.168.1.1-254</c> - Kurzform mit letztem Oktett</item>
         ///   <item><c>192.168.1.0/24</c> - CIDR</item>
-        ///   <item><c>10.0.0.5, server1, 2003::1</c> - Liste, gemischt</item>
+        ///   <item><c>192.0.2.5, server1, 2001:db8::1</c> - Liste, gemischt</item>
         /// </list>
         /// Alles, was keine Adresse ist, bleibt als Hostname stehen und wird
         /// beim Scan aufgeloest.

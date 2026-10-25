@@ -215,7 +215,7 @@ namespace MyNetworkMonitor.Core.ViewModels
 
         /// <summary>
         /// Adressfilter mit Platzhalter. <c>192.0.2.*</c> trifft das ganze
-        /// Subnetz, <c>2003:*</c> alles aus diesem Praefix. Ohne Stern wird
+        /// Subnetz, <c>2001:db8:*</c> alles aus diesem Praefix. Ohne Stern wird
         /// als Teilzeichenfolge gesucht - so wie bisher.
         /// </summary>
         private static bool MatchesAddress(Device device, string pattern)

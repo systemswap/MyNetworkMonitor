@@ -18,9 +18,6 @@ im Fehlergedächtnis). Grundlage ist die Prüfung gegen die gemeinsamen Regeln v
   (gemeint ist der Dienst echo), Port 5060 „SID“ statt „SIP“.
 ### Privatsphäre
 
-- **Beispieladressen** auf Dokumentationsbereiche umstellen: `192.0.2.*` (`DeviceFilter.cs`), `2003:*`
-  (`DeviceFilter.cs`, `ScanScope.cs`), `10.20.4.x`/`10.20.5.x` (`ScanScope.cs`), dazu der Router-Hinweis in
-  `ScanningMethod_ReverseLookupToHostAndAliases.cs` und `Ipv6StackInfo.cs`.
 - **Firmennetz-Erkennung beim Start** fragt `_ldap._tcp.dc._msdcs.<Domäne>` bei den DNS-Servern des Systems –
   sind dort öffentliche Server eingetragen, geht der Domänenname nach außen. Im Info-Fenster erwähnen oder
   nur bei einer Domäne fragen.

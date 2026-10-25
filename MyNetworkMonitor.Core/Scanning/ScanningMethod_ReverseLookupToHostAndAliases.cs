@@ -512,10 +512,9 @@ namespace MyNetworkMonitor
                 if (GetHostAliases_Task_Finished != null)
                 {
                     // Ab zwei Labels trennen, nicht erst ab drei: ein Name wie
-                    // "router.example" oder "dns.google" hat nur zwei, landete vorher
-                    // aber komplett im HostName-Feld statt sauber in Host+Domain
-                    // getrennt zu werden - live an der eigenen Heimrouter
-                    // (192.0.2.1 -> "router.example") nachgewiesen.
+                    // "router.example" oder "dns.google" hat nur zwei und gehoert
+                    // getrennt in Host und Domain, nicht komplett ins Feld
+                    // HostName (Fehlergedaechtnis Nr. 6).
                     if (_IPHostEntry.HostName.Split('.').ToList().Count > 1)
                     {
                         List<string> HostDomainSplit = new List<string>();

@@ -121,8 +121,8 @@ namespace MyNetworkMonitor.Core.Network
 
                     // Derselbe Server steht doppelt in der Liste, wenn er
                     // sowohl ueber die Router-Ankuendigung (RDNSS) als auch
-                    // ueber DHCPv6 bekanntgegeben wird - am 2026-08-09 an
-                    // einer Heimrouter mit beidem gesehen. Fuer den Befund
+                    // ueber DHCPv6 bekanntgegeben wird - an einem Heimrouter
+                    // mit beidem gesehen. Fuer den Befund
                     // "zu viele DNS-Server je Adapter" waere das eine
                     // Falschmeldung.
                     if (!seen.Add(scoped.ToString())) continue;
