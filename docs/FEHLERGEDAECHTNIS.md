@@ -178,3 +178,12 @@ deshalb die Prüfung im Testnetz.
   `THIRD-PARTY-NOTICES.md`, Abschnitt „Übertragener Code“.
 - **Nicht tun:** Code aus Foren, Gists oder Artikeln ohne Eintrag in `THIRD-PARTY-NOTICES.md` und ohne Lizenzprüfung
   übernehmen; CC-BY-SA- oder lizenzlosen Code in ein Programm mit eigener Lizenz einbauen.
+
+## Nr. 13 – Satellit: Benutzer- und Rechnername im Protokoll
+
+- **Entdeckt:** 25.10.2026, Version 7.3.0.11 (Prüfung gegen die gemeinsamen Regeln). **Behoben:** 7.3.0.16.
+- **Was passiert ist:** Beim Start schrieb der Satellit „as <Benutzer> on <Rechner>“ in `satellite.log`.
+- **Warum:** Zur Fehlersuche gedacht; Logs sollen aber keine persönlichen Daten enthalten.
+- **Lösung:** Die Zeile nennt nur noch die Version. Den eigenen Namen, unter dem sich der Satellit beim
+  Hauptscanner meldet, legt der Nutzer im Programm fest – das bleibt.
+- **Im Code:** `MyNetworkMonitor.Core/SatelliteLink/SatelliteRuntime.cs` (`Start`).

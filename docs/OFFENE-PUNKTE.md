@@ -23,8 +23,6 @@ im Fehlergedächtnis). Grundlage ist die Prüfung gegen die gemeinsamen Regeln v
   - `OpcUaProbe.cs`: Hello mit der öffentlichen Adresse eines fremden Servers in der Endpoint-URL.
 ### Privatsphäre
 
-- **Protokoll des Satelliten:** `SatelliteLink/SatelliteRuntime.cs` schreibt Benutzer- und Rechnername in
-  `satellite.log` – weglassen oder kürzen (Logs ohne persönliche Daten).
 - **Beispieladressen** auf Dokumentationsbereiche umstellen: `192.0.2.*` (`DeviceFilter.cs`), `2003:*`
   (`DeviceFilter.cs`, `ScanScope.cs`), `10.20.4.x`/`10.20.5.x` (`ScanScope.cs`), dazu der Router-Hinweis in
   `ScanningMethod_ReverseLookupToHostAndAliases.cs` und `Ipv6StackInfo.cs`.

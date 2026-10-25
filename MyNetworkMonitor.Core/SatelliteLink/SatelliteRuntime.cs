@@ -42,7 +42,8 @@ namespace MyNetworkMonitor.Core.SatelliteLink
         {
             AppPaths.EnsureMachineFolder();
 
-            Log($"Satellite starting, version {_appVersion}, as {Environment.UserName} on {Environment.MachineName}.");
+            // No user or machine name in the log (logs without personal data)
+            Log($"Satellite starting, version {_appVersion}.");
 
             DeviceStore store = new();
             ScanEngine engine = ScanEngineFactory.Create(_serviceXmlPath);
