@@ -166,7 +166,8 @@ deshalb die Prüfung im Testnetz.
 ## Nr. 12 – Lizenz: übernommener Code ohne Herkunftsangabe
 
 - **Entdeckt:** 25.10.2026, Version 7.3.0.11 (Prüfung des ganzen Codes auf übernommenen Code).
-  **Behoben:** 7.3.0.13 (unbenutzter Code entfernt); offen: NetBIOS (`docs/OFFENE-PUNKTE.md`).
+  **Behoben:** 7.3.0.13 (unbenutzter Code entfernt), 7.3.0.14 (Reste einer Blog-Klasse im ARP-Code ersetzt);
+  offen: NetBIOS (`docs/OFFENE-PUNKTE.md`).
 - **Was passiert ist:** Mehrere Stellen waren aus fremden Quellen übernommen, ohne Herkunft und Lizenz:
   eine UDP-Klasse aus einem Gist ohne Lizenz, ein Beispiel aus der .NET-Dokumentation, eine IP-Bereichs-Klasse
   und eine Abfrage der lokalen Adresse von Stack Overflow (CC BY-SA), auskommentierte Hilfsklassen aus einer

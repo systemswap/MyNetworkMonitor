@@ -11,8 +11,6 @@ im Fehlergedächtnis). Grundlage ist die Prüfung gegen die gemeinsamen Regeln v
 - **NetBIOS-Namensabfrage neu schreiben:** `ScanningMethod_NetBios.GetRemoteNetBiosName` beruht auf einer
   Stack-Overflow-Antwort (CC BY-SA, `THIRD-PARTY-NOTICES.md`). Neu nach RFC 1002, Abschnitt 4.2.17/4.2.18
   (NODE STATUS REQUEST/RESPONSE); den auskommentierten Block löschen. Danach unter Linux und Windows prüfen.
-- **Reste der Blog-Klasse IPInfo** in `ScanningMethod_ARP.cs` (Texte, `MacAddresstoString`) durch eigene ersetzen.
-- **URL ohne Bezug** in `ScanningMethod_PortsTCP.cs` (CodeProject-Artikel; der Code folgt ihm nicht) entfernen.
 - **Herkunft der mitgelieferten Herstellerliste** `Assets/MacVendors/mac_vendors.csv` klären (Kopfzeile wie
   der CSV-Export eines Online-Dienstes); sonst mit dem vorhandenen Erneuern aus der Datei `manuf` neu erzeugen.
 - **Portliste** `Support/zzz_DataStructure.cs`: einzelne Beschreibungen stammen aus öffentlichen Portlisten

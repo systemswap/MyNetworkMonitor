@@ -13,8 +13,6 @@ namespace MyNetworkMonitor
 {
     public class ScanningMethod_PortsTCP
     {
-        //https://www.codeproject.com/Articles/1415/Introduction-to-TCP-client-server-in-C
-
         public ScanningMethod_PortsTCP() { }
 
         public event EventHandler<ScanTask_Finished_EventArgs>? TcpPortScan_Task_Finished;

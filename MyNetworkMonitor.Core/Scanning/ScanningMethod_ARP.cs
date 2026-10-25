@@ -218,17 +218,11 @@ namespace MyNetworkMonitor
 
 
 
-        private string MacAddresstoString(byte[] MacAddress)
-        {
-            return BitConverter.ToString(MacAddress);
-        }
-
-
-
         /// <summary>
-        /// Retrieves the IPInfo for All machines on the local network.
+        /// Reads the ARP table of the system and reports every entry as a found device (with MAC address and vendor).
         /// </summary>
-        /// <returns></returns>
+        /// <param name="IPs">The addresses of the scan; entries for other addresses are reported as new devices.</param>
+        /// <exception cref="Exception">Reading the ARP table failed.</exception>
         public async Task ARP_A(List<IPToScan> IPs)
         {
             StartNewScan();
@@ -278,7 +272,7 @@ namespace MyNetworkMonitor
             }
             catch (Exception ex)
             {
-                throw new Exception("IPInfo: Error Parsing 'arp -a' results", ex);
+                throw new Exception("Reading the ARP table failed", ex);
             }
         }
 
