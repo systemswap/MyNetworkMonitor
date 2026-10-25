@@ -252,3 +252,20 @@ deshalb die Prüfung im Testnetz.
 - **Externe Werkzeuge** (`Platform/Linux/ProcessRunner.cs`): `stderr` war umgeleitet, wurde aber nie gelesen; schreibt
   ein Werkzeug viel auf `stderr`, füllt sich der Puffer und es bleibt stehen. Jetzt wird `stderr` gleichzeitig gelesen.
 - **Nicht tun:** Ausgaben umleiten, ohne sie zu lesen.
+
+## Nr. 18 – Historie: persönliche und betriebliche Angaben in alten Ständen
+
+- **Entdeckt:** 25.10.2026 (Prüfung der ganzen Historie). **Behoben:** 25.10.2026 durch Umschreiben der Historie
+  (alle Commit-Nummern sind seitdem neu; Sicherung des alten Stands als Bundle im lokalen Testordner).
+- **Was:** Alle Commits trugen Namen, private und betriebliche E-Mail-Adressen und einen Rechnernamen als Autor;
+  alte Veröffentlichungsprofile enthielten Benutzer- und Firmenpfade und die Adresse eines internen Servers; alter
+  Code und alte Notizen nannten interne Netzadressen, das eigene Heimnetz, einen echten SQL-Instanznamen und
+  Hinweise auf das verwendete KI-Werkzeug.
+- **Lösung:** Autor und Committer neutral (`MyNetworkMonitor <mynetworkmonitor@localhost>`); die Profile, ein fremdes
+  Bild, eine unbenutzte Grafik und nicht benutzter übernommener Code aus allen Commits entfernt; Adressen auf
+  Dokumentationsbereiche, Namen und Hinweise neutral ersetzt. Die Herstellerliste und die Lizenztexte blieben
+  unverändert (Firmennamen und fremde Texte).
+- **Nachweis:** Dateibaum des aktuellen Stands vorher und nachher gleich; Suche über alle Dateifassungen und
+  Nachrichten von Zweig und Tags ohne Fund.
+- **Nicht tun:** Veröffentlichungsprofile (`*.pubxml`) einchecken; mit persönlicher Git-Identität committen
+  (`git config user.name/user.email` je Repository neutral).
