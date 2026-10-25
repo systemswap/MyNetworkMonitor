@@ -35,8 +35,6 @@ im Fehlergedächtnis). Grundlage ist die Prüfung gegen die gemeinsamen Regeln v
 
 ## Vermutete Fehler
 
-- **DNS-Sonden fragen echte Domains** (`gotme.tcp.com`, `gotme.udp.com` in den DNS-Sonden): Namen unter einer
-  registrierbaren Domain können auflösen und gehen an fremde Server. Besser ein Name unter `.invalid` (RFC 6761, 6.4).
 - **Windows-Dienststeuerung** (`WindowsServiceControl.Run`): liest stdout und danach stderr nacheinander – dasselbe
   Blockier-Risiko wie Fehlergedächtnis Nr. 17. `Elevate` nennt „the log next to the settings“, das Protokoll liegt
   aber im Temp-Ordner.

@@ -7,6 +7,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- The tests check internal helpers (packet builders, parsers) directly. -->
+    <InternalsVisibleTo Include="MyNetworkMonitor.Core.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="DnsClient" Version="1.8.0" />
     <PackageReference Include="Lextm.SharpSnmpLib" Version="12.5.7" />

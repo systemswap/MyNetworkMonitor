@@ -12,12 +12,6 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
     /// </summary>
     public sealed class DnsTcpProbe : ServiceProbeBase
     {
-        /// <summary>
-        /// The queried name. Deliberately one that does not exist: the probe
-        /// asks for the service, not for an answer.
-        /// </summary>
-        private const string ProbeDomain = "gotme.tcp.com";
-
         public override ServiceType Service => ServiceType.DNS_TCP;
         public override string Group => ServiceGroups.Network;
         public override IReadOnlyList<int> DefaultPorts => [53];
@@ -33,7 +27,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         {
             token.ThrowIfCancellationRequested();
 
-            return SendTcpDnsQuery(address, DnsRequest.Build(ProbeDomain), port);
+            return SendTcpDnsQuery(address, DnsRequest.Build(DnsRequest.NonexistentName), port);
         }
 
         /// <summary>

@@ -9,6 +9,17 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
     /// </summary>
     internal static class DnsRequest
     {
+        /// <summary>
+        /// The name both probes ask for. It must not exist and must not lead
+        /// the query to anyone outside: a name under a registrable domain
+        /// (for example ".com") can be registered by anyone, and a forwarding
+        /// server would pass the query on to that domain's name servers. The
+        /// top-level domain "invalid" is reserved and never resolves; caching
+        /// servers answer it with NXDOMAIN themselves (RFC 6761, section 6.4).
+        /// An NXDOMAIN answer is enough, see <see cref="IsAnswerTo"/>.
+        /// </summary>
+        internal const string NonexistentName = "probe.mynetworkmonitor.invalid";
+
         /// <summary>Combines header and question into a complete query.</summary>
         /// <param name="domain">The name to ask for, dot-separated.</param>
         /// <returns>The query message without the TCP length prefix.</returns>

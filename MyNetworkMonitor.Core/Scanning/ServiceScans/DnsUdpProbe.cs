@@ -12,9 +12,6 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
     /// </summary>
     public sealed class DnsUdpProbe : ServiceProbeBase
     {
-        /// <summary>As for TCP, a name that does not exist.</summary>
-        private const string ProbeDomain = "gotme.udp.com";
-
         public override ServiceType Service => ServiceType.DNS_UDP;
         public override string Group => ServiceGroups.Network;
         public override IReadOnlyList<int> DefaultPorts => [53];
@@ -27,7 +24,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         {
             token.ThrowIfCancellationRequested();
 
-            return SendUdpDnsQuery(address, DnsRequest.Build(ProbeDomain), port);
+            return SendUdpDnsQuery(address, DnsRequest.Build(DnsRequest.NonexistentName), port);
         }
 
         /// <summary>

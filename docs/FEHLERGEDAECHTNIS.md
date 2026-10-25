@@ -307,3 +307,20 @@ Automatische Tests stehen in `MyNetworkMonitor.Core.Tests` (`docs/PRUEFUNGEN.md`
 - **Im Code:** `MyNetworkMonitor.Core/SatelliteLink/MessageChannel.cs` (`DecompressAsync`, `MaxPlainBytes`).
 - **Abgesichert durch:** `MessageChannelTests.GzipBomb_IsRejectedBeforeItFillsMemory` (schlägt mit dem alten Code
   fehl: die Nachricht wurde vollständig entpackt und gelesen), dazu Rundlauf, Längengrenze und sauberes Ende.
+
+## Nr. 21 – DNS-Sonden: Anfrage nach Namen unter einer echten Domain
+
+- **Entdeckt:** 25.10.2026, Version 7.3.0.21 (Durchsicht der Kommentare, als Verdacht in den offenen Punkten).
+  **Behoben:** 7.3.0.24.
+- **Was passiert ist:** Die DNS-Sonden fragten nach `gotme.tcp.com` und `gotme.udp.com`. Ein weiterleitender
+  Namensserver gibt solche Anfragen an die Namensserver der Domain weiter; wer sie besitzt, sieht jede Prüfung samt
+  der öffentlichen Adresse des Netzes – und könnte den Namen auch auflösen lassen.
+- **Warum:** Gemeint war „ein Name, den es nicht gibt“; unter einer registrierbaren Domain ist das nicht sicher.
+- **Lösung:** Ein Name an einer Stelle für beide Sonden, `DnsRequest.NonexistentName` = `probe.mynetworkmonitor.invalid`.
+  Die Endung `invalid` ist reserviert und löst nie auf, zwischenspeichernde Server beantworten sie selbst mit
+  NXDOMAIN (RFC 6761, Abschnitt 6.4). Eine NXDOMAIN-Antwort genügt der Sonde als Zeichen für einen Namensserver.
+  Verworfen: `.example` und `.test` (ebenfalls reserviert, aber nicht ausdrücklich „nie weiterleiten“).
+- **Nicht tun:** Prüfnamen unter `.com`, `.net` oder anderen registrierbaren Domains.
+- **Im Code:** `MyNetworkMonitor.Core/Scanning/ServiceScans/DnsRequest.cs`, `DnsTcpProbe.cs`, `DnsUdpProbe.cs`.
+- **Abgesichert durch:** `DnsRequestTests` (Name unter `.invalid`, Kodierung der Anfrage, Zuordnung der Antwort);
+  der Namensserver des Testnetzes beantwortet den Namen mit NXDOMAIN.
