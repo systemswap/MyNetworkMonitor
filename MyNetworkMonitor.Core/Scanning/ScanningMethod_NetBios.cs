@@ -1,4 +1,5 @@
 ﻿using MyNetworkMonitor;
+using MyNetworkMonitor.Core.Network;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -11,193 +12,16 @@ using System.Threading.Tasks;
 
 public class ScanningMethod_NetBios
 {
-    //public event Action<IPToScan> NetbiosIPScanFinished;
-    //public event Action<int, int, int> ProgressUpdated;
-    //public event Action<bool> NetbiosScanFinished;
-
-    //private int current = 0;
-    //private int responded = 0;
-    //private int total = 0;
-
-    //public async Task ScanMultipleIPsAsync(List<IPToScan> IPsToScan, CancellationToken cancellationToken)
-    //{
-    //    current = 0;
-    //    responded = 0;
-    //    total = IPsToScan.Count;
-
-    //    var options = new ParallelOptions
-    //    {
-    //        MaxDegreeOfParallelism = 20, // Begrenze gleichzeitige NetBIOS-Anfragen auf 20
-    //        CancellationToken = cancellationToken
-    //    };
-
-    //    List<Task> tasks = new List<Task>();
-
-    //    await Task.Run(() => Parallel.ForEach(IPsToScan, options, ip =>
-    //    {
-    //        if (cancellationToken.IsCancellationRequested) return;
-
-    //        int currentValue = Interlocked.Increment(ref current);
-    //        ProgressUpdated?.Invoke(current, responded, total);
-
-    //        ip.UsedScanMethod = ScanMethod.NetBios;
-
-    //        // NetBIOS-Anfrage mit Timeout (5 Sekunden)
-    //        var task = RunWithTimeout(QueryNetBiosAsync(ip, cancellationToken), TimeSpan.FromSeconds(5));
-    //        lock (tasks) tasks.Add(task);
-    //    }));
-
-    //    // **Warte auf ALLE NetBIOS-Scans, bevor das Event ausgelöst wird**
-    //    await Task.WhenAll(tasks);
-
-    //    NetbiosScanFinished?.Invoke(true);
-    //}
-
-    //private async Task QueryNetBiosAsync(IPToScan iPToScan, CancellationToken cancellationToken)
-    //{
-    //    try
-    //    {
-    //        if (GetRemoteNetBiosName(IPAddress.Parse(iPToScan.IPorHostname), out string nbName, out string nbDomain, out string macAddress))
-    //        {
-    //            iPToScan.NetBiosHostname = nbName;
-
-    //            if (!string.IsNullOrEmpty(nbName))
-    //            {
-    //                int respondedValue = Interlocked.Increment(ref responded);
-    //                ProgressUpdated?.Invoke(current, responded, total);
-    //                NetbiosIPScanFinished?.Invoke(iPToScan);
-    //            }
-    //        }
-    //    }
-    //    catch (Exception ex)
-    //    {
-    //        Console.WriteLine($"⚠ Fehler bei NetBIOS-Scan für {iPToScan.IPorHostname}: {ex.Message}");
-    //    }
-    //}
-
-    //private static bool GetRemoteNetBiosName(IPAddress targetAddress, out string nbName, out string nbDomainOrWorkgroupName, out string macAddress, int receiveTimeOut = 5000, int retries = 1)
-    //{
-    //    byte[] nameRequest = new byte[]{
-    //        0x80, 0x94, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00,
-    //        0x00, 0x00, 0x00, 0x00, 0x20, 0x43, 0x4b, 0x41,
-    //        0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41,
-    //        0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41,
-    //        0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41,
-    //        0x41, 0x41, 0x41, 0x41, 0x41, 0x00, 0x00, 0x21,
-    //        0x00, 0x01 };
-
-    //    do
-    //    {
-    //        byte[] receiveBuffer = new byte[1024];
-    //        using Socket requestSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-    //        requestSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReceiveTimeout, receiveTimeOut);
-
-    //        nbName = null;
-    //        nbDomainOrWorkgroupName = null;
-    //        macAddress = "00-00-00-00-00-00";
-
-    //        EndPoint remoteEndpoint = new IPEndPoint(targetAddress, 137);
-    //        IPEndPoint originEndpoint = new IPEndPoint(IPAddress.Any, 0);
-    //        requestSocket.Bind(originEndpoint);
-    //        requestSocket.SendTo(nameRequest, remoteEndpoint);
-
-    //        try
-    //        {
-    //            int receivedByteCount = requestSocket.ReceiveFrom(receiveBuffer, ref remoteEndpoint);
-    //            if (receivedByteCount >= 90)
-    //            {
-    //                Encoding enc = new ASCIIEncoding();
-    //                nbName = enc.GetString(receiveBuffer, 57, 15).Trim();
-    //                nbDomainOrWorkgroupName = enc.GetString(receiveBuffer, 75, 15).Trim();
-
-    //                int macOffset = receivedByteCount - 6;
-    //                if (macOffset > 0 && receivedByteCount >= macOffset + 6)
-    //                {
-    //                    macAddress = BitConverter.ToString(receiveBuffer, macOffset, 6);
-    //                }
-    //                return true;
-    //            }
-    //        }
-    //        catch (SocketException) { }
-
-    //        retries--;
-    //    } while (retries >= 0);
-
-    //    return false;
-    //}
-
-    //private async Task RunWithTimeout(Task task, TimeSpan timeout)
-    //{
-    //    var timeoutTask = Task.Delay(timeout);
-    //    var completedTask = await Task.WhenAny(task, timeoutTask);
-
-    //    if (completedTask == timeoutTask)
-    //    {
-    //        Console.WriteLine("⚠ NetBIOS-Scan für eine IP abgebrochen (Timeout)");
-    //    }
-    //}
-
-
-
-
     public event Action<IPToScan> NetbiosIPScanFinished;
     public event Action<int, int, int, ScanStatus> ProgressUpdated;
     public event Action<bool> NetbiosScanFinished;
     
-
-    private static readonly byte[] NameRequest = {
-        0x80, 0x94, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x20, 0x43, 0x4b, 0x41,
-        0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41,
-        0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41,
-        0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41,
-        0x41, 0x41, 0x41, 0x41, 0x41, 0x00, 0x00, 0x21,
-        0x00, 0x01
-    };
-
-    //public async Task ScanMultipleIPsAsync(List<IPToScan> IPsToScan, CancellationToken cancellationToken, int maxParallelScans = 20)
-    //{
-    //    current = 0;
-    //    responded = 0;
-    //    total = IPsToScan.Count;
-
-    //    var options = new ParallelOptions
-    //    {
-    //        MaxDegreeOfParallelism = maxParallelScans,
-    //        CancellationToken = cancellationToken
-    //    };
-
-    //    var tasks = new ConcurrentBag<Task>();
-
-    //    Parallel.ForEach(IPsToScan, options, ip =>
-    //    {
-    //        if (cancellationToken.IsCancellationRequested) return;
-
-    //        Interlocked.Increment(ref current);
-    //        ProgressUpdated?.Invoke(current, responded, total);
-
-    //        ip.UsedScanMethod = ScanMethod.NetBios;
-
-    //        tasks.Add(RunWithTimeout(QueryNetBiosAsync(ip, cancellationToken), TimeSpan.FromSeconds(5)));
-    //    });
-
-    //    await Task.WhenAll(tasks);
-    //    NetbiosScanFinished?.Invoke(true);
-    //}
 
     private int current = 0;
     private int responded = 0;
     private int total = 0;
 
     private CancellationTokenSource _cts = new CancellationTokenSource(); // 🔹 Ermöglicht das Abbrechen
-
-    //int currentValue = Interlocked.Increment(ref current);
-    //Task.Run(() => ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running));
-
-    //int respondedValue = Interlocked.Increment(ref responded);
-    //Task.Run(() => ProgressUpdated?.Invoke(current, respondedValue, total, ScanStatus.running));
-
-    //Task.Run(() => ProgressUpdated?.Invoke(current, responded, total, ScanStatus.finished));
 
     public void StopScan()
     {
@@ -257,14 +81,7 @@ public class ScanningMethod_NetBios
                     if (_cts.Token.IsCancellationRequested) return;  // 🔹 Vor dem Start abbrechen                    
 
                     ip.UsedScanMethod = ScanMethod.NetBios;
-                    bool success = await RunWithTimeout(QueryNetBiosAsync(ip, _cts.Token), TimeSpan.FromSeconds(5));
-
-                    if (success)
-                    {
-                        //Interlocked.Increment(ref responded);
-                        //Task.Run(() => ProgressUpdated?.Invoke(current, responded, total));
-                        //NetbiosIPScanFinished?.Invoke(ip);
-                    }
+                    await RunWithTimeout(QueryNetBiosAsync(ip, _cts.Token), TimeSpan.FromSeconds(5));
                 }
                 finally
                 {
@@ -291,7 +108,7 @@ public class ScanningMethod_NetBios
             int currentValue = Interlocked.Increment(ref current);
             ProgressUpdated?.Invoke(currentValue, responded, total, ScanStatus.running);
 
-            if (GetRemoteNetBiosName(IPAddress.Parse(iPToScan.IPorHostname), out string nbName, out string nbWorkgroup, out _))
+            if (GetRemoteNetBiosName(IPAddress.Parse(iPToScan.IPorHostname), out string? nbName, out string? nbWorkgroup, out _))
             {
                 if (cancellationToken.IsCancellationRequested) return; // 🔹 Abbruchprüfung
 
@@ -313,7 +130,18 @@ public class ScanningMethod_NetBios
         }
     }
 
-    private bool GetRemoteNetBiosName(IPAddress targetAddress, out string nbName, out string nbDomainOrWorkgroupName, out string macAddress, int receiveTimeOut = 5000, int retries = 1)
+    /// <summary>
+    /// Asks a host for its NetBIOS name table (node status, RFC 1002, sections 4.2.17 and 4.2.18) and takes host name and
+    /// workgroup from it; see <see cref="NetBiosNodeStatus"/>.
+    /// </summary>
+    /// <param name="targetAddress">The IPv4 address of the host.</param>
+    /// <param name="nbName">The host name, or null if the response contains none.</param>
+    /// <param name="nbDomainOrWorkgroupName">The workgroup or domain, or null.</param>
+    /// <param name="macAddress">The unit ID from the response (usually the MAC address), or "00-00-00-00-00-00".</param>
+    /// <param name="receiveTimeOut">Waiting time for an answer per attempt in milliseconds.</param>
+    /// <param name="retries">Further attempts after the first one.</param>
+    /// <returns>True if the host answered with a node status response.</returns>
+    private bool GetRemoteNetBiosName(IPAddress targetAddress, out string? nbName, out string? nbDomainOrWorkgroupName, out string macAddress, int receiveTimeOut = 5000, int retries = 1)
     {
         nbName = null;
         nbDomainOrWorkgroupName = null;
@@ -323,41 +151,27 @@ public class ScanningMethod_NetBios
 
         do
         {
-            if (_cts.Token.IsCancellationRequested) return false; // 🔹 Abbruchprüfung
+            if (_cts.Token.IsCancellationRequested) return false;
 
             using Socket requestSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
             requestSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReceiveTimeout, receiveTimeOut);
 
-            // Connect() statt SendTo() auf einem unverbundenen Socket: sonst
-            // liefert Receive() die Antwort des erstbesten Absenders, der auf
-            // demselben lokalen Port antwortet - nicht zwingend das
-            // angefragte Ziel. Auf einem gemeinsamen Segment (z.B. hinter
-            // demselben Switch/AP) waere das eine Verwechslungsquelle.
-            EndPoint remoteEndpoint = new IPEndPoint(targetAddress, 137);
-            requestSocket.Connect(remoteEndpoint);
-            requestSocket.Send(NameRequest);
+            // Connect() instead of SendTo() on an unconnected socket: otherwise Receive() returns the answer of whichever
+            // sender replies to the same local port first, not necessarily the queried host.
+            requestSocket.Connect(new IPEndPoint(targetAddress, NetBiosNodeStatus.Port));
+            ushort transactionId = (ushort)Random.Shared.Next(1, 0x10000);
+            requestSocket.Send(NetBiosNodeStatus.BuildRequest(transactionId));
 
-            if (_cts.Token.IsCancellationRequested) return false; // 🔹 Abbruchprüfung
+            if (_cts.Token.IsCancellationRequested) return false;
 
             try
             {
                 int receivedByteCount = requestSocket.Receive(receiveBuffer);
-                if (receivedByteCount >= 90)
+                if (NetBiosNodeStatus.Parse(receiveBuffer.AsSpan(0, receivedByteCount), transactionId) is { } status)
                 {
-                    Encoding enc = new ASCIIEncoding();
-                    //nbName = enc.GetString(receiveBuffer, 57, 15).Trim();
-                    //nbDomainOrWorkgroupName = enc.GetString(receiveBuffer, 75, 15).Trim();
-
-                    //string nbName3 = enc.GetString(receiveBuffer, 93, 15).Trim();
-
-                    nbName = GetBestNetBiosHostname(receiveBuffer, out nbDomainOrWorkgroupName);
-
-
-                    int macOffset = receivedByteCount - 6;
-                    if (macOffset > 0 && receivedByteCount >= macOffset + 6)
-                    {
-                        macAddress = BitConverter.ToString(receiveBuffer, macOffset, 6);
-                    }
+                    nbName = status.HostName;
+                    nbDomainOrWorkgroupName = status.Workgroup;
+                    if (status.UnitId.Length > 0) macAddress = status.UnitId;
                     return true;
                 }
             }
@@ -367,64 +181,6 @@ public class ScanningMethod_NetBios
         } while (retries >= 0);
 
         return false;
-    }
-
-
-    /// <summary>
-    /// Liest die Namensliste der Antwort aus: Rechnername und, sofern
-    /// vorhanden, die Arbeitsgruppe bzw. Domaene.
-    /// </summary>
-    private string GetBestNetBiosHostname(byte[] receiveBuffer, out string workgroup)
-    {
-        Encoding enc = Encoding.ASCII;
-
-        // Byte 56 enthält die Anzahl der Namen
-        int nameCount = receiveBuffer[56];
-        int offset = 57;
-
-        string serverName = null;      // Suffix 0x20, eindeutig
-        string workstationName = null; // Suffix 0x00, eindeutig
-        string workgroupName = null;   // Suffix 0x00, Gruppe
-        string browserGroup = null;    // Suffix 0x1E, Gruppe
-
-        for (int i = 0; i < nameCount; i++)
-        {
-            if (offset + 18 > receiveBuffer.Length)
-                break;
-
-            // 15 Byte Name + 1 Byte Suffix + 2 Byte Flags
-            string name = enc.GetString(receiveBuffer, offset, 15).Trim();
-            byte suffix = receiveBuffer[offset + 15];
-
-            // Oberstes Bit der Flags: gesetzt = Gruppenname. Ohne diese
-            // Unterscheidung wandert die Arbeitsgruppe in den Rechnernamen -
-            // sie traegt dasselbe Suffix 0x00 wie die Workstation, und wer
-            // zuerst in der Liste steht, gewinnt.
-            bool isGroup = (receiveBuffer[offset + 16] & 0x80) != 0;
-
-            offset += 18;
-
-            if (string.IsNullOrWhiteSpace(name)) continue;
-
-            if (isGroup)
-            {
-                if (suffix == 0x00 && workgroupName == null) workgroupName = name;
-                else if (suffix == 0x1E && browserGroup == null) browserGroup = name;
-                continue;
-            }
-
-            // Priorität 1: Suffix 0x20 → File Server
-            if (suffix == 0x20 && serverName == null) serverName = name;
-
-            // Priorität 2: Suffix 0x00 → Workstation
-            else if (suffix == 0x00 && workstationName == null) workstationName = name;
-        }
-
-        workgroup = workgroupName ?? browserGroup;
-
-        // Kein Platzhaltername zurueckgeben: "UNKNOWN" waere spaeter nicht mehr
-        // von einem echten Rechnernamen zu unterscheiden.
-        return serverName ?? workstationName;
     }
 
     private async Task<bool> RunWithTimeout(Task task, TimeSpan timeout)

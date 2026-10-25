@@ -33,7 +33,6 @@ offen ist (neu schreiben oder entfernen), steht in `docs/OFFENE-PUNKTE.md`.
 
 | Eigene Stelle | Herkunft | Lizenz | Stand |
 |---|---|---|---|
-| `MyNetworkMonitor.Core/Scanning/ScanningMethod_NetBios.cs`, `GetRemoteNetBiosName` | Antwort auf Stack Overflow, Frage 2174834 „How do I get the NetBIOS name of a machine from IP in C#?“ (https://stackoverflow.com/questions/2174834), angepasst | CC BY-SA | in Gebrauch – neu schreiben nach RFC 1002 |
 | `MyNetworkMonitor.Core/Support/SupportMethods.cs` (`IsAdministrator`, CSV-Regex, IPv4-Regex, `GetEnumDescription`) | übliche kurze Muster, wie auf Stack Overflow verbreitet | ohne Schöpfungshöhe | in Gebrauch |
 | `MyNetworkMonitor.Platform.Windows/WindowsArpProvider.cs`, `SendARP`-Deklaration | Signatur nach der Windows-API-Dokumentation (Schreibweise wie auf pinvoke.net) | ohne Schöpfungshöhe | in Gebrauch |
 | `MyNetworkMonitor.Core/Services/TopologyGraph.cs`, `ServiceTopologyGraph.cs` (HTML-Seite) | Aufruf von 3d-force-graph nach dessen Dokumentation und Beispielen | MIT (siehe oben) | in Gebrauch |

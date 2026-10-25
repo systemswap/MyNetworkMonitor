@@ -166,8 +166,8 @@ deshalb die Prüfung im Testnetz.
 ## Nr. 12 – Lizenz: übernommener Code ohne Herkunftsangabe
 
 - **Entdeckt:** 25.10.2026, Version 7.3.0.11 (Prüfung des ganzen Codes auf übernommenen Code).
-  **Behoben:** 7.3.0.13 (unbenutzter Code entfernt), 7.3.0.14 (Reste einer Blog-Klasse im ARP-Code ersetzt);
-  offen: NetBIOS (`docs/OFFENE-PUNKTE.md`).
+  **Behoben:** 7.3.0.13 (unbenutzter Code entfernt), 7.3.0.14 (Reste einer Blog-Klasse im ARP-Code ersetzt),
+  7.3.0.18 (NetBIOS-Namensabfrage nach RFC 1002 neu geschrieben, `Core/Network/NetBiosNodeStatus.cs`).
 - **Was passiert ist:** Mehrere Stellen waren aus fremden Quellen übernommen, ohne Herkunft und Lizenz:
   eine UDP-Klasse aus einem Gist ohne Lizenz, ein Beispiel aus der .NET-Dokumentation, eine IP-Bereichs-Klasse
   und eine Abfrage der lokalen Adresse von Stack Overflow (CC BY-SA), auskommentierte Hilfsklassen aus einer
@@ -205,3 +205,22 @@ deshalb die Prüfung im Testnetz.
 - **Im Code:** `Scanning/ServiceScans/MsSqlServerProbe.cs`, `MongoDbProbe.cs`, `OpcUaProbe.cs`, `SupersededDefaults` in
   `Scanning/ScanningMethod_Services.cs`.
 - **Abgesichert durch:** noch nicht gegen echte Server geprüft (`PLATFORM_TESTING_NOTES.md`).
+
+## Nr. 15 – NetBIOS: Auswertung an festen Stellen, ohne Prüfung der Antwort
+
+- **Entdeckt:** 25.10.2026 beim Neuschreiben der übernommenen Abfrage (Nr. 12). **Behoben:** 7.3.0.18.
+- **Was passiert ist:** Die Antwort wurde an festen Stellen gelesen (Anzahl der Namen in Byte 56, Namen ab 57),
+  ohne Transaktionsnummer, Antwort-Bit oder Fehlercode zu prüfen; die „MAC-Adresse“ waren die letzten sechs Bytes
+  des Pakets statt der Kennung am Anfang der Statistik. Antworten mit komprimiertem Namen wurden falsch gelesen.
+- **Lösung:** `NetBiosNodeStatus`: Anfrage und Auswertung Feld für Feld nach RFC 1002, Abschnitt 4.2.17/4.2.18
+  (Name nach RFC 1001, 14.1), zufällige Transaktionsnummer, jede Länge gegen die Daten geprüft. Auswahl von
+  Rechnername und Arbeitsgruppe wie vorher (eindeutig 0x20, sonst 0x00; Gruppe 0x00, sonst 0x1E).
+- **Dabei gefunden:** Die erste Fassung las bei einer im Datenteil abgeschnittenen Antwort über das Ende hinaus
+  (Prüfung mit 200 000 verdorbenen Antworten) – vor dem Commit behoben.
+- **Nicht tun:** Pakete an festen Stellen lesen; Antworten ohne Transaktionsnummer annehmen.
+- **Im Code:** `MyNetworkMonitor.Core/Network/NetBiosNodeStatus.cs`, `Scanning/ScanningMethod_NetBios.cs`
+  (`GetRemoteNetBiosName`).
+- **Abgesichert durch:** Prüfprogramm im lokalen Testordner (`docs/PRUEFUNGEN.md`): Anfrage byte-gleich zur
+  bisherigen, fünf Namenslisten gleich ausgewertet wie bisher, komprimierter Name, falsche Nummer/Fehlercode/Anfrage
+  abgelehnt, 200 000 verdorbene Antworten ohne Absturz; live gegen einen Samba-Namensdienst (7 Namen, Rechnername und
+  Arbeitsgruppe erkannt). Als Test übernehmen, sobald es ein Testprojekt gibt.

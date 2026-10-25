@@ -18,6 +18,16 @@ GitHub-Bau (`.github/workflows/build-and-release.yml`), sobald sich `<Version>` 
 Es gibt noch keine automatischen Tests (`docs/OFFENE-PUNKTE.md`). Geprüft wird im Testnetz mit dem
 fertigen Programm; was nur auf einer Plattform geprüft ist, steht in `PLATFORM_TESTING_NOTES.md`.
 
+## Prüfprogramme
+
+Bis es ein Testprojekt gibt, laufen Prüfungen einzelner Teile als C#-Datei mit `dotnet run <datei>.cs` und der
+Zeile `#:project <pfad>/MyNetworkMonitor.Core/MyNetworkMonitor.Core.csproj` im lokalen Testordner:
+
+| Prüfung | Was |
+|---|---|
+| NetBIOS (`NetBiosNodeStatus`) | Anfrage byte-gleich zur bekannten Form; synthetische Antworten nach RFC 1002 (Rechner/Gruppe, Gruppe zuerst, nur Browsergruppe, nur Workstation, leer) gegen die frühere Auswertung; komprimierter Name; falsche Transaktionsnummer, Fehlercode, Anfrage statt Antwort; 200 000 verdorbene Antworten |
+| Sonden-Prüfsummen (`SupersededDefaults`) | alte Pakete mit dem Algorithmus von `Fingerprint` nachgerechnet |
+
 ## Testnetz
 
 Allgemein beschrieben, ohne Adressen und Gerätenamen:

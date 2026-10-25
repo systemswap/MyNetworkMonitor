@@ -8,9 +8,6 @@ im Fehlergedächtnis). Grundlage ist die Prüfung gegen die gemeinsamen Regeln v
 
 ### Lizenz und Herkunft
 
-- **NetBIOS-Namensabfrage neu schreiben:** `ScanningMethod_NetBios.GetRemoteNetBiosName` beruht auf einer
-  Stack-Overflow-Antwort (CC BY-SA, `THIRD-PARTY-NOTICES.md`). Neu nach RFC 1002, Abschnitt 4.2.17/4.2.18
-  (NODE STATUS REQUEST/RESPONSE); den auskommentierten Block löschen. Danach unter Linux und Windows prüfen.
 - **Herkunft der mitgelieferten Herstellerliste** `Assets/MacVendors/mac_vendors.csv` klären (Kopfzeile wie
   der CSV-Export eines Online-Dienstes); sonst mit dem vorhandenen Erneuern aus der Datei `manuf` neu erzeugen.
 - **Portliste** `Support/zzz_DataStructure.cs`: einzelne Beschreibungen stammen aus öffentlichen Portlisten
@@ -56,7 +53,7 @@ im Fehlergedächtnis). Grundlage ist die Prüfung gegen die gemeinsamen Regeln v
 
 ## Später
 
-- **Tests:** ein Testprojekt für die Fachlogik (Auswertung von `arp`/`ip`-Ausgaben, Sonden-Antworten,
+- **Tests:** ein Testprojekt für die Fachlogik (zuerst die Prüfungen von `NetBiosNodeStatus` aus `docs/PRUEFUNGEN.md`) (Auswertung von `arp`/`ip`-Ausgaben, Sonden-Antworten,
   Dubletten, Host/Domain-Trennung, Speichern und Laden) – heute gibt es keine automatischen Tests.
 - **Gespeicherte Daten mit Formatversion** (`lastScanResult.json`, `mainScanners.json`, `satellites.json`,
   `userSettings.txt`, IP-Gruppen).
