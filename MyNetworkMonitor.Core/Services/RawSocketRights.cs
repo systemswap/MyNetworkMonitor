@@ -74,7 +74,9 @@ namespace MyNetworkMonitor.Core.Services
         {
             if (appImagePath is null) return $"sudo setcap cap_net_raw+ep {Quote(executablePath)}";
 
-            string folder = Path.GetDirectoryName(appImagePath) ?? ".";
+            // Cut at the last '/' instead of Path.GetDirectoryName: that turns '/' into '\' when the tests run on Windows
+            int slash = appImagePath.LastIndexOf('/');
+            string folder = slash > 0 ? appImagePath[..slash] : slash == 0 ? "/" : ".";
             return $"cd {Quote(folder)} && {Quote(appImagePath)} --appimage-extract > /dev/null && " +
                    $"sudo setcap cap_net_raw+ep squashfs-root/usr/bin/{Path.GetFileName(executablePath)}";
         }

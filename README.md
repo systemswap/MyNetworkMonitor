@@ -20,6 +20,9 @@ Manche Verfahren (z. B. IPv6-Mitlesen) brauchen erweiterte Rechte; das Programm 
     ./publish.sh            # fragt nach Paketform und Ziel
     ./publish.sh linux      # ohne Rückfrage
 
+Unter Windows dasselbe mit `.\publish.ps1` (z. B. `.\publish.ps1 windows`). Es führt vorher die Tests aus; die
+Linux-Fassung entsteht dort als einzelne Programmdatei ohne AppImage.
+
 Benötigt das .NET SDK 10. Die fertigen Programme liegen danach in `published/`.
 
 ## Privatsphäre
