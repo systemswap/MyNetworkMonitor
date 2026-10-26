@@ -335,8 +335,10 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                 ? $"Listening for {what} needs administrator rights - Windows hands out no " +
                   "raw sockets without them. Start the program as administrator to use this method."
                 : $"Listening for {what} needs the CAP_NET_RAW capability. " +
-                  RawSocketRights.GrantHint(RawSocketRights.AppImagePath) + " " +
-                  RawSocketRights.GrantCommand(Environment.ProcessPath ?? "MyNetworkMonitor.Avalonia", RawSocketRights.AppImagePath);
+                  RawSocketRights.GrantHint(RawSocketRights.AppImagePath) +
+                  (RawSocketRights.GrantCommand(Environment.ProcessPath ?? "MyNetworkMonitor.Avalonia", RawSocketRights.AppImagePath) is { } command
+                      ? " " + command
+                      : string.Empty);
 
         // ------------------------------------------------------------ Reporting
 

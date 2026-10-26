@@ -49,9 +49,9 @@ Testnetze nur allgemein beschreiben – keine Adressen, Gerätenamen, Router- od
 
 ## Offen: braucht Test unter Linux
 
-- **Rechte-Hinweis in der Startprüfung (7.3.0.30, Fehlergedächtnis Nr. 27):** den Befehl für die AppImage (entpacken, dann
-  `setcap`) einmal ganz durchspielen und `squashfs-root/AppRun` starten – meldet die Startprüfung danach „allowed“, und
-  hören die IPv6-Verfahren mit?
+- **Rechte-Hinweis (7.3.0.33, Fehlergedächtnis Nr. 29):** mit der losen Paketform (`./publish.sh linux einzeln`) den
+  `setcap`-Befehl aus Settings → System check ausführen – meldet die Prüfung danach „allowed“, und hören die
+  IPv6-Verfahren mit?
 
 - **IPv6: Router Advertisement und MLD mitlesen.** Mit `CAP_NET_RAW` öffnet der Rohsocket, empfängt im
   Test aber kein Paket – auch nicht nach einer Router Solicitation. Die Zähler in `/proc/net/snmp6`

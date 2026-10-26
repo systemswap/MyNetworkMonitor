@@ -67,15 +67,14 @@ namespace MyNetworkMonitor.Avalonia.Views
 
         /// <summary>
         /// Whether the window should open at start: a required program is missing, or an optional one is missing that
-        /// has not been dismissed with "Don't show again" - which includes the right to open raw sockets
-        /// (<see cref="RawSocketRights"/>).
+        /// has not been dismissed with "Don't show again". The right to open raw sockets (<see cref="RawSocketRights"/>)
+        /// does not count: only two IPv6 methods need it, and they say so themselves (docs/FEHLERGEDAECHTNIS.md, No. 29).
         /// </summary>
         /// <param name="shell">Where "don't show again" is stored.</param>
         /// <param name="results">The result of <see cref="SystemRequirements.Check"/>.</param>
         /// <returns>True if something needs attention.</returns>
         public static bool NeedsAttention(ShellViewModel shell, IReadOnlyList<SystemCheckResult> results) =>
-            results.Any(r => !r.Present && (r.Requirement.Required || !shell.IsSystemCheckHidden(r.Requirement.Id)))
-            || (OperatingSystem.IsLinux() && !RawSocketRights.Present && !shell.IsSystemCheckHidden(RawSocketRights.Id));
+            results.Any(r => !r.Present && (r.Requirement.Required || !shell.IsSystemCheckHidden(r.Requirement.Id)));
 
         /// <summary>Runs the check again and rebuilds the content (after installing, without restarting).</summary>
         private void Refresh()
@@ -128,10 +127,8 @@ namespace MyNetworkMonitor.Avalonia.Views
             });
             item.Children.Add(Text("Lets the IPv6 methods listen for router advertisements and multicast memberships (MLD).", 12));
             item.Children.Add(Text("Without it: these two methods find nothing; all other methods work. " + RawSocketRights.GrantHint(appImage), 12, Dim));
-            item.Children.Add(CommandLine("Command", RawSocketRights.GrantCommand(Environment.ProcessPath ?? "MyNetworkMonitor.Avalonia", appImage)));
-            var hide = new CheckBox { Content = "Don't show again at start", IsChecked = _shell.IsSystemCheckHidden(RawSocketRights.Id) };
-            hide.IsCheckedChanged += (_, _) => _shell.SetSystemCheckHidden(RawSocketRights.Id, hide.IsChecked == true);
-            item.Children.Add(hide);
+            if (RawSocketRights.GrantCommand(Environment.ProcessPath ?? "MyNetworkMonitor.Avalonia", appImage) is { } command)
+                item.Children.Add(CommandLine("Command", command));
             return Box(item);
         }
 

@@ -26,11 +26,11 @@ public class RawSocketRightsTests
     }
 
     [Fact]
-    public void AppImage_IsUnpackedFirst()
+    public void AppImage_GetsNoCommand()
     {
-        string command = RawSocketRights.GrantCommand("/tmp/.mount_X/usr/bin/MyNetworkMonitor.Avalonia", "/home/user/Apps/MyNetworkMonitor-x86_64.AppImage");
-        Assert.Equal("cd '/home/user/Apps' && '/home/user/Apps/MyNetworkMonitor-x86_64.AppImage' --appimage-extract > /dev/null && " +
-                     "sudo setcap cap_net_raw+ep squashfs-root/usr/bin/MyNetworkMonitor.Avalonia", command);
+        // setcap on an unpacked copy would not reach what the menu starts (docs/FEHLERGEDAECHTNIS.md, No. 29).
+        Assert.Null(RawSocketRights.GrantCommand("/tmp/.mount_X/usr/bin/MyNetworkMonitor.Avalonia", "/home/user/Apps/MyNetworkMonitor-x86_64.AppImage"));
+        Assert.Contains("sudo", RawSocketRights.GrantHint("/home/user/Apps/MyNetworkMonitor-x86_64.AppImage"));
     }
 
     [Fact]

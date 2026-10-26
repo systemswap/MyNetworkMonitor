@@ -473,3 +473,25 @@ Automatische Tests stehen in `MyNetworkMonitor.Core.Tests` (`docs/PRUEFUNGEN.md`
   `Services/TopologyGraph.cs`, `ServiceTopologyGraph.cs`, `MyNetworkMonitor.Avalonia/Views/ShellView.axaml`.
 - **Abgesichert durch:** `PortLogTests` (beide Fassungen der Bestätigung), `TopologyPageTests` (Seiten vollständig,
   englisch, ohne CDN-Verweis ab Werk).
+
+## Nr. 29 – Rechte-Hinweis: kam bei jedem Start wieder, Befehl für die AppImage half nicht
+
+- **Entdeckt:** 26.10.2026, Version 7.3.0.32 (Nutzer: Fenster der Startprüfung kam nach dem Ausführen des Befehls bei
+  jedem Start wieder). **Behoben:** 7.3.0.33.
+- **Was passiert ist:** Seit 7.3.0.30 (Nr. 27) öffnete die Startprüfung bei jedem Start, wenn `CAP_NET_RAW` fehlte, und
+  schlug für die AppImage vor, sie zu entpacken und dem entpackten Programm das Recht zu geben. Das Recht hatte danach
+  nur die entpackte Kopie; das Menü startet weiter die AppImage, die es nie bekommt – die Meldung kam also immer wieder.
+  Dazu liegt die entpackte Kopie in `published/`, das der nächste Bau neu anlegt, und `setcap` fehlte auf dem
+  Rechner (Paket libcap2-bin nicht installiert), so dass der letzte Schritt scheiterte.
+- **Warum:** Ein Recht für zwei Spezialverfahren wurde wie ein fehlendes Programm behandelt, und der Befehl war nur
+  bis zum Entpacken durchdacht, nicht bis zum nächsten Start.
+- **Lösung:** Der Hinweis öffnet das Fenster nicht mehr beim Start; er steht unter Settings → System check und in der
+  Meldung der beiden Verfahren. Für eine AppImage gibt es keinen Befehl mehr (`GrantCommand` liefert null), nur den
+  Rat, sie mit sudo zu starten oder die lose Paketform mit `setcap` zu nehmen. Der Haken „Don't show again“ für
+  diesen Punkt entfällt.
+- **Nicht tun:** Optionale Rechte beim Start melden; Befehle vorschlagen, deren Wirkung der nächste Start oder Bau
+  aufhebt.
+- **Im Code:** `MyNetworkMonitor.Core/Services/RawSocketRights.cs`, `MyNetworkMonitor.Avalonia/Views/SystemCheckWindow.cs`
+  (`NeedsAttention`, `RawSocketItem`), `MyNetworkMonitor.Core/Scanning/Engine/Methods/Ipv6MethodBase.cs`.
+- **Abgesichert durch:** `RawSocketRightsTests.AppImage_GetsNoCommand` (schlägt mit dem alten Code fehl); Start der
+  AppImage im Testordner ohne Fenster der Startprüfung.
