@@ -523,3 +523,25 @@ Automatische Tests stehen in `MyNetworkMonitor.Core.Tests` (`docs/PRUEFUNGEN.md`
   ComplexACK, NPDU mit Quelladresse). Die Methoden waren vorher privat; gegen den alten Code laufen die Tests nicht,
   der alte Code hätte für die Antwort mit 54 in der Transaktionsnummer die Bytes 6–9 als Server genannt und für den
   Reject „1“ geliefert.
+
+## Nr. 31 – SMB-Versionsprüfung: SMB 3.1.1 wurde nie erkannt
+
+- **Entdeckt:** 01.11.2026, Version 7.3.0.34 (kein Gerät im Testnetz meldete 3.1.1, obwohl aktuelle Server es können;
+  Gegenprobe mit einer Anfrage nach [MS-SMB2] 2.2.3). **Behoben:** 7.3.0.35 (Änderung des Pakets mit Zustimmung des
+  Nutzers).
+- **Was:** Die Anfrage für 3.1.1 war die Einzel-Dialekt-Anfrage der anderen Versionen mit dem Dialekt 0x0311, ohne
+  Liste der Verhandlungsangaben (NegotiateContextOffset und -Count 0). Ein Server antwortet darauf mit
+  `STATUS_INVALID_PARAMETER` (0xC000000D) – an zwei Geräten des Testnetzes gemessen –, die Prüfung sah „nicht
+  unterstützt“.
+- **Warum:** [MS-SMB2] 2.2.3 verlangt, dass eine Anfrage, die 3.1.1 anbietet, Verhandlungsangaben trägt, mindestens
+  SMB2_PREAUTH_INTEGRITY_CAPABILITIES (2.2.3.1.1).
+- **Lösung:** eigene Anfrage `GetSMB311NegotiationRequest`: gleicher Kopf, gleicher Sicherheitsmodus und dieselbe
+  Client-GUID wie die anderen, dazu Versatz 104 und Anzahl 1 der Verhandlungsangaben, zwei Bytes Füllung auf eine
+  8-Byte-Grenze und die Angabe zur Vorab-Integrität (SHA-512, 32 Byte Salt). Salt fest statt zufällig, damit das Paket
+  in jedem Lauf gleich ist und sich abgleichen lässt. Beide Geräte nehmen die Anfrage an und wählen 0x0311. Die
+  Pakete der anderen Versionen sind unverändert.
+- **Nicht tun:** den Dialekt 0x0311 ohne Verhandlungsangaben anbieten.
+- **Im Code:** `MyNetworkMonitor.Core/Scanning/ScanningMethod_SMBVersionCheck.cs` (`GetSMB311NegotiationRequest`,
+  Aufruf in `CheckProtocolsCoreAsync`).
+- **Abgesichert durch:** `SmbNegotiationTests` (Längenfeld, nur 0x0311 angeboten, Verhandlungsangabe an der
+  angegebenen, ausgerichteten Stelle bis zum Paketende). Gegenprobe an echten Servern: Status 0 und Dialekt 0x0311.

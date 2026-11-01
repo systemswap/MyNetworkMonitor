@@ -178,7 +178,9 @@ public class ScanningMethod_SMBVersionCheck
                     {
                         byte[] smbNegotiationRequest = (dialect == SMBDialects._1)
                             ? GetSMB1NegotiationRequest()
-                            : GetSMB2NegotiationRequest_Dialects(dialect);
+                            : (dialect == SMBDialects._3_1_1)
+                                ? GetSMB311NegotiationRequest()
+                                : GetSMB2NegotiationRequest_Dialects(dialect);
 
                         await stream.WriteAsync(smbNegotiationRequest, 0, smbNegotiationRequest.Length, cts.Token);
 
@@ -349,6 +351,103 @@ public class ScanningMethod_SMBVersionCheck
         return smb1NegotiatePackage.ToArray();
     }
 
+    /// <summary>
+    /// The negotiate request for SMB 3.1.1 alone ([MS-SMB2] 2.2.3).
+    /// <para>
+    /// A request that offers 3.1.1 must carry a negotiate context list with at
+    /// least the pre-authentication integrity capabilities (2.2.3.1.1);
+    /// without it a server answers STATUS_INVALID_PARAMETER and 3.1.1 is never
+    /// found, even on servers that offer it (docs/FEHLERGEDAECHTNIS.md, No. 31).
+    /// The request is otherwise the single-dialect request of
+    /// <see cref="GetSMB2NegotiationRequest_Dialects"/>: the same header,
+    /// security mode and client GUID. Salt and GUID are fixed, so that the
+    /// packet is the same in every run.
+    /// </para>
+    /// </summary>
+    /// <returns>The complete request including the transport header of direct TCP.</returns>
+    internal static byte[] GetSMB311NegotiationRequest()
+    {
+        List<byte> smbPacket = new List<byte>();
+
+        // Transport header of direct TCP ([MS-SMB2] 2.1): 150 bytes follow.
+        smbPacket.Add(0x00);            // Message Type
+        smbPacket.AddRange(new byte[] { 0x00, 0x00, 0x96 }); // Length
+
+        // SMB2 header (MS-SMB2 2.2.1)
+        smbPacket.AddRange(new byte[] { 0xfe, 0x53, 0x4d, 0x42 }); // Protocol ID
+        smbPacket.AddRange(new byte[] { 0x40, 0x00 }); // Header Length
+        smbPacket.AddRange(new byte[] { 0x00, 0x00 }); // Credit Charge
+        smbPacket.AddRange(new byte[] { 0x00, 0x00 }); // Channel Sequence
+        smbPacket.AddRange(new byte[] { 0x00, 0x00 }); // Reserved
+        smbPacket.AddRange(new byte[] { 0x00, 0x00 }); // Command: Negotiate Protocol (0)
+        smbPacket.AddRange(new byte[] { 0x00, 0x00 }); // Credits Request
+        smbPacket.AddRange(new byte[] { 0x00, 0x00, 0x00, 0x00 }); // Flags
+        smbPacket.AddRange(new byte[] { 0x00, 0x00, 0x00, 0x00 }); // Chain Offset
+
+        smbPacket.AddRange(new byte[] { 0x00, 0x00, 0x00, 0x00 }); // Message ID
+        smbPacket.AddRange(new byte[] { 0x00, 0x00, 0x00, 0x00 });
+
+        smbPacket.AddRange(new byte[] { 0x00, 0x00, 0x00, 0x00 }); // Reserved
+        smbPacket.AddRange(new byte[] { 0x00, 0x00, 0x00, 0x00 }); // TreeID
+
+        smbPacket.AddRange(new byte[] { 0x00, 0x00, 0x00, 0x00 }); // Session ID
+        smbPacket.AddRange(new byte[] { 0x00, 0x00, 0x00, 0x00 });
+
+        // Signature
+        smbPacket.AddRange(new byte[]
+        {
+            0x31, 0x32, 0x33, 0x34,
+            0x35, 0x36, 0x37, 0x38,
+            0x39, 0x30, 0x31, 0x32,
+            0x33, 0x34, 0x35, 0x36
+        });
+
+        // SMB2 NEGOTIATE request (MS-SMB2 2.2.3)
+        smbPacket.AddRange(new byte[] { 0x24, 0x00 }); // StructureSize
+        smbPacket.AddRange(new byte[] { 0x01, 0x00 }); // DialectCount (1)
+        smbPacket.Add(0x01); // SecurityMode
+        smbPacket.Add(0x00); // Second byte of SecurityMode
+        smbPacket.AddRange(new byte[] { 0x00, 0x00 }); // Reserved
+        smbPacket.AddRange(new byte[] { 0x00, 0x00, 0x00, 0x00 }); // Capabilities
+
+        // ClientGUID
+        smbPacket.AddRange(new byte[]
+        {
+            0x31, 0x32, 0x33, 0x34,
+            0x35, 0x36, 0x37, 0x38,
+            0x39, 0x30, 0x31, 0x32,
+            0x33, 0x34, 0x35, 0x36
+        });
+
+        // NegotiateContextOffset: from the start of the SMB2 header, behind the
+        // dialect and two bytes of padding to an 8-byte boundary (64 + 36 + 2 + 2).
+        smbPacket.AddRange(new byte[] { 0x68, 0x00, 0x00, 0x00 });
+        smbPacket.AddRange(new byte[] { 0x01, 0x00 }); // NegotiateContextCount
+        smbPacket.AddRange(new byte[] { 0x00, 0x00 }); // Reserved2
+
+        smbPacket.AddRange(new byte[] { 0x11, 0x03 }); // 3.1.1
+        smbPacket.AddRange(new byte[] { 0x00, 0x00 }); // Padding
+
+        // SMB2_PREAUTH_INTEGRITY_CAPABILITIES (2.2.3.1.1)
+        smbPacket.AddRange(new byte[] { 0x01, 0x00 }); // ContextType
+        smbPacket.AddRange(new byte[] { 0x26, 0x00 }); // DataLength (38)
+        smbPacket.AddRange(new byte[] { 0x00, 0x00, 0x00, 0x00 }); // Reserved
+        smbPacket.AddRange(new byte[] { 0x01, 0x00 }); // HashAlgorithmCount
+        smbPacket.AddRange(new byte[] { 0x20, 0x00 }); // SaltLength (32)
+        smbPacket.AddRange(new byte[] { 0x01, 0x00 }); // SHA-512
+
+        // Salt
+        smbPacket.AddRange(new byte[]
+        {
+            0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38,
+            0x39, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36,
+            0x37, 0x38, 0x39, 0x30, 0x31, 0x32, 0x33, 0x34,
+            0x35, 0x36, 0x37, 0x38, 0x39, 0x30, 0x31, 0x32
+        });
+
+        return smbPacket.ToArray();
+    }
+
     private byte[] GetSMB2NegotiationRequest_Dialects(SMBDialects dialects)
     {
         List<byte> smbPacket = new List<byte>();
@@ -440,9 +539,6 @@ public class ScanningMethod_SMBVersionCheck
                 break;
             case SMBDialects._3_0_2:
                 smbPacket.AddRange(new byte[] { 0x02, 0x03 }); // 3.0.2
-                break;
-            case SMBDialects._3_1_1:
-                smbPacket.AddRange(new byte[] { 0x11, 0x03 }); // 3.1.1
                 break;
             case SMBDialects.all:
                 smbPacket.AddRange(new byte[] { 0x02, 0x02 }); // 2.0.2
