@@ -137,7 +137,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
                                 if (receivedBytes >= 28)
                                 {
-                                    string dhcpServerIp = GetDhcpServerIp(buffer);
+                                    string? dhcpServerIp = GetDhcpServerIp(buffer.AsSpan(0, receivedBytes));
                                     if (!string.IsNullOrEmpty(dhcpServerIp) && !dhcpServers.Contains(dhcpServerIp))
                                     {
                                         dhcpServers.Add(dhcpServerIp);
@@ -163,21 +163,55 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         /// <summary>
         /// Who answered: first option 54 (server identifier, RFC 2132,
         /// section 9.7), otherwise the relay (giaddr), finally siaddr.
+        /// <para>
+        /// The answer must be a BOOTP reply (op 2, RFC 2131 section 2). Option
+        /// 54 is found by walking the option list after the magic cookie entry
+        /// by entry (code, length, data; 0 is padding, 255 the end). Searching
+        /// for the first byte with the value 54 anywhere in the answer would
+        /// also hit the transaction ID, an address or the data of another
+        /// option, and name a wrong server (docs/FEHLERGEDAECHTNIS.md, No. 30).
+        /// </para>
         /// </summary>
-        private static string GetDhcpServerIp(byte[] response)
+        /// <param name="response">The received datagram, exactly as long as it arrived.</param>
+        /// <returns>The server address, or <c>null</c> if the datagram is no DHCP answer or names none.</returns>
+        internal static string? GetDhcpServerIp(ReadOnlySpan<byte> response)
         {
+            if (response.Length < 28 || response[0] != 2) return null;
+
             // 1. Option 54, the most reliable information
-            int index = Array.IndexOf(response, (byte)54);
-            if (index > 0)
-                return new IPAddress(response.Skip(index + 2).Take(4).ToArray()).ToString();
+            if (response.Length >= 240 &&
+                response[236] == 0x63 && response[237] == 0x82 && response[238] == 0x53 && response[239] == 0x63)
+            {
+                int at = 240;
+
+                while (at < response.Length && response[at] != 0xFF)
+                {
+                    if (response[at] == 0x00) { at++; continue; }   // padding
+                    if (at + 1 >= response.Length) break;
+
+                    int length = response[at + 1];
+                    if (at + 2 + length > response.Length) break;
+
+                    if (response[at] == 54 && length == 4)
+                        return Address(response.Slice(at + 2, 4));
+
+                    at += 2 + length;
+                }
+            }
 
             // 2. giaddr, if a relay agent is in between
-            string relayAgentIp = new IPAddress(response.Skip(24).Take(4).ToArray()).ToString();
-            if (relayAgentIp != "0.0.0.0")
-                return relayAgentIp;
+            string? relayAgentIp = Address(response.Slice(24, 4));
+            if (relayAgentIp is not null) return relayAgentIp;
 
             // 3. siaddr as the last resort
-            return new IPAddress(response.Skip(16).Take(4).ToArray()).ToString();
+            return Address(response.Slice(16, 4));
+        }
+
+        /// <summary>An IPv4 address from four bytes; <c>null</c> for 0.0.0.0.</summary>
+        private static string? Address(ReadOnlySpan<byte> bytes)
+        {
+            IPAddress address = new(bytes);
+            return address.Equals(IPAddress.Any) ? null : address.ToString();
         }
 
         /// <summary>

@@ -206,13 +206,26 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             };
         }
 
-        /// <summary>Object and vendor numbers are numeric in the packet, not text.</summary>
-        private static string ExtractBacnetObjectInstanceAsString(string BacNetPropertie, byte[]? data)
+        /// <summary>
+        /// Object and vendor numbers are numeric in the packet, not text.
+        /// <para>
+        /// Only a ComplexACK carries a value (<see cref="IsComplexAck"/>). A
+        /// Reject or Error is BACnet as well, but its second-to-last byte is a
+        /// reason, not a vendor; and an answer shorter than 22 bytes has no
+        /// instance number at offset 19. Such answers yield "0", which the
+        /// output leaves out - an exception here would discard the whole device
+        /// although its first answer was BACnet (docs/FEHLERGEDAECHTNIS.md, No. 30).
+        /// </para>
+        /// </summary>
+        /// <param name="BacNetPropertie">"ObjectID" or "VendorID".</param>
+        /// <param name="data">The answer to the ReadProperty request, or <c>null</c>.</param>
+        /// <returns>The number as text, "0" if the answer carries none.</returns>
+        internal static string ExtractBacnetObjectInstanceAsString(string BacNetPropertie, byte[]? data)
         {
             int ID = 0;
-            if (data == null) return ID.ToString();
+            if (data == null || !IsComplexAck(data)) return ID.ToString();
 
-            if (BacNetPropertie == "ObjectID")
+            if (BacNetPropertie == "ObjectID" && data.Length >= 22)
             {
                 // Bytes 20, 21, 22 (index 19, 20, 21)
                 int byte20 = data[19];
@@ -222,7 +235,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                 // Combine the 22-bit instance number from the 3 bytes
                 ID = ((byte20 & 0x3F) << 16) | (byte21 << 8) | byte22;
             }
-            if (BacNetPropertie == "VendorID")
+            if (BacNetPropertie == "VendorID" && data.Length >= 2)
             {
                 // The vendor ID is in the second-to-last byte of the packet
                 int byte2 = data[data.Length - 2];
@@ -230,6 +243,38 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
             }
 
             return ID.ToString();
+        }
+
+        /// <summary>
+        /// Whether a BACnet answer carries a property value: after the BVLC
+        /// header (4 bytes) and the NPDU (version, control, optional destination
+        /// and source, hop count; ASHRAE 135, clause 6.2) the APDU must be a
+        /// ComplexACK, type 3 in the upper four bits (clause 20.1.5).
+        /// </summary>
+        /// <param name="data">The received datagram.</param>
+        /// <returns><c>true</c> for a ComplexACK.</returns>
+        internal static bool IsComplexAck(byte[] data)
+        {
+            int at = 6;
+            if (data.Length < 7 || data[0] != 0x81) return false;
+
+            byte control = data[5];
+
+            if ((control & 0x20) != 0)            // destination: network, length, address
+            {
+                if (at + 3 > data.Length) return false;
+                at += 3 + data[at + 2];
+            }
+
+            if ((control & 0x08) != 0)            // source: network, length, address
+            {
+                if (at + 3 > data.Length) return false;
+                at += 3 + data[at + 2];
+            }
+
+            if ((control & 0x20) != 0) at++;      // hop count
+
+            return at < data.Length && (data[at] >> 4) == 3;
         }
 
         /// <summary>
@@ -243,9 +288,9 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
         /// followed by a zero as two characters, not for the null character.
         /// </para>
         /// </summary>
-        private static string ExtractBacnetAsciiString(byte[]? data)
+        internal static string ExtractBacnetAsciiString(byte[]? data)
         {
-            if (data == null || data.Length < 20)
+            if (data == null || data.Length < 20 || !IsComplexAck(data))
                 return string.Empty;
 
             int index = data.ToList().IndexOf(117); // 0x75, the character string tag
@@ -284,7 +329,16 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
 
             if (await Task.WhenAny(receiveTask, Task.Delay(2000, cts.Token)) == receiveTask)
             {
-                return receiveTask.Result.Buffer;
+                // A failed receive (e.g. ICMP "port unreachable") leaves only this
+                // value out; the device has already answered as BACnet.
+                try
+                {
+                    return receiveTask.Result.Buffer;
+                }
+                catch (Exception)
+                {
+                    return null;
+                }
             }
 
             return null;

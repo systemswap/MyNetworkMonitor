@@ -495,3 +495,31 @@ Automatische Tests stehen in `MyNetworkMonitor.Core.Tests` (`docs/PRUEFUNGEN.md`
   (`NeedsAttention`, `RawSocketItem`), `MyNetworkMonitor.Core/Scanning/Engine/Methods/Ipv6MethodBase.cs`.
 - **Abgesichert durch:** `RawSocketRightsTests.AppImage_GetsNoCommand` (schlägt mit dem alten Code fehl); Start der
   AppImage im Testordner ohne Fenster der Startprüfung.
+
+## Nr. 30 – Dienst-Sonden: DHCP nannte unter Umständen einen falschen Server, BACnet eine falsche oder gar keine Kennung
+
+- **Entdeckt:** 01.11.2026, Version 7.3.0.33 (Durchsicht der
+  Auswertung gegen RFC 2132 und ASHRAE 135, Test mit einer nachgespielten Ablehnung). **Behoben:** 7.3.0.34.
+- **Was:**
+  - DHCP: Die Server-Kennung (Option 54) wurde als erstes Byte mit dem Wert 54 irgendwo in der Antwort gesucht. Steht
+    54 in der Transaktionsnummer, in einer Adresse oder in den Daten einer anderen Option, wurden die vier Bytes danach
+    als Server genommen – ein Gerät, das gar kein DHCP-Server ist, oder keines im Netz.
+  - BACnet: Die Nummer des Herstellers (VendorID) wurde aus dem vorletzten Byte *jeder* Antwort gelesen, auch einer
+    Ablehnung (Reject) – aus dem Ablehnungsgrund wurde so „VendorID: 1“. War die Antwort auf die ObjectID-Abfrage
+    kürzer als 22 Bytes, warf die Auswertung eine Ausnahme, und das ganze Gerät galt als „keine Antwort“, obwohl es
+    schon als BACnet geantwortet hatte. Ebenso bei einem Empfangsfehler für eine einzelne Eigenschaft.
+- **Warum:** Beide Auswertungen nahmen feste Stellen bzw. einen Bytewert an, statt den Aufbau der Antwort zu lesen.
+- **Lösung:** DHCP liest nur BOOTP-Antworten (op 2) und geht die Optionsliste nach dem Magic Cookie Eintrag für Eintrag
+  durch; ohne Option 54 bleibt es bei giaddr, dann siaddr. BACnet liest Werte nur aus einer ComplexACK (APDU-Typ 3,
+  NPDU mit optionaler Ziel- und Quelladresse übersprungen); zu kurze Antworten ergeben „0“ und fehlen in der Ausgabe;
+  ein Empfangsfehler für eine Eigenschaft lässt nur diese weg. Die gesendeten Pakete sind unverändert.
+- **Nicht tun:** Felder einer Antwort über die Suche nach einem Bytewert finden; Ausnahmen der Detail-Auswertung den
+  Fund selbst verwerfen lassen.
+- **Im Code:** `MyNetworkMonitor.Core/Scanning/ServiceScans/DhcpProbe.cs` (`GetDhcpServerIp`),
+  `BacNetProbe.cs` (`IsComplexAck`, `ExtractBacnetObjectInstanceAsString`, `ExtractBacnetAsciiString`,
+  `QueryBacnetProperty`).
+- **Abgesichert durch:** `DhcpProbeTests` (Byte 54 in Transaktionsnummer und Netzmaske, Relay, Anfrage statt Antwort,
+  jede abgeschnittene Länge), `BacNetProbeTests` (Reject ohne VendorID, kurze Antwort ohne Ausnahme, Text nur aus
+  ComplexACK, NPDU mit Quelladresse). Die Methoden waren vorher privat; gegen den alten Code laufen die Tests nicht,
+  der alte Code hätte für die Antwort mit 54 in der Transaktionsnummer die Bytes 6–9 als Server genannt und für den
+  Reject „1“ geliefert.
