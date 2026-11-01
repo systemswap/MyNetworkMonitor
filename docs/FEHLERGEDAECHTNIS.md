@@ -545,3 +545,35 @@ Automatische Tests stehen in `MyNetworkMonitor.Core.Tests` (`docs/PRUEFUNGEN.md`
   Aufruf in `CheckProtocolsCoreAsync`).
 - **Abgesichert durch:** `SmbNegotiationTests` (Längenfeld, nur 0x0311 angeboten, Verhandlungsangabe an der
   angegebenen, ausgerichteten Stelle bis zum Paketende). Gegenprobe an echten Servern: Status 0 und Dialekt 0x0311.
+
+## Nr. 32 – Suche per SSDP, ONVIF und mDNS: Angaben verworfen, unnütze Abrufe, eigene Anfragen als Gerät
+
+- **Entdeckt:** 01.11.2026, Version 7.3.0.35 (Durchsicht der Verfahren gegen UPnP Device Architecture 2.0, ONVIF Core
+  und RFC 6762, Gegenprobe im Testnetz). **Behoben:** 7.3.0.36. Die gesendeten Pakete sind unverändert.
+- **Was:**
+  - SSDP: Die Gerätebeschreibung (Name, Hersteller, Modell) wurde geladen und verworfen; gemeldet wurde nur „hat
+    geantwortet“. Geladen wurde sie bei *jeder* Antwort eines Geräts – meist ein Dutzend je Gerät, bis zu 5 s je
+    Abruf, während die Empfangsschleife ruhte –, und von jeder Adresse, die LOCATION nannte, auch fremden.
+  - ONVIF: Nach jeder Antwort folgten zwei GET-Abrufe unter der Adresse des Gerätedienstes (`…/media_service`,
+    `…/network_service`), die ONVIF nicht kennt (die Angaben gibt es nur per SOAP an den Adressen aus
+    GetCapabilities); ihr Ergebnis wurde nie gemeldet, sie kosteten bis zu 10 s je Antwort. Bei mehreren
+    Dienstadressen (IPv4 und IPv6) scheiterte die Auswertung an der ganzen Liste als URI, die Kamera fehlte.
+  - mDNS: Jedes Paket galt als Antwort – die eigenen, zurückgespiegelten Anfragen machten den eigenen Rechner zum
+    Fund, Anfragen anderer Geräte ebenso. Die Fragen eines Pakets wurden als Einträge gelesen (Zählerfelder
+    übergangen), ein Adresseintrag überschrieb die Adresse des Absenders, ein beschädigter TXT-Eintrag verschob die
+    folgenden.
+- **Lösung:** SSDP liest nur die erste Antwort je Adresse, lädt die Beschreibung nur vom Gerät selbst
+  (`IsOwnLocation`) und meldet Name, Hersteller und Modell als Detail „UPnP“ und als Dienst UPnP auf Port 1900.
+  ONVIF ohne Folgeabrufe; von mehreren Dienstadressen gilt die erste, der Name aus dem Scope wird dekodiert. mDNS
+  wertet nur Antworten (QR-Bit) aus, nicht die eigenen; Fragen werden über ihre Anzahl übersprungen, Einträge über
+  ihre Länge; die Adresse bleibt die des Absenders, ein Adresseintrag für genau diese liefert den Namen (Zeile
+  „Host“ in den mDNS-Angaben, nicht als Gerätename, damit er keinem Namen aus DNS widerspricht).
+- **Nicht tun:** Antworten ohne Prüfung ihrer Art als Fund nehmen; Folgeabrufe einbauen, deren Ergebnis niemand
+  liest; Daten aus einer Antwort die Adresse ihres Absenders überschreiben lassen.
+- **Im Code:** `MyNetworkMonitor.Core/Scanning/ScanningMethod_SSDP_UPNP.cs` (`IsOwnLocation`, `ParseDescription`,
+  `SSDPDeviceInfo.ToDetail`), `ScanningMethod_ONVIF_IPCam.cs` (`ParseONVIFResponse`), `ScanningMethod_mDNS.cs`
+  (`IsAnswer`, `ParseResponse`), `Scanning/Engine/Methods/LegacyScanMethod.cs` (Detail und Dienst UPnP),
+  `Support/zzz_DataStructure.cs` (`SSDPDescription`).
+- **Abgesichert durch:** `DiscoveryAnswerTests` (Beschreibung, Abruf nur vom Gerät selbst, mehrere Dienstadressen,
+  fehlende Dienstadresse, Frage übersprungen und Adresse des Absenders, Anfrage ist keine Antwort, jede
+  abgeschnittene Länge).

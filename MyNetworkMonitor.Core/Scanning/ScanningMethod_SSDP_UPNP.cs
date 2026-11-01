@@ -125,6 +125,21 @@ namespace MyNetworkMonitor
 
             /// <summary>Formats all values as multi-line text.</summary>
             /// <returns>The values, one per line.</returns>
+            /// <summary>
+            /// Name, manufacturer and model as "Label: value" lines, for the device
+            /// details; empty if the description gave none of them.
+            /// </summary>
+            /// <returns>The lines, joined by <see cref="Environment.NewLine"/>.</returns>
+            public string ToDetail()
+            {
+                List<string> lines = [];
+                if (!string.IsNullOrWhiteSpace(FriendlyName)) lines.Add($"Name: {FriendlyName.Trim()}");
+                if (!string.IsNullOrWhiteSpace(Manufacturer)) lines.Add($"Manufacturer: {Manufacturer.Trim()}");
+                string model = $"{ModelName.Trim()} {ModelNumber.Trim()}".Trim();
+                if (model.Length > 0) lines.Add($"Model: {model}");
+                return string.Join(Environment.NewLine, lines);
+            }
+
             public override string ToString()
             {
                 return $"SSDP device found:\n" +
@@ -212,18 +227,25 @@ namespace MyNetworkMonitor
                         if (completedTask == receiveTask && !_cts.Token.IsCancellationRequested) // Answer received
                         {
                             UdpReceiveResult result = receiveTask.Result;
+                            string source = result.RemoteEndPoint.Address.ToString();
+
+                            // A device sends one answer per device and service type, often a
+                            // dozen. Only its first one is read: each further one would load the
+                            // same description again, for up to 5 s each, while this loop does
+                            // not receive (docs/FEHLERGEDAECHTNIS.md, No. 32).
+                            if (devices.Any(d => d.IP == source)) continue;
+
                             string response = Encoding.UTF8.GetString(result.Buffer);
+                            var device = await ParseSSDPResponseAsync(response, source);
 
-
-                            var device = await ParseSSDPResponseAsync(response, result.RemoteEndPoint.Address.ToString());
-
-                            if (device != null && !devices.Any(d => d.IP == device.IP))
+                            if (device != null)
                             {
                                 devices.Add(device);
 
                                 IPToScan ipToScan = new IPToScan
                                 {
                                     SSDPStatus = true,
+                                    SSDPDescription = device.ToDetail(),
                                     IPorHostname = device.IP,
                                     IPGroupDescription = "not specified",
                                     DeviceDescription = "not specified",
@@ -286,7 +308,9 @@ namespace MyNetworkMonitor
             };
 
             // If the answer has a LOCATION, load and parse the device description.
-            if (!string.IsNullOrEmpty(device.Location))
+            // Only from the device that answered: the URL may name any host, also one
+            // on the internet (docs/FEHLERGEDAECHTNIS.md, No. 32).
+            if (IsOwnLocation(device.Location, ipAddress))
             {
                 await ParseXMLFromURL(device, device.Location);
             }
@@ -314,25 +338,7 @@ namespace MyNetworkMonitor
                 using HttpClient client = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
                 string xmlContent = await client.GetStringAsync(url);
 
-                // Load the XML into an XDocument.
-                XDocument doc = XDocument.Parse(xmlContent);
-
-                // Use the default namespace, if there is one.
-                XNamespace ns = doc.Root?.GetDefaultNamespace() ?? XNamespace.None;
-
-                XElement deviceElement = doc.Descendants(ns + "device").FirstOrDefault();
-
-                if (deviceElement != null)
-                {
-                    device.FriendlyName = deviceElement.Element(ns + "friendlyName")?.Value ?? string.Empty;
-                    device.Manufacturer = deviceElement.Element(ns + "manufacturer")?.Value ?? string.Empty;
-                    device.ModelDescription = deviceElement.Element(ns + "modelDescription")?.Value ?? string.Empty;
-                    device.ModelName = deviceElement.Element(ns + "modelName")?.Value ?? string.Empty;
-                    device.ModelNumber = deviceElement.Element(ns + "modelNumber")?.Value ?? string.Empty;
-                    device.ModelType = deviceElement.Element(ns + "modelType")?.Value ?? string.Empty;
-                    device.URLBase = doc.Root?.Element(ns + "URLBase")?.Value ?? string.Empty;
-                    device.PresentationURL = deviceElement.Element(ns + "presentationURL")?.Value ?? string.Empty;
-                }
+                ParseDescription(device, xmlContent);
             }
             catch (Exception ex)
             {
@@ -340,6 +346,49 @@ namespace MyNetworkMonitor
             }
         }
 
+        /// <summary>
+        /// Whether the description URL points to the device that answered (same
+        /// address, http or https).
+        /// </summary>
+        /// <param name="location">The LOCATION header of the answer.</param>
+        /// <param name="source">The address the answer came from.</param>
+        /// <returns><c>true</c> if the description may be loaded.</returns>
+        internal static bool IsOwnLocation(string location, string source) =>
+            Uri.TryCreate(location, UriKind.Absolute, out Uri? uri) &&
+            (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps) &&
+            IPAddress.TryParse(uri.Host.Trim('[', ']'), out IPAddress? host) &&
+            IPAddress.TryParse(source, out IPAddress? from) &&
+            host.Equals(from);
+
+        /// <summary>
+        /// Fills the description fields from the XML of a UPnP device description
+        /// (UPnP Device Architecture 2.0, section 2.3): the root device, its name,
+        /// manufacturer and model.
+        /// </summary>
+        /// <param name="device">The device to fill.</param>
+        /// <param name="xmlContent">The description as loaded.</param>
+        internal static void ParseDescription(SSDPDeviceInfo device, string xmlContent)
+        {
+            // Load the XML into an XDocument.
+            XDocument doc = XDocument.Parse(xmlContent);
+
+            // Use the default namespace, if there is one.
+            XNamespace ns = doc.Root?.GetDefaultNamespace() ?? XNamespace.None;
+
+            XElement? deviceElement = doc.Descendants(ns + "device").FirstOrDefault();
+
+            if (deviceElement != null)
+            {
+                device.FriendlyName = deviceElement.Element(ns + "friendlyName")?.Value ?? string.Empty;
+                device.Manufacturer = deviceElement.Element(ns + "manufacturer")?.Value ?? string.Empty;
+                device.ModelDescription = deviceElement.Element(ns + "modelDescription")?.Value ?? string.Empty;
+                device.ModelName = deviceElement.Element(ns + "modelName")?.Value ?? string.Empty;
+                device.ModelNumber = deviceElement.Element(ns + "modelNumber")?.Value ?? string.Empty;
+                device.ModelType = deviceElement.Element(ns + "modelType")?.Value ?? string.Empty;
+                device.URLBase = doc.Root?.Element(ns + "URLBase")?.Value ?? string.Empty;
+                device.PresentationURL = deviceElement.Element(ns + "presentationURL")?.Value ?? string.Empty;
+            }
+        }
     }
 }
 

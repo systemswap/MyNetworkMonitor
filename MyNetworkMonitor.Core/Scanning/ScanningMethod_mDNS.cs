@@ -25,8 +25,14 @@ namespace MyNetworkMonitor
         /// <summary>The first label of the PTR target, unless it starts with an underscore.</summary>
         public string TargetHost { get; set; } 
 
-        /// <summary>The IPv4 address of the device.</summary>
+        /// <summary>The IPv4 address of the device: the address its answers came from.</summary>
         public string IP { get; set; }
+
+        /// <summary>
+        /// The host name of an address record for <see cref="IP"/>, without ".local"; empty if
+        /// the answers carried none.
+        /// </summary>
+        public string HostName { get; set; } = string.Empty;
 
         /// <summary>The value of the TXT record "group", if present.</summary>
         public string Group { get; set; }
@@ -50,6 +56,7 @@ namespace MyNetworkMonitor
             sb.AppendLine($"Service:\t{Service}");
             sb.AppendLine($"Device:\t{DeviceName}");
             sb.AppendLine($"TargetHost:\t{TargetHost}");
+            sb.AppendLine($"Host:\t{HostName}");
             sb.AppendLine($"IP:\t{IP}");
             sb.AppendLine($"Group:\t{Group}");
 
@@ -261,10 +268,16 @@ namespace MyNetworkMonitor
                         continue;
                     }
 
+                    // Only answers count: the own queries come back to the group, and other devices'
+                    // queries are no answer either (docs/FEHLERGEDAECHTNIS.md, No. 32).
+                    if (!IsAnswer(result.Buffer) || result.RemoteEndPoint.Address.Equals(localIp)) continue;
+
                     try
                     {
                         string ip = result.RemoteEndPoint.Address.ToString();
-                        ParseResponse(result.Buffer, ip, startTime);
+                        MdnsDeviceInfo info = GetOrCreate(ip);
+                        info.LastResponse = (DateTime.UtcNow - startTime).TotalMilliseconds;
+                        ParseResponse(result.Buffer, info);
                         ReportDevice(ip);
                     }
                     catch (Exception ex)
@@ -328,32 +341,57 @@ namespace MyNetworkMonitor
 
 
 
-        private void ParseResponse(byte[] data, string ip, DateTime startTime)
+        /// <summary>Whether a datagram is an mDNS answer: QR bit set (RFC 6762, section 18.2).</summary>
+        /// <param name="data">The datagram.</param>
+        /// <returns><c>true</c> for a response.</returns>
+        internal static bool IsAnswer(byte[] data) => data.Length >= 12 && (data[2] & 0x80) != 0;
+
+        /// <summary>
+        /// Reads an mDNS answer into <paramref name="info"/> (RFC 1035, section 4.1): the
+        /// questions are skipped by their count, then as many records as the header names
+        /// are read (answers, authority, additional). Every record is left by its stated
+        /// length, so that a damaged TXT or PTR record cannot shift the following ones.
+        /// <para>
+        /// The address of the device stays the one the answer came from. An address record
+        /// for exactly that address gives the host name; one for another address (other
+        /// interfaces, a sleep proxy) is no reason to report the device under it
+        /// (docs/FEHLERGEDAECHTNIS.md, No. 32).
+        /// </para>
+        /// </summary>
+        /// <param name="data">The datagram.</param>
+        /// <param name="info">The device the answer came from.</param>
+        internal static void ParseResponse(byte[] data, MdnsDeviceInfo info)
         {
-            var info = GetOrCreate(ip);
-            info.LastResponse = (DateTime.UtcNow - startTime).TotalMilliseconds;
+            if (data.Length < 12) return;
 
-            int ptr = 12; // Skip DNS header
-            if (data.Length < ptr) return;
+            int questions = (data[4] << 8) | data[5];
+            int records = ((data[6] << 8) | data[7]) + ((data[8] << 8) | data[9]) + ((data[10] << 8) | data[11]);
+            int ptr = 12;
 
-            while (ptr < data.Length)
+            for (int i = 0; i < questions; i++)
+            {
+                ReadName(data, ref ptr);
+                ptr += 4;   // type and class
+                if (ptr > data.Length) return;
+            }
+
+            for (int i = 0; i < records && ptr < data.Length; i++)
             {
                 var name = ReadName(data, ref ptr);
                 if (ptr + 10 > data.Length) break;
 
                 var type = (data[ptr] << 8) | data[ptr + 1];
-                var dataClass = (data[ptr + 2] << 8) | data[ptr + 3];
-                var ttl = (data[ptr + 4] << 24) | (data[ptr + 5] << 16) | (data[ptr + 6] << 8) | data[ptr + 7];
                 var dataLen = (data[ptr + 8] << 8) | data[ptr + 9];
                 ptr += 10;
 
                 if (ptr + dataLen > data.Length) break;
 
+                int end = ptr + dataLen;
+
                 switch (type)
                 {
                     case 0x0010: // TXT record
                         {
-                            int end = ptr + dataLen;
                             while (ptr < end)
                             {
                                 int len = data[ptr++];
@@ -405,22 +443,21 @@ namespace MyNetworkMonitor
                     case 0x0001 when dataLen == 4: // A record (IPv4)
                         {
                             var ipAddress = new IPAddress(new byte[] { data[ptr], data[ptr + 1], data[ptr + 2], data[ptr + 3] });
-                            info.IP = ipAddress.ToString();
-                            ptr += 4;
+                            if (ipAddress.ToString() == info.IP && string.IsNullOrEmpty(info.HostName))
+                            {
+                                info.HostName = name.EndsWith(".local", StringComparison.OrdinalIgnoreCase)
+                                    ? name[..^6]
+                                    : name;
+                            }
                             break;
                         }
-
-                    default:
-                        ptr += dataLen;
-                        break;
                 }
+
+                ptr = end;
             }
         }
 
-
-
-
-        private string ReadName(byte[] data, ref int offset)
+        private static string ReadName(byte[] data, ref int offset)
         {
             StringBuilder sb = new StringBuilder();
             int original = offset;

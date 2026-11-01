@@ -376,6 +376,12 @@ namespace MyNetworkMonitor
         private bool _SSDPStatus = false;
         public bool SSDPStatus { get { return _SSDPStatus; } set { _SSDPStatus = value; } }
 
+        /// <summary>
+        /// What the UPnP device description says (name, manufacturer, model), one
+        /// "Label: value" per line; empty if the device has none or it could not be loaded.
+        /// </summary>
+        public string SSDPDescription { get; set; } = string.Empty;
+
 
 
         private List<int> _TCPPortsToScan;

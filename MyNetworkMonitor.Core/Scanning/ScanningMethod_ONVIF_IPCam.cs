@@ -141,7 +141,7 @@ namespace MyNetworkMonitor
                         {
                             UdpReceiveResult result = receiveTask.Result;
                             string response = Encoding.UTF8.GetString(result.Buffer);
-                            var cameraInfo = await ParseONVIFResponseAsync(response, result.RemoteEndPoint.Address.ToString());
+                            var cameraInfo = ParseONVIFResponse(response, result.RemoteEndPoint.Address.ToString());
 
                             if (cameraInfo != null && !discoveredCameras.Any(d => d.UUID == cameraInfo.UUID))
                             {
@@ -215,7 +215,22 @@ namespace MyNetworkMonitor
             </e:Envelope>";
         }
 
-        private async Task<IPCamInfos?> ParseONVIFResponseAsync(string soapMessage, string ipAddress)
+        /// <summary>
+        /// Reads a probe match (WS-Discovery 2005/04): endpoint address, service
+        /// addresses, scopes and metadata version must all be there.
+        /// <para>
+        /// Of several service addresses (often IPv4 and IPv6, separated by spaces)
+        /// the first counts; the list as a whole is no URI and would make the camera
+        /// get lost. The name from the "name" scope is percent-decoded. There are no
+        /// further requests: reading the media and network details needs SOAP calls
+        /// at the addresses that GetCapabilities names, and plain GETs below the
+        /// device service address only cost time (docs/FEHLERGEDAECHTNIS.md, No. 32).
+        /// </para>
+        /// </summary>
+        /// <param name="soapMessage">The answer as text.</param>
+        /// <param name="ipAddress">The address it came from.</param>
+        /// <returns>The camera, or <c>null</c> if the answer is no probe match.</returns>
+        internal static IPCamInfos? ParseONVIFResponse(string soapMessage, string ipAddress)
         {
             try
             {
@@ -236,18 +251,17 @@ namespace MyNetworkMonitor
                 if (UUID == null || XAddrs == null || Scopes == null || MetadataVersion == null)
                     return null;
 
+                string xAddress = XAddrs.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? XAddrs;
+
                 var camera = new IPCamInfos
                 {
                     IPv4Address = ipAddress,
-                    Port = new Uri(XAddrs).Port.ToString(),
-                    XAddress = XAddrs,
+                    Port = new Uri(xAddress).Port.ToString(),
+                    XAddress = xAddress,
                     UUID = UUID.Split(':').Last(),
                     MetaVersion = MetadataVersion,
                     Name = ExtractCameraName(Scopes)  // Camera name from the "name" scope
                 };
-
-                // Load stream details and MAC address.
-                await camera.LoadStreamingAndMACInfo();
 
                 return camera;
             }
@@ -263,15 +277,17 @@ namespace MyNetworkMonitor
             if (string.IsNullOrEmpty(scopes))
                 return "Unknown";
 
-            return scopes.Split(' ')
-                         .FirstOrDefault(scope => scope.Contains("/name/"))?
-                         .Split('/')
-                         .Last() ?? "Unknown";
+            string? name = scopes.Split(' ')
+                                 .FirstOrDefault(scope => scope.Contains("/name/"))?
+                                 .Split('/')
+                                 .Last();
+
+            return name is null ? "Unknown" : Uri.UnescapeDataString(name);
         }        
     }
 
     /// <summary>
-    /// What an ONVIF camera reported in its discovery answer and its service descriptions.
+    /// What an ONVIF camera reported in its discovery answer.
     /// </summary>
     public class IPCamInfos
     {
@@ -292,50 +308,5 @@ namespace MyNetworkMonitor
 
         /// <summary>The camera name from the "name" scope.</summary>
         public string Name { get; set; } = "Unknown";
-
-        /// <summary>The RTSP stream address.</summary>
-        public string RTSPStreamURL { get; set; } = "Unknown";
-
-        /// <summary>The video encoding.</summary>
-        public string VideoEncoder { get; set; } = "Unknown";
-
-        /// <summary>The resolution as width x height.</summary>
-        public string Resolution { get; set; } = "Unknown";
-
-        /// <summary>The frame rate.</summary>
-        public string FPS { get; set; } = "Unknown";
-
-        /// <summary>The hardware address from the network service.</summary>
-        public string MACAddress { get; set; } = "Unknown";
-
-        /// <summary>
-        /// Reads stream details from the media service and the MAC address from the network
-        /// service of the camera; values that cannot be read stay "Unknown".
-        /// </summary>
-        public async Task LoadStreamingAndMACInfo()
-        {
-            // Called from the receive loop in Discover(): without its own time limit a single slow
-            // camera would block here for up to the HttpClient default of 100 seconds, while the
-            // loop no longer reacts to answers of other cameras.
-            using HttpClient client = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
-            try
-            {
-                string mediaUrl = $"{XAddress}/media_service";
-                string xmlContent = await client.GetStringAsync(mediaUrl);
-                XDocument doc = XDocument.Parse(xmlContent);
-
-                VideoEncoder = doc.Descendants().FirstOrDefault(e => e.Name.LocalName == "Encoding")?.Value ?? "Unknown";
-                Resolution = $"{doc.Descendants().FirstOrDefault(e => e.Name.LocalName == "Width")?.Value}x" +
-                             $"{doc.Descendants().FirstOrDefault(e => e.Name.LocalName == "Height")?.Value}" ?? "Unknown";
-                FPS = doc.Descendants().FirstOrDefault(e => e.Name.LocalName == "FrameRate")?.Value ?? "Unknown";
-                RTSPStreamURL = $"{XAddress}/media?stream=1";
-
-                string networkUrl = $"{XAddress}/network_service";
-                string networkContent = await client.GetStringAsync(networkUrl);
-                XDocument networkDoc = XDocument.Parse(networkContent);
-                MACAddress = networkDoc.Descendants().FirstOrDefault(e => e.Name.LocalName == "HwAddress")?.Value ?? "Unknown";
-            }
-            catch (Exception) { }
-        }
     }
 }

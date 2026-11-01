@@ -283,6 +283,10 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 
             if (!string.IsNullOrWhiteSpace(result.SNMP_SysName)) Detail("SNMP", result.SNMPInfos);
             if (result.IsIPCam) Detail("Camera", $"{result.IPCamName} {result.IPCamXAddress}".Trim());
+
+            // Name, manufacturer and model from the UPnP description: what a device is,
+            // not only that it answered (docs/FEHLERGEDAECHTNIS.md, No. 32).
+            Detail("UPnP", result.SSDPDescription);
             Detail("mDNS", result.mDNS_toMultiLineString);
 
             context.Report(new DeviceObservation
@@ -373,6 +377,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 
         private const int SnmpPort = 161;
         private const int OnvifPort = 3702;
+        private const int SsdpPort = 1900;
 
         /// <summary>
         /// Adds a service found by a dedicated module.
@@ -506,6 +511,12 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
             {
                 AddFoundService(services, family, "SNMP", "Network", SnmpPort,
                     NullIfBlank(r.SNMPInfos) ?? $"System name: {r.SNMP_SysName}");
+            }
+
+            if (r.SSDPStatus)
+            {
+                AddFoundService(services, family, "UPnP", "Network", SsdpPort,
+                    NullIfBlank(r.SSDPDescription) ?? "Answered the SSDP search.");
             }
 
             if (r.IsIPCam)
