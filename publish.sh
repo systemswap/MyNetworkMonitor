@@ -6,7 +6,9 @@ set -Eeuo pipefail
 #
 #   published/linux-x64/MyNetworkMonitor-x86_64.AppImage   eine Datei: Programm, .NET, Avalonia und die Daten
 #   published/windows-x64/MyNetworkMonitor.exe             eine Datei: Programm, .NET und Avalonia
-#   published/MyNetworkMonitor-linux-x64.tar.gz, MyNetworkMonitor-windows-x64.zip
+#   published/MyNetworkMonitor_v<version>_linux-x64.tar.gz, MyNetworkMonitor_v<version>_windows-x64.zip
+#                                                           wie die Dateien der Releases auf GitHub; ältere Archive
+#                                                           desselben Ziels ersetzt der nächste Bau
 #
 # Neben jedes Programm kommen LICENSE, THIRD-PARTY-NOTICES.md und licenses/, unter Linux außerdem
 # einrichten.sh / entfernen.sh für den Menüeintrag (MyNetworkMonitor öffnet keine Dateien, darum ohne
@@ -153,9 +155,12 @@ publish() {
     || { echo "Fehler: MacVendors/ oder 3dForceGraphLib/ fehlt in der Ausgabe für $rid." >&2; exit 1; }
 }
 
+# Archiv eines Ziels mit der Version im Namen; ältere Archive dieses Ziels (andere Versionen, der frühere
+# Name ohne Version) werden ersetzt, damit published/ nur den aktuellen Stand enthält.
 package() {
-  local folder="$1" archive="$2"
-  rm -f "$OUT_DIR/$archive"
+  local folder="$1" extension="$2"
+  local archive="MyNetworkMonitor_v${VERSION}_$folder.$extension"
+  rm -f "$OUT_DIR/MyNetworkMonitor-$folder.$extension" "$OUT_DIR"/MyNetworkMonitor_v*_"$folder.$extension"
   case "$archive" in
     *.tar.gz) tar -C "$OUT_DIR" -czf "$OUT_DIR/$archive" "$folder" ;;
     *.zip) (cd "$OUT_DIR" && zip -qr "$archive" "$folder") ;;
@@ -202,7 +207,7 @@ APPRUN
   install -m 0644 "$ICON" "$LINUX_DIR/mynetworkmonitor.png"
   install -m 0755 "$PROJECT_DIR/packaging/linux/einrichten.sh" "$PROJECT_DIR/packaging/linux/entfernen.sh" "$LINUX_DIR/"
 
-  package linux-x64 MyNetworkMonitor-linux-x64.tar.gz
+  package linux-x64 tar.gz
 fi
 
 # ---------------------------------------------------------------- Windows
@@ -217,7 +222,7 @@ if [ "$TARGET" = all ] || [ "$TARGET" = windows ]; then
     cp -a "$WORK_DIR/windows/." "$WINDOWS_DIR/"
   fi
   notices "$WINDOWS_DIR"
-  package windows-x64 MyNetworkMonitor-windows-x64.zip
+  package windows-x64 zip
 
   # Kopie direkt in den eingestellten Ordner; dort nur ersetzen, was der Bau mitbringt.
   if [ -n "$WINDOWS_COPY" ]; then

@@ -7,7 +7,8 @@
 
         published\windows-x64\MyNetworkMonitor.exe          eine Datei: Programm, .NET und Avalonia
         published\linux-x64\MyNetworkMonitor.Avalonia       Linux-Programm als eine Datei (ohne AppImage - die baut nur publish.sh unter Linux)
-        published\MyNetworkMonitor-windows-x64.zip
+        published\MyNetworkMonitor_v<version>_windows-x64.zip   wie die Datei der Releases auf GitHub; aeltere Archive
+                                                             ersetzt der naechste Bau
 
     Neben jedes Programm kommen LICENSE, THIRD-PARTY-NOTICES.md und licenses\, dazu die Herstellerliste (MacVendors\) und die
     Bibliothek der 3D-Ansicht (3dForceGraphLib\), die das Programm neben seiner Programmdatei liest. Unter Linux ausserdem
@@ -195,10 +196,15 @@ function Invoke-Publish([string]$rid, [string]$dest, [string[]]$properties) {
     }
 }
 
-# Paket mit dem Ordner selbst als oberster Ebene (wie publish.sh). tar.exe von Windows schreibt Zip mit -a.
-function New-Package([string]$folder, [string]$archive) {
+# Paket mit dem Ordner selbst als oberster Ebene (wie publish.sh), die Version im Namen. tar.exe von Windows
+# schreibt Zip mit -a. Aeltere Archive dieses Ziels (andere Versionen, der fruehere Name ohne Version) werden
+# ersetzt, damit published\ nur den aktuellen Stand enthaelt.
+function New-Package([string]$folder, [string]$extension) {
+    $archive = "MyNetworkMonitor_v${version}_$folder.$extension"
     $path = Join-Path $outDir $archive
-    if (Test-Path $path) { Remove-Item $path -Force }
+    Get-ChildItem $outDir -File |
+        Where-Object { $_.Name -eq "MyNetworkMonitor-$folder.$extension" -or $_.Name -like "MyNetworkMonitor_v*_$folder.$extension" } |
+        Remove-Item -Force
     # Die frisch kopierte EXE haelt kurz ein anderer Prozess fest (vermutlich der Virenscanner)
     for ($try = 1; ; $try++) {
         & $tarExe -a -c -f $path -C $outDir $folder
@@ -242,7 +248,7 @@ if ($Target -in @('all', 'windows')) {
     }
     else { Copy-Item (Join-Path $build '*') $windowsDir -Recurse -Force }
     Copy-Notices $windowsDir
-    New-Package 'windows-x64' 'MyNetworkMonitor-windows-x64.zip'
+    New-Package 'windows-x64' 'zip'
 }
 
 Write-Host ''

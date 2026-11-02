@@ -8,10 +8,10 @@ erkannte Dienste (z. B. SSH, Datenbanken, Fernwartung, Drucker, Kameras, Steueru
 
 Fertige Pakete stehen unter „Releases“ auf GitHub:
 
-- **Linux:** `MyNetworkMonitor-linux-x64.tar.gz` entpacken, dann `./einrichten.sh` – danach steht das
+- **Linux:** `MyNetworkMonitor_v<version>_linux-x64.tar.gz` entpacken, dann `./einrichten.sh` – danach steht das
   Programm im Anwendungsmenü. AppImages brauchen FUSE 2 (Debian/Ubuntu: `sudo apt install libfuse2t64`,
   Fedora: `sudo dnf install fuse-libs`).
-- **Windows:** `MyNetworkMonitor-windows-x64.zip` entpacken und `MyNetworkMonitor.exe` starten.
+- **Windows:** `MyNetworkMonitor_v<version>_windows-x64.zip` entpacken und `MyNetworkMonitor.exe` starten.
 
 Manche Verfahren (z. B. IPv6-Mitlesen) brauchen erweiterte Rechte; das Programm sagt dann, was fehlt.
 
