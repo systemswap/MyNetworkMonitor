@@ -240,6 +240,19 @@ niemand schließen, im Segment stünden nur diese Geräte. Darum wird
 gekennzeichnet statt weggeworfen: die Arbeit einer halben Stunde ist zu
 schade, um sie wegen des letzten Verfahrens zu verlieren.
 
+**Der Hauptscanner ordnet die Geräte seinen eigenen Bereichen zu.** Jede
+Adresse eines Geräts kennt ihr Netz (die Kennung des Bereichs, aus dem sie
+kam), und eine MAC kennzeichnet ein Gerät nur innerhalb ihres Netzes. Der
+Satellit kennt nur die Bereiche seines Auftrags, mit eigenen Kennungen; der
+Auftrag trägt zudem nur den Namen seines ersten Bereichs. Vor dem Übernehmen
+bekommt deshalb jede IPv4-Adresse die Kennung des Bereichs des Hauptscanners,
+der sie enthält (die dem Satelliten zugewiesenen zuerst), und das Gerät dessen
+Namen (`NetworkIds.AdoptSatelliteResult`). Adressen außerhalb aller Bereiche
+bleiben unter einer Kennung des Satelliten für sich; IPv6-Adressen folgen dem
+Netz der IPv4-Adressen ihres Geräts. So bleibt ein Gerät, das hier und vom
+Satelliten gesehen wurde, eines – und dieselbe MAC in einem anderen Netz zwei.
+Das Protokoll ändert sich dafür nicht; auch ältere Satelliten liefern passend.
+
 ---
 
 ## 6. Transport und Nachrichten

@@ -26,7 +26,8 @@ namespace MyNetworkMonitor.Core.Model
         private readonly ObservableCollection<Device> _devices = [];
 
         private readonly Dictionary<string, Device> _byDuid = new(StringComparer.OrdinalIgnoreCase);
-        private readonly Dictionary<string, Device> _byMac = new(StringComparer.OrdinalIgnoreCase);
+        // Several devices per MAC: the same MAC in two networks is two devices (see SameNetworkOrUnknown).
+        private readonly Dictionary<string, List<Device>> _byMac = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, Device> _byHostName = new(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
@@ -271,10 +272,9 @@ namespace MyNetworkMonitor.Core.Model
                 return byDuid;
             }
 
-            if (incoming.Mac is not null &&
-                _byMac.TryGetValue(MacKey(incoming.Mac), out Device? byMac) && !Contradicts(byMac, incoming))
+            foreach (Device byMac in WithMac(incoming.Mac))
             {
-                return byMac;
+                if (!Contradicts(byMac, incoming)) return byMac;
             }
 
             foreach (DeviceAddress address in incoming.Addresses)
@@ -426,21 +426,30 @@ namespace MyNetworkMonitor.Core.Model
             if (!string.IsNullOrWhiteSpace(o.Duid))
                 Add(_byDuid.GetValueOrDefault(o.Duid));
 
-            if (o.Mac is not null)
-                Add(_byMac.GetValueOrDefault(MacKey(o.Mac)));
+            // A MAC identifies a device only within its network: the same MAC in another network is
+            // another device - a router with one MAC on several VLANs, a device that moved, a cloned
+            // virtual machine (docs/FEHLERGEDAECHTNIS.md, No. 36).
+            foreach (Device d in WithMac(o.Mac))
+            {
+                if (SameNetworkOrUnknown(d, o.NetworkId)) Add(d);
+            }
 
             // An EUI-64 address contains the MAC (RFC 4291, appendix A). A
             // device found over IPv6 can thus be assigned to the same entry as
             // the one found over ARP - without both being seen at the same time.
-            if (o.Address?.DerivedMac is { } derived)
-                Add(_byMac.GetValueOrDefault(MacKey(derived)));
+            foreach (Device d in WithMac(o.Address?.DerivedMac))
+            {
+                if (SameNetworkOrUnknown(d, o.NetworkId)) Add(d);
+            }
 
             // The soft MAC may establish a match: if SNMP reports the base MAC
             // of a device already known through another interface, the
             // observation belongs there. It must not prevent anything -
             // ContradictsObservation ensures this by ignoring it.
-            if (o.SoftMac is not null)
-                Add(_byMac.GetValueOrDefault(MacKey(o.SoftMac)));
+            foreach (Device d in WithMac(o.SoftMac))
+            {
+                if (SameNetworkOrUnknown(d, o.NetworkId)) Add(d);
+            }
 
             // If the address belongs to more than one device, all of them are
             // candidates - the MAC check decides which one is meant.
@@ -482,8 +491,13 @@ namespace MyNetworkMonitor.Core.Model
             }
 
             // The MAC derived from EUI-64 is ignored here: it is inferred, and
-            // an inferred value must not prevent a match.
-            return device.Mac is not null && o.Mac is not null && !device.Mac.Equals(o.Mac);
+            // an inferred value must not prevent a match. A virtual router MAC
+            // identifies nobody and contradicts nothing.
+            if (!IsIdentifying(device.Mac) || !IsIdentifying(o.Mac)) return false;
+            if (!device.Mac!.Equals(o.Mac)) return true;
+
+            // The same MAC seen in another network is another device.
+            return !SameNetworkOrUnknown(device, o.NetworkId);
         }
 
         /// <summary>
@@ -498,8 +512,70 @@ namespace MyNetworkMonitor.Core.Model
                 return true;
             }
 
-            return a.Mac is not null && b.Mac is not null && !a.Mac.Equals(b.Mac);
+            if (!IsIdentifying(a.Mac) || !IsIdentifying(b.Mac)) return false;
+            if (!a.Mac!.Equals(b.Mac)) return true;
+
+            return !SameNetworkOrUnknown(a, b);
         }
+
+        /// <summary>
+        /// The device has an address in the network, or knows no network at all. An unknown network
+        /// does not separate: inventories saved without networks and addresses from target lists
+        /// behave as before.
+        /// </summary>
+        private static bool SameNetworkOrUnknown(Device device, string? network)
+        {
+            if (network is null) return true;
+
+            bool anyKnown = false;
+            foreach (DeviceAddress address in device.Addresses)
+            {
+                if (address.NetworkId is null) continue;
+                if (string.Equals(address.NetworkId, network, StringComparison.Ordinal)) return true;
+                anyKnown = true;
+            }
+
+            return !anyKnown;
+        }
+
+        /// <summary>The two devices share a network, or one of them knows none.</summary>
+        private static bool SameNetworkOrUnknown(Device a, Device b)
+        {
+            List<string> networks = [.. b.Addresses.Select(x => x.NetworkId).OfType<string>()];
+            return networks.Count == 0 || a.Addresses.All(x => x.NetworkId is null) || networks.Any(n => SameNetworkOrUnknown(a, n));
+        }
+
+        /// <summary>
+        /// The MAC may serve as identifier. Virtual router and cluster MACs are shared by several
+        /// devices by design: identifying by them would merge the two routers of a redundant pair.
+        /// <list type="bullet">
+        /// <item>VRRP: 00-00-5E-00-01-xx (IPv4) and 00-00-5E-00-02-xx (IPv6), RFC 5798, section 7.3</item>
+        /// <item>HSRP: 00-00-0C-07-AC-xx (version 1) and 00-00-0C-9F-Fx-xx (version 2)</item>
+        /// <item>Windows Network Load Balancing: 02-BF-xx-xx-xx-xx (unicast) and 03-BF-xx-xx-xx-xx (multicast)</item>
+        /// </list>
+        /// </summary>
+        /// <param name="mac">The MAC, may be null.</param>
+        /// <returns>True for a MAC that identifies one device.</returns>
+        internal static bool IsIdentifying(PhysicalAddress? mac)
+        {
+            if (mac is null) return false;
+
+            byte[] b = mac.GetAddressBytes();
+            if (b.Length != 6) return true;
+
+            if (b[0] == 0x00 && b[1] == 0x00 && b[2] == 0x5E && b[3] == 0x00 && (b[4] == 0x01 || b[4] == 0x02)) return false;
+            if (b[0] == 0x00 && b[1] == 0x00 && b[2] == 0x0C && b[3] == 0x07 && b[4] == 0xAC) return false;
+            if (b[0] == 0x00 && b[1] == 0x00 && b[2] == 0x0C && b[3] == 0x9F && (b[4] & 0xF0) == 0xF0) return false;
+            if ((b[0] == 0x02 || b[0] == 0x03) && b[1] == 0xBF) return false;
+
+            return true;
+        }
+
+        /// <summary>The devices known under this MAC; none for a MAC that identifies nobody.</summary>
+        private IReadOnlyList<Device> WithMac(PhysicalAddress? mac) =>
+            IsIdentifying(mac) && _byMac.TryGetValue(MacKey(mac!), out List<Device>? devices)
+                ? devices
+                : [];
 
         /// <summary>Writes the information of the observation to the device.</summary>
         private void Apply(Device device, DeviceObservation o)
@@ -757,7 +833,14 @@ namespace MyNetworkMonitor.Core.Model
         private void Reindex(Device device)
         {
             if (!string.IsNullOrWhiteSpace(device.Duid)) _byDuid[device.Duid] = device;
-            if (device.Mac is not null) _byMac[MacKey(device.Mac)] = device;
+            if (IsIdentifying(device.Mac))
+            {
+                List<Device> withMac = _byMac.TryGetValue(MacKey(device.Mac!), out List<Device>? known)
+                    ? known
+                    : _byMac[MacKey(device.Mac!)] = [];
+
+                if (!withMac.Any(d => ReferenceEquals(d, device))) withMac.Add(device);
+            }
             if (!string.IsNullOrWhiteSpace(device.HostName)) _byHostName[device.HostName] = device;
 
             foreach (DeviceAddress address in device.Addresses)
@@ -783,7 +866,6 @@ namespace MyNetworkMonitor.Core.Model
         private void RepointIndexes(Device from, Device to)
         {
             Repoint(_byDuid);
-            Repoint(_byMac);
             Repoint(_byHostName);
 
             void Repoint(Dictionary<string, Device> index)
@@ -796,10 +878,10 @@ namespace MyNetworkMonitor.Core.Model
                 }
             }
 
-            // In the address index the dissolved entry may sit next to another
-            // holder of the same address - so only that entry is replaced, not
-            // the whole list.
-            foreach (List<Device> holders in _byAddress.Values)
+            // In the address and MAC indexes the dissolved entry may sit next to
+            // another holder of the same key - so only that entry is replaced,
+            // not the whole list.
+            foreach (List<Device> holders in _byAddress.Values.Concat(_byMac.Values))
             {
                 for (int i = holders.Count - 1; i >= 0; i--)
                 {

@@ -116,9 +116,12 @@ public class DeviceStoreTests
         Assert.Equal("Example Vendor", device.Vendor);
     }
 
-    /// <summary>The MAC is a hard identifier across all ranges: the same MAC in two ranges is one device.</summary>
+    /// <summary>
+    /// Without a known network the MAC connects across ranges, as for inventories saved before addresses
+    /// knew their network; with networks see <see cref="SameMacTests"/>.
+    /// </summary>
     [Fact]
-    public void SameMacInTwoRangesIsOneDevice()
+    public void SameMacWithoutKnownNetworkIsOneDevice()
     {
         DeviceStore store = new();
         store.Observe(Seen("192.0.2.10", MacA, "Office", host: "pc-example"));
@@ -128,7 +131,7 @@ public class DeviceStoreTests
         Assert.Equal(2, device.Ipv4Addresses.Count());
     }
 
-    /// <summary>The range of a device is the one of its last observation.</summary>
+    /// <summary>Within one device the range name is the one of its last observation.</summary>
     [Fact]
     public void GroupIsTheOneOfTheLastObservation()
     {

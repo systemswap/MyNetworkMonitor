@@ -2066,6 +2066,18 @@ namespace MyNetworkMonitor.Core.ViewModels
             try
             {
                 List<Device> devices = DeviceStoreFile.FromJson(devicesJson);
+
+                // The satellite reports the networks of its own job; here they become the ranges of
+                // this main scanner, the ones assigned to the satellite first.
+                string? satelliteId = SatelliteEditor.All
+                    .FirstOrDefault(s => string.Equals(s.Name, satelliteName, StringComparison.OrdinalIgnoreCase))?.Id;
+                List<ScanScope> ranges =
+                [
+                    .. Scopes.Where(s => satelliteId is not null && string.Equals(s.ScannedBy, satelliteId, StringComparison.OrdinalIgnoreCase)),
+                    .. Scopes.Where(s => satelliteId is null || !string.Equals(s.ScannedBy, satelliteId, StringComparison.OrdinalIgnoreCase))
+                ];
+                NetworkIds.AdoptSatelliteResult(devices, ranges, "satellite-" + (satelliteId ?? satelliteName));
+
                 int taken = _store.MergeFrom(devices);
 
                 // On cancellation the message states that the run did not

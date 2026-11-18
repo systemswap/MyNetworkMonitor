@@ -147,6 +147,59 @@ namespace MyNetworkMonitor.Core.Model
             return filled;
         }
 
+        /// <summary>
+        /// Places the devices of a satellite result in the networks of this main scanner.
+        /// <para>
+        /// The satellite reports addresses with the keys of its own job - ranges this main scanner
+        /// does not know. Taken over unchanged, a device seen here and by the satellite would end up
+        /// twice, because the same MAC would seem to come from two networks. Every IPv4 address
+        /// therefore takes the key of the configured range containing it, and the device the name of
+        /// that range: the job carries only the name of its first range. An address outside every
+        /// range stays apart under a key of the satellite; an IPv6 address follows the IPv4 addresses
+        /// of its device if they lie in one network.
+        /// </para>
+        /// </summary>
+        /// <param name="devices">The devices of the satellite result.</param>
+        /// <param name="scopes">The configured ranges; those assigned to the satellite should come first.</param>
+        /// <param name="satelliteKey">A stable key of the satellite, for addresses outside every range.</param>
+        public static void AdoptSatelliteResult(IEnumerable<Device> devices, IEnumerable<ScanScope> scopes, string satelliteKey)
+        {
+            ArgumentNullException.ThrowIfNull(devices);
+            ArgumentNullException.ThrowIfNull(scopes);
+
+            List<(uint First, uint Last, ScanScope Scope)> ranges = [];
+            foreach (ScanScope scope in scopes)
+            {
+                if (scope.Kind != ScanScopeKind.IPv4Range) continue;
+                if (!TryParseV4(scope.FirstIP, out uint first) || !TryParseV4(scope.LastIP, out uint last) || first > last) continue;
+                ranges.Add((first, last, scope));
+            }
+
+            string Outside(DeviceAddress address) => $"{satelliteKey}:{address.NetworkId ?? "unknown"}";
+
+            foreach (Device device in devices)
+            {
+                ScanScope? groupOf = null;
+
+                foreach (DeviceAddress address in device.Ipv4Addresses)
+                {
+                    uint value = ToUInt(address.Info.Address);
+                    ScanScope? range = ranges.FirstOrDefault(r => value >= r.First && value <= r.Last).Scope;
+
+                    address.NetworkId = range is null ? Outside(address) : ForScope(range);
+                    groupOf ??= range;
+                }
+
+                if (groupOf is not null) device.GroupDescription = groupOf.GroupDescription;
+
+                List<string> networks = [.. device.Ipv4Addresses.Select(a => a.NetworkId).OfType<string>().Distinct()];
+                foreach (DeviceAddress address in device.Ipv6Addresses)
+                {
+                    address.NetworkId = networks.Count == 1 ? networks[0] : Outside(address);
+                }
+            }
+        }
+
         private static bool TryParseV4(string? text, out uint value)
         {
             value = 0;

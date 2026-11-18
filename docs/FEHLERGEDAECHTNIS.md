@@ -650,3 +650,69 @@ Automatische Tests stehen in `MyNetworkMonitor.Core.Tests` (`docs/PRUEFUNGEN.md`
   Teilnetz /26), „Topology → Network topo → Draw“: Jede Gruppe muss ihr eingestelltes Netz zeigen (z. B. „…/23“),
   ein Bereich, der kein ganzes Netz ist, „erste – letzte Adresse“. Im Heimnetz (ein /24) muss die Beschriftung wie
   bisher „…/24“ lauten. Geräte ohne passenden Bereich (z. B. aus einer Zielliste) behalten die alte Schätzung.
+
+## Nr. 36 – Gerätebestand: gleiche MAC in zwei Netzen wurde zu einem Gerät
+
+- **Entdeckt:** 18.11.2026, Version 7.3.0.40 (Hinweis des Nutzers beim Erstellen der Startseite: die 3D-Ansicht zeigte
+  früher rote „same MAC“-Kanten zwischen Netzen, damit wurden doppelte MACs und falsch abgeglichene DNS-Server
+  gefunden; im nachgebauten Netz mit geklonter VM nachgestellt). Vorhanden seit dem Gerätemodell (Commit bfeb44c,
+  August 2026); vorher war jede Adresse eine eigene Zeile mit eigenem Knoten. **Behoben (Zuordnung):** 7.3.0.42;
+  Befunde und Anzeige folgen in eigenen Versionen.
+- **Was:** Zwei Geräte mit derselben MAC in verschiedenen Bereichen (geklonte VM, Router mit einer MAC auf mehreren
+  VLANs, über einen Satelliten aus einem anderen Segment gemeldet) wurden zu einem Gerät zusammengeführt: der zweite
+  Name ging verloren, der Bereich sprang auf den zuletzt gemeldeten, die Tabelle zeigte nur die erste Adresse, die
+  3D-Ansicht einen Knoten ohne Kante. Satelliten-Ergebnisse gingen über dieselbe Regel in Geräten anderer Netze auf.
+- **Warum:** `DeviceStore` behandelte die MAC netzübergreifend als harte Kennung (`_byMac` mit einem Gerät je MAC,
+  `FindCandidates`, `FindExisting`). Ein Netzbezug fehlte ganz: Beobachtungen und Adressen kannten nur den frei
+  wählbaren Bereichsnamen.
+- **Lösung:** Jede Adresse kennt ihr Netz (7.3.0.41, `NetworkIds`); eine MAC verbindet nur Geräte desselben Netzes
+  (`SameNetworkOrUnknown`), der MAC-Index hält mehrere Geräte je MAC, gleiche MAC in verschiedenen bekannten Netzen ist
+  ein Widerspruch (`ContradictsObservation`, `Contradicts`). Unbekanntes Netz (alte Bestände, Ziellisten) trennt nicht
+  – so verhalten sich ältere Daten und das Nachscannen wie bisher. Satelliten-Ergebnisse bekommen vor dem Übernehmen
+  die Bereiche der Zentrale (`NetworkIds.AdoptSatelliteResult`), sonst wäre ein von beiden gesehenes Gerät doppelt.
+  Virtuelle Router- und Cluster-MACs (VRRP, HSRP, Windows NLB) zählen nie als Kennung (`IsIdentifying`), sonst
+  verschmölzen die beiden Router eines redundanten Paars. Verworfen: Geräte je IP-Adresse trennen – jedes IPv6-Gerät
+  zerfiele in viele Einträge, jede neue DHCP-Adresse erschiene als zweites Gerät.
+- **Nicht tun:** eine Kennung ohne ihren Geltungsbereich verwenden; eine MAC gilt nur im Segment, in dem sie gesehen
+  wurde.
+- **Im Code:** `MyNetworkMonitor.Core/Model/DeviceStore.cs` (`FindCandidates`, `ContradictsObservation`, `Contradicts`,
+  `SameNetworkOrUnknown`, `IsIdentifying`, `WithMac`, `Reindex`, `RepointIndexes`, `FindExisting`),
+  `Model/NetworkIds.cs` (`AdoptSatelliteResult`), `ViewModels/ShellViewModel.cs` (`MergeSatelliteResult`).
+- **Abgesichert durch:** `SameMacTests` (zwei Netze, gleiches Netz mit anderer IP, IPv6, Ziellisten ohne Netz,
+  abgeleitete MAC, virtuelle Router-MACs, Speichern und Laden, Satelliten-Ergebnisse); `DeviceStoreTests` für das
+  Verhalten ohne bekanntes Netz.
+- **Gegenprobe an echten Geräten (offen):** (1) Ein Router oder L3-Switch mit derselben MAC in mehreren VLANs, über
+  Satelliten gescannt: je VLAN ein Eintrag mit dem Namen des Bereichs, nicht einer. (2) Ein Gerät, das von der
+  Zentrale und vom Satelliten gesehen wird (Satellit vorher getrennt, Bereich von hier gescannt): danach ein Eintrag.
+  (3) Ein VRRP- oder HSRP-Paar: zwei Router plus die virtuelle Adresse, nicht verschmolzen. (4) Ein Bestand von vor
+  7.3.0.41 lädt vollständig und ordnet sich nach dem nächsten Scan richtig.
+
+## Nr. 37 – IPv6: aus EUI-64 abgeleitete MAC wurde als harte Kennung gesetzt
+
+- **Entdeckt:** 18.11.2026, Version 7.3.0.41 (Bestandsaufnahme für Nr. 36). **Behoben:** 7.3.0.42.
+- **Was:** Die IPv6-Verfahren meldeten eine aus dem Interface-Identifier abgeleitete MAC als harte `Mac` – auch für
+  geroutete globale Adressen von Geräten, die gar nicht im eigenen Segment stehen. So konnte sie Geräte anderer Netze
+  zusammenführen oder einer echten, per ARP gesehenen MAC widersprechen.
+- **Warum:** `Mac = mac ?? info.DerivedMac` in `Ipv6MethodBase.ReportAddress` und `entry.Mac ?? info.DerivedMac` in
+  der Nachbartabelle – gegen die Regel im Gerätebestand, nach der eine abgeleitete MAC nur verbinden, nie trennen darf.
+- **Lösung:** Hart ist nur die MAC, die im Segment gesehen wurde; die abgeleitete bleibt an der Adresse
+  (`DerivedMac`) und verbindet weich, und nur im selben Netz.
+- **Nicht tun:** einen erschlossenen Wert wie einen gemessenen behandeln.
+- **Im Code:** `Scanning/Engine/Methods/Ipv6MethodBase.cs` (`ReportAddress`), `Ipv6NeighborCacheScanMethod.cs`.
+- **Abgesichert durch:** `SameMacTests.DerivedMacConnectsOnlyWithinTheNetwork`, `DeviceStoreTests.Eui64AddressJoinsTheDeviceWithItsMac`.
+- **Gegenprobe an echten Geräten (offen):** IPv6-Verfahren im echten Netz: Geräte mit EUI-64-Adressen erscheinen wie
+  bisher bei ihrem per ARP gefundenen Eintrag, nicht als eigene Einträge.
+
+## Nr. 38 – SSDP überschrieb den Bereichsnamen mit „not specified“
+
+- **Entdeckt:** 18.11.2026, Version 7.3.0.41 (Bestandsaufnahme für Nr. 36). **Behoben:** 7.3.0.42.
+- **Was:** Ein Gerät, das per SSDP antwortete, stand danach in der Tabelle unter dem Bereich „not specified“ statt
+  unter seinem Bereich.
+- **Warum:** `LegacyScanMethod.ReportResult` nahm zuerst den Wert des Moduls (`IPGroupDescription`), dann den des
+  Bereichs; das SSDP-Modul setzt für jeden Fund den festen Text „not specified“.
+- **Lösung:** Der Bereich des Ziels hat Vorrang; der Wert des Moduls gilt nur für Funde außerhalb der Ziele.
+- **Nicht tun:** Platzhaltertexte als Daten weiterreichen.
+- **Im Code:** `Scanning/Engine/Methods/LegacyScanMethod.cs` (`ReportResult`).
+- **Abgesichert durch:** keinen automatischen Test (der Weg läuft über die Netzwerkmodule).
+- **Gegenprobe an echten Geräten (offen):** Scan mit „SSDP / UPnP“ im echten Netz: UPnP-Geräte (Drucker, NAS,
+  Fernseher) stehen unter ihrem Bereich.

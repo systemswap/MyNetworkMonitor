@@ -302,7 +302,10 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                 HostName = NullIfBlank(result.HostName) ?? NullIfBlank(result.SNMP_SysName),
                 Domain = NullIfBlank(result.Domain) ?? NullIfBlank(scope?.Domain),
                 NetBiosName = NullIfBlank(result.NetBiosHostname),
-                GroupDescription = NullIfBlank(result.IPGroupDescription) ?? NullIfBlank(scope?.GroupDescription),
+                // The range of the target first: some modules fill IPGroupDescription with a fixed
+                // text ("not specified" for SSDP) that would otherwise replace the name of the range
+                // (docs/FEHLERGEDAECHTNIS.md, No. 38).
+                GroupDescription = NullIfBlank(scope?.GroupDescription) ?? NullIfBlank(result.IPGroupDescription),
                 IsResponding = IsResponding(result),
                 Details = details.Count > 0 ? details : null,
                 LookupAddresses = LookupAddresses(result),

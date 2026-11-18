@@ -125,7 +125,8 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                 {
                     Source = sourceOverride ?? "IPv6 neighbour table",
                     Address = info,
-                    Mac = entry.Mac ?? info.DerivedMac,
+                    // A derived MAC stays soft (docs/FEHLERGEDAECHTNIS.md, No. 37).
+                    Mac = entry.Mac,
 
                     // The entry shows that the device answered at some point,
                     // not that it answers now. Only a recently confirmed entry

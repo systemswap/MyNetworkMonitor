@@ -362,9 +362,11 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                 Source = DisplayName,
                 Address = info,
 
-                // Without a known MAC, it may be contained in the address: an
-                // EUI-64 address carries it in its interface identifier.
-                Mac = mac ?? info.DerivedMac,
+                // Only a MAC actually seen on the segment counts as hard. A MAC derived from an
+                // EUI-64 address stays on the address (DerivedMac) and connects softly - it also
+                // appears in routed addresses of devices that are not on this segment
+                // (docs/FEHLERGEDAECHTNIS.md, No. 37).
+                Mac = mac,
 
                 IsResponding = isResponding,
                 GroupDescription = segment.Scope.Scope.GroupDescription,
