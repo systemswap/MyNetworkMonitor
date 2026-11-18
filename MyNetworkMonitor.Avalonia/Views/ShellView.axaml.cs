@@ -1110,7 +1110,7 @@ public partial class ShellView : Window
     /// <see cref="WebEngine.None"/> and thus with the system browser until a
     /// newer package version actually paints.
     /// </summary>
-    private const bool EmbeddedWebViewEnabledOnLinux = false;
+    private static readonly bool EmbeddedWebViewEnabledOnLinux = false;
 
     /// <summary>
     /// Determines which engine the embedded view can use.

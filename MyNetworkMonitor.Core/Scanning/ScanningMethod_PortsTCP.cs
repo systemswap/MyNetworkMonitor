@@ -137,16 +137,18 @@ namespace MyNetworkMonitor
 
             foreach (var result in results)
             {
+                if (result.Port is not int port) continue;
+
                 switch (result.PortState)
                 {
                     case PortScanState.PortIsOpen:
-                        ipToScan.TCP_OpenPorts.Add(result.Port.Value);
+                        ipToScan.TCP_OpenPorts.Add(port);
                         break;
                     case PortScanState.FirewallBlockedPort:
-                        ipToScan.TCP_FirewallBlockedPorts.Add(result.Port.Value);
+                        ipToScan.TCP_FirewallBlockedPorts.Add(port);
                         break;
                     case PortScanState.TargetDeniedAccessToPort:
-                        ipToScan.TCP_TargetDeniedAccessToPorts.Add(result.Port.Value);
+                        ipToScan.TCP_TargetDeniedAccessToPorts.Add(port);
                         break;
                 }
             }

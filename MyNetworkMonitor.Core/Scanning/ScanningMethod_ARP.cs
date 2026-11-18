@@ -328,7 +328,10 @@ namespace MyNetworkMonitor
                         ScanTask_Finished_EventArgs scanTask_Finished = new ScanTask_Finished_EventArgs();
                         scanTask_Finished.ipToScan = ipToScan;
 
-                        Task.Run(() => ARP_A_newDevice(this, scanTask_Finished));
+                        // Reported here and now, not handed to the thread pool: the caller unsubscribes
+                        // as soon as this method returns, and entries reported later were lost or
+                        // ended in a NullReferenceException (docs/FEHLERGEDAECHTNIS.md, No. 47).
+                        ARP_A_newDevice?.Invoke(this, scanTask_Finished);
                     }
                 }
             }

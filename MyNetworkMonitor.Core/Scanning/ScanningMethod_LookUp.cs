@@ -302,26 +302,19 @@ namespace MyNetworkMonitor
 
                 if (_cts.Token.IsCancellationRequested) return;
 
-                bool _LookUpStatus = false;
                 string _LookUpIPs = string.Empty;
 
                 var addressList = _entry.AddressList.ToList();
 
                 if (addressList.Count == 1)
                 {
-                    if (ipToScan.IPorHostname == addressList[0].ToString())
+                    if (ipToScan.IPorHostname != addressList[0].ToString())
                     {
-                        _LookUpStatus = true;
-                    }
-                    else
-                    {
-                        _LookUpStatus = false;
                         _LookUpIPs = addressList[0].ToString();
                     }
                 }
                 else if (addressList.Count > 1)
                 {
-                    _LookUpStatus = false;
                     _LookUpIPs = string.Join("\r\n", addressList);
                 }
                 else

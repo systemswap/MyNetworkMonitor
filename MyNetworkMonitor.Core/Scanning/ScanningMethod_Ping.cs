@@ -182,7 +182,7 @@ namespace MyNetworkMonitor
                 ProgressUpdated?.Invoke(sentCount, responded, total, ScanStatus.running);
 
                 using Ping ping = new Ping();
-                PingReply reply = null;
+                PingReply? reply = null;
                 bool success = false;
 
                 // Up to three attempts with increasing timeouts.
@@ -223,7 +223,7 @@ namespace MyNetworkMonitor
 
                 if (!success && !showUnused) return;
 
-                ipToScan.ResponseTime = success ? reply?.RoundtripTime.ToString() : string.Empty;
+                ipToScan.ResponseTime = success ? reply?.RoundtripTime.ToString() ?? string.Empty : string.Empty;
                 ipToScan.PingStatus = success;
                 ipToScan.UsedScanMethod = ScanMethod.Ping;
 

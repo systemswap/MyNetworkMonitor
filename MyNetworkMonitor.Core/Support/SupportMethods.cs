@@ -21,22 +21,11 @@ namespace MyNetworkMonitor
     /// <summary>Helper methods for MAC vendor lookup, IP address validation and interface queries.</summary>
     public class SupportMethods
     {
-        /// <summary>Checks whether the process runs with administrator rights (Windows only).</summary>
-        /// <returns><c>true</c> if the current Windows identity is in the Administrators role.</returns>
-        public bool IsAdministrator()
-        {
-            using (WindowsIdentity identity = WindowsIdentity.GetCurrent())
-            {
-                WindowsPrincipal principal = new WindowsPrincipal(identity);
-                return principal.IsInRole(WindowsBuiltInRole.Administrator);
-            }
-        }
-
-
         /// <summary>Column names of the MAC vendor list; the first column is the MAC prefix.</summary>
-        public string[] header;
-        private string[][] fields;
+        public string[] header = [];
+        private string[][]? fields;
 
+        [System.Diagnostics.CodeAnalysis.MemberNotNull(nameof(fields))]
         private void LoadMacVendors()
         {
             // Search order, see AppDataPaths: first the self-updated list in the
@@ -64,6 +53,13 @@ namespace MyNetworkMonitor
             }
 
             string[] lines = File.ReadAllLines(csvPath);
+
+            if (lines.Length == 0)
+            {
+                header = Array.Empty<string>();
+                fields = Array.Empty<string[]>();
+                return;
+            }
 
             header = lines[0].Split(',');
             fields = lines.Skip(1).Select(SplitCsvLine).ToArray();
@@ -241,15 +237,5 @@ namespace MyNetworkMonitor
             public static string IPv4_string { get { return IPv4.ToString(); } }
         }
 
-        /// <summary>Returns the <see cref="DescriptionAttribute"/> text of an enum value.</summary>
-        /// <param name="value">The enum value.</param>
-        /// <returns>The description, or the value name if there is none.</returns>
-        public static string GetEnumDescription(Enum value)
-        {
-            FieldInfo fi = value.GetType().GetField(value.ToString());
-            DescriptionAttribute[] attributes = (DescriptionAttribute[])fi.GetCustomAttributes(typeof(DescriptionAttribute), false);
-
-            return attributes.Length > 0 ? attributes[0].Description : value.ToString();
-        }
     }
 }

@@ -6,6 +6,10 @@ im Fehlergedächtnis). Grundlage ist die Prüfung gegen die gemeinsamen Regeln v
 
 ## Als Nächstes
 
+- **Netzansicht unter Linux: „DHCP/static“ stimmt nicht** – .NET kann unter Linux nicht sagen, ob ein Adapter
+  seine Adresse per DHCP bekommt; die Ansicht zeigt dort immer „static“ (`Network/NetworkAdapters.cs`, `IsDhcp`).
+  Abhilfe wäre, die Angabe unter Linux aus NetworkManager (`nmcli`) zu lesen, das das Programm schon nutzt.
+
 - **Gleiche MAC in mehreren Netzen – Gegenproben an echten Netzen** (umgesetzt in 7.3.0.41–7.3.0.44, siehe
   `docs/Architektur.md` und Fehlergedächtnis Nr. 36–39): Router oder L3-Switch mit mehreren VLANs über Satelliten,
   Gerät von Zentrale und Satellit gesehen, Server mit Zusatz-IP, Notebook nach DHCP-Wechsel und nach Wechsel

@@ -119,7 +119,7 @@ public sealed class IidVisibleConverter : IValueConverter
 public sealed class PortStatusTextConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
-        value as PortStatus? switch
+        (value as PortStatus?) switch
         {
             PortStatus.IsRunning => "running",
             PortStatus.Error => "other",
@@ -139,7 +139,7 @@ public sealed class PortStatusTextConverter : IValueConverter
 public sealed class PortStatusBackgroundConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
-        value as PortStatus? switch
+        (value as PortStatus?) switch
         {
             PortStatus.IsRunning => ShellPalette.RunBg,
             PortStatus.Open => ShellPalette.OpenBg,
@@ -157,7 +157,7 @@ public sealed class PortStatusBackgroundConverter : IValueConverter
 public sealed class PortStatusForegroundConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
-        value as PortStatus? switch
+        (value as PortStatus?) switch
         {
             PortStatus.IsRunning => ShellPalette.RunFg,
             PortStatus.Open => ShellPalette.OpenFg,
@@ -280,7 +280,7 @@ public sealed class CertificateExpiryBrushConverter : IValueConverter
 public sealed class SeverityBackgroundConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
-        value as FindingSeverity? switch
+        (value as FindingSeverity?) switch
         {
             FindingSeverity.Critical => ShellPalette.DupAddrBg,
             FindingSeverity.Warning => ShellPalette.WarnBg,
@@ -295,7 +295,7 @@ public sealed class SeverityBackgroundConverter : IValueConverter
 public sealed class SeverityForegroundConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
-        value as FindingSeverity? switch
+        (value as FindingSeverity?) switch
         {
             FindingSeverity.Critical => ShellPalette.DupAddrFg,
             FindingSeverity.Warning => ShellPalette.WarnFg,

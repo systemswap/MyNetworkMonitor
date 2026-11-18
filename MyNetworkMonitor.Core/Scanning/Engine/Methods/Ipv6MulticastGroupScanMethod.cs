@@ -160,7 +160,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                 ["Multicast groups"] = string.Join(", ", sighting.Groups)
             };
 
-            List<string> services = [.. sighting.Groups.Select(ServiceBehind).Where(s => s is not null).Distinct()!];
+            List<string> services = [.. sighting.Groups.Select(ServiceBehind).OfType<string>().Distinct()];
             if (services.Count > 0) details["Implied services"] = string.Join(", ", services);
 
             ReportAddress(context, segment, sighting.Address, details: details);

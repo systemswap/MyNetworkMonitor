@@ -31,3 +31,45 @@ public class OwnMacTests
         Assert.Null(ScanningMethod_ARP.OwnMacOf(IPAddress.Parse(ip), Own));
     }
 }
+
+/// <summary>
+/// Reading the ARP table reports every entry before it returns: the caller unsubscribes right after
+/// (docs/FEHLERGEDAECHTNIS.md, No. 47).
+/// </summary>
+public class ArpTableTests
+{
+    private sealed class FixedTable(int count) : MyNetworkMonitor.Core.Services.IArpProvider
+    {
+        public Task<string?> ResolveMacAsync(IPAddress ip, CancellationToken cancellationToken = default) =>
+            Task.FromResult<string?>(null);
+
+        public Task<IReadOnlyList<MyNetworkMonitor.Core.Models.ArpEntry>> GetArpTableAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<MyNetworkMonitor.Core.Models.ArpEntry>>(
+                [.. Enumerable.Range(1, count).Select(i => new MyNetworkMonitor.Core.Models.ArpEntry
+                    { IpAddress = $"192.0.2.{i}", MacAddress = $"02-00-5e-10-00-{i:x2}" })]);
+
+        public bool FlushArpCache() => true;
+    }
+
+    [Fact]
+    public async Task EveryEntryIsReportedBeforeReadingEnds()
+    {
+        ScanningMethod_ARP arp = new(new FixedTable(200));
+        List<IPToScan> targets = [.. Enumerable.Range(1, 200).Select(i => new IPToScan { IPorHostname = $"192.0.2.{i}" })];
+        int reported = 0;
+        void OnFound(object? _, ScanTask_Finished_EventArgs e)
+        {
+            Thread.Sleep(5);   // a subscriber that takes a moment, like the merge into the inventory
+            Interlocked.Increment(ref reported);
+        }
+
+        arp.ARP_A_newDevice += OnFound;
+        await arp.ARP_A(targets);
+        arp.ARP_A_newDevice -= OnFound;
+        int whenDone = Volatile.Read(ref reported);
+        await Task.Delay(200);
+
+        Assert.Equal(200, whenDone);
+        Assert.Equal(200, Volatile.Read(ref reported));
+    }
+}

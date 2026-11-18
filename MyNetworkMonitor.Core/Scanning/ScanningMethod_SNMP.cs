@@ -281,7 +281,7 @@ namespace MyNetworkMonitor
             {
                 FailedIPs.Add(ipToScan.IPorHostname);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 FailedIPs.Add(ipToScan.IPorHostname);
             }

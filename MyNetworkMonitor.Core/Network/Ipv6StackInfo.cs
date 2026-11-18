@@ -155,6 +155,9 @@ namespace MyNetworkMonitor.Core.Network
                 if (unicast.Address.AddressFamily != AddressFamily.InterNetworkV6) continue;
                 if (unicast.Address.IsIPv6LinkLocal) continue;
 
+                // Only Windows reports where a prefix comes from; elsewhere the raw socket answers it.
+                if (!OperatingSystem.IsWindows()) continue;
+
                 PrefixOrigin origin;
                 int length;
 

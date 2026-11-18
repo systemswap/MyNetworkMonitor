@@ -152,6 +152,8 @@ namespace MyNetworkMonitor.Core.Network
         /// </summary>
         private static bool IsDhcp(IPInterfaceProperties properties)
         {
+            if (!OperatingSystem.IsWindows()) return false;
+
             try
             {
                 return properties.GetIPv4Properties()?.IsDhcpEnabled ?? false;

@@ -207,7 +207,7 @@ public class ScanningMethod_Services
     /// <param name="IPsToScan">The targets.</param>
     /// <param name="services">The services to check.</param>
     /// <param name="extraPorts">Additional ports per service; <see langword="null"/> for none.</param>
-    public async Task ScanIPsAsync(List<IPToScan> IPsToScan, List<ServiceType> services, Dictionary<ServiceType, List<int>> extraPorts = null)
+    public async Task ScanIPsAsync(List<IPToScan> IPsToScan, List<ServiceType> services, Dictionary<ServiceType, List<int>>? extraPorts = null)
     {
         StartNewScan();
         scanStatus = ScanStatus.running;
@@ -469,7 +469,7 @@ public class ScanningMethod_Services
 
                 foreach (DataRow tempRow in tempTable.Rows)
                 {
-                    DataRow existingRow = _dt_Servives.Rows
+                    DataRow? existingRow = _dt_Servives.Rows
                         .Cast<DataRow>()
                         .FirstOrDefault(r => r["Service"].ToString() == tempRow["Service"].ToString());
 
@@ -614,19 +614,19 @@ public class ScanningMethod_Services
                 // Format ports: "53,46" becomes "53, 46"
                 if (row["Ports"] != DBNull.Value)
                 {
-                    row["Ports"] = string.Join(", ", row["Ports"].ToString().Split(',').Select(p => p.Trim()));
+                    row["Ports"] = string.Join(", ", (row["Ports"].ToString() ?? string.Empty).Split(',').Select(p => p.Trim()));
                 }
 
                 // Format HelloBytePackage.
                 if (row["HelloBytePackage"] != DBNull.Value)
                 {
-                    row["HelloBytePackage"] = string.Join(", ", row["HelloBytePackage"].ToString().Split(',').Select(p => p.Trim()));
+                    row["HelloBytePackage"] = string.Join(", ", (row["HelloBytePackage"].ToString() ?? string.Empty).Split(',').Select(p => p.Trim()));
                 }
 
                 // Format ResponsedBytePackagePart.
                 if (row["ResponsedBytePackagePart"] != DBNull.Value)
                 {
-                    row["ResponsedBytePackagePart"] = string.Join(", ", row["ResponsedBytePackagePart"].ToString().Split(',').Select(p => p.Trim()));
+                    row["ResponsedBytePackagePart"] = string.Join(", ", (row["ResponsedBytePackagePart"].ToString() ?? string.Empty).Split(',').Select(p => p.Trim()));
                 }
             }
 

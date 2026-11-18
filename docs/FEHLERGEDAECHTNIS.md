@@ -864,3 +864,26 @@ Automatische Tests stehen in `MyNetworkMonitor.Core.Tests` (`docs/PRUEFUNGEN.md`
 - **Abgesichert durch:** `OwnMacTests`; Nachbau mit zwei Satelliten (beide mit MAC und Hersteller in der Zentrale).
 - **Gegenprobe an echten Geräten (offen):** Satellit unter Windows und Linux im echten Netz – MAC und Hersteller in
   seiner Zeile stimmen mit dem Adapter überein; ein Rechner mit mehreren Adaptern zeigt je Adresse die MAC ihres Adapters.
+
+## Nr. 47 – ARP-Tabelle: Einträge gingen beim Lesen verloren
+
+- **Entdeckt:** 19.11.2026, Version 7.3.0.47 (Aufräumen der Compiler-Warnungen: CS4014, „auf den Aufruf wird nicht
+  gewartet“, in `ScanningMethod_ARP.ARP_A`). **Behoben:** 7.3.0.48.
+- **Was:** Das Verfahren „ARP table“ meldete Einträge der Tabelle des Systems teils nicht: Geräte, die nur dort standen,
+  fehlten im Ergebnis, oder ein Hintergrund-Task endete mit einer NullReferenceException, die niemand sah.
+- **Warum:** `ARP_A` reichte jeden Eintrag mit `Task.Run` an den Thread-Pool weiter und kehrte zurück, bevor die
+  Meldungen gelaufen waren. Der Aufrufer meldet sich direkt nach dem Ende von `ARP_A` vom Ereignis ab; später laufende
+  Meldungen fanden kein Abo mehr (Ereignis null) oder kamen nach dem Ende des Verfahrens an.
+- **Lösung:** Jeder Eintrag wird sofort und im selben Ablauf gemeldet (`ARP_A_newDevice?.Invoke`), wie es die
+  ARP-Anfrage schon tut. Verworfen: auf alle Tasks warten – das hätte die Meldungen weiter ungeordnet und ohne Nutzen
+  parallel laufen lassen.
+- **Nicht tun:** Ereignisse mit `Task.Run` „abfeuern“, wenn der Aufrufer sich nach dem Ende abmeldet; Warnungen wie
+  CS4014 überhören.
+- **Im Code:** `Scanning/ScanningMethod_ARP.cs` (`ARP_A`).
+- **Abgesichert durch:** `ArpTableTests` (200 Einträge, langsamer Abonnent – mit dem alten Code fehlte einer).
+- **Nebenbei in derselben Runde:** eine leere Herstellerliste (z. B. nach abgebrochener Aktualisierung) brach das
+  Nachschlagen mit einer Ausnahme ab statt „Unknown“ zu liefern (`SupportMethods.LoadMacVendors`); der Reverse-Lookup
+  hätte bei einem Fehler ohne Abonnenten eine NullReferenceException geworfen; Port-Ergebnisse ohne Portnummer werden
+  übersprungen statt mit einer Ausnahme abzubrechen. Kein Fall war im Betrieb aufgefallen.
+- **Gegenprobe an echten Geräten (offen):** Scan nur mit „ARP table“ in einem Netz mit vielen Geräten – jedes Gerät aus
+  `ip neigh` (Linux) bzw. `arp -a` (Windows) im gewählten Bereich steht in der Tabelle.

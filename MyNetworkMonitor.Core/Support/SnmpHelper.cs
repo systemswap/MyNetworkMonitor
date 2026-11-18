@@ -25,11 +25,11 @@ namespace MyNetworkMonitor
         /// <param name="endpoint">The endpoint if the address is valid; otherwise <c>null</c>.</param>
         /// <param name="port">The SNMP port.</param>
         /// <returns><c>true</c> if <paramref name="host"/> is an IP address.</returns>
-        public static bool TryGetEndpoint(string host, out IPEndPoint endpoint, int port = 161)
+        public static bool TryGetEndpoint(string host, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IPEndPoint? endpoint, int port = 161)
         {
             endpoint = null;
             if (string.IsNullOrWhiteSpace(host)) return false;
-            if (!IPAddress.TryParse(host.Trim(), out IPAddress address)) return false;
+            if (!IPAddress.TryParse(host.Trim(), out IPAddress? address)) return false;
             endpoint = new IPEndPoint(address, port);
             return true;
         }
@@ -43,10 +43,10 @@ namespace MyNetworkMonitor
         /// <param name="oids">The OIDs to query.</param>
         /// <param name="timeout">Timeout in milliseconds.</param>
         /// <returns>An OID-to-value map, or <c>null</c> if there is no result.</returns>
-        public static Dictionary<string, string> Get(string host, VersionCode version, string community,
+        public static Dictionary<string, string>? Get(string host, VersionCode version, string? community,
             IEnumerable<string> oids, int timeout = DefaultTimeout)
         {
-            if (!TryGetEndpoint(host, out IPEndPoint endpoint)) return null;
+            if (!TryGetEndpoint(host, out IPEndPoint? endpoint)) return null;
 
             try
             {
@@ -79,10 +79,10 @@ namespace MyNetworkMonitor
         /// <param name="tableOid">Root OID of the subtree.</param>
         /// <param name="timeout">Timeout in milliseconds.</param>
         /// <returns>An OID-to-value map, or <c>null</c> on error or no answer.</returns>
-        public static Dictionary<string, string> Walk(string host, VersionCode version, string community,
+        public static Dictionary<string, string>? Walk(string host, VersionCode version, string? community,
             string tableOid, int timeout = DefaultTimeout)
         {
-            if (!TryGetEndpoint(host, out IPEndPoint endpoint)) return null;
+            if (!TryGetEndpoint(host, out IPEndPoint? endpoint)) return null;
 
             try
             {
@@ -109,7 +109,7 @@ namespace MyNetworkMonitor
         /// </summary>
         /// <param name="data">The SNMP value.</param>
         /// <returns>The value as text; empty for <c>null</c> or an empty OctetString.</returns>
-        public static string DataToString(ISnmpData data)
+        public static string DataToString(ISnmpData? data)
         {
             if (data is OctetString os)
             {

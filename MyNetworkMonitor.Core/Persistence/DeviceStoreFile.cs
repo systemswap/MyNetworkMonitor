@@ -145,7 +145,7 @@ namespace MyNetworkMonitor.Core.Persistence
             List<DeviceRecord>? records = JsonSerializer.Deserialize<List<DeviceRecord>>(json, Options);
             if (records is null) return [];
 
-            return [.. records.Select(r => ToDevice(r, keepResponding)).Where(d => d is not null)!];
+            return [.. records.Select(r => ToDevice(r, keepResponding)).OfType<Device>()];
         }
 
         /// <summary>

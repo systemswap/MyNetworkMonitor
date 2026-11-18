@@ -365,7 +365,7 @@ namespace MyNetworkMonitor
 
 
         private string _LookUpIPs = string.Empty;
-        private IPHostEntry _IP_HostEntry = null;
+        private IPHostEntry? _IP_HostEntry = null;
         private List<string> _lst_DNSServers;
         public string LookUpIPs { get { return _LookUpIPs; } set { _LookUpIPs = value; } }
         public IPHostEntry IP_HostEntry { get { return _IP_HostEntry; } set { _IP_HostEntry = value; } }

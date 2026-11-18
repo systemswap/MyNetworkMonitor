@@ -87,7 +87,6 @@ namespace MyNetworkMonitor
         public event Action<int, int, int, ScanStatus> ProgressUpdated;
 
   
-        private int responded = 0;
 
         DateTime startTime;
 
@@ -189,7 +188,6 @@ namespace MyNetworkMonitor
             startTime = DateTime.UtcNow;
 
             mDNS_ScanStatus?.Invoke(ScanStatus.running);
-            responded = 0;
 
             string selectedInterfaceName = NetworkInterfaceName;
             IPAddress localIp = GetIPAddressFromInterfaceName(selectedInterfaceName);
@@ -211,7 +209,7 @@ namespace MyNetworkMonitor
             windowCts.CancelAfter(listenTimeMs);
 
             // Timer that reports the remaining time every second.
-            Timer progressTimer = null;
+            Timer? progressTimer = null;
             int remainingTime = listenTimeMs;
 
             progressTimer = new Timer(_ =>
@@ -229,7 +227,7 @@ namespace MyNetworkMonitor
 
             void ReportDevice(string ip)
             {
-                if (!foundDevices.TryGetValue(ip, out MdnsDeviceInfo device)) return;
+                if (!foundDevices.TryGetValue(ip, out MdnsDeviceInfo? device)) return;
 
                 IPToScan ipToScan = new IPToScan
                 {

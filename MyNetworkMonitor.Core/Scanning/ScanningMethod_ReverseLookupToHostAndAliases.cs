@@ -29,7 +29,7 @@ namespace MyNetworkMonitor
         /// Raised for every resolved address; the event arguments are <see langword="null"/> if the
         /// address could not be resolved.
         /// </summary>
-        public event EventHandler<ScanTask_Finished_EventArgs>? GetHostAliases_Task_Finished;
+        public event EventHandler<ScanTask_Finished_EventArgs?>? GetHostAliases_Task_Finished;
 
         /// <summary>Raised when all lookups of a run have finished.</summary>
         public event Action<ScanStatus>? GetHostAliases_Finished;
@@ -458,9 +458,9 @@ namespace MyNetworkMonitor
 
 
                         }
-                        catch (Exception ex)
+                        catch (Exception)
                         {
-
+                            // This server did not answer; the next one may.
                         }
                     }
                 }
@@ -512,9 +512,9 @@ namespace MyNetworkMonitor
                     GetHostAliases_Task_Finished(this, scanTask_Finished);
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-               GetHostAliases_Task_Finished(this, null);
+                GetHostAliases_Task_Finished?.Invoke(this, null);
             }
         }
     }
