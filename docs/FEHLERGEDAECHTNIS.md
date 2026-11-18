@@ -816,3 +816,34 @@ Automatische Tests stehen in `MyNetworkMonitor.Core.Tests` (`docs/PRUEFUNGEN.md`
   den Bestand der Zentrale).
 - **Gegenprobe an echten Geräten (offen):** Zentrale und Satellit auf 7.3.0.45: nach einem Scan sind die Geräte des
   Satelliten-Bereichs grün und zählen in „reachable“.
+
+## Nr. 44 – Statuszeile: Satellit ohne Verbindung galt weiter als „scanning“
+
+- **Entdeckt:** 18.11.2026, Version 7.3.0.45 (Durchlauf des Satellitenbetriebs im Nachbau: Satellit mitten im
+  Auftrag beendet – „Offline“ in der Liste, aber „Satellite "…" is scanning“ in der Statuszeile). **Behoben:** 7.3.0.46.
+- **Was:** Fiel die Verbindung eines Satelliten während seines Auftrags weg, sagte die Statuszeile weiter, er scanne.
+- **Warum:** Die Statusführung aus Nr. 42 kannte Ergebnis und Fehlermeldung des Satelliten, aber nicht den Abbruch der
+  Verbindung: der Satelliten-Editor räumte nur den Fortschritt in der Liste auf.
+- **Lösung:** Beim Abbruch einer Verbindung mit laufendem Auftrag meldet der Editor `JobFailed` mit „the connection was
+  lost during the job - its ranges were not fully scanned“.
+- **Nicht tun:** nur die Antworten einer Gegenstelle auswerten und ihr Verschwinden vergessen.
+- **Im Code:** `ViewModels/SatelliteEditorViewModel.cs` (Ereignis `Disconnected` des Listeners).
+- **Abgesichert durch:** Durchlauf im Nachbau (`docs/PRUEFUNGEN.md`, Satellitenbetrieb); kein Test ohne Netzverbindung.
+- **Gegenprobe an echten Geräten (offen):** Satelliten während eines langen Auftrags trennen (Netzkabel, Dienst
+  stoppen) – die Statuszeile nennt den Abbruch.
+
+## Nr. 45 – Satelliten-Ansicht: „Offline since“ zeigte die Zeit der Verbindung, Herkunft als `::ffff:`-Adresse
+
+- **Entdeckt:** 18.11.2026, Version 7.3.0.45 (Durchlauf im Nachbau: Satellit um 23:50 beendet, angezeigt „Offline since
+  23:41“ – der Zeitpunkt des Verbindens; „Came from [::ffff:198.51.100.20]:41604“). **Behoben:** 7.3.0.46.
+- **Was:** Ein getrennter Satellit stand mit der Uhrzeit seiner Anmeldung als „offline seit“; „Last seen“ blieb während
+  der ganzen Verbindung bei der Anmeldung. Die Herkunft eines IPv4-Satelliten stand in der IPv6-Schreibweise.
+- **Warum:** `LastSeen` wurde nur bei der Anmeldung gesetzt. Der Listener nimmt IPv4 und IPv6 auf einem Socket an,
+  IPv4-Gegenstellen erscheinen dort als IPv4-gemappte IPv6-Adressen.
+- **Lösung:** `LastSeen` auch bei Fortschritt, Ergebnis und Abbruch der Verbindung; die Herkunft wird als IPv4-Adresse
+  angezeigt, wenn sie eine ist (`SatelliteListener.Describe`).
+- **Nicht tun:** einen Zeitstempel „zuletzt gesehen“ nur an einer Stelle pflegen.
+- **Im Code:** `ViewModels/SatelliteEditorViewModel.cs` (`Disconnected`, `ProgressReported`, `ResultReceived`),
+  `SatelliteLink/SatelliteListener.cs` (`Describe`).
+- **Abgesichert durch:** `SatelliteEndpointTests`; Zeitpunkt im Durchlauf geprüft.
+- **Gegenprobe an echten Geräten (offen):** keine nötig.

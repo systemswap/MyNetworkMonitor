@@ -101,3 +101,22 @@ public class SatelliteResultTests
         Assert.True(main.FindAllByAddress(Ip("198.51.100.21")).Single().IsOnline);
     }
 }
+
+/// <summary>How the main scanner shows where a satellite connected from (docs/FEHLERGEDAECHTNIS.md, No. 45).</summary>
+public class SatelliteEndpointTests
+{
+    [Theory]
+    [InlineData("::ffff:198.51.100.20", 41604, "198.51.100.20:41604")]
+    [InlineData("198.51.100.20", 41604, "198.51.100.20:41604")]
+    [InlineData("2001:db8::20", 41604, "[2001:db8::20]:41604")]
+    public void PeerAddressIsShownAsAnAdministratorReadsIt(string address, int port, string expected)
+    {
+        Assert.Equal(expected, SatelliteListener.Describe(new System.Net.IPEndPoint(System.Net.IPAddress.Parse(address), port)));
+    }
+
+    [Fact]
+    public void MissingEndPointIsUnknown()
+    {
+        Assert.Equal("unknown", SatelliteListener.Describe(null));
+    }
+}

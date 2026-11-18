@@ -169,7 +169,7 @@ namespace MyNetworkMonitor.Core.SatelliteLink
 
         private async Task HandshakeAsync(TcpClient client, CancellationToken token)
         {
-            string remote = client.Client.RemoteEndPoint?.ToString() ?? "unknown";
+            string remote = Describe(client.Client.RemoteEndPoint);
             SslStream? tls = null;
 
             try
@@ -442,6 +442,23 @@ namespace MyNetworkMonitor.Core.SatelliteLink
                 try { stream.Dispose(); } catch { }
                 try { client.Dispose(); } catch { }
             }
+        }
+
+        /// <summary>
+        /// The address of the peer as an administrator reads it. The listener accepts IPv4 and IPv6 on
+        /// one socket, so an IPv4 satellite arrives as an IPv4-mapped IPv6 address
+        /// (<c>[::ffff:198.51.100.20]:41604</c>); shown as <c>198.51.100.20:41604</c>
+        /// (docs/FEHLERGEDAECHTNIS.md, No. 45).
+        /// </summary>
+        /// <param name="endPoint">The remote end point of the connection.</param>
+        /// <returns>Address and port; "unknown" without an end point.</returns>
+        internal static string Describe(System.Net.EndPoint? endPoint)
+        {
+            if (endPoint is not System.Net.IPEndPoint ip) return endPoint?.ToString() ?? "unknown";
+
+            return ip.Address.IsIPv4MappedToIPv6
+                ? new System.Net.IPEndPoint(ip.Address.MapToIPv4(), ip.Port).ToString()
+                : ip.ToString();
         }
     }
 }

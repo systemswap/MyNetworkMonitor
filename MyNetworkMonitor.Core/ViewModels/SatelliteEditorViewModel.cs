@@ -426,6 +426,10 @@ namespace MyNetworkMonitor.Core.ViewModels
 
                 gone.IsConnected = false;
 
+                // The moment it was last heard is now: "Offline since" shows when the
+                // connection was lost, not when it was made (docs/FEHLERGEDAECHTNIS.md, No. 45).
+                gone.LastSeen = DateTimeOffset.Now;
+
                 // Losing the connection also loses the job: the result would
                 // come back over exactly this session. If the job stayed, the
                 // display would keep showing the state at the moment of the
@@ -437,6 +441,10 @@ namespace MyNetworkMonitor.Core.ViewModels
                     gone.ProgressCurrent = string.Empty;
                     gone.ProgressPercent = 0;
                     ClearCounts(gone);
+
+                    // The main scanner must stop counting it as scanning
+                    // (docs/FEHLERGEDAECHTNIS.md, No. 44).
+                    JobFailed?.Invoke(this, (gone.Name, "the connection was lost during the job - its ranges were not fully scanned"));
                 }
             });
 
@@ -461,6 +469,7 @@ namespace MyNetworkMonitor.Core.ViewModels
                 // may differ, and the question is "when did *this* side last
                 // hear something" anyway.
                 s.ProgressAt = DateTimeOffset.UtcNow;
+                s.LastSeen = DateTimeOffset.Now;
             });
 
             _listener.ResultReceived += (_, e) => Post(() =>
@@ -468,6 +477,7 @@ namespace MyNetworkMonitor.Core.ViewModels
                 Satellite? s = ByFingerprint(e.Fingerprint);
                 if (s is not null)
                 {
+                    s.LastSeen = DateTimeOffset.Now;
                     s.JobId = string.Empty;
                     s.ProgressPercent = 100;
                     s.ProgressCurrent = string.Empty;
