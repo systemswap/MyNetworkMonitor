@@ -34,7 +34,9 @@ stimmt. Ohne Agent auf den Geräten, ohne Cloud, ohne Konto.
   <img src="docs/bilder/readme/uebersicht.png" width="860" alt="Die Gerätetabelle mit ausgewähltem NAS und seinen Details">
 </p>
 
-**Was Sie sehen:** ein Netz mit acht Bereichen und 93 Geräten nach einem Scan. Jede Zeile ein Gerät, mit Name,
+<p align="center"><sub>Alle Bilder in doppelter Auflösung – zum Vergrößern anklicken.</sub></p>
+
+**Was Sie sehen:** ein Netz mit acht Bereichen und 95 Geräten nach einem Scan. Jede Zeile ein Gerät, mit Name,
 Bereich, IPv4- und IPv6-Adresse, Hersteller (aus der MAC-Adresse) und den erkannten Diensten als Marken. Rechts die
 Details des ausgewählten Backup-NAS: Weboberfläche mit selbstsigniertem Zertifikat, MAC-Adresse, beide Adressen, alle
 Dienste mit Port und Zustand, die SMB-Versionen und was das Gerät per UPnP und SNMP über sich sagt. Darüber filtern Sie
@@ -111,9 +113,14 @@ stehen.
 
 **Was Sie sehen:** die Befunde nach dem Scan, die kritischen zuerst. Ein Monitoring-Server antwortet über IPv6 auf
 einem Port, den die Firewall nur für IPv4 sperrt. Ein NAS spricht noch SMB 1.0. Ein Drucker zeigt ein abgelaufenes
-Zertifikat. Und im Verwaltungsnetz verteilt neben dem Domänencontroller ein zweites Gerät Adressen per DHCP – der
-klassische falsch eingesteckte Router. Dazu kommen doppelte Adressen, Namen und MACs, DNS-Einträge, die woandershin
-zeigen, und offene Ports auf Adressen, die aus dem Internet erreichbar sind.
+Zertifikat, und im Verwaltungsnetz verteilt neben dem Domänencontroller ein zweites Gerät Adressen per DHCP – der
+klassische falsch eingesteckte Router. Dazu drei Fehler, die zwei Netze betreffen: ein Druckername, den es zweimal gibt,
+ein DNS-Eintrag, der auf eine fremde Kamera zeigt, und eine virtuelle Maschine, die mit der MAC eines PCs aus einem
+anderen VLAN geklont wurde.
+
+Antwortet eine MAC im selben Netz für mehrere Adressen, nennt MyNetworkMonitor die möglichen Ursachen – Zusatzadresse,
+alte DHCP-Adresse, Repeater oder ARP-Spoofing. Gehört eine dieser Adressen zugleich einem anderen Gerät mit eigener MAC,
+meldet es kritisch **Verdacht auf ARP-Spoofing**.
 
 ---
 
@@ -125,7 +132,19 @@ zeigen, und offene Ports auf Adressen, die aus dem Internet erreichbar sind.
 
 **Netzansicht:** Jeder Bereich ist eine eigene Wolke, beschriftet mit seinem Netz. Sie drehen, zoomen und verschieben
 mit der Maus; über einem Gerät erscheinen Bereich, Name, Adresse und MAC. Doppelte Adressen, Namen oder MACs und abweichende
-DNS-Einträge erscheinen als farbige Kanten zwischen den betroffenen Geräten.
+DNS-Einträge erscheinen als farbige Kanten – und ziehen die betroffenen Netze sichtbar zueinander: unten links Drucker,
+Außenlager und Videoüberwachung, rechts Server und Verwaltung.
+
+### Fehler, die Netze verbinden
+
+<p align="center">
+  <img src="docs/bilder/readme/fehler-verbinden-netze.png" width="760" alt="Herangezoomt: farbige Kanten zwischen zwei Netzen mit Erklärung">
+</p>
+
+**Was Sie sehen:** dieselbe Ansicht, auf die verbundenen Netze herangezoomt, mit der Legende des Programms oben links.
+Orange verbindet zwei Geräte mit demselben Hostnamen, rot zwei Geräte mit derselben MAC in verschiedenen Netzen, pink
+einen DNS-Eintrag, der auf ein anderes Gerät zeigt. Genau solche Fehler – falsch abgeglichene DNS-Server, geklonte
+Maschinen, eine MAC in zwei VLANs – sind in Tabellen kaum zu finden; hier springen sie ins Auge.
 
 <p align="center">
   <img src="docs/bilder/readme/topologie-dienste.png" width="860" alt="3D-Ansicht: eine Wolke je Dienst">
@@ -161,7 +180,9 @@ einer Tabelle.
 </p>
 
 **Was Sie sehen:** zwei freigegebene, verbundene Satelliten und rechts die Zuordnung: Der Bereich „Produktion Halle 3“
-wird von `sat-halle3` gescannt, einem Industrie-PC im Schaltschrank.
+wird von `sat-halle3` gescannt, einem Industrie-PC im Schaltschrank. Was ein Satellit meldet, ordnet die Zentrale ihren
+eigenen Bereichen zu – taucht eine MAC aus seinem Segment auch in einem anderen Netz auf, bleiben es zwei Geräte mit
+roter Kante statt eines.
 
 ---
 
