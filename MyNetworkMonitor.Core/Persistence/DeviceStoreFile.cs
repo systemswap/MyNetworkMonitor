@@ -224,7 +224,8 @@ namespace MyNetworkMonitor.Core.Persistence
                 PreferredUntil = a.PreferredUntil,
                 FirstSeen = a.FirstSeen,
                 LastSeen = a.LastSeen,
-                DiscoveredBy = Blank(a.DiscoveredBy)
+                DiscoveredBy = Blank(a.DiscoveredBy),
+                NetworkId = Blank(a.NetworkId)
             })],
             Services = [.. device.Services.Select(s => new ServiceRecord
             {
@@ -294,6 +295,7 @@ namespace MyNetworkMonitor.Core.Persistence
                     FirstSeen = address.FirstSeen,
                     LastSeen = address.LastSeen,
                     DiscoveredBy = address.DiscoveredBy ?? string.Empty,
+                    NetworkId = address.NetworkId,
 
                     // Deliberately not restored: that a device responded
                     // yesterday says nothing about whether it is online now, so
@@ -379,6 +381,10 @@ namespace MyNetworkMonitor.Core.Persistence
             public DateTimeOffset FirstSeen { get; set; }
             public DateTimeOffset LastSeen { get; set; }
             public string? DiscoveredBy { get; set; }
+
+            // Optional: inventories saved before addresses carried their network lack it; it is
+            // filled from the configured ranges after loading (NetworkIds.FillMissing).
+            public string? NetworkId { get; set; }
         }
 
         private sealed class ServiceRecord

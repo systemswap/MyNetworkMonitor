@@ -44,6 +44,12 @@ namespace MyNetworkMonitor.Core.Model
         [ObservableProperty] private string _discoveredBy = string.Empty;
 
         /// <summary>
+        /// The network the address was seen in (<see cref="NetworkIds"/>); null if unknown. A MAC
+        /// address identifies a device only within one network, which needs this per address.
+        /// </summary>
+        [ObservableProperty] private string? _networkId;
+
+        /// <summary>
         /// The address has responded since it was last checked. Separate from
         /// <see cref="LastSeen"/> because an address can also be observed
         /// passively without being contacted.

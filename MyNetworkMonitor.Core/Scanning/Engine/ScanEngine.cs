@@ -272,6 +272,29 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
             }
         }
 
+        /// <summary>
+        /// The network of every target address, from the scope it is scanned through
+        /// (<see cref="NetworkIds"/>). The methods report addresses, not targets; this lets every
+        /// observation carry its network without each method passing it on. An address in several
+        /// scopes takes the first one, as the methods do when they look up the scope of a target.
+        /// </summary>
+        /// <param name="targets">The targets of the run.</param>
+        /// <returns>Network key per canonical address; target lists add nothing.</returns>
+        internal static Dictionary<string, string> TargetNetworks(IEnumerable<ScanTargetEntry> targets)
+        {
+            Dictionary<string, string> networks = new(StringComparer.OrdinalIgnoreCase);
+
+            foreach (ScanTargetEntry target in targets)
+            {
+                if (target.Address is null || networks.ContainsKey(target.Address.Canonical)) continue;
+
+                string? network = target.Scope.NetworkIdFor(target.Address);
+                if (network is not null) networks[target.Address.Canonical] = network;
+            }
+
+            return networks;
+        }
+
         private async Task<ScanMethodOutcome> RunOneAsync(
             IScanMethod method,
             List<ScopeRuntime> scopes,
@@ -281,6 +304,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
             CancellationToken token)
         {
             DateTimeOffset started = DateTimeOffset.Now;
+            Dictionary<string, string> networks = TargetNetworks(targets);
 
             ScanContext context = new()
             {
@@ -294,6 +318,12 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
                     // thread-safe, so reports are serialized here.
                     lock (_reportLock)
                     {
+                        if (observation.NetworkId is null && observation.Address is not null &&
+                            networks.TryGetValue(observation.Address.Canonical, out string? network))
+                        {
+                            observation.NetworkId = network;
+                        }
+
                         store.Observe(observation);
                     }
                 },

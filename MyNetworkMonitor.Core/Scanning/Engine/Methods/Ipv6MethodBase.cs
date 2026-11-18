@@ -368,6 +368,10 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
 
                 IsResponding = isResponding,
                 GroupDescription = segment.Scope.Scope.GroupDescription,
+
+                // The segment the address was seen on: IPv6 addresses found here are not
+                // targets of the run, so the engine cannot fill it from the target list.
+                NetworkId = segment.Scope.NetworkIdFor(info),
                 Domain = string.IsNullOrWhiteSpace(segment.Scope.Scope.Domain)
                     ? null
                     : segment.Scope.Scope.Domain,

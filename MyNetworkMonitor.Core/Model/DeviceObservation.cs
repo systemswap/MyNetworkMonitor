@@ -62,6 +62,13 @@ namespace MyNetworkMonitor.Core.Model
         /// <summary>The IP range the observation comes from.</summary>
         public string? GroupDescription { get; init; }
 
+        /// <summary>
+        /// The network the address was seen in (<see cref="NetworkIds"/>); null if unknown, for example
+        /// for a target list. Methods that know the segment set it themselves (IPv6); for all others
+        /// the scan engine fills it from the range of the target before the observation is recorded.
+        /// </summary>
+        public string? NetworkId { get; set; }
+
         // --- Address details, as far as the method knows them ----------------
 
         /// <summary>How the address was assigned.</summary>

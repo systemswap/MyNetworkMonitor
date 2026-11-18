@@ -144,6 +144,40 @@ namespace MyNetworkMonitor.Core.Scanning.Engine
         /// <summary>IPv6 state of <see cref="Interface"/>.</summary>
         public required Ipv6Readiness Ipv6 { get; init; }
 
+        /// <summary>
+        /// The network an address scanned through this scope belongs to (<see cref="NetworkIds"/>).
+        /// </summary>
+        /// <param name="address">The address; for the own network interface it selects the subnet. Null or IPv6 takes the first subnet of the interface.</param>
+        /// <returns>The key, or null for a target list.</returns>
+        public string? NetworkIdFor(IpAddressInfo? address) =>
+            NetworkIds.For(Scope, address?.Address, _interfaceAddresses ??= ReadInterfaceAddresses());
+
+        // Read once per run: the targets of a scope share its interface, and asking the operating
+        // system for every one of 254 addresses would cost a system call each.
+        private List<(System.Net.IPAddress, System.Net.IPAddress)>? _interfaceAddresses;
+
+        private List<(System.Net.IPAddress, System.Net.IPAddress)> ReadInterfaceAddresses()
+        {
+            List<(System.Net.IPAddress, System.Net.IPAddress)> own = [];
+
+            if (Scope.Kind == ScanScopeKind.NetworkInterface && Interface is not null)
+            {
+                try
+                {
+                    foreach (UnicastIPAddressInformation unicast in Interface.GetIPProperties().UnicastAddresses)
+                    {
+                        if (unicast.IPv4Mask is not null) own.Add((unicast.Address, unicast.IPv4Mask));
+                    }
+                }
+                catch (NetworkInformationException)
+                {
+                    // Without the addresses of the interface the key stays the one of the scope.
+                }
+            }
+
+            return own;
+        }
+
         /// <inheritdoc />
         public override string ToString() => $"{Scope.GroupDescription} [{Ipv6.Availability}]";
     }

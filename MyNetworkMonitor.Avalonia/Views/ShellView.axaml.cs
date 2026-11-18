@@ -77,6 +77,10 @@ public partial class ShellView : Window
 
         LoadScopes();
 
+        // The inventory was read before the ranges; addresses saved without their network get the
+        // one of the range containing them only now.
+        _shell.AssignMissingNetworks();
+
         _shell.PortEditor.Load(System.IO.Path.Combine(SettingsFolder(), "portsToScan.xml"));
         _shell.ServiceEditor.Load(ServiceXmlPath());
 

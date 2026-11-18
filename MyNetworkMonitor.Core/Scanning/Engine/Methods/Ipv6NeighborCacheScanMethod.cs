@@ -133,6 +133,7 @@ namespace MyNetworkMonitor.Core.Scanning.Engine.Methods
                     IsResponding = entry.State is NeighborState.Reachable,
 
                     GroupDescription = segment.Scope.Scope.GroupDescription,
+                    NetworkId = segment.Scope.NetworkIdFor(info),
                     Domain = string.IsNullOrWhiteSpace(segment.Scope.Scope.Domain)
                         ? null
                         : segment.Scope.Scope.Domain,

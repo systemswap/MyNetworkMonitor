@@ -581,6 +581,20 @@ namespace MyNetworkMonitor.Core.ViewModels
             Methods.Any(m => m.IsEffective && IsDnsMethod(m.Id));
 
         /// <summary>
+        /// Gives addresses of the loaded inventory that do not know their network yet the one of the
+        /// configured range containing them (<see cref="NetworkIds.FillMissing"/>). Called once the
+        /// ranges are loaded - the inventory is read before them.
+        /// </summary>
+        /// <returns>The number of addresses completed.</returns>
+        public int AssignMissingNetworks()
+        {
+            lock (_store.SyncRoot)
+            {
+                return NetworkIds.FillMissing(_store.Devices, Scopes);
+            }
+        }
+
+        /// <summary>
         /// Reads the last saved inventory. Without a file the list stays empty;
         /// that is not an error but the first start.
         /// </summary>

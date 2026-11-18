@@ -321,6 +321,7 @@ namespace MyNetworkMonitor.Core.Model
                 if (address.PreferredUntil is not null) mine.PreferredUntil = address.PreferredUntil;
                 if (address.IsResponding) mine.IsResponding = true;
                 if (!string.IsNullOrWhiteSpace(address.DiscoveredBy)) mine.DiscoveredBy = address.DiscoveredBy;
+                if (address.NetworkId is not null) mine.NetworkId = address.NetworkId;
             }
 
             if (incoming.Duid is { Length: > 0 }) target.Duid = incoming.Duid;
@@ -677,6 +678,9 @@ namespace MyNetworkMonitor.Core.Model
             if (o.ValidUntil is not null) existing.ValidUntil = o.ValidUntil;
             if (o.PreferredUntil is not null) existing.PreferredUntil = o.PreferredUntil;
             if (o.IsResponding) existing.IsResponding = true;
+
+            // A target list carries no network; the address then keeps the one it was seen in before.
+            if (o.NetworkId is not null) existing.NetworkId = o.NetworkId;
         }
 
         /// <summary>
