@@ -6,6 +6,29 @@ im Fehlergedächtnis). Grundlage ist die Prüfung gegen die gemeinsamen Regeln v
 
 ## Als Nächstes
 
+- **Gleiche MAC in mehreren Netzen wieder sichtbar machen** (abgestimmt am 18.11.2026). Heute führt der Gerätebestand
+  alles mit derselben MAC zu einem Gerät zusammen, über alle Bereiche und Satelliten hinweg; die 3D-Ansicht zeigt
+  deshalb keine roten „same MAC“-Kanten mehr, der zweite Name geht verloren. Neue Regel: eine MAC kennzeichnet ein
+  Gerät nur innerhalb ihres Netzes. Schritte, je eigene Version mit Tests:
+  1. Netz-Kennung je Adresse (Kennung des Bereichs, bei „Local network“ samt tatsächlichem Subnetz), von allen
+     Verfahren mitgegeben und gespeichert; ältere Bestände bekommen sie beim Laden über den passenden Bereich.
+  2. Zuordnung: MAC nur im selben Netz; aus EUI-64 abgeleitete MAC nur weich; VRRP-, HSRP- und NLB-MACs nie als
+     Kennung; Bereich eines Geräts aus dem Netz seiner Adresse statt „zuletzt gemeldet“; gilt auch für Satelliten.
+  3. Befunde: „gleiche MAC in einem anderen Netz“ (Warnung; nur Hinweis „früher in … gesehen“, wenn nicht beide
+     zugleich antworten – Umzug); mehrere IPv4 an einer MAC im selben Netz mit Text „Zusatzadresse, alte
+     DHCP-Adresse, Repeater/Bridge oder Spoofing“, kritisch als Verdacht auf ARP-Spoofing, wenn das Gateway oder eine
+     IP mit eigener anderer MAC betroffen ist; Titel und Schweregrad je Befundzeile (siehe „Vermutete Fehler“).
+  4. Satelliten: Zentrale ordnet zurückkommende Geräte über den Auftrag ihrem Bereich zu; Bereichsname je Bereich im
+     Auftrag; ältere Satelliten bleiben verwendbar.
+  5. Anzeige: Hinweis in der Tabelle, rote Kanten und weitere IPv4-Adressen als eigene Knoten im 3D-Graphen.
+  6. Doku (Architektur, SATELLIT.md, Fehlergedächtnis) und Gegenproben: Router mit mehreren VLANs über Satelliten,
+     Server mit Zusatz-IP, Notebook nach DHCP-Wechsel, VRRP/HSRP-Paar, geklonte VM, Windows `SendARP` hinter einem
+     Router, Messung mit einigen tausend Geräten.
+
+  Bewusst nicht: gleiche private Netze an zwei Standorten (Adressabfragen und doppelte IP je Netz), zufällige MACs
+  gesondert, Formatversion der Bestandsdatei, „bekannt und in Ordnung“-Markierung. Das heutige Verhalten halten
+  `DeviceStoreTests` und `DuplicateDetectorTests` fest.
+
 - **Gegenproben an echten Geräten** für die Korrekturen 7.3.0.38–7.3.0.40 (gefunden mit einem nachgebauten Netz aus
   Dokumentationsadressen): Hersteller mit Komma ohne Anführungszeichen, Bewertung „global“ unverändert für private und
   öffentliche Adressen, Netzbeschriftung der 3D-Ansicht bei Bereichen, die kein /24 sind. Was jeweils zu prüfen ist:
@@ -21,6 +44,10 @@ Beobachtet am 18.11.2026 in einem nachgebauten Netz (Hauptscanner und zwei Satel
   `SatelliteEditorViewModel.ConnectAllHosts` laut Kommentar beim Start läuft.
 - **„Satellites are scanning“ bleibt stehen:** Nach einem Scan mit zwei zugewiesenen Satelliten meldete der
   Hauptscanner minutenlang „2 satellites are scanning“, beide Satelliten zeigten „Idle“; ihre Bereiche kamen nicht an.
+- **Befundtitel je Gerät statt je Zeile:** `FindingsViewModel` gibt jeder Konfliktzeile eines Geräts Titel und
+  Schweregrad seines schwersten Konflikts (`TitleFor(device.Conflicts)`). Hat ein Gerät eine doppelte IP und einen
+  doppelten Namen, stehen beide Zeilen als „Duplicate address“, kritisch. Gefunden mit `DuplicateDetectorTests`
+  (bestätigt, nicht nur vermutet); Behebung in Schritt 3 oben.
 - **Bereichsfilter der Gerätetabelle:** Die Gerätezahl steht ohne Abstand am Namen („Außenlager12 (12 up)“).
 
 ## Später
