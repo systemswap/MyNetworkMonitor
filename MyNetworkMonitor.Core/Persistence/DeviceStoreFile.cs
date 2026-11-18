@@ -124,14 +124,28 @@ namespace MyNetworkMonitor.Core.Persistence
         /// <param name="json">JSON as produced by <see cref="ToJson"/>.</param>
         /// <returns>The devices; records that cannot be identified are skipped.</returns>
         /// <exception cref="JsonException">The text is not valid JSON in the expected format.</exception>
-        public static List<Device> FromJson(string json)
+        public static List<Device> FromJson(string json) => FromJson(json, keepResponding: false);
+
+        /// <summary>
+        /// Reads devices from a string, optionally with the reachability of their addresses.
+        /// <para>
+        /// A saved inventory says nothing about whether a device answers now, so loading never restores
+        /// it. A satellite result does: the satellite has just scanned, and without it every device of
+        /// a satellite range appeared as not answering (docs/FEHLERGEDAECHTNIS.md, No. 43).
+        /// </para>
+        /// </summary>
+        /// <param name="json">JSON as produced by <see cref="ToJson"/>.</param>
+        /// <param name="keepResponding">Take over which addresses answered; only for a fresh result.</param>
+        /// <returns>The devices; records that cannot be identified are skipped.</returns>
+        /// <exception cref="JsonException">The text is not valid JSON in the expected format.</exception>
+        public static List<Device> FromJson(string json, bool keepResponding)
         {
             if (string.IsNullOrWhiteSpace(json)) return [];
 
             List<DeviceRecord>? records = JsonSerializer.Deserialize<List<DeviceRecord>>(json, Options);
             if (records is null) return [];
 
-            return [.. records.Select(ToDevice).Where(d => d is not null)!];
+            return [.. records.Select(r => ToDevice(r, keepResponding)).Where(d => d is not null)!];
         }
 
         /// <summary>
@@ -171,7 +185,7 @@ namespace MyNetworkMonitor.Core.Persistence
 
                 if (records is null || records.Count == 0) return 0;
 
-                store.LoadFrom(records.Select(ToDevice).Where(d => d is not null)!);
+                store.LoadFrom(records.Select(r => ToDevice(r, keepResponding: false)).Where(d => d is not null)!);
                 return store.Devices.Count;
             }
             catch (Exception ex)
@@ -225,7 +239,8 @@ namespace MyNetworkMonitor.Core.Persistence
                 FirstSeen = a.FirstSeen,
                 LastSeen = a.LastSeen,
                 DiscoveredBy = Blank(a.DiscoveredBy),
-                NetworkId = Blank(a.NetworkId)
+                NetworkId = Blank(a.NetworkId),
+                Responding = a.IsResponding ? true : null
             })],
             Services = [.. device.Services.Select(s => new ServiceRecord
             {
@@ -238,7 +253,7 @@ namespace MyNetworkMonitor.Core.Persistence
             })]
         };
 
-        private static Device? ToDevice(DeviceRecord record)
+        private static Device? ToDevice(DeviceRecord record, bool keepResponding)
         {
             Device device = new()
             {
@@ -297,10 +312,11 @@ namespace MyNetworkMonitor.Core.Persistence
                     DiscoveredBy = address.DiscoveredBy ?? string.Empty,
                     NetworkId = address.NetworkId,
 
-                    // Deliberately not restored: that a device responded
+                    // Not restored from a saved inventory: that a device responded
                     // yesterday says nothing about whether it is online now, so
-                    // loaded addresses start as not responding.
-                    IsResponding = false
+                    // loaded addresses start as not responding. A fresh satellite
+                    // result keeps it.
+                    IsResponding = keepResponding && address.Responding == true
                 });
             }
 
@@ -385,6 +401,10 @@ namespace MyNetworkMonitor.Core.Persistence
             // Optional: inventories saved before addresses carried their network lack it; it is
             // filled from the configured ranges after loading (NetworkIds.FillMissing).
             public string? NetworkId { get; set; }
+
+            // Only for satellite results (FromJson with keepResponding); loading ignores it. Older
+            // satellites do not send it - their devices then appear as not answering, as before.
+            public bool? Responding { get; set; }
         }
 
         private sealed class ServiceRecord

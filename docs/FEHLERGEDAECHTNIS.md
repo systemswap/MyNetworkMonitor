@@ -746,3 +746,73 @@ Automatische Tests stehen in `MyNetworkMonitor.Core.Tests` (`docs/PRUEFUNGEN.md`
   `EachKindOfDuplicateBecomesAFinding`.
 - **Gegenprobe an echten Geräten (offen):** keine nötig – reine Auswertung; im echten Netz bei einem Gerät mit mehreren
   Konflikten die Befundliste ansehen.
+
+## Nr. 40 – Satellit: einzelnes „Connect“ verband nach dem Neustart nicht wieder
+
+- **Entdeckt:** 18.11.2026, Version 7.3.0.44 (Prüfung einer Beobachtung aus dem nachgebauten Netz: nach Neustart blieb
+  ein Satellit getrennt; nachgestellt – mit „Connect all“ verbindet er sich nach dem Neustart, mit „Connect“ nicht).
+  **Behoben:** 7.3.0.45.
+- **Was:** Wer in der Satelliten-Ansicht einen Hauptscanner auswählte und „Connect“ drückte, war verbunden – nach einem
+  Neustart des Programms aber nicht mehr, obwohl der Eintrag eingeschaltet („On“) war.
+- **Warum:** Beim Start verbindet das Programm nur, wenn der Satellitenbetrieb eingeschaltet ist
+  (`SatelliteModeEnabled`). Diesen Schalter setzte nur „Connect all“, der Einzelknopf rief nur den Befehl auf.
+- **Lösung:** Auch der Einzelknopf setzt den Schalter (`bt_SatelliteConnectOne_Click`) und verbindet dann.
+- **Nicht tun:** zwei Knöpfe derselben Absicht unterschiedlich viel Zustand ändern lassen.
+- **Im Code:** `MyNetworkMonitor.Avalonia/Views/ShellView.axaml(.cs)` (`bt_SatelliteConnectOne_Click`, `StartSatelliteLink`).
+- **Abgesichert durch:** keinen automatischen Test (Oberfläche); im Nachbau geprüft, dass „Connect all“ nach dem
+  Neustart verbindet.
+- **Gegenprobe an echten Geräten (offen):** Satellit über „Connect“ (einzeln) verbinden, Programm neu starten – er
+  verbindet sich selbst.
+
+## Nr. 41 – Gerätetabelle: Gerätezahl im Bereichsfilter klebte am Namen
+
+- **Entdeckt:** 18.11.2026, Version 7.3.0.39 (Bildschirmfotos für die Startseite: „Außenlager12 (12 up)“).
+  **Behoben:** 7.3.0.45.
+- **Was:** In der Bereichsauswahl über der Tabelle stand die Zahl der Geräte ohne Abstand direkt hinter dem Namen.
+- **Warum:** Jede Zeile ist ein Raster „Name | Zahl“, die Checkbox streckte ihren Inhalt aber nicht über die Breite;
+  das Raster wurde nur so breit wie sein Text. Bei der Dienstauswahl war das schon behoben, beim Bereichsfilter nicht.
+- **Lösung:** Wie in der Dienstauswahl: Checkbox und Raster strecken sich, die Zahl steht rechtsbündig mit Abstand.
+- **Nicht tun:** eine Korrektur nur an einer von zwei gleich gebauten Stellen machen.
+- **Im Code:** `MyNetworkMonitor.Avalonia/Views/ShellView.axaml.cs` (`BuildScopeFacets`, vgl. `BuildServiceFacets`).
+- **Abgesichert durch:** Sichtprüfung im Nachbau (Zahlen rechtsbündig).
+- **Gegenprobe an echten Geräten (offen):** keine nötig.
+
+## Nr. 42 – Statuszeile: „satellites are scanning“ blieb nach den Ergebnissen stehen
+
+- **Entdeckt:** 18.11.2026, Version 7.3.0.40 (nachgebautes Netz mit zwei Satelliten; nachgestellt mit 7.3.0.44: Satellit
+  nach 10 s fertig, die Zeile sagte minutenlang „2 satellites are scanning“). **Behoben:** 7.3.0.45.
+- **Was:** Nach einem Scan mit Satelliten blieb in der Statuszeile „N satellites are scanning“ stehen, auch wenn alle
+  geliefert oder einen Fehler gemeldet hatten.
+- **Warum:** Die Notiz wurde beim Verschicken der Aufträge einmal gesetzt und nie gelöscht. Ein Ergebnis überschrieb
+  zwar die Statuszeile; endete danach der eigene Scan der Zentrale (der meist länger dauert), setzte er die alte Notiz
+  wieder dahinter. Fehler, „besetzt“ und Abbruch eines Satelliten erreichten die Statuszeile gar nicht.
+- **Lösung:** `SatelliteRunTracker` führt je Lauf, welche Satelliten scannen, welche geliefert haben, welche nicht
+  verbunden waren und welche mit Fehler endeten; die Statuszeile setzt sich bei jedem Schreiben daraus zusammen.
+  Fehler, „besetzt“ und Abbruch meldet der Satelliten-Editor als `JobFailed` an die Zentrale.
+- **Nicht tun:** einen Zwischenstand als festen Text ablegen, wenn andere ihn später neu schreiben.
+- **Im Code:** `Core/SatelliteLink/SatelliteRunTracker.cs`, `ViewModels/ShellViewModel.cs` (`DispatchToSatellitesAsync`,
+  `MergeSatelliteResult`, `WithSatelliteNotes`), `ViewModels/SatelliteEditorViewModel.cs` (`JobFailed`).
+- **Abgesichert durch:** `SatelliteResultTests` (Notiz bis zum letzten Ergebnis, Fehler, Abbruch, Zurücksetzen).
+- **Gegenprobe an echten Geräten (offen):** Scan mit Satelliten, deren Bereich kleiner ist als der der Zentrale: am Ende
+  steht „… reported N device(s)“ für jeden Satelliten; einen Satelliten während des Auftrags stoppen – die Zeile nennt
+  den Abbruch.
+
+## Nr. 43 – Satelliten: gemeldete Geräte erschienen als nicht erreichbar
+
+- **Entdeckt:** 18.11.2026, Version 7.3.0.44 (beim Nachstellen von Nr. 42: Geräte eines Satelliten-Bereichs grau,
+  „reachable“ zählte nur die Geräte der Zentrale). **Behoben:** 7.3.0.45.
+- **Was:** Alle Geräte, die ein Satellit gerade gefunden hatte, standen in der Zentrale als „antwortet nicht“ – grauer
+  Punkt, nicht in „reachable“, nicht im Filter „only reachable“.
+- **Warum:** Das Satelliten-Ergebnis läuft durch dasselbe Format wie die gespeicherte Bestandsdatei
+  (`DeviceStoreFile.ToJson`/`FromJson`). Dort wird „antwortet gerade“ bewusst weder gespeichert noch geladen – ein Zustand
+  von gestern sagt nichts über heute. Für ein frisches Ergebnis gilt das nicht.
+- **Lösung:** Adressen tragen im Format ein optionales `Responding`; nur `FromJson(…, keepResponding: true)` übernimmt
+  es, und nur für Satelliten-Ergebnisse. Das Laden der Bestandsdatei bleibt dabei: alles startet als „antwortet nicht“.
+  Ältere Satelliten senden das Feld nicht – ihre Geräte erscheinen wie bisher grau.
+- **Nicht tun:** ein Format für zwei Zwecke verwenden, ohne zu prüfen, ob jede Regel für beide gilt.
+- **Im Code:** `Persistence/DeviceStoreFile.cs` (`FromJson`, `ToDevice`, `AddressRecord.Responding`),
+  `ViewModels/ShellViewModel.cs` (`MergeSatelliteResult`).
+- **Abgesichert durch:** `SatelliteResultTests` (Ergebnis behält Erreichbarkeit, gespeicherter Bestand nie, Übernahme in
+  den Bestand der Zentrale).
+- **Gegenprobe an echten Geräten (offen):** Zentrale und Satellit auf 7.3.0.45: nach einem Scan sind die Geräte des
+  Satelliten-Bereichs grün und zählen in „reachable“.

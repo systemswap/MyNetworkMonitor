@@ -150,6 +150,14 @@ namespace MyNetworkMonitor.Core.ViewModels
             SatelliteEditor.ResultArrived += (_, e) =>
                 MergeSatelliteResult(e.SatelliteName, e.DevicesJson, e.Partial);
 
+            // A satellite that ends its job without a result (error, busy, cancelled) is no longer
+            // "scanning" either.
+            SatelliteEditor.JobFailed += (_, e) =>
+            {
+                _satelliteRun.Failed(e.SatelliteName, e.Text);
+                StatusText = WithSatelliteNotes(string.Empty);
+            };
+
             // The satellite view shows which scopes point at each satellite.
             // The scopes belong here, not there, so the list is maintained
             // from here.
@@ -1552,7 +1560,7 @@ namespace MyNetworkMonitor.Core.ViewModels
                 }
             }
 
-            SatelliteScanNote = Describe(scanning, missing);
+            _satelliteRun.Start(scanning, missing);
         }
 
         /// <summary>
@@ -1565,7 +1573,10 @@ namespace MyNetworkMonitor.Core.ViewModels
         /// still working.
         /// </para>
         /// </summary>
-        public string SatelliteScanNote { get; private set; } = string.Empty;
+        public string SatelliteScanNote => _satelliteRun.Note;
+
+        /// <summary>What the satellites of the current run are doing (docs/FEHLERGEDAECHTNIS.md, No. 42).</summary>
+        private readonly SatelliteRunTracker _satelliteRun = new();
 
         /// <summary>What was skipped or scanned locally instead.</summary>
         private string _skippedNote = string.Empty;
@@ -1751,19 +1762,6 @@ namespace MyNetworkMonitor.Core.ViewModels
                 $"Start anyway?";
 
             return await Dialogs.ConfirmAsync(message, "This scan would find nothing");
-        }
-
-        private static string Describe(List<string> scanning, List<string> missing)
-        {
-            List<string> parts = [];
-
-            if (scanning.Count == 1) parts.Add($"Satellite \"{scanning[0]}\" is scanning");
-            else if (scanning.Count > 1) parts.Add($"{scanning.Count} satellites are scanning ({string.Join(", ", scanning)})");
-
-            if (missing.Count == 1) parts.Add($"\"{missing[0]}\" is not connected - its ranges were not scanned");
-            else if (missing.Count > 1) parts.Add($"{missing.Count} satellites are not connected - their ranges were not scanned");
-
-            return string.Join(" · ", parts);
         }
 
         /// <summary>
@@ -2072,7 +2070,9 @@ namespace MyNetworkMonitor.Core.ViewModels
         {
             try
             {
-                List<Device> devices = DeviceStoreFile.FromJson(devicesJson);
+                // The satellite has just scanned: what answered there answers now
+                // (docs/FEHLERGEDAECHTNIS.md, No. 43).
+                List<Device> devices = DeviceStoreFile.FromJson(devicesJson, keepResponding: true);
 
                 // The satellite reports the networks of its own job; here they become the ranges of
                 // this main scanner, the ones assigned to the satellite first.
@@ -2090,9 +2090,10 @@ namespace MyNetworkMonitor.Core.ViewModels
                 // On cancellation the message states that the run did not
                 // complete. The devices are real, but the absence of a device
                 // means nothing here, and the message must say so.
-                StatusText = partial
-                    ? $"\"{satelliteName}\" was stopped - {taken} device(s) found so far (range not fully scanned)."
-                    : $"\"{satelliteName}\" reported {taken} device(s).";
+                // Recorded in the run, not only written into the status line: the
+                // local run rewrites the line when it ends and must keep this.
+                _satelliteRun.Finished(satelliteName, taken, partial);
+                StatusText = WithSatelliteNotes(string.Empty);
 
                 lock (_store.SyncRoot)
                 {
@@ -2103,7 +2104,8 @@ namespace MyNetworkMonitor.Core.ViewModels
             }
             catch (Exception ex)
             {
-                StatusText = $"The result from \"{satelliteName}\" could not be read: {ex.Message}";
+                _satelliteRun.Failed(satelliteName, $"the result could not be read: {ex.Message}");
+                StatusText = WithSatelliteNotes(string.Empty);
             }
         }
 
@@ -2171,7 +2173,7 @@ namespace MyNetworkMonitor.Core.ViewModels
                     List<ScanScope> remote = [.. scopes.Where(IsAssignedToSatellite)];
                     List<ScanScope> local = [.. scopes.Where(s => !IsAssignedToSatellite(s))];
 
-                    SatelliteScanNote = string.Empty;
+                    _satelliteRun.Clear();
                     _skippedNote = string.Empty;
 
                     if (remote.Count > 0)

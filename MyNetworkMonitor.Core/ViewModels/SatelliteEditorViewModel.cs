@@ -488,6 +488,7 @@ namespace MyNetworkMonitor.Core.ViewModels
                 }
 
                 LinkStatus = e.Text;
+                JobFailed?.Invoke(this, (s?.Name ?? "satellite", e.Text));
             });
 
             _listener.Start(port);
@@ -504,6 +505,12 @@ namespace MyNetworkMonitor.Core.ViewModels
         /// application decides how to merge it.
         /// </summary>
         public event EventHandler<(string SatelliteName, string DevicesJson, bool Partial)>? ResultArrived;
+
+        /// <summary>
+        /// A satellite ended its job without a result - error, busy or cancelled - with the text it
+        /// reported. The main scanner then no longer counts it as scanning.
+        /// </summary>
+        public event EventHandler<(string SatelliteName, string Text)>? JobFailed;
 
         /// <summary>
         /// Clears the counters of the last method. Leaving them would show the

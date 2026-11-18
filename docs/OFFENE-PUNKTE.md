@@ -22,15 +22,8 @@ im Fehlergedächtnis). Grundlage ist die Prüfung gegen die gemeinsamen Regeln v
 
 ## Vermutete Fehler
 
-Beobachtet am 18.11.2026 in einem nachgebauten Netz (Hauptscanner und zwei Satelliten auf einem Rechner, verbunden
-über 127.0.0.1); nicht untersucht, vor einer Änderung im echten Aufbau bestätigen:
-
-- **Satellit verbindet sich nach dem Neustart nicht von selbst:** Eine Instanz mit eingeschaltetem Hauptscanner in
-  `mainScanners.json` blieb nach dem Start bei „Not connected.“, bis „Connect“ gedrückt wurde – obwohl
-  `SatelliteEditorViewModel.ConnectAllHosts` laut Kommentar beim Start läuft.
-- **„Satellites are scanning“ bleibt stehen:** Nach einem Scan mit zwei zugewiesenen Satelliten meldete der
-  Hauptscanner minutenlang „2 satellites are scanning“, beide Satelliten zeigten „Idle“; ihre Bereiche kamen nicht an.
-- **Bereichsfilter der Gerätetabelle:** Die Gerätezahl steht ohne Abstand am Namen („Außenlager12 (12 up)“).
+Zurzeit keine. (Die drei Beobachtungen aus dem nachgebauten Netz vom 18.11.2026 sind geklärt: Fehlergedächtnis
+Nr. 40–43.)
 
 ## Später
 

@@ -260,6 +260,16 @@ public partial class ShellView : Window
         _shell.SatelliteEditor.ConnectAllHosts();
     }
 
+    private void bt_SatelliteConnectOne_Click(object? sender, RoutedEventArgs e)
+    {
+        // Like "Connect all": connecting here means connecting on the next start as well.
+        // Without the switch the satellite stayed disconnected after a restart although the
+        // main scanner was ticked "On" (docs/FEHLERGEDAECHTNIS.md, No. 40).
+        _shell.Settings.SatelliteModeEnabled = true;
+
+        _shell.SatelliteEditor.ConnectHostCommand.Execute(null);
+    }
+
     private void bt_SatelliteDisconnect_Click(object? sender, RoutedEventArgs e)
     {
         _shell.Settings.SatelliteModeEnabled = false;
@@ -787,9 +797,14 @@ public partial class ShellView : Window
                 IsChecked = _shell.Devices.Filter.Scopes.Contains(facet.Name),
                 FontSize = 10.5,
                 Margin = new global::Avalonia.Thickness(10, 2, 10, 2),
+                // Across the whole menu width, as in the service selection, so that the counts
+                // line up on the right instead of sticking to the name (docs/FEHLERGEDAECHTNIS.md, No. 41).
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                HorizontalContentAlignment = HorizontalAlignment.Stretch,
                 Content = new Grid
                 {
                     ColumnDefinitions = new ColumnDefinitions("*,Auto"),
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
                     Children =
                     {
                         new TextBlock
@@ -807,6 +822,8 @@ public partial class ShellView : Window
                             FontSize = 9.5,
                             Foreground = new SolidColorBrush(Color.Parse("#93A5A9")),
                             VerticalAlignment = VerticalAlignment.Center,
+                            TextAlignment = global::Avalonia.Media.TextAlignment.Right,
+                            Margin = new global::Avalonia.Thickness(12, 0, 0, 0),
                             [Grid.ColumnProperty] = 1
                         }
                     }

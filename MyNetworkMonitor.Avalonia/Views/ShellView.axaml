@@ -2611,7 +2611,7 @@
                         -->
                         <StackPanel Orientation="Horizontal" Spacing="6"
                                     HorizontalAlignment="Right">
-                          <Button Content="Connect" Command="{Binding SatelliteEditor.ConnectHostCommand}"
+                          <Button Content="Connect" Click="bt_SatelliteConnectOne_Click"
                                   IsEnabled="{Binding SatelliteEditor.CanConnectFromWindow}"
                                   Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
                                   FontSize="10.5"/>
