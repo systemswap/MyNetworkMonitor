@@ -657,7 +657,7 @@ Automatische Tests stehen in `MyNetworkMonitor.Core.Tests` (`docs/PRUEFUNGEN.md`
   früher rote „same MAC“-Kanten zwischen Netzen, damit wurden doppelte MACs und falsch abgeglichene DNS-Server
   gefunden; im nachgebauten Netz mit geklonter VM nachgestellt). Vorhanden seit dem Gerätemodell (Commit bfeb44c,
   August 2026); vorher war jede Adresse eine eigene Zeile mit eigenem Knoten. **Behoben (Zuordnung):** 7.3.0.42;
-  Befunde und Anzeige folgen in eigenen Versionen.
+  **Befunde:** 7.3.0.43; Anzeige in der 3D-Ansicht in einer eigenen Version.
 - **Was:** Zwei Geräte mit derselben MAC in verschiedenen Bereichen (geklonte VM, Router mit einer MAC auf mehreren
   VLANs, über einen Satelliten aus einem anderen Segment gemeldet) wurden zu einem Gerät zusammengeführt: der zweite
   Name ging verloren, der Bereich sprang auf den zuletzt gemeldeten, die Tabelle zeigte nur die erste Adresse, die
@@ -673,6 +673,12 @@ Automatische Tests stehen in `MyNetworkMonitor.Core.Tests` (`docs/PRUEFUNGEN.md`
   Virtuelle Router- und Cluster-MACs (VRRP, HSRP, Windows NLB) zählen nie als Kennung (`IsIdentifying`), sonst
   verschmölzen die beiden Router eines redundanten Paars. Verworfen: Geräte je IP-Adresse trennen – jedes IPv6-Gerät
   zerfiele in viele Einträge, jede neue DHCP-Adresse erschiene als zweites Gerät.
+- **Befunde (7.3.0.43):** gleiche MAC in einem anderen Netz – Warnung, wenn beide im selben Lauf antworten, sonst
+  Hinweis „wohl umgezogen“; eine MAC für mehrere IPv4-Adressen im selben Netz – Warnung mit den möglichen Ursachen
+  (Zusatzadresse, alte DHCP-Adresse, Repeater/Bridge, ARP-Spoofing) und dem Gateway, falls darunter; kritisch als
+  „Suspected ARP spoofing“ nur, wenn eine dieser Adressen zugleich ein anderes Gerät mit eigener MAC hat. Bewusst
+  nicht kritisch allein wegen des Gateways: ein Router mit einer zweiten Adresse auf derselben Schnittstelle sieht
+  genauso aus und würde dauerhaft Alarm schlagen.
 - **Nicht tun:** eine Kennung ohne ihren Geltungsbereich verwenden; eine MAC gilt nur im Segment, in dem sie gesehen
   wurde.
 - **Im Code:** `MyNetworkMonitor.Core/Model/DeviceStore.cs` (`FindCandidates`, `ContradictsObservation`, `Contradicts`,
@@ -716,3 +722,22 @@ Automatische Tests stehen in `MyNetworkMonitor.Core.Tests` (`docs/PRUEFUNGEN.md`
 - **Abgesichert durch:** keinen automatischen Test (der Weg läuft über die Netzwerkmodule).
 - **Gegenprobe an echten Geräten (offen):** Scan mit „SSDP / UPnP“ im echten Netz: UPnP-Geräte (Drucker, NAS,
   Fernseher) stehen unter ihrem Bereich.
+
+## Nr. 39 – Befunde: Titel und Schweregrad galten für alle Zeilen eines Geräts
+
+- **Entdeckt:** 18.11.2026, Version 7.3.0.40 (beim Schreiben der Tests `DuplicateDetectorTests`: ein Gerät mit doppelter
+  IP und doppeltem Namen ergab zwei kritische Befunde „Duplicate address“). **Behoben:** 7.3.0.43.
+- **Was:** Jede Zeile in den Befunden zu einem Gerät trug Titel und Schweregrad seines schwersten Konflikts: die Zeile
+  zum doppelten Namen hieß „Duplicate address“ und war kritisch, die zu mehreren IPv4-Adressen ebenso.
+- **Warum:** `FindingsViewModel.CollectDuplicates` teilte den Gesamttext `ConflictDetails` in Zeilen, wusste aber nicht
+  mehr, welche Zeile zu welchem Konflikt gehört, und nahm `TitleFor(device.Conflicts)` für alle.
+- **Lösung:** Die Dublettenprüfung legt jede Zeile mit ihrer Art ab (`ConflictReason`, `Device.ConflictReasons`); die
+  Befundliste gibt jeder Zeile Titel und Schweregrad ihrer Art (`TitleOf`, `SeverityOf`). `ConflictDetails` bleibt
+  für Tooltip und Detailbereich.
+- **Nicht tun:** Information, die man später braucht, in einen Text zusammenfassen und daraus wieder herauslesen.
+- **Im Code:** `Model/DuplicateDetector.cs` (`ConflictReason`, `Analyze`), `Model/Device.cs` (`ConflictReasons`),
+  `ViewModels/FindingsViewModel.cs` (`CollectDuplicates`, `TitleOf`, `SeverityOf`).
+- **Abgesichert durch:** `DuplicateDetectorTests.EachLineOfADeviceKeepsItsOwnTitle` (schlägt mit dem alten Stand fehl),
+  `EachKindOfDuplicateBecomesAFinding`.
+- **Gegenprobe an echten Geräten (offen):** keine nötig – reine Auswertung; im echten Netz bei einem Gerät mit mehreren
+  Konflikten die Befundliste ansehen.

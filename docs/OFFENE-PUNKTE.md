@@ -9,7 +9,8 @@ im Fehlergedächtnis). Grundlage ist die Prüfung gegen die gemeinsamen Regeln v
 - **Gleiche MAC in mehreren Netzen wieder sichtbar machen** (abgestimmt am 18.11.2026). Heute führt der Gerätebestand
   alles mit derselben MAC zu einem Gerät zusammen, über alle Bereiche und Satelliten hinweg; die 3D-Ansicht zeigt
   deshalb keine roten „same MAC“-Kanten mehr, der zweite Name geht verloren. Neue Regel: eine MAC kennzeichnet ein
-  Gerät nur innerhalb ihres Netzes. Schritte, je eigene Version mit Tests:
+  Gerät nur innerhalb ihres Netzes. Schritte, je eigene Version mit Tests (1–3 erledigt in 7.3.0.41–7.3.0.43, siehe
+  Fehlergedächtnis Nr. 36–39; Satelliten-Zuordnung aus Schritt 4 schon mit Schritt 2):
   1. Netz-Kennung je Adresse (Kennung des Bereichs, bei „Local network“ samt tatsächlichem Subnetz), von allen
      Verfahren mitgegeben und gespeichert; ältere Bestände bekommen sie beim Laden über den passenden Bereich.
   2. Zuordnung: MAC nur im selben Netz; aus EUI-64 abgeleitete MAC nur weich; VRRP-, HSRP- und NLB-MACs nie als
@@ -44,10 +45,6 @@ Beobachtet am 18.11.2026 in einem nachgebauten Netz (Hauptscanner und zwei Satel
   `SatelliteEditorViewModel.ConnectAllHosts` laut Kommentar beim Start läuft.
 - **„Satellites are scanning“ bleibt stehen:** Nach einem Scan mit zwei zugewiesenen Satelliten meldete der
   Hauptscanner minutenlang „2 satellites are scanning“, beide Satelliten zeigten „Idle“; ihre Bereiche kamen nicht an.
-- **Befundtitel je Gerät statt je Zeile:** `FindingsViewModel` gibt jeder Konfliktzeile eines Geräts Titel und
-  Schweregrad seines schwersten Konflikts (`TitleFor(device.Conflicts)`). Hat ein Gerät eine doppelte IP und einen
-  doppelten Namen, stehen beide Zeilen als „Duplicate address“, kritisch. Gefunden mit `DuplicateDetectorTests`
-  (bestätigt, nicht nur vermutet); Behebung in Schritt 3 oben.
 - **Bereichsfilter der Gerätetabelle:** Die Gerätezahl steht ohne Abstand am Namen („Außenlager12 (12 up)“).
 
 ## Später

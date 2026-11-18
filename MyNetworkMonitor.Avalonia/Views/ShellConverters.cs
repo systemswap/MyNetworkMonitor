@@ -182,13 +182,16 @@ public sealed class ConflictLabelConverter : IValueConverter
 
         // Only the most severe finding goes into the column. Several
         // abbreviations side by side would be unreadable in 44 pixels.
+        if (conflict.HasFlag(DeviceConflict.SuspectedArpSpoofing)) return "SPOOF?";
         if (conflict.HasFlag(DeviceConflict.Address)) return "DUP IP";
+        if (conflict.HasFlag(DeviceConflict.SameMacInOtherNetwork)) return "DUP MAC";
         if (conflict.HasFlag(DeviceConflict.DnsMultipleAddresses)) return "DNS x";
         if (conflict.HasFlag(DeviceConflict.HostName)) return "DUP NAME";
         if (conflict.HasFlag(DeviceConflict.DuplicateAlias)) return "DUP ALIAS";
         if (conflict.HasFlag(DeviceConflict.DnsMismatch)) return "DNS ?";
         if (conflict.HasFlag(DeviceConflict.DnsMultipleNames)) return "ALIAS";
         if (conflict.HasFlag(DeviceConflict.MultipleIpv4)) return "2x IPv4";
+        if (conflict.HasFlag(DeviceConflict.MacSeenInOtherNetwork)) return "MOVED";
 
         return "DUP";
     }
@@ -204,9 +207,10 @@ public sealed class ConflictBackgroundConverter : IValueConverter
     {
         if (value is not DeviceConflict conflict || conflict == DeviceConflict.None) return ShellPalette.Nothing;
 
-        if (conflict.HasFlag(DeviceConflict.Address)) return ShellPalette.DupAddrBg;
+        if (conflict.HasFlag(DeviceConflict.Address) || conflict.HasFlag(DeviceConflict.SuspectedArpSpoofing)) return ShellPalette.DupAddrBg;
 
         if (conflict.HasFlag(DeviceConflict.DnsMultipleAddresses) ||
+            conflict.HasFlag(DeviceConflict.SameMacInOtherNetwork) ||
             conflict.HasFlag(DeviceConflict.HostName) ||
             conflict.HasFlag(DeviceConflict.DuplicateAlias))
         {
@@ -227,9 +231,10 @@ public sealed class ConflictForegroundConverter : IValueConverter
     {
         if (value is not DeviceConflict conflict || conflict == DeviceConflict.None) return ShellPalette.Nothing;
 
-        if (conflict.HasFlag(DeviceConflict.Address)) return ShellPalette.DupAddrFg;
+        if (conflict.HasFlag(DeviceConflict.Address) || conflict.HasFlag(DeviceConflict.SuspectedArpSpoofing)) return ShellPalette.DupAddrFg;
 
         if (conflict.HasFlag(DeviceConflict.DnsMultipleAddresses) ||
+            conflict.HasFlag(DeviceConflict.SameMacInOtherNetwork) ||
             conflict.HasFlag(DeviceConflict.HostName) ||
             conflict.HasFlag(DeviceConflict.DuplicateAlias))
         {

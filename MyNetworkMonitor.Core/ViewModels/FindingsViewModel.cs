@@ -215,19 +215,17 @@ namespace MyNetworkMonitor.Core.ViewModels
         {
             foreach (Device device in _store.Devices.Where(d => d.HasConflict))
             {
-                foreach (string line in device.ConflictDetails
-                             .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                // One finding per line, with the title and severity of that line. Taken from the
+                // device as a whole, a duplicate name next to a duplicate address would be listed
+                // as a critical duplicate address as well (docs/FEHLERGEDAECHTNIS.md, No. 39).
+                foreach (ConflictReason reason in device.ConflictReasons)
                 {
                     found.Add(new Finding
                     {
-                        // A duplicate address loses packets, a duplicate name
-                        // only causes confusion; the severity differs.
-                        Severity = device.Conflicts.HasFlag(DeviceConflict.Address)
-                            ? FindingSeverity.Critical
-                            : FindingSeverity.Warning,
+                        Severity = SeverityOf(reason.Kind),
                         Category = FindingCategory.Addressing,
-                        Title = TitleFor(device.Conflicts),
-                        Detail = line,
+                        Title = TitleOf(reason.Kind),
+                        Detail = reason.Text,
                         Subject = device.DisplayName,
                         Device = device
                     });
@@ -235,14 +233,32 @@ namespace MyNetworkMonitor.Core.ViewModels
             }
         }
 
-        private static string TitleFor(DeviceConflict conflicts) =>
-            conflicts.HasFlag(DeviceConflict.Address) ? "Duplicate address" :
-            conflicts.HasFlag(DeviceConflict.DnsMultipleAddresses) ? "Name resolves to several addresses" :
-            conflicts.HasFlag(DeviceConflict.HostName) ? "Duplicate host name" :
-            conflicts.HasFlag(DeviceConflict.DuplicateAlias) ? "Duplicate alias" :
-            conflicts.HasFlag(DeviceConflict.DnsMismatch) ? "DNS points elsewhere" :
-            conflicts.HasFlag(DeviceConflict.MultipleIpv4) ? "Several IPv4 addresses" :
-            "Duplicate assignment";
+        /// <summary>
+        /// A duplicate address or a foreign MAC on it loses packets, a duplicate name only causes
+        /// confusion, a device that moved is worth knowing but nothing to fix.
+        /// </summary>
+        private static FindingSeverity SeverityOf(DeviceConflict kind) => kind switch
+        {
+            DeviceConflict.Address or DeviceConflict.SuspectedArpSpoofing => FindingSeverity.Critical,
+            DeviceConflict.MacSeenInOtherNetwork => FindingSeverity.Note,
+            _ => FindingSeverity.Warning
+        };
+
+        private static string TitleOf(DeviceConflict kind) => kind switch
+        {
+            DeviceConflict.Address => "Duplicate address",
+            DeviceConflict.SuspectedArpSpoofing => "Suspected ARP spoofing",
+            DeviceConflict.SameMacInOtherNetwork => "Same MAC in another network",
+            DeviceConflict.MacSeenInOtherNetwork => "MAC seen in another network",
+            DeviceConflict.DnsMultipleAddresses => "Name resolves to several addresses",
+            DeviceConflict.HostName => "Duplicate host name",
+            DeviceConflict.InternalName => "Duplicate name",
+            DeviceConflict.DuplicateAlias => "Duplicate alias",
+            DeviceConflict.DnsMismatch => "DNS points elsewhere",
+            DeviceConflict.DnsMultipleNames => "Several names for one address",
+            DeviceConflict.MultipleIpv4 => "Several IPv4 addresses",
+            _ => "Duplicate assignment"
+        };
 
         /// <summary>
         /// DNS servers that answer differently for the same address.

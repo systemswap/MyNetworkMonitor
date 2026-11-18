@@ -581,6 +581,13 @@ namespace MyNetworkMonitor.Core.ViewModels
             Methods.Any(m => m.IsEffective && IsDnsMethod(m.Id));
 
         /// <summary>
+        /// The gateway addresses of the configured ranges, for the findings: one MAC answering for a
+        /// gateway and another address is named as such.
+        /// </summary>
+        private HashSet<string> GatewayAddresses() =>
+            new(Scopes.Select(s => s.GatewayIP?.Trim() ?? string.Empty).Where(g => g.Length > 0), StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
         /// Gives addresses of the loaded inventory that do not know their network yet the one of the
         /// configured range containing them (<see cref="NetworkIds.FillMissing"/>). Called once the
         /// ranges are loaded - the inventory is read before them.
@@ -625,7 +632,7 @@ namespace MyNetworkMonitor.Core.ViewModels
 
             lock (_store.SyncRoot)
             {
-                conflicts = DuplicateDetector.Analyze(_store.Devices);
+                conflicts = DuplicateDetector.Analyze(_store.Devices, GatewayAddresses());
             }
 
             Devices.Refresh();
@@ -2089,7 +2096,7 @@ namespace MyNetworkMonitor.Core.ViewModels
 
                 lock (_store.SyncRoot)
                 {
-                    DuplicateDetector.Analyze(_store.Devices);
+                    DuplicateDetector.Analyze(_store.Devices, GatewayAddresses());
                 }
 
                 FindingsView.Refresh();
@@ -2256,7 +2263,7 @@ namespace MyNetworkMonitor.Core.ViewModels
                         // preliminary.
                         lock (_store.SyncRoot)
                         {
-                            result.ConflictCount = DuplicateDetector.Analyze(_store.Devices);
+                            result.ConflictCount = DuplicateDetector.Analyze(_store.Devices, GatewayAddresses());
                         }
 
                         // The local run is finished, the satellite usually not

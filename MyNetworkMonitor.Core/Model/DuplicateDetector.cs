@@ -62,8 +62,31 @@ namespace MyNetworkMonitor.Core.Model
         /// and not a finding; for IPv4 it is almost always a second DHCP lease
         /// or a forgotten static address.
         /// </summary>
-        MultipleIpv4 = 8
+        MultipleIpv4 = 8,
+
+        /// <summary>
+        /// The same MAC answers in another network at the same time. A router with one MAC on several
+        /// VLANs, or a fault: a cloned virtual machine, a MAC configured twice.
+        /// </summary>
+        SameMacInOtherNetwork = 256,
+
+        /// <summary>
+        /// The same MAC was seen in another network, but only one of the two answers now - usually a
+        /// device that moved, for example from the cable network to Wi-Fi.
+        /// </summary>
+        MacSeenInOtherNetwork = 512,
+
+        /// <summary>
+        /// One MAC answers for several IPv4 addresses, and one of them is held by another device with
+        /// its own MAC in the same network: the signature of ARP spoofing.
+        /// </summary>
+        SuspectedArpSpoofing = 1024
     }
+
+    /// <summary>One finding on a device: what kind it is and the text that explains it.</summary>
+    /// <param name="Kind">The single kind of conflict this line is about.</param>
+    /// <param name="Text">The explanation, naming the other devices involved.</param>
+    public sealed record ConflictReason(DeviceConflict Kind, string Text);
 
     /// <summary>
     /// Finds addresses and names assigned more than once in the device
@@ -91,9 +114,30 @@ namespace MyNetworkMonitor.Core.Model
         /// <param name="devices">The complete device inventory.</param>
         /// <returns>The number of devices with a finding.</returns>
         /// <exception cref="ArgumentNullException"><paramref name="devices"/> is <c>null</c>.</exception>
-        public static int Analyze(IReadOnlyList<Device> devices)
+        public static int Analyze(IReadOnlyList<Device> devices) => Analyze(devices, null);
+
+        /// <summary>
+        /// Checks the whole inventory and writes the result to the devices.
+        /// </summary>
+        /// <param name="devices">The devices to check.</param>
+        /// <param name="gateways">Gateway addresses of the configured ranges; named in the text when one MAC answers for several addresses including a gateway.</param>
+        /// <returns>The number of devices with at least one finding.</returns>
+        public static int Analyze(IReadOnlyList<Device> devices, IReadOnlySet<string>? gateways)
         {
             ArgumentNullException.ThrowIfNull(devices);
+            gateways ??= new HashSet<string>();
+
+            // Which devices share a MAC. Within one network the inventory keeps them as one device;
+            // two devices with the same MAC therefore lie in different networks.
+            Dictionary<string, List<Device>> byMac = new(StringComparer.OrdinalIgnoreCase);
+            foreach (Device device in devices)
+            {
+                if (!DeviceStore.IsIdentifying(device.Mac)) continue;
+
+                string key = Convert.ToHexString(device.Mac!.GetAddressBytes());
+                if (!byMac.TryGetValue(key, out List<Device>? same)) byMac[key] = same = [];
+                same.Add(device);
+            }
 
             // Which address belongs to which devices. Link-local addresses are
             // excluded: fe80::1 may occur once per interface - that is not a
@@ -140,57 +184,107 @@ namespace MyNetworkMonitor.Core.Model
             foreach (Device device in devices)
             {
                 DeviceConflict conflicts = DeviceConflict.None;
-                List<string> reasons = [];
+                List<ConflictReason> reasons = [];
 
+                void Add(DeviceConflict kind, string text)
+                {
+                    conflicts |= kind;
+                    reasons.Add(new ConflictReason(kind, text));
+                }
+
+                bool sharedWithOtherMac = false;
                 foreach (DeviceAddress address in device.Addresses)
                 {
                     if (!byAddress.TryGetValue(address.Info.Canonical, out List<Device>? holders)) continue;
                     if (holders.Count <= 1) continue;
 
-                    conflicts |= DeviceConflict.Address;
-                    reasons.Add($"{address.Info.Canonical} is also used by {Others(holders, device)}");
+                    Add(DeviceConflict.Address, $"{address.Info.Canonical} is also used by {Others(holders, device)}");
+
+                    if (address.Info.Family == IpFamily.IPv4 && holders.Any(h => !ReferenceEquals(h, device) &&
+                            DeviceStore.IsIdentifying(h.Mac) && device.Mac is not null && !h.Mac!.Equals(device.Mac)))
+                    {
+                        sharedWithOtherMac = true;
+                    }
                 }
 
-                if (device.Ipv4Addresses.Count() > 1)
+                List<DeviceAddress> ipv4 = [.. device.Ipv4Addresses];
+                if (ipv4.Count > 1)
                 {
-                    conflicts |= DeviceConflict.MultipleIpv4;
-                    reasons.Add("answers on several IPv4 addresses: " +
-                                string.Join(", ", device.Ipv4Addresses.Select(a => a.Info.Canonical)));
+                    string list = string.Join(", ", ipv4.Select(a => a.Info.Canonical));
+                    string? gateway = ipv4.Select(a => a.Info.Canonical).FirstOrDefault(gateways.Contains);
+
+                    if (DeviceStore.IsIdentifying(device.Mac) && sharedWithOtherMac)
+                    {
+                        // ARP spoofing: a foreign MAC answers for an address that has its own device.
+                        Add(DeviceConflict.SuspectedArpSpoofing,
+                            $"MAC {device.MacText} answers for {list}, and another device with its own MAC holds one of " +
+                            "these addresses - suspected ARP spoofing");
+                    }
+                    else if (DeviceStore.IsIdentifying(device.Mac))
+                    {
+                        Add(DeviceConflict.MultipleIpv4,
+                            $"one MAC answers for several IPv4 addresses: {list}" +
+                            (gateway is null ? string.Empty : $", including the gateway {gateway}") +
+                            " - a secondary address, an old DHCP lease, a repeater or bridge, or ARP spoofing");
+                    }
+                    else
+                    {
+                        Add(DeviceConflict.MultipleIpv4, "answers on several IPv4 addresses: " + list);
+                    }
+                }
+
+                if (DeviceStore.IsIdentifying(device.Mac) &&
+                    byMac.TryGetValue(Convert.ToHexString(device.Mac!.GetAddressBytes()), out List<Device>? sameMac) &&
+                    sameMac.Count > 1)
+                {
+                    foreach (Device other in sameMac.Where(d => !ReferenceEquals(d, device)))
+                    {
+                        string where = $"{(string.IsNullOrWhiteSpace(other.GroupDescription) ? "another network" : other.GroupDescription)} " +
+                                       $"at {other.Ipv4Text} ({other.DisplayName})";
+
+                        if (device.IsOnline && other.IsOnline)
+                        {
+                            Add(DeviceConflict.SameMacInOtherNetwork,
+                                $"MAC {device.MacText} also answers in {where} - a router on several VLANs, or a cloned or " +
+                                "duplicated MAC");
+                        }
+                        else
+                        {
+                            Add(DeviceConflict.MacSeenInOtherNetwork,
+                                $"MAC {device.MacText} was also seen in {where}; only one of them answers now - " +
+                                "probably the device moved");
+                        }
+                    }
                 }
 
                 if (!string.IsNullOrWhiteSpace(device.HostName) &&
                     hostNameCount.GetValueOrDefault(device.HostName) > 1)
                 {
-                    conflicts |= DeviceConflict.HostName;
-                    reasons.Add($"host name \"{device.HostName}\" is used by several devices");
+                    Add(DeviceConflict.HostName, $"host name \"{device.HostName}\" is used by several devices");
                 }
 
                 if (!string.IsNullOrWhiteSpace(device.InternalName) &&
                     internalNameCount.GetValueOrDefault(device.InternalName) > 1)
                 {
-                    conflicts |= DeviceConflict.InternalName;
-                    reasons.Add($"name \"{device.InternalName}\" is assigned more than once");
+                    Add(DeviceConflict.InternalName, $"name \"{device.InternalName}\" is assigned more than once");
                 }
 
                 // What the name service knows and the scan alone cannot see.
                 if (device.WasLookedUp && device.LookupAddresses.Count > 1)
                 {
-                    conflicts |= DeviceConflict.DnsMultipleAddresses;
-                    reasons.Add($"DNS resolves \"{device.HostName}\" to several addresses: " +
+                    Add(DeviceConflict.DnsMultipleAddresses, $"DNS resolves \"{device.HostName}\" to several addresses: " +
                                 string.Join(", ", device.LookupAddresses));
                 }
 
                 if (device.HasLookupMismatch)
                 {
-                    conflicts |= DeviceConflict.DnsMismatch;
-                    reasons.Add($"DNS points \"{device.HostName}\" at {string.Join(", ", device.LookupAddresses)}, " +
+                    Add(DeviceConflict.DnsMismatch, $"DNS points \"{device.HostName}\" at {string.Join(", ", device.LookupAddresses)}, " +
                                 "but the device does not answer there");
                 }
 
                 if (device.Aliases.Count > 1)
                 {
-                    conflicts |= DeviceConflict.DnsMultipleNames;
-                    reasons.Add("reverse lookup returns several names: " + string.Join(", ", device.Aliases));
+                    Add(DeviceConflict.DnsMultipleNames, "reverse lookup returns several names: " + string.Join(", ", device.Aliases));
                 }
 
                 List<string> sharedAliases = [.. device.Aliases
@@ -199,13 +293,13 @@ namespace MyNetworkMonitor.Core.Model
 
                 if (sharedAliases.Count > 0)
                 {
-                    conflicts |= DeviceConflict.DuplicateAlias;
-                    reasons.Add($"alias {string.Join(", ", sharedAliases.Select(a => $"\"{a}\""))} " +
+                    Add(DeviceConflict.DuplicateAlias, $"alias {string.Join(", ", sharedAliases.Select(a => $"\"{a}\""))} " +
                                 "is also used by another device");
                 }
 
                 device.Conflicts = conflicts;
-                device.ConflictDetails = Join(reasons);
+                device.ConflictReasons = reasons;
+                device.ConflictDetails = Join([.. reasons.Select(r => r.Text)]);
 
                 if (conflicts != DeviceConflict.None) affected++;
             }
@@ -220,6 +314,7 @@ namespace MyNetworkMonitor.Core.Model
             foreach (Device device in devices)
             {
                 device.Conflicts = DeviceConflict.None;
+                device.ConflictReasons = [];
                 device.ConflictDetails = string.Empty;
             }
         }

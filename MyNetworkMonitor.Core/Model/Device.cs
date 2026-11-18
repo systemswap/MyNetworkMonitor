@@ -221,6 +221,12 @@ namespace MyNetworkMonitor.Core.Model
         /// <summary>The finding in plain text, for tooltip and detail view.</summary>
         [ObservableProperty] private string _conflictDetails = string.Empty;
 
+        /// <summary>
+        /// The findings one by one, each with its own kind - the source of the findings list, which
+        /// gives every line its own title and severity.
+        /// </summary>
+        public IReadOnlyList<ConflictReason> ConflictReasons { get; set; } = [];
+
         /// <summary>The device has at least one finding.</summary>
         public bool HasConflict => Conflicts != DeviceConflict.None;
 
@@ -230,7 +236,9 @@ namespace MyNetworkMonitor.Core.Model
         /// hundreds of rows.
         /// </summary>
         public int ConflictRank =>
+            Conflicts.HasFlag(DeviceConflict.SuspectedArpSpoofing) ? 6 :
             Conflicts.HasFlag(DeviceConflict.Address) ? 5 :
+            Conflicts.HasFlag(DeviceConflict.SameMacInOtherNetwork) ? 4 :
             Conflicts.HasFlag(DeviceConflict.DnsMultipleAddresses) ? 4 :
             Conflicts.HasFlag(DeviceConflict.HostName) ? 3 :
             Conflicts.HasFlag(DeviceConflict.DuplicateAlias) ? 3 :
