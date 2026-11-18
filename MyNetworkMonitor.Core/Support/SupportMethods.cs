@@ -66,8 +66,27 @@ namespace MyNetworkMonitor
             string[] lines = File.ReadAllLines(csvPath);
 
             header = lines[0].Split(',');
-            fields = lines.Skip(1).Select(l => Regex.Split(l, ",(?=(?:[^\"]*\"[^\"]*\")*(?![^\"]*\"))")).ToArray();
+            fields = lines.Skip(1).Select(SplitCsvLine).ToArray();
         }
+
+        /// <summary>
+        /// Splits one line of the vendor list into its fields, as CSV defines them: a field
+        /// with a comma stands in double quotes, a quote inside it is doubled.
+        /// <para>
+        /// The quotes belong to the file format, not to the value. Splitting alone keeps them,
+        /// and every vendor with a comma in its name - "Cisco Systems, Inc", "Super Micro
+        /// Computer, Inc." - was shown and stored with quotes (docs/FEHLERGEDAECHTNIS.md, No. 33).
+        /// </para>
+        /// </summary>
+        /// <param name="line">One line of the CSV file.</param>
+        /// <returns>The fields without the enclosing quotes.</returns>
+        internal static string[] SplitCsvLine(string line) =>
+            Regex.Split(line, ",(?=(?:[^\"]*\"[^\"]*\")*(?![^\"]*\"))").Select(Unquote).ToArray();
+
+        private static string Unquote(string field) =>
+            field.Length >= 2 && field[0] == '"' && field[^1] == '"'
+                ? field[1..^1].Replace("\"\"", "\"")
+                : field;
 
         /// <summary>
         /// Looks up the vendor of a MAC address.

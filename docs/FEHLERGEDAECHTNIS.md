@@ -577,3 +577,22 @@ Automatische Tests stehen in `MyNetworkMonitor.Core.Tests` (`docs/PRUEFUNGEN.md`
 - **Abgesichert durch:** `DiscoveryAnswerTests` (Beschreibung, Abruf nur vom Gerät selbst, mehrere Dienstadressen,
   fehlende Dienstadresse, Frage übersprungen und Adresse des Absenders, Anfrage ist keine Antwort, jede
   abgeschnittene Länge).
+
+## Nr. 33 – MAC-Herstellerliste: Hersteller mit Komma im Namen in Anführungszeichen
+
+- **Entdeckt:** 18.11.2026, Version 7.3.0.37 (Bildschirmfotos für die Startseite: nach einem ARP-Scan stand in der
+  Spalte VENDOR `"Super Micro Computer, Inc."` statt `Super Micro Computer, Inc.`). Vorhanden mindestens seit Commit
+  0a408e3. **Behoben:** 7.3.0.38.
+- **Was:** Jeder Hersteller, dessen Name in `mac_vendors.csv` ein Komma enthält (z. B. „Cisco Systems, Inc“,
+  „VMware, Inc.“), wurde mit Anführungszeichen angezeigt, in der Suche und im Export so geführt und so im
+  gespeicherten Gerätebestand abgelegt. Hersteller ohne Komma waren nicht betroffen.
+- **Warum:** `SupportMethods.LoadMacVendors` trennt die Zeilen mit einem regulären Ausdruck an den Kommas außerhalb
+  von Anführungszeichen. Das hält das Feld zusammen, lässt aber die Anführungszeichen des CSV-Formats am Wert stehen.
+- **Lösung:** `SplitCsvLine` entfernt nach dem Trennen die umschließenden Anführungszeichen und macht verdoppelte
+  Anführungszeichen im Feld wieder einfach (RFC 4180, Abschnitt 2). Gespeicherte Bestände mit dem alten Wert
+  bekommen den richtigen Namen beim nächsten ARP-Lauf. Verworfen: eine CSV-Bibliothek – für eine Datei mit fünf
+  einfachen Spalten ein unnötiges Paket.
+- **Nicht tun:** Felder einer CSV-Datei nach dem Trennen ungeprüft als Wert nehmen.
+- **Im Code:** `MyNetworkMonitor.Core/Support/SupportMethods.cs` (`SplitCsvLine`, `LoadMacVendors`).
+- **Abgesichert durch:** `MacVendorCsvTests` (Hersteller mit Komma, ohne Komma, verdoppeltes Anführungszeichen; mit
+  dem alten Stand schlagen zwei der drei Tests fehl).
