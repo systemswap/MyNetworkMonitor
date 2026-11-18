@@ -46,60 +46,98 @@ namespace MyNetworkMonitor.Core.Services
         /// </summary>
         /// <param name="devices">The scanned devices.</param>
         /// <returns>The graph as JSON with <c>nodes</c> and <c>links</c> for 3d-force-graph.</returns>
-        public static string BuildGraphJson(IReadOnlyList<Model.Device> devices) => BuildGraphJson(devices, null);
+        public static string BuildGraphJson(IReadOnlyList<Model.Device> devices) => BuildGraphJson(devices, (IReadOnlyList<TopologyRange>?)null);
 
         /// <summary>
-        /// Builds the graph from the device model, with the network of each group as configured.
+        /// Builds the graph from the device model, with the configured ranges.
         /// <para>
-        /// The page labels every group with its network. Read from the member addresses alone it can
-        /// only be guessed, and only a /24 or /16 can be told apart - a /23 or a /27 came out wrong
-        /// (docs/FEHLERGEDAECHTNIS.md, No. 35). The configured range is the reliable source.
+        /// The ranges serve two purposes. They label every group with its network: read from the member
+        /// addresses alone it can only be guessed, and only a /24 or /16 can be told apart
+        /// (docs/FEHLERGEDAECHTNIS.md, No. 35). And they place every node in the network its address
+        /// belongs to.
+        /// </para>
+        /// <para>
+        /// The same MAC is drawn as red "same MAC" edges, the purpose the view was built for
+        /// (docs/FEHLERGEDAECHTNIS.md, No. 36): between devices of different networks that share a MAC -
+        /// a router on several VLANs, a cloned virtual machine - and, within one network, between a device
+        /// and each of its further IPv4 addresses, which get a node of their own: one MAC answering for
+        /// several addresses is a secondary address, an old lease, a bridge or ARP spoofing.
         /// </para>
         /// </summary>
         /// <param name="devices">The scanned devices.</param>
-        /// <param name="groupNetworks">Network label per group description, see <see cref="DescribeRange"/>; groups without one fall back to the guess.</param>
+        /// <param name="ranges">The configured IPv4 ranges; null or empty leaves the labels to the guess and every node in its device's group.</param>
         /// <returns>The graph as JSON with <c>nodes</c> and <c>links</c> for 3d-force-graph.</returns>
-        public static string BuildGraphJson(IReadOnlyList<Model.Device> devices,
-                                            IReadOnlyDictionary<string, string>? groupNetworks)
+        public static string BuildGraphJson(IReadOnlyList<Model.Device> devices, IReadOnlyList<TopologyRange>? ranges)
         {
             ArgumentNullException.ThrowIfNull(devices);
 
+            ranges ??= [];
+            Dictionary<string, string> networks = new(StringComparer.Ordinal);
+            foreach (TopologyRange range in ranges)
+            {
+                string label = DescribeRange(range.FirstIp, range.LastIp);
+                if (label.Length > 0) networks.TryAdd(range.Group, label);
+            }
+
             Dictionary<Model.Device, string> ids = [];
             List<Node> nodes = [];
+            List<(string Primary, string Extra)> sameMac = [];
+
+            Node NodeFor(string id, Model.Device device, string group, string ip) => new(
+                id: id,
+                group: group,
+                label: device.DisplayName,
+                hostname: device.HostName,
+                ip: ip,
+                mac: device.MacText,
+                lookupIPs: device.LookupAddressText,
+                network: networks.GetValueOrDefault(group, string.Empty));
 
             for (int i = 0; i < devices.Count; i++)
             {
                 Model.Device device = devices[i];
                 string id = i.ToString();
+                string primary = device.PrimaryAddress?.Info.Canonical ?? string.Empty;
 
+                // Every node sits in the range its address belongs to; the group of the device only
+                // where no range matches. Which address is the primary one the device decides, not the scan.
                 ids[device] = id;
+                nodes.Add(NodeFor(id, device, RangeOf(ranges, primary)?.Group ?? device.GroupDescription, primary));
 
-                nodes.Add(new Node(
-                    id: id,
-                    group: device.GroupDescription,
-                    label: device.DisplayName,
-                    hostname: device.HostName,
-                    ip: device.PrimaryAddress?.Info.Canonical ?? string.Empty,
-                    mac: device.MacText,
-                    lookupIPs: device.LookupAddressText,
-                    network: groupNetworks is not null && groupNetworks.TryGetValue(device.GroupDescription, out string? net)
-                        ? net
-                        : string.Empty));
+                if (!Model.DeviceStore.IsIdentifying(device.Mac)) continue;
+
+                int extra = 0;
+                foreach (Model.DeviceAddress address in device.Ipv4Addresses)
+                {
+                    if (address.Info.Canonical == primary) continue;
+
+                    string extraId = $"{id}.{++extra}";
+                    string group = RangeOf(ranges, address.Info.Canonical)?.Group ?? device.GroupDescription;
+                    nodes.Add(NodeFor(extraId, device, group, address.Info.Canonical));
+                    sameMac.Add((id, extraId));
+                }
             }
 
             HashSet<Link> links = [];
             HashSet<(string, string)> duplicatePairs = [];
 
-            // Attach devices of the same group as a star to the first node.
-            foreach (IGrouping<string, Model.Device> group in devices.GroupBy(d => d.GroupDescription))
+            // Attach the nodes of the same group as a star to the first node.
+            foreach (IGrouping<string, Node> group in nodes.GroupBy(n => n.group))
             {
-                List<Model.Device> members = [.. group];
+                List<Node> members = [.. group];
                 if (members.Count <= 1) continue;
 
-                foreach (Model.Device member in members.Skip(1))
+                foreach (Node member in members.Skip(1))
                 {
-                    links.Add(new Link(ids[members[0]], ids[member], false, false, false, false, false));
+                    links.Add(new Link(members[0].id, member.id, false, false, false, false, false));
                 }
+            }
+
+            // The same MAC under further IPv4 addresses, in both directions like the other duplicates.
+            foreach ((string primary, string extra) in sameMac)
+            {
+                links.Add(new Link(primary, extra, false, false, false, true, false));
+                links.Add(new Link(extra, primary, false, false, false, true, false));
             }
 
             // Duplicated address. Link-local addresses are excluded for the same
@@ -115,6 +153,11 @@ namespace MyNetworkMonitor.Core.Services
             Pair(devices.Where(d => !string.IsNullOrWhiteSpace(d.HostName))
                         .GroupBy(d => d.HostName, StringComparer.OrdinalIgnoreCase),
                  (a, b) => new Link(a, b, false, false, true, false, false));
+
+            // The same MAC on devices of different networks; virtual router MACs identify nobody.
+            Pair(devices.Where(d => Model.DeviceStore.IsIdentifying(d.Mac))
+                        .GroupBy(d => Convert.ToHexString(d.Mac!.GetAddressBytes()), StringComparer.OrdinalIgnoreCase),
+                 (a, b) => new Link(a, b, false, false, false, true, false));
 
             // The name points to an address at which another device answers.
             // This edge would not exist without DNS - and it is the only one
@@ -555,20 +598,48 @@ namespace MyNetworkMonitor.Core.Services
         /// <returns>The full path of the written HTML file.</returns>
         public static string WriteHtmlFile(string graphFolder, IReadOnlyList<Model.Device> devices,
                                            bool useOnlineVersion) =>
-            WriteHtmlFile(graphFolder, devices, useOnlineVersion, null);
+            WriteHtmlFile(graphFolder, devices, useOnlineVersion, (IReadOnlyList<TopologyRange>?)null);
 
         /// <summary>The same file, with the network of each group as configured.</summary>
         /// <param name="graphFolder">The target folder; created if missing.</param>
         /// <param name="devices">The scanned devices.</param>
         /// <param name="useOnlineVersion">Load 3d-force-graph from the CDN instead of the bundled copy.</param>
-        /// <param name="groupNetworks">Network label per group description, see <see cref="BuildGraphJson(IReadOnlyList{Model.Device}, IReadOnlyDictionary{string, string}?)"/>.</param>
+        /// <param name="ranges">The configured IPv4 ranges, see <see cref="BuildGraphJson(IReadOnlyList{Model.Device}, IReadOnlyList{TopologyRange}?)"/>.</param>
         /// <returns>The full path of the written HTML file.</returns>
         public static string WriteHtmlFile(string graphFolder, IReadOnlyList<Model.Device> devices,
-                                           bool useOnlineVersion, IReadOnlyDictionary<string, string>? groupNetworks)
+                                           bool useOnlineVersion, IReadOnlyList<TopologyRange>? ranges)
         {
             Directory.CreateDirectory(graphFolder);
 
-            return Write(graphFolder, BuildHtml(BuildGraphJson(devices, groupNetworks), useOnlineVersion));
+            return Write(graphFolder, BuildHtml(BuildGraphJson(devices, ranges), useOnlineVersion));
+        }
+
+        /// <summary>The first range containing the IPv4 address, or null.</summary>
+        private static TopologyRange? RangeOf(IReadOnlyList<TopologyRange> ranges, string address)
+        {
+            if (!TryToUInt(address, out uint value)) return null;
+
+            foreach (TopologyRange range in ranges)
+            {
+                if (TryToUInt(range.FirstIp, out uint first) && TryToUInt(range.LastIp, out uint last) &&
+                    value >= first && value <= last)
+                {
+                    return range;
+                }
+            }
+
+            return null;
+        }
+
+        private static bool TryToUInt(string? text, out uint value)
+        {
+            value = 0;
+            if (!IPAddress.TryParse(text?.Trim(), out IPAddress? address) || address.AddressFamily != AddressFamily.InterNetwork)
+                return false;
+
+            byte[] b = address.GetAddressBytes();
+            value = (uint)(b[0] << 24 | b[1] << 16 | b[2] << 8 | b[3]);
+            return true;
         }
 
         /// <summary>
@@ -581,15 +652,11 @@ namespace MyNetworkMonitor.Core.Services
         /// <returns>The label; empty if the addresses are not IPv4 or the range is reversed.</returns>
         public static string DescribeRange(string? firstIp, string? lastIp)
         {
-            if (!IPAddress.TryParse(firstIp?.Trim(), out IPAddress? first) || first.AddressFamily != AddressFamily.InterNetwork ||
-                !IPAddress.TryParse(lastIp?.Trim(), out IPAddress? last) || last.AddressFamily != AddressFamily.InterNetwork)
-            {
-                return string.Empty;
-            }
+            if (!TryToUInt(firstIp, out uint a) || !TryToUInt(lastIp, out uint b)) return string.Empty;
+            string first = firstIp!.Trim(), last = lastIp!.Trim();
 
-            uint a = ToUInt(first), b = ToUInt(last);
             if (a > b) return string.Empty;
-            if (a == b) return first.ToString();
+            if (a == b) return first;
 
             for (int prefix = 31; prefix >= 0; prefix--)
             {
@@ -606,12 +673,6 @@ namespace MyNetworkMonitor.Core.Services
             }
 
             return $"{first} - {last}";
-
-            static uint ToUInt(IPAddress address)
-            {
-                byte[] bytes = address.GetAddressBytes();
-                return (uint)(bytes[0] << 24 | bytes[1] << 16 | bytes[2] << 8 | bytes[3]);
-            }
 
             static string FromUInt(uint value) =>
                 $"{value >> 24}.{(value >> 16) & 0xFF}.{(value >> 8) & 0xFF}.{value & 0xFF}";
@@ -658,4 +719,10 @@ namespace MyNetworkMonitor.Core.Services
             }
         }
     }
+
+    /// <summary>A configured IPv4 range as the 3D view needs it: the group it names and its addresses.</summary>
+    /// <param name="Group">The group description of the range.</param>
+    /// <param name="FirstIp">First address.</param>
+    /// <param name="LastIp">Last address.</param>
+    public sealed record TopologyRange(string Group, string FirstIp, string LastIp);
 }

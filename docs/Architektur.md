@@ -96,3 +96,22 @@ Zeitlich geordnet, neue ans Ende.
   Kurzfassung und Lizenztext in den Einstellungen (`LicenseWindow`). Kein Lizenzschlüssel; die Lizenz wirkt rechtlich.
 - **Folge:** Alte Veröffentlichungen unter MIT mit Commons Clause behalten für ihre Empfänger diese Rechte; die neue
   Lizenz gilt für Fassungen ab 7.3.0.22.
+
+### 18.11.2026 – Eine MAC kennzeichnet ein Gerät nur in ihrem Netz
+
+- **Entschieden:** Jede Adresse eines Geräts trägt die Kennung ihres Netzes (`DeviceAddress.NetworkId`, gebildet in
+  `NetworkIds`: Kennung des Bereichs; bei „Local network“ samt Subnetz zur Scanzeit; Ziellisten ohne Kennung). Der
+  Gerätebestand führt Beobachtungen mit derselben MAC nur im selben Netz zusammen; dieselbe MAC in verschiedenen
+  bekannten Netzen ergibt eigene Geräte. Ein unbekanntes Netz trennt nicht (ältere Bestände, Ziellisten).
+  Satelliten-Ergebnisse werden vor dem Übernehmen den Bereichen der Zentrale zugeordnet. Aus EUI-64 abgeleitete MACs
+  verbinden nur weich; VRRP-, HSRP- und NLB-MACs sind keine Kennung.
+- **Warum:** Eine MAC ist nur in ihrem Segment eindeutig. Netzübergreifend als Kennung verwendet, verschmolzen
+  geklonte VMs, Router mit einer MAC auf mehreren VLANs und Geräte aus Satelliten-Segmenten zu einem Eintrag – genau
+  die Fehler, für die die 3D-Ansicht mit ihren „same MAC“-Kanten gebaut wurde, wurden unsichtbar (Fehlergedächtnis
+  Nr. 36).
+- **Innerhalb eines Netzes bleibt es ein Gerät,** auch mit mehreren IPv4-Adressen: sonst zerfiele jedes IPv6-Gerät in
+  viele Einträge und jede neue DHCP-Adresse erschiene als zweites Gerät. Sichtbar wird der Fall als Befund (mögliche
+  Ursachen samt ARP-Spoofing; kritisch, wenn eine der Adressen zugleich ein anderes Gerät mit eigener MAC hat) und in
+  der 3D-Ansicht als eigener Knoten mit roter Kante.
+- **Bewusst nicht:** gleiche private Netze an zwei Standorten unterscheiden (Adressabfragen und doppelte IP je Netz),
+  eine Markierung „bekannt und in Ordnung“, eine Formatversion der Bestandsdatei (die neue Angabe ist optional).

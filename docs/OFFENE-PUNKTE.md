@@ -6,29 +6,14 @@ im Fehlergedächtnis). Grundlage ist die Prüfung gegen die gemeinsamen Regeln v
 
 ## Als Nächstes
 
-- **Gleiche MAC in mehreren Netzen wieder sichtbar machen** (abgestimmt am 18.11.2026). Heute führt der Gerätebestand
-  alles mit derselben MAC zu einem Gerät zusammen, über alle Bereiche und Satelliten hinweg; die 3D-Ansicht zeigt
-  deshalb keine roten „same MAC“-Kanten mehr, der zweite Name geht verloren. Neue Regel: eine MAC kennzeichnet ein
-  Gerät nur innerhalb ihres Netzes. Schritte, je eigene Version mit Tests (1–3 erledigt in 7.3.0.41–7.3.0.43, siehe
-  Fehlergedächtnis Nr. 36–39; Satelliten-Zuordnung aus Schritt 4 schon mit Schritt 2):
-  1. Netz-Kennung je Adresse (Kennung des Bereichs, bei „Local network“ samt tatsächlichem Subnetz), von allen
-     Verfahren mitgegeben und gespeichert; ältere Bestände bekommen sie beim Laden über den passenden Bereich.
-  2. Zuordnung: MAC nur im selben Netz; aus EUI-64 abgeleitete MAC nur weich; VRRP-, HSRP- und NLB-MACs nie als
-     Kennung; Bereich eines Geräts aus dem Netz seiner Adresse statt „zuletzt gemeldet“; gilt auch für Satelliten.
-  3. Befunde: „gleiche MAC in einem anderen Netz“ (Warnung; nur Hinweis „früher in … gesehen“, wenn nicht beide
-     zugleich antworten – Umzug); mehrere IPv4 an einer MAC im selben Netz mit Text „Zusatzadresse, alte
-     DHCP-Adresse, Repeater/Bridge oder Spoofing“, kritisch als Verdacht auf ARP-Spoofing, wenn das Gateway oder eine
-     IP mit eigener anderer MAC betroffen ist; Titel und Schweregrad je Befundzeile (siehe „Vermutete Fehler“).
-  4. Satelliten: Zentrale ordnet zurückkommende Geräte über den Auftrag ihrem Bereich zu; Bereichsname je Bereich im
-     Auftrag; ältere Satelliten bleiben verwendbar.
-  5. Anzeige: Hinweis in der Tabelle, rote Kanten und weitere IPv4-Adressen als eigene Knoten im 3D-Graphen.
-  6. Doku (Architektur, SATELLIT.md, Fehlergedächtnis) und Gegenproben: Router mit mehreren VLANs über Satelliten,
-     Server mit Zusatz-IP, Notebook nach DHCP-Wechsel, VRRP/HSRP-Paar, geklonte VM, Windows `SendARP` hinter einem
-     Router, Messung mit einigen tausend Geräten.
-
+- **Gleiche MAC in mehreren Netzen – Gegenproben an echten Netzen** (umgesetzt in 7.3.0.41–7.3.0.44, siehe
+  `docs/Architektur.md` und Fehlergedächtnis Nr. 36–39): Router oder L3-Switch mit mehreren VLANs über Satelliten,
+  Gerät von Zentrale und Satellit gesehen, Server mit Zusatz-IP, Notebook nach DHCP-Wechsel und nach Wechsel
+  LAN/WLAN (Hinweis „umgezogen“), VRRP/HSRP-Paar, geklonte VM, Bestand von vor 7.3.0.41, Windows `SendARP` bei einem
+  Ziel hinter einem Router, Messung mit einigen tausend Geräten.
   Bewusst nicht: gleiche private Netze an zwei Standorten (Adressabfragen und doppelte IP je Netz), zufällige MACs
-  gesondert, Formatversion der Bestandsdatei, „bekannt und in Ordnung“-Markierung. Das heutige Verhalten halten
-  `DeviceStoreTests` und `DuplicateDetectorTests` fest.
+  gesondert, Formatversion der Bestandsdatei, „bekannt und in Ordnung“-Markierung. Abgesichert durch
+  `DeviceStoreTests`, `SameMacTests`, `NetworkIdTests`, `DuplicateDetectorTests` und `TopologyNetworkLabelTests`.
 
 - **Gegenproben an echten Geräten** für die Korrekturen 7.3.0.38–7.3.0.40 (gefunden mit einem nachgebauten Netz aus
   Dokumentationsadressen): Hersteller mit Komma ohne Anführungszeichen, Bewertung „global“ unverändert für private und

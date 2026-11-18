@@ -657,7 +657,9 @@ Automatische Tests stehen in `MyNetworkMonitor.Core.Tests` (`docs/PRUEFUNGEN.md`
   früher rote „same MAC“-Kanten zwischen Netzen, damit wurden doppelte MACs und falsch abgeglichene DNS-Server
   gefunden; im nachgebauten Netz mit geklonter VM nachgestellt). Vorhanden seit dem Gerätemodell (Commit bfeb44c,
   August 2026); vorher war jede Adresse eine eigene Zeile mit eigenem Knoten. **Behoben (Zuordnung):** 7.3.0.42;
-  **Befunde:** 7.3.0.43; Anzeige in der 3D-Ansicht in einer eigenen Version.
+  **Befunde:** 7.3.0.43; **3D-Ansicht:** 7.3.0.44 (rote „same MAC“-Kanten zwischen Geräten verschiedener Netze und zu
+  weiteren IPv4-Adressen eines Geräts, jeder Knoten in seinem Netz; `TopologyGraph.BuildGraphJson` mit
+  `TopologyRange`, Tests in `TopologyNetworkLabelTests`).
 - **Was:** Zwei Geräte mit derselben MAC in verschiedenen Bereichen (geklonte VM, Router mit einer MAC auf mehreren
   VLANs, über einen Satelliten aus einem anderen Segment gemeldet) wurden zu einem Gerät zusammengeführt: der zweite
   Name ging verloren, der Bereich sprang auf den zuletzt gemeldeten, die Tabelle zeigte nur die erste Adresse, die
