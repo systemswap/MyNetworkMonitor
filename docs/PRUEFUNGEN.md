@@ -67,8 +67,9 @@ Zentrale. Ergebnis je Schritt:
 | Seite des Satelliten | „Scanning for <Zentrale>:27411 (Zentrale) · job …“, Verfahren mit Fortschritt, erledigt/noch offen, „Stop the job“; eigene Angaben Hostname, Adresse, Netz | in Ordnung |
 
 Offen bzw. nicht geprüft: Betrieb als Windows-Dienst, zwei Zentralen für einen Satelliten, Satellit auf Windows,
-echte Router und Switches (Gegenproben in `docs/OFFENE-PUNKTE.md`). Der Satellit selbst steht in der Tabelle der
-Zentrale ohne MAC und Hersteller, weil er seine eigene MAC nicht per ARP erfragen kann.
+echte Router und Switches (Gegenproben in `docs/OFFENE-PUNKTE.md`). Der Satellit selbst steht seit 7.3.0.47 mit seiner MAC
+und seinem Hersteller in der Tabelle der Zentrale (Fehlergedächtnis Nr. 46; vorher ohne, weil kein Rechner sich selbst
+in seiner Nachbartabelle führt).
 
 ## Letzter Stand
 
@@ -81,3 +82,4 @@ Zentrale ohne MAC und Hersteller, weil er seine eigene MAC nicht per ARP erfrage
 | 25.10.2026 | 7.3.0.31 | Normabschnitte in den Kommentaren gegen die Originaltexte (rfc-editor.org, OPC-UA-Referenz 1.05.07): keine falsche Nummer; ungenaue Stellen berichtigt; SEMI und ASHRAE nicht frei prüfbar |
 | 25.10.2026 | 7.3.0.31 | 83 Tests grün; AppImage im Testordner gestartet: Titel mit Version, Startprüfung mit Hinweis auf Rohsocket-Rechte |
 | 18.11.2026 | 7.3.0.46 | Satellitenbetrieb im Nachbau durchgespielt (siehe oben); 205 Tests grün |
+| 19.11.2026 | 7.3.0.47 | Nachbau mit zwei Satelliten: beide Satelliten mit eigener MAC und Hersteller in der Zentrale; 209 Tests grün |

@@ -175,7 +175,9 @@ namespace MyNetworkMonitor
 
             IPAddress ipAddress = IPAddress.Parse(ipToScan.IPorHostname);
 
-            string? mac = await _arp.ResolveMacAsync(ipAddress, _cts.Token);
+            // An own address is not in the neighbor table: ask the adapter instead of the network.
+            string? mac = OwnMacOf(ipAddress, OwnAdapterAddresses())
+                          ?? await _arp.ResolveMacAsync(ipAddress, _cts.Token);
 
             // Count only once the request has been answered or has timed out; counting on
             // sending would fill the progress bar far too early.
@@ -224,6 +226,59 @@ namespace MyNetworkMonitor
 
 
 
+
+        /// <summary>
+        /// The MAC of an address of this computer, from the adapter that carries it.
+        /// <para>
+        /// No ARP request and no neighbor table can answer for an address of the asking machine
+        /// itself: the system does not list itself as its own neighbor. The machine then appeared
+        /// without MAC and vendor - a satellite in particular, which is the only one able to see
+        /// its own segment (docs/FEHLERGEDAECHTNIS.md, No. 46).
+        /// </para>
+        /// </summary>
+        /// <param name="ip">The address to resolve.</param>
+        /// <param name="ownAddresses">The IPv4 addresses of this computer with the MAC of their adapter.</param>
+        /// <returns>The MAC formatted like the ARP providers ("aa-bb-cc-dd-ee-ff"); null if the address is not an own one or its adapter has no MAC.</returns>
+        internal static string? OwnMacOf(IPAddress ip, IEnumerable<(IPAddress Address, byte[] Mac)> ownAddresses)
+        {
+            foreach ((IPAddress address, byte[] mac) in ownAddresses)
+            {
+                if (!address.Equals(ip)) continue;
+
+                // Loopback, tunnel and some virtual adapters have no MAC or one of zeros.
+                if (mac.Length != 6 || mac.All(b => b == 0)) return null;
+
+                return string.Join("-", mac.Select(b => b.ToString("x2")));
+            }
+
+            return null;
+        }
+
+        /// <summary>The IPv4 addresses of the operational adapters of this computer with their MAC.</summary>
+        private static List<(IPAddress Address, byte[] Mac)> OwnAdapterAddresses()
+        {
+            List<(IPAddress, byte[])> own = [];
+
+            try
+            {
+                foreach (NetworkInterface adapter in NetworkInterface.GetAllNetworkInterfaces())
+                {
+                    if (adapter.OperationalStatus != OperationalStatus.Up) continue;
+
+                    byte[] mac = adapter.GetPhysicalAddress().GetAddressBytes();
+                    foreach (UnicastIPAddressInformation address in adapter.GetIPProperties().UnicastAddresses)
+                    {
+                        if (address.Address.AddressFamily == AddressFamily.InterNetwork) own.Add((address.Address, mac));
+                    }
+                }
+            }
+            catch (NetworkInformationException)
+            {
+                // Without the adapter list the address is resolved over the network as before.
+            }
+
+            return own;
+        }
 
         /// <summary>
         /// Reads the ARP table of the system and reports every entry as a found device (with MAC address and vendor).

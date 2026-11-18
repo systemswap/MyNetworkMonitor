@@ -847,3 +847,20 @@ Automatische Tests stehen in `MyNetworkMonitor.Core.Tests` (`docs/PRUEFUNGEN.md`
   `SatelliteLink/SatelliteListener.cs` (`Describe`).
 - **Abgesichert durch:** `SatelliteEndpointTests`; Zeitpunkt im Durchlauf geprüft.
 - **Gegenprobe an echten Geräten (offen):** keine nötig.
+
+## Nr. 46 – ARP: der scannende Rechner selbst stand ohne MAC und Hersteller
+
+- **Entdeckt:** 18.11.2026, Version 7.3.0.45 (Durchlauf des Satellitenbetriebs im Nachbau: die Zeile des Satelliten in
+  der Zentrale ohne MAC und Hersteller). **Behoben:** 7.3.0.47.
+- **Was:** Die eigene Adresse des scannenden Rechners antwortete auf Ping, bekam aber keine MAC – bei einem Satelliten
+  besonders auffällig, denn nur er sieht sein Segment, niemand sonst kann die MAC nachliefern. Auf der Zentrale ebenso,
+  wenn ihre Adresse in einem Bereich liegt.
+- **Warum:** Die MAC kommt aus ARP bzw. der Nachbartabelle (`ip neigh`); ein Rechner führt sich dort nicht selbst.
+- **Lösung:** Das ARP-Verfahren nimmt für eine eigene IPv4-Adresse die MAC des Netzadapters, der sie trägt
+  (`NetworkInterface.GetPhysicalAddress`), und fragt erst sonst das Netz. An einer Stelle für alle Plattformen, statt in
+  jedem ARP-Anbieter. Adapter ohne MAC oder mit Nullen (Loopback, Tunnel) liefern nichts.
+- **Nicht tun:** die eigene MAC beim Satelliten-Ergebnis von Hand nachtragen – dann fehlt sie auf der Zentrale weiter.
+- **Im Code:** `Scanning/ScanningMethod_ARP.cs` (`OwnMacOf`, `OwnAdapterAddresses`, Aufruf in `ArpRequestTask`).
+- **Abgesichert durch:** `OwnMacTests`; Nachbau mit zwei Satelliten (beide mit MAC und Hersteller in der Zentrale).
+- **Gegenprobe an echten Geräten (offen):** Satellit unter Windows und Linux im echten Netz – MAC und Hersteller in
+  seiner Zeile stimmen mit dem Adapter überein; ein Rechner mit mehreren Adaptern zeigt je Adresse die MAC ihres Adapters.
