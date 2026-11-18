@@ -10,7 +10,7 @@ im Fehlergedächtnis). Grundlage ist die Prüfung gegen die gemeinsamen Regeln v
   `docs/Architektur.md` und Fehlergedächtnis Nr. 36–39): Router oder L3-Switch mit mehreren VLANs über Satelliten,
   Gerät von Zentrale und Satellit gesehen, Server mit Zusatz-IP, Notebook nach DHCP-Wechsel und nach Wechsel
   LAN/WLAN (Hinweis „umgezogen“), VRRP/HSRP-Paar, geklonte VM, Bestand von vor 7.3.0.41, Windows `SendARP` bei einem
-  Ziel hinter einem Router, Messung mit einigen tausend Geräten.
+  Ziel hinter einem Router. (Messung mit 5000 Geräten erledigt, Fehlergedächtnis Nr. 36.)
   Bewusst nicht: gleiche private Netze an zwei Standorten (Adressabfragen und doppelte IP je Netz), zufällige MACs
   gesondert, Formatversion der Bestandsdatei, „bekannt und in Ordnung“-Markierung. Abgesichert durch
   `DeviceStoreTests`, `SameMacTests`, `NetworkIdTests`, `DuplicateDetectorTests` und `TopologyNetworkLabelTests`.

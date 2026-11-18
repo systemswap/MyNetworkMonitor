@@ -681,6 +681,9 @@ Automatische Tests stehen in `MyNetworkMonitor.Core.Tests` (`docs/PRUEFUNGEN.md`
   „Suspected ARP spoofing“ nur, wenn eine dieser Adressen zugleich ein anderes Gerät mit eigener MAC hat. Bewusst
   nicht kritisch allein wegen des Gateways: ein Router mit einer zweiten Adresse auf derselben Schnittstelle sieht
   genauso aus und würde dauerhaft Alarm schlagen.
+- **Messung (18.11.2026, A/B gegen den Stand vor 7.3.0.41):** 5000 Geräte mit IPv4, IPv6 und Nachscan (15 000
+  Beobachtungen) 54 → 87 ms, Dublettenprüfung 6 → 9 ms (jeweils bester von fünf Läufen). Mehr Arbeit durch die
+  Netzprüfung je Adresse, für einen Scan ohne Belang.
 - **Nicht tun:** eine Kennung ohne ihren Geltungsbereich verwenden; eine MAC gilt nur im Segment, in dem sie gesehen
   wurde.
 - **Im Code:** `MyNetworkMonitor.Core/Model/DeviceStore.cs` (`FindCandidates`, `ContradictsObservation`, `Contradicts`,
