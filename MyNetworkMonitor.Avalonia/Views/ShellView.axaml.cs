@@ -1346,7 +1346,16 @@ public partial class ShellView : Window
             }
             else
             {
-                await TopologyLauncher.ShowAsync(host, devices, online);
+                // The configured ranges name the network of each group; the page can
+                // only guess it from the addresses (docs/FEHLERGEDAECHTNIS.md, No. 35).
+                Dictionary<string, string> networks = new(StringComparer.Ordinal);
+                foreach (ScanScope scope in _shell.Scopes.Where(s => s.Kind == ScanScopeKind.IPv4Range))
+                {
+                    string label = TopologyGraph.DescribeRange(scope.FirstIP, scope.LastIP);
+                    if (label.Length > 0) networks.TryAdd(scope.GroupDescription, label);
+                }
+
+                await TopologyLauncher.ShowAsync(host, devices, online, groupNetworks: networks);
 
                 tb_TopologyHint.Text = "Duplicate addresses and names are drawn as coloured edges.";
             }

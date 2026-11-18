@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-MyNetworkMonitor
 using System.Data;
+using System.Net;
+using System.Net.Sockets;
 using System.Text;
 using Newtonsoft.Json;
 
@@ -18,7 +20,8 @@ namespace MyNetworkMonitor.Core.Services
             "<script src=\"./libs/3d-force-graph.min.js\"></script>";
 
         /// <summary>A node in the network graph; property names are the JSON names used by the page.</summary>
-        private sealed record Node(string id, string group, string label, string hostname, string ip, string mac, string lookupIPs);
+        private sealed record Node(string id, string group, string label, string hostname, string ip, string mac, string lookupIPs,
+                                   string network = "");
 
         /// <summary>
         /// An edge in the graph. The flags are not mutually exclusive - the same
@@ -43,7 +46,21 @@ namespace MyNetworkMonitor.Core.Services
         /// </summary>
         /// <param name="devices">The scanned devices.</param>
         /// <returns>The graph as JSON with <c>nodes</c> and <c>links</c> for 3d-force-graph.</returns>
-        public static string BuildGraphJson(IReadOnlyList<Model.Device> devices)
+        public static string BuildGraphJson(IReadOnlyList<Model.Device> devices) => BuildGraphJson(devices, null);
+
+        /// <summary>
+        /// Builds the graph from the device model, with the network of each group as configured.
+        /// <para>
+        /// The page labels every group with its network. Read from the member addresses alone it can
+        /// only be guessed, and only a /24 or /16 can be told apart - a /23 or a /27 came out wrong
+        /// (docs/FEHLERGEDAECHTNIS.md, No. 35). The configured range is the reliable source.
+        /// </para>
+        /// </summary>
+        /// <param name="devices">The scanned devices.</param>
+        /// <param name="groupNetworks">Network label per group description, see <see cref="DescribeRange"/>; groups without one fall back to the guess.</param>
+        /// <returns>The graph as JSON with <c>nodes</c> and <c>links</c> for 3d-force-graph.</returns>
+        public static string BuildGraphJson(IReadOnlyList<Model.Device> devices,
+                                            IReadOnlyDictionary<string, string>? groupNetworks)
         {
             ArgumentNullException.ThrowIfNull(devices);
 
@@ -64,7 +81,10 @@ namespace MyNetworkMonitor.Core.Services
                     hostname: device.HostName,
                     ip: device.PrimaryAddress?.Info.Canonical ?? string.Empty,
                     mac: device.MacText,
-                    lookupIPs: device.LookupAddressText));
+                    lookupIPs: device.LookupAddressText,
+                    network: groupNetworks is not null && groupNetworks.TryGetValue(device.GroupDescription, out string? net)
+                        ? net
+                        : string.Empty));
             }
 
             HashSet<Link> links = [];
@@ -383,8 +403,8 @@ namespace MyNetworkMonitor.Core.Services
                                      : link.isDnsConflict ? '#ff4fd8'
                                      : link.isLookup ? 'cyan' : 'white');
 
-        // The common network address of a group. It is nowhere in the data but
-        // can be read from the addresses of the members, as long as they agree;
+        // The common network address of a group, for groups without a configured
+        // range. Read from the addresses of the members, as long as they agree;
         // otherwise the description stays.
         function networkOf(members) {{
             const ips = members.map(n => n.ip).filter(ip => ip);
@@ -427,7 +447,8 @@ namespace MyNetworkMonitor.Core.Services
             }});
 
             byGroup.forEach((members, key) => {{
-                const network = networkOf(members);
+                const configured = members.find(n => n.network);
+                const network = configured ? configured.network : networkOf(members);
                 if (!network && !key) return;
 
                 const element = document.createElement('div');
@@ -533,11 +554,67 @@ namespace MyNetworkMonitor.Core.Services
         /// <param name="useOnlineVersion">Load 3d-force-graph from the CDN instead of the bundled copy.</param>
         /// <returns>The full path of the written HTML file.</returns>
         public static string WriteHtmlFile(string graphFolder, IReadOnlyList<Model.Device> devices,
-                                           bool useOnlineVersion)
+                                           bool useOnlineVersion) =>
+            WriteHtmlFile(graphFolder, devices, useOnlineVersion, null);
+
+        /// <summary>The same file, with the network of each group as configured.</summary>
+        /// <param name="graphFolder">The target folder; created if missing.</param>
+        /// <param name="devices">The scanned devices.</param>
+        /// <param name="useOnlineVersion">Load 3d-force-graph from the CDN instead of the bundled copy.</param>
+        /// <param name="groupNetworks">Network label per group description, see <see cref="BuildGraphJson(IReadOnlyList{Model.Device}, IReadOnlyDictionary{string, string}?)"/>.</param>
+        /// <returns>The full path of the written HTML file.</returns>
+        public static string WriteHtmlFile(string graphFolder, IReadOnlyList<Model.Device> devices,
+                                           bool useOnlineVersion, IReadOnlyDictionary<string, string>? groupNetworks)
         {
             Directory.CreateDirectory(graphFolder);
 
-            return Write(graphFolder, BuildHtml(BuildGraphJson(devices), useOnlineVersion));
+            return Write(graphFolder, BuildHtml(BuildGraphJson(devices, groupNetworks), useOnlineVersion));
+        }
+
+        /// <summary>
+        /// The label of a configured IPv4 range: the network in CIDR notation when the range covers
+        /// exactly the hosts of one network (with or without network and broadcast address, for
+        /// example 192.0.2.1 - 192.0.2.30 is 192.0.2.0/27), otherwise the range itself.
+        /// </summary>
+        /// <param name="firstIp">First address of the range.</param>
+        /// <param name="lastIp">Last address of the range.</param>
+        /// <returns>The label; empty if the addresses are not IPv4 or the range is reversed.</returns>
+        public static string DescribeRange(string? firstIp, string? lastIp)
+        {
+            if (!IPAddress.TryParse(firstIp?.Trim(), out IPAddress? first) || first.AddressFamily != AddressFamily.InterNetwork ||
+                !IPAddress.TryParse(lastIp?.Trim(), out IPAddress? last) || last.AddressFamily != AddressFamily.InterNetwork)
+            {
+                return string.Empty;
+            }
+
+            uint a = ToUInt(first), b = ToUInt(last);
+            if (a > b) return string.Empty;
+            if (a == b) return first.ToString();
+
+            for (int prefix = 31; prefix >= 0; prefix--)
+            {
+                uint mask = prefix == 0 ? 0u : uint.MaxValue << (32 - prefix);
+                uint network = a & mask;
+                uint broadcast = network | ~mask;
+
+                if (b > broadcast) continue;
+
+                // The smallest network containing the range. It is the network of the range only if
+                // the range uses all of its hosts; otherwise the range is part of something larger.
+                bool coversHosts = a <= network + 1 && b >= broadcast - 1;
+                return coversHosts ? $"{FromUInt(network)}/{prefix}" : $"{first} - {last}";
+            }
+
+            return $"{first} - {last}";
+
+            static uint ToUInt(IPAddress address)
+            {
+                byte[] bytes = address.GetAddressBytes();
+                return (uint)(bytes[0] << 24 | bytes[1] << 16 | bytes[2] << 8 | bytes[3]);
+            }
+
+            static string FromUInt(uint value) =>
+                $"{value >> 24}.{(value >> 16) & 0xFF}.{(value >> 8) & 0xFF}.{value & 0xFF}";
         }
 
         private static string Write(string graphFolder, string html)

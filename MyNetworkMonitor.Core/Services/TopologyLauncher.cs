@@ -53,10 +53,12 @@ namespace MyNetworkMonitor.Core.Services
         /// <param name="devices">The scanned devices.</param>
         /// <param name="useOnlineVersion">Load 3d-force-graph from the CDN instead of the bundled copy.</param>
         /// <param name="graphFolder">Where the page is written; <see cref="DefaultGraphFolder"/> if null.</param>
+        /// <param name="groupNetworks">Network label per group description from the configured ranges, see <see cref="TopologyGraph.DescribeRange"/>.</param>
         public static Task ShowAsync(IWebViewHost webViewHost, IReadOnlyList<Model.Device> devices,
-                                     bool useOnlineVersion, string? graphFolder = null) =>
+                                     bool useOnlineVersion, string? graphFolder = null,
+                                     IReadOnlyDictionary<string, string>? groupNetworks = null) =>
             ShowAsync(webViewHost, useOnlineVersion, graphFolder,
-                      folder => TopologyGraph.WriteHtmlFile(folder, devices, useOnlineVersion));
+                      folder => TopologyGraph.WriteHtmlFile(folder, devices, useOnlineVersion, groupNetworks));
 
         /// <summary>
         /// The service view. A separate path down to the generated file - only

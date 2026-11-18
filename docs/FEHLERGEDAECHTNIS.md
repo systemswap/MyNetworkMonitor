@@ -615,3 +615,25 @@ Automatische Tests stehen in `MyNetworkMonitor.Core.Tests` (`docs/PRUEFUNGEN.md`
   `Network/IpAddressEnums.cs` (Beschreibung der Sonderformen).
 - **Abgesichert durch:** `IpAddressScopeTests` (Dokumentation und Benchmark nicht global, Nachbaradressen weiter global,
   private Adressen; mit dem alten Stand schlagen die fünf IPv4-Fälle fehl).
+
+## Nr. 35 – 3D-Netzansicht: Netzbeschriftung nur für /24 und /16 richtig
+
+- **Entdeckt:** 18.11.2026, Version 7.3.0.39 (Bildschirmfotos für die Startseite: vier Bereiche aus /27-Netzen trugen
+  alle die Beschriftung „192.0.2.0/24“). **Behoben:** 7.3.0.40.
+- **Was:** Jede Gerätegruppe bekommt in der Netzansicht eine Beschriftung mit ihrem Netz. Die Seite las es aus den
+  Adressen der Geräte und kannte nur zwei Fälle: alle im selben /24, sonst alle im selben /16. Kleinere Netze
+  (/25 … /30) erschienen als das umgebende /24, ein /23 als /16 – in Firmennetzen häufig, und die Angabe sah
+  verlässlich aus.
+- **Warum:** Die Seite kannte die eingestellten Bereiche nicht, nur die Geräte; aus einzelnen Adressen lässt sich die
+  Netzgröße nicht ablesen.
+- **Lösung:** Das Hauptfenster gibt je Bereich (IPv4, von–bis) eine Beschriftung mit: `TopologyGraph.DescribeRange`
+  nennt das Netz in CIDR-Schreibweise, wenn der Bereich genau dessen Hosts umfasst (mit oder ohne Netz- und
+  Broadcast-Adresse), sonst den Bereich selbst („a – b“). Gruppen ohne eingestellten Bereich behalten die bisherige
+  Schätzung. Verworfen: die Schätzung über das gemeinsame Bitpräfix der Geräte – sie liefert je nach belegten
+  Adressen ein zu kleines Netz.
+- **Nicht tun:** eine Netzgröße aus den gefundenen Adressen ableiten und als Tatsache anzeigen.
+- **Im Code:** `MyNetworkMonitor.Core/Services/TopologyGraph.cs` (`DescribeRange`, `BuildGraphJson` mit
+  `groupNetworks`, Feld `network` am Knoten, `buildNetLabels` im Seitenskript), `Services/TopologyLauncher.cs`,
+  `MyNetworkMonitor.Avalonia/Views/ShellView.axaml.cs` (Zeichnen der Netzansicht).
+- **Abgesichert durch:** `TopologyNetworkLabelTests` (/27, /24, /23, /25, Teilbereich, Einzeladresse, verkehrte
+  Reihenfolge, IPv6, leer; Netz im erzeugten Graphen).
