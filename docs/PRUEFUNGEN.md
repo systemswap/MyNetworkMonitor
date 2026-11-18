@@ -9,6 +9,7 @@ und Gerätenamen.
 
     dotnet build MyNetworkMonitor.sln -c Release -p:UseArtifactsOutput=true -p:ArtifactsPath=<testordner>/artifacts
 
+Der Bau läuft ohne Warnungen (Linux und Windows, seit 7.3.0.49); eine neue Warnung wird behoben, nicht hingenommen.
 Unter Linux baut das Oberflächenprojekt für `net10.0` ohne `MyNetworkMonitor.Platform.Windows`; mit dem Ziel
 `win-x64` und `-p:EnableWindowsTargeting=true` (wie in `publish.sh`) baut es auch unter Linux für Windows. Die Pakete (AppImage, Windows-Zip) baut der
 GitHub-Bau (`.github/workflows/build-and-release.yml`), sobald sich `<Version>` ändert.
@@ -83,3 +84,4 @@ in seiner Nachbartabelle führt).
 | 25.10.2026 | 7.3.0.31 | 83 Tests grün; AppImage im Testordner gestartet: Titel mit Version, Startprüfung mit Hinweis auf Rohsocket-Rechte |
 | 18.11.2026 | 7.3.0.46 | Satellitenbetrieb im Nachbau durchgespielt (siehe oben); 205 Tests grün |
 | 19.11.2026 | 7.3.0.47 | Nachbau mit zwei Satelliten: beide Satelliten mit eigener MAC und Hersteller in der Zentrale; 209 Tests grün |
+| 19.11.2026 | 7.3.0.49 | Compiler-Warnungen von 115 auf 0 (Linux und Windows); Nachbau mit zwei Satelliten gescannt, Ergebnis wie vorher; 210 Tests grün |

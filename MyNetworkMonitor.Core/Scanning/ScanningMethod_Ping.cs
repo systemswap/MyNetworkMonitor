@@ -25,7 +25,7 @@ namespace MyNetworkMonitor
         public ScanningMethods_Ping() { }
 
         /// <summary>Reports progress as (sent, responded, total, status).</summary>
-        public event Action<int, int, int, ScanStatus> ProgressUpdated;
+        public event Action<int, int, int, ScanStatus>? ProgressUpdated;
 
         /// <summary>Raised for every answering target, and with "show unused" also for silent ones.</summary>
         public event EventHandler<ScanTask_Finished_EventArgs>? Ping_Task_Finished;

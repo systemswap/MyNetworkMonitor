@@ -27,7 +27,7 @@ namespace MyNetworkMonitor
 
 
         /// <summary>Reports progress as (processed, responded, total, status).</summary>
-        public event Action<int, int, int, ScanStatus> ProgressUpdated;
+        public event Action<int, int, int, ScanStatus>? ProgressUpdated;
 
         /// <summary>Raised for every camera found, on a background thread.</summary>
         public event EventHandler<ScanTask_Finished_EventArgs>? new_ONVIF_IP_Camera_Found_Task_Finished;
@@ -292,19 +292,19 @@ namespace MyNetworkMonitor
     public class IPCamInfos
     {
         /// <summary>The IPv4 address the answer came from.</summary>
-        public string IPv4Address { get; set; }
+        public string IPv4Address { get; set; } = string.Empty;
 
         /// <summary>The port of the device service address.</summary>
-        public string Port { get; set; }
+        public string Port { get; set; } = string.Empty;
 
         /// <summary>The device service address (XAddrs) from the answer.</summary>
-        public string XAddress { get; set; }
+        public string XAddress { get; set; } = string.Empty;
 
         /// <summary>The device UUID from the endpoint reference.</summary>
-        public string UUID { get; set; }
+        public string UUID { get; set; } = string.Empty;
 
         /// <summary>The metadata version from the answer.</summary>
-        public string MetaVersion { get; set; }
+        public string MetaVersion { get; set; } = string.Empty;
 
         /// <summary>The camera name from the "name" scope.</summary>
         public string Name { get; set; } = "Unknown";

@@ -18,13 +18,13 @@ using System.Threading.Tasks;
 public class ScanningMethod_NetBios
 {
     /// <summary>Raised for every target that answered with a host name.</summary>
-    public event Action<IPToScan> NetbiosIPScanFinished;
+    public event Action<IPToScan>? NetbiosIPScanFinished;
 
     /// <summary>Reports progress as (sent, responded, total, status).</summary>
-    public event Action<int, int, int, ScanStatus> ProgressUpdated;
+    public event Action<int, int, int, ScanStatus>? ProgressUpdated;
 
     /// <summary>Raised when all queries of a run have finished.</summary>
-    public event Action<bool> NetbiosScanFinished;
+    public event Action<bool>? NetbiosScanFinished;
     
 
     private int current = 0;

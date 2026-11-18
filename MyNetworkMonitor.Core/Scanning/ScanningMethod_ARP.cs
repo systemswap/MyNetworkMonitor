@@ -89,16 +89,16 @@ namespace MyNetworkMonitor
         SupportMethods support = new SupportMethods();
 
         /// <summary>Reports progress as (processed, responded, total, status).</summary>
-        public event Action<int, int, int, ScanStatus> ProgressUpdated;
+        public event Action<int, int, int, ScanStatus>? ProgressUpdated;
 
         /// <summary>Raised for every entry of the ARP table read by <see cref="ARP_A"/>.</summary>
         public event EventHandler<ScanTask_Finished_EventArgs>? ARP_A_newDevice;
 
         /// <summary>Raised when the ARP request for one target has finished.</summary>
-        public event EventHandler<ScanTask_Finished_EventArgs> ARP_Request_Task_Finished;
+        public event EventHandler<ScanTask_Finished_EventArgs>? ARP_Request_Task_Finished;
 
         /// <summary>Raised when all ARP requests of a run have finished.</summary>
-        public event Action<ScanStatus> ARP_Request_Finished;
+        public event Action<ScanStatus>? ARP_Request_Finished;
 
 
         

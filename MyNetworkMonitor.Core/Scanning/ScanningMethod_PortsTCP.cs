@@ -264,7 +264,7 @@ namespace MyNetworkMonitor
     public class PortScanResult
     {
         /// <summary>The address of the target.</summary>
-        public string IP { get; set; }
+        public string? IP { get; set; }
 
         /// <summary>The state found.</summary>
         public PortScanState PortState { get; set; }

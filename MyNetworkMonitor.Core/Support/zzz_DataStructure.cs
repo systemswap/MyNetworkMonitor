@@ -55,9 +55,9 @@ namespace MyNetworkMonitor
         /// <summary>The state of one or more ports of a service.</summary>
         public class PortResult
         {
-            public List<int> Ports { get; set; }
+            public List<int> Ports { get; set; } = [];
             public PortStatus Status { get; set; }
-            public string PortLog { get; set; }
+            public string? PortLog { get; set; }
         }
 
         /// <summary>A detected service with its port results.</summary>
@@ -70,7 +70,7 @@ namespace MyNetworkMonitor
         /// <summary>All service results of one IP address.</summary>
         public class ServiceScanResult
         {
-            public string IP { get; set; }
+            public string? IP { get; set; }
             public List<ServiceResult> Services { get; set; } = new List<ServiceResult>();
 
             public bool ShowOnlyIsRunningServices = false;
@@ -368,7 +368,7 @@ namespace MyNetworkMonitor
         private IPHostEntry? _IP_HostEntry = null;
         private List<string> _lst_DNSServers;
         public string LookUpIPs { get { return _LookUpIPs; } set { _LookUpIPs = value; } }
-        public IPHostEntry IP_HostEntry { get { return _IP_HostEntry; } set { _IP_HostEntry = value; } }
+        public IPHostEntry? IP_HostEntry { get { return _IP_HostEntry; } set { _IP_HostEntry = value; } }
         public List<string> DNSServerList { get { return _lst_DNSServers; } set { _lst_DNSServers = value; } }
 
 
@@ -421,13 +421,13 @@ namespace MyNetworkMonitor
         public string NMGatewayPort { get { return _NMGatewayPort; } set { _NMGatewayPort = value; } }
 
 
-        public string mDNS_Service { get; set; }
-        public string mDNS_DeviceName { get; set; }
-        public string mDNS_Hostname { get; set; }
+        public string? mDNS_Service { get; set; }
+        public string? mDNS_DeviceName { get; set; }
+        public string? mDNS_Hostname { get; set; }
         public int? mDNS_Port { get; set; }
-        public string mDNS_Group { get; set; }
+        public string? mDNS_Group { get; set; }
         public Dictionary<string, string> mDNS_TxtRecords { get; set; } = new();
-        public string mDNS_toMultiLineString { get; set; }
+        public string? mDNS_toMultiLineString { get; set; }
     }
 
 

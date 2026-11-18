@@ -16,13 +16,13 @@ using System.Collections.Concurrent;
 public class ScanningMethod_SMBVersionCheck
 {
     /// <summary>Reports progress as (processed, responded, total, status).</summary>
-    public event Action<int, int, int, ScanStatus> ProgressUpdated;
+    public event Action<int, int, int, ScanStatus>? ProgressUpdated;
 
     /// <summary>Raised for every target that accepted at least one dialect.</summary>
-    public event Action<IPToScan> SMBIPScanFinished;    
+    public event Action<IPToScan>? SMBIPScanFinished;    
 
     /// <summary>Raised when all targets of a run have been checked.</summary>
-    public event Action SMBScanFinished;
+    public event Action? SMBScanFinished;
 
 
     /// <summary>Creates the SMB dialect check.</summary>

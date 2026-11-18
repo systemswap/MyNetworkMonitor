@@ -169,7 +169,7 @@ namespace MyNetworkMonitor
             /// <summary>Whether the input is a valid IPv4 address.</summary>
             public bool IsValid { get; set; }
             /// <summary>The address without leading zeros; empty if invalid.</summary>
-            public string IP { get; set; }
+            public string? IP { get; set; }
         }
 
         /// <summary>Validates an IPv4 address and removes leading zeros from its octets.</summary>
@@ -230,11 +230,9 @@ namespace MyNetworkMonitor
         public static class SelectedNetworkInterfaceInfos
         {
             /// <summary>Interface name.</summary>
-            public static string Name { get; set; }
+            public static string? Name { get; set; }
             /// <summary>IPv4 address of the interface.</summary>
-            public static IPAddress IPv4 { get; set; }
-            /// <summary><see cref="IPv4"/> as text.</summary>
-            public static string IPv4_string { get { return IPv4.ToString(); } }
+            public static IPAddress? IPv4 { get; set; }
         }
 
     }

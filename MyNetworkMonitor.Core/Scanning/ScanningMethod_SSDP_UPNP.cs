@@ -31,7 +31,7 @@ namespace MyNetworkMonitor
 
         AsyncTimer timer = new AsyncTimer();
         /// <summary>Reports progress as (processed, responded, total, status).</summary>
-        public event Action<int, int, int, ScanStatus> ProgressUpdated;
+        public event Action<int, int, int, ScanStatus>? ProgressUpdated;
 
         /// <summary>Raised for every device found, on a background thread.</summary>
         public event EventHandler<ScanTask_Finished_EventArgs>? SSDP_foundNewDevice;
@@ -397,7 +397,7 @@ namespace MyNetworkMonitor
 /// </summary>
 public class AsyncTimer
 {
-    private CancellationTokenSource _cts;
+    private CancellationTokenSource? _cts;
 
     /// <summary>Whether the timer is running.</summary>
     public bool IsRunning { get; private set; } = false;

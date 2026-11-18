@@ -23,7 +23,7 @@ namespace MyNetworkMonitor
         }
 
         /// <summary>Reports progress as (sent, responded, total, status).</summary>
-        public event Action<int, int, int, ScanStatus> ProgressUpdated;
+        public event Action<int, int, int, ScanStatus>? ProgressUpdated;
 
         /// <summary>
         /// Raised for every resolved address; the event arguments are <see langword="null"/> if the

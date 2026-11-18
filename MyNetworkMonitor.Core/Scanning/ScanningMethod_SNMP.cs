@@ -70,13 +70,13 @@ namespace MyNetworkMonitor
 
         #region Event-Argumente und Events
         /// <summary>Reports progress as (processed, responded, total, status).</summary>
-        public event Action<int, int, int, ScanStatus> ProgressUpdated;
+        public event Action<int, int, int, ScanStatus>? ProgressUpdated;
 
         /// <summary>Raised for every target that answered.</summary>
-        public event Action<IPToScan> SNMB_Task_Finished;        
+        public event Action<IPToScan>? SNMB_Task_Finished;        
 
         /// <summary>Raised when all queries of a run have finished.</summary>
-        public event Action<bool> SNMBFinished;
+        public event Action<bool>? SNMBFinished;
       
         #endregion
 

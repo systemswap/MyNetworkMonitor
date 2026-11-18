@@ -175,22 +175,22 @@ public class ScanningMethod_Services
     private const int MaxParallelPortSearch = 200;
 
     /// <summary>Raised once per target with findings, after the whole scan.</summary>
-    public event Action<IPToScan> ServiceIPScanFinished;
+    public event Action<IPToScan>? ServiceIPScanFinished;
   
     /// <summary>Raised when the scan is stopped.</summary>
-    public event Action<ScanStatus> ScanStatusUpdated;
+    public event Action<ScanStatus>? ScanStatusUpdated;
 
     /// <summary>Reports progress of the full scan as (checks done, responded, total checks).</summary>
-    public event Action<int, int, int> ProgressUpdated;
+    public event Action<int, int, int>? ProgressUpdated;
 
     /// <summary>Raised when the full scan has finished.</summary>
-    public event Action ServiceScanFinished;
+    public event Action? ServiceScanFinished;
 
     /// <summary>Reports progress of the port search as (ports started, ports with the service, 65536).</summary>
-    public event Action<int, int, int> FindServicePortProgressUpdated;
+    public event Action<int, int, int>? FindServicePortProgressUpdated;
 
     /// <summary>Raised when the port search has finished.</summary>
-    public event Action<IPToScan> FindServicePortFinished;
+    public event Action<IPToScan>? FindServicePortFinished;
 
     /// <summary>
     /// Checks the selected services on the selected targets.

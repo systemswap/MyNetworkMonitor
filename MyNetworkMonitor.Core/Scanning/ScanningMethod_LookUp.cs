@@ -24,7 +24,7 @@ namespace MyNetworkMonitor
         }
 
         /// <summary>Reports progress as (processed, responded, total, status).</summary>
-        public event Action<int, int, int, ScanStatus> ProgressUpdated;
+        public event Action<int, int, int, ScanStatus>? ProgressUpdated;
 
         /// <summary>Raised when a host name has been resolved.</summary>
         public event EventHandler<ScanTask_Finished_EventArgs>? Lookup_Task_Finished;

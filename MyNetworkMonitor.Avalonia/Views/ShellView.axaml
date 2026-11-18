@@ -596,7 +596,7 @@
                           </ComboBox>
 
                           <TextBox Grid.Column="1" x:Name="tb_CustomTargets" Height="24" FontSize="11"
-                                   Watermark="10.0.0.5 · host.local · 192.168.1.1-254 · 192.168.0.0/24 · several separated by comma"
+                                   PlaceholderText="10.0.0.5 · host.local · 192.168.1.1-254 · 192.168.0.0/24 · several separated by comma"
                                    Text="{Binding CustomTargets}"/>
                         </Grid>
                         <TextBlock x:Name="tb_CustomProblem" FontSize="9.5"
@@ -847,11 +847,11 @@
                   BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1" Padding="8,6">
             <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,*,Auto">
 
-              <TextBox Grid.Column="0" x:Name="tb_Search" Width="190" Watermark="Search across all columns"
+              <TextBox Grid.Column="0" x:Name="tb_Search" Width="190" PlaceholderText="Search across all columns"
                        Text="{Binding Devices.Filter.Text1}"/>
 
               <TextBox Grid.Column="1" x:Name="tb_Search2" Width="120" Margin="4,0,0,0"
-                       Watermark="and ..." Text="{Binding Devices.Filter.Text2}"/>
+                       PlaceholderText="and ..." Text="{Binding Devices.Filter.Text2}"/>
 
               <!-- Service selection: built from the actual findings -->
               <Button Grid.Column="2" x:Name="bt_ServiceFilter" Margin="8,0,0,0" MinWidth="106"
@@ -921,7 +921,7 @@
               </Button>
 
               <TextBox Grid.Column="4" x:Name="tb_PortFilter" Width="96" Margin="4,0,0,0"
-                       Watermark="Port" ToolTip.Tip="445 · 80,443 · 5000-5100"
+                       PlaceholderText="Port" ToolTip.Tip="445 · 80,443 · 5000-5100"
                        Text="{Binding Devices.Filter.Ports}"/>
 
               <!-- Family switch: teal for v4, indigo for v6 -->
@@ -1470,11 +1470,11 @@
                           ColumnSpacing="10" RowSpacing="8">
                       <TextBlock Grid.Row="0" Grid.Column="0" Text="Name" Classes="settingLabel"/>
                       <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Selected.GroupDescription}"
-                               Watermark="e.g. Office 2nd floor"/>
+                               PlaceholderText="e.g. Office 2nd floor"/>
 
                       <TextBlock Grid.Row="1" Grid.Column="0" Text="Description" Classes="settingLabel"/>
                       <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Selected.DeviceDescription}"
-                               Watermark="What lives here - printers, clients, cameras"/>
+                               PlaceholderText="What lives here - printers, clients, cameras"/>
 
                       <TextBlock Grid.Row="2" Grid.Column="0" Text="First IP" Classes="settingLabel"/>
                       <TextBox Grid.Row="2" Grid.Column="1" Classes="mono" Width="190"
@@ -1497,12 +1497,12 @@
                           ColumnSpacing="10" RowSpacing="8">
                       <TextBlock Grid.Row="0" Grid.Column="0" Text="Domain" Classes="settingLabel"/>
                       <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Selected.Domain}"
-                               Watermark="e.g. company.local"/>
+                               PlaceholderText="e.g. company.local"/>
 
                       <TextBlock Grid.Row="1" Grid.Column="0" Text="DNS servers" Classes="settingLabel"/>
                       <TextBox Grid.Row="1" Grid.Column="1" Classes="mono"
                                Text="{Binding Selected.DnsServers}"
-                               Watermark="10.0.0.1, 10.0.0.2"/>
+                               PlaceholderText="10.0.0.1, 10.0.0.2"/>
                     </Grid>
 
                     <TextBlock Classes="settingHint"
@@ -1533,7 +1533,7 @@
                       <TextBlock Grid.Row="0" Grid.Column="0" Text="Gateway" Classes="settingLabel"/>
                       <TextBox Grid.Row="0" Grid.Column="1" Classes="mono" Width="190"
                                HorizontalAlignment="Left" Text="{Binding Selected.GatewayIP}"
-                               Watermark="10.0.0.1"/>
+                               PlaceholderText="10.0.0.1"/>
                     </Grid>
 
                     <Border Background="{StaticResource CritSoft}" CornerRadius="3"
@@ -1633,7 +1633,7 @@
           <Border DockPanel.Dock="Top" Background="{StaticResource Panel}"
                   BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1" Padding="12,8">
             <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" ColumnSpacing="10">
-              <TextBox Grid.Column="0" Width="220" Watermark="Search port or description"
+              <TextBox Grid.Column="0" Width="220" PlaceholderText="Search port or description"
                        Text="{Binding PortEditor.Filter}"/>
 
               <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
@@ -1704,7 +1704,7 @@
           <Border DockPanel.Dock="Top" Background="{StaticResource Panel}"
                   BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1" Padding="12,8">
             <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="10">
-              <TextBox Grid.Column="0" Width="220" Watermark="Search service, group or port"
+              <TextBox Grid.Column="0" Width="220" PlaceholderText="Search service, group or port"
                        Text="{Binding ServiceEditor.Filter}"/>
 
               <CheckBox Grid.Column="1" Content="only selected" FontSize="10.5"
@@ -2079,7 +2079,7 @@
                           <TextBlock Grid.Row="1" Grid.Column="0" Text="Note" Classes="settingLabel"/>
                           <TextBox Grid.Row="1" Grid.Column="1"
                                    Text="{Binding SatelliteEditor.Selected.Note}"
-                                   Watermark="where it stands, what it covers"/>
+                                   PlaceholderText="where it stands, what it covers"/>
                         </Grid>
 
                         <TextBlock Classes="settingHint"
@@ -2458,7 +2458,7 @@
                           <TextBox Grid.Column="1" VerticalAlignment="Center"
                                    FontSize="13" FontWeight="SemiBold"
                                    Text="{Binding SatelliteEditor.OwnName}"
-                                   Watermark="{Binding SatelliteEditor.HostName}"/>
+                                   PlaceholderText="{Binding SatelliteEditor.HostName}"/>
                           <Button Grid.Column="2" Content="Machine name"
                                   Command="{Binding SatelliteEditor.ResetOwnNameCommand}"
                                   Background="White" BorderBrush="#C3D2D4" BorderThickness="1"
@@ -2504,7 +2504,7 @@
                                    IsEnabled="{Binding SatelliteEditor.SelectedHost,
                                                        Converter={x:Static ObjectConverters.IsNotNull}}"
                                    Text="{Binding SatelliteEditor.SelectedHost.Host}"
-                                   Watermark="host name or address"/>
+                                   PlaceholderText="host name or address"/>
 
                           <TextBlock Grid.Row="0" Grid.Column="1" Text="Domain (optional)"
                                      Classes="settingLabel" TextWrapping="Wrap"/>
@@ -2512,7 +2512,7 @@
                                    IsEnabled="{Binding SatelliteEditor.SelectedHost,
                                                        Converter={x:Static ObjectConverters.IsNotNull}}"
                                    Text="{Binding SatelliteEditor.SelectedHost.Domain}"
-                                   Watermark="only where the short name does not resolve"
+                                   PlaceholderText="only where the short name does not resolve"
                                    ToolTip.Tip="Appended to a short name. Leave empty when the name already resolves or an address is entered."/>
 
                           <TextBlock Grid.Row="0" Grid.Column="2" Text="Port" Classes="settingLabel"/>
@@ -2527,7 +2527,7 @@
                                    IsEnabled="{Binding SatelliteEditor.SelectedHost,
                                                        Converter={x:Static ObjectConverters.IsNotNull}}"
                                    Text="{Binding SatelliteEditor.SelectedHost.Note}"
-                                   Watermark="e.g. laptop, server"/>
+                                   PlaceholderText="e.g. laptop, server"/>
 
                           <!--
                               At the height of the input fields and not spanning
@@ -2952,7 +2952,7 @@
 
                   <StackPanel Spacing="5">
                     <TextBlock Text="DNS server override" Classes="settingLabel"/>
-                    <TextBox Width="230" HorizontalAlignment="Left" Watermark="e.g. 10.0.0.1"
+                    <TextBox Width="230" HorizontalAlignment="Left" PlaceholderText="e.g. 10.0.0.1"
                              Text="{Binding Settings.OverrideDnsServer}"/>
                     <TextBlock Classes="settingHint"
                                Text="Overrides the DNS servers stored on each range, for every range at once. Leave empty to use what each range defines."/>

@@ -17,16 +17,16 @@ namespace MyNetworkMonitor
     public class MdnsDeviceInfo
     {
         /// <summary>The service name of the last PTR record.</summary>
-        public string Service { get; set; }
+        public string? Service { get; set; }
 
         /// <summary>The device name from the TXT record "name", otherwise the PTR target.</summary>
-        public string DeviceName { get; set; }
+        public string? DeviceName { get; set; }
 
         /// <summary>The first label of the PTR target, unless it starts with an underscore.</summary>
-        public string TargetHost { get; set; } 
+        public string? TargetHost { get; set; } 
 
         /// <summary>The IPv4 address of the device: the address its answers came from.</summary>
-        public string IP { get; set; }
+        public string? IP { get; set; }
 
         /// <summary>
         /// The host name of an address record for <see cref="IP"/>, without ".local"; empty if
@@ -35,7 +35,7 @@ namespace MyNetworkMonitor
         public string HostName { get; set; } = string.Empty;
 
         /// <summary>The value of the TXT record "group", if present.</summary>
-        public string Group { get; set; }
+        public string? Group { get; set; }
 
         /// <summary>All TXT records as key and value.</summary>
         public Dictionary<string, string> TxtRecords { get; set; } = new();
@@ -78,13 +78,13 @@ namespace MyNetworkMonitor
     {
 
         /// <summary>Raised for every answer of a device, already during the listening window.</summary>
-        public event Action<IPToScan> found_mDNS_Device;
+        public event Action<IPToScan>? found_mDNS_Device;
 
         /// <summary>Raised when the scan starts and finishes.</summary>
-        public event Action<ScanStatus> mDNS_ScanStatus;
+        public event Action<ScanStatus>? mDNS_ScanStatus;
 
         /// <summary>Reports progress as (remaining seconds, devices found, 0, status).</summary>
-        public event Action<int, int, int, ScanStatus> ProgressUpdated;
+        public event Action<int, int, int, ScanStatus>? ProgressUpdated;
 
   
 
@@ -232,7 +232,7 @@ namespace MyNetworkMonitor
                 IPToScan ipToScan = new IPToScan
                 {
                     UsedScanMethod = ScanMethod.mDNS,
-                    IPorHostname = device.IP,
+                    IPorHostname = device.IP ?? ip,
                     mDNS_Service = device.Service,
                     mDNS_Group = device.Group,
                     mDNS_DeviceName = device.DeviceName,

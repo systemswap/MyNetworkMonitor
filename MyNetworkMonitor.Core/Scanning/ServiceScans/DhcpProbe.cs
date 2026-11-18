@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: LicenseRef-MyNetworkMonitor
+﻿// SPDX-License-Identifier: LicenseRef-MyNetworkMonitor
 using System.Net;
 using System.Net.Sockets;
 using MyNetworkMonitor;
@@ -116,7 +116,8 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                     socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, true);
                     // Port 68 on the selected interface, not on Any; with
                     // several adapters the wrong one would catch the answer.
-                    socket.Bind(new IPEndPoint(SupportMethods.SelectedNetworkInterfaceInfos.IPv4, 68));
+                    // Without a selected interface there is no better choice than Any.
+                    socket.Bind(new IPEndPoint(SupportMethods.SelectedNetworkInterfaceInfos.IPv4 ?? IPAddress.Any, 68));
 
                     IPEndPoint dhcpServerEndPoint = new IPEndPoint(IPAddress.Broadcast, 67);
                     socket.SendTo(dhcpDiscoverPacket, dhcpServerEndPoint);
@@ -132,7 +133,7 @@ namespace MyNetworkMonitor.Core.Scanning.ServiceScans
                             if (socket.Poll(100000, SelectMode.SelectRead))  // wait up to 100 ms for data
                             {
                                 byte[] buffer = new byte[1024];
-                                EndPoint remoteEndPoint = new IPEndPoint(SupportMethods.SelectedNetworkInterfaceInfos.IPv4, 0);
+                                EndPoint remoteEndPoint = new IPEndPoint(IPAddress.Any, 0);   // filled in with the sender
                                 int receivedBytes = socket.ReceiveFrom(buffer, ref remoteEndPoint);
 
                                 if (receivedBytes >= 28)
