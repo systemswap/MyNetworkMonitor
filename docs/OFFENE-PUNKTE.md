@@ -6,11 +6,22 @@ im Fehlergedächtnis). Grundlage ist die Prüfung gegen die gemeinsamen Regeln v
 
 ## Als Nächstes
 
-Zurzeit nichts – alle Punkte der Prüfung vom 25.10.2026 sind erledigt.
+- **Gegenproben an echten Geräten** für die Korrekturen 7.3.0.38–7.3.0.40 (gefunden mit einem nachgebauten Netz aus
+  Dokumentationsadressen): Hersteller mit Komma ohne Anführungszeichen, Bewertung „global“ unverändert für private und
+  öffentliche Adressen, Netzbeschriftung der 3D-Ansicht bei Bereichen, die kein /24 sind. Was jeweils zu prüfen ist:
+  `docs/FEHLERGEDAECHTNIS.md`, Nr. 33–35, Punkt „Gegenprobe an echten Geräten“.
 
 ## Vermutete Fehler
 
-Zurzeit keine.
+Beobachtet am 18.11.2026 in einem nachgebauten Netz (Hauptscanner und zwei Satelliten auf einem Rechner, verbunden
+über 127.0.0.1); nicht untersucht, vor einer Änderung im echten Aufbau bestätigen:
+
+- **Satellit verbindet sich nach dem Neustart nicht von selbst:** Eine Instanz mit eingeschaltetem Hauptscanner in
+  `mainScanners.json` blieb nach dem Start bei „Not connected.“, bis „Connect“ gedrückt wurde – obwohl
+  `SatelliteEditorViewModel.ConnectAllHosts` laut Kommentar beim Start läuft.
+- **„Satellites are scanning“ bleibt stehen:** Nach einem Scan mit zwei zugewiesenen Satelliten meldete der
+  Hauptscanner minutenlang „2 satellites are scanning“, beide Satelliten zeigten „Idle“; ihre Bereiche kamen nicht an.
+- **Bereichsfilter der Gerätetabelle:** Die Gerätezahl steht ohne Abstand am Namen („Außenlager12 (12 up)“).
 
 ## Später
 

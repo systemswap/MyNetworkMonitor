@@ -596,6 +596,11 @@ Automatische Tests stehen in `MyNetworkMonitor.Core.Tests` (`docs/PRUEFUNGEN.md`
 - **Im Code:** `MyNetworkMonitor.Core/Support/SupportMethods.cs` (`SplitCsvLine`, `LoadMacVendors`).
 - **Abgesichert durch:** `MacVendorCsvTests` (Hersteller mit Komma, ohne Komma, verdoppeltes Anführungszeichen; mit
   dem alten Stand schlagen zwei der drei Tests fehl).
+- **Gegenprobe an echten Geräten (offen):** im echten Netz einen Scan mit „ARP request“ laufen lassen und in der Spalte
+  VENDOR Geräte von Herstellern mit Komma im Namen ansehen (z. B. Netzwerkgeräte von „Cisco Systems, Inc“, virtuelle
+  Maschinen von „VMware, Inc.“, viele Laptops): Der Name muss ohne Anführungszeichen erscheinen, auch im CSV-Export
+  und in der Suche. Ein vorher gespeicherter Bestand zeigt die Anführungszeichen, bis der nächste ARP-Lauf das Gerät
+  erneut meldet.
 
 ## Nr. 34 – Adressbewertung: IPv4-Dokumentations- und Benchmark-Bereiche galten als global erreichbar
 
@@ -615,6 +620,10 @@ Automatische Tests stehen in `MyNetworkMonitor.Core.Tests` (`docs/PRUEFUNGEN.md`
   `Network/IpAddressEnums.cs` (Beschreibung der Sonderformen).
 - **Abgesichert durch:** `IpAddressScopeTests` (Dokumentation und Benchmark nicht global, Nachbaradressen weiter global,
   private Adressen; mit dem alten Stand schlagen die fünf IPv4-Fälle fehl).
+- **Gegenprobe an echten Geräten (offen):** in einem echten Netz mit privaten Adressen (10.x, 172.16–31.x, 192.168.x)
+  muss sich nichts ändern – Befunde, Filter „globally reachable“ und die Angabe an der Adresse wie vor 7.3.0.39. Ein
+  Gerät mit öffentlicher IPv4-Adresse (z. B. die WAN-Seite eines Routers, falls im Scan) muss weiter „Global“ zeigen und
+  bei offenen Ports den Befund „Open ports on a globally routable address“ auslösen.
 
 ## Nr. 35 – 3D-Netzansicht: Netzbeschriftung nur für /24 und /16 richtig
 
@@ -637,3 +646,7 @@ Automatische Tests stehen in `MyNetworkMonitor.Core.Tests` (`docs/PRUEFUNGEN.md`
   `MyNetworkMonitor.Avalonia/Views/ShellView.axaml.cs` (Zeichnen der Netzansicht).
 - **Abgesichert durch:** `TopologyNetworkLabelTests` (/27, /24, /23, /25, Teilbereich, Einzeladresse, verkehrte
   Reihenfolge, IPv6, leer; Netz im erzeugten Graphen).
+- **Gegenprobe an echten Geräten (offen):** im Firmennetz mit Bereichen, die kein /24 sind (z. B. ein /23 oder ein
+  Teilnetz /26), „Topology → Network topo → Draw“: Jede Gruppe muss ihr eingestelltes Netz zeigen (z. B. „…/23“),
+  ein Bereich, der kein ganzes Netz ist, „erste – letzte Adresse“. Im Heimnetz (ein /24) muss die Beschriftung wie
+  bisher „…/24“ lauten. Geräte ohne passenden Bereich (z. B. aus einer Zielliste) behalten die alte Schätzung.
