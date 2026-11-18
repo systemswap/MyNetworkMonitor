@@ -58,6 +58,12 @@ namespace MyNetworkMonitor.Core.Network
         {
             byte[] b = address.GetAddressBytes();
 
+            IpAddressSpecial special = DetectSpecialV4(b);
+
+            // Documentation and benchmarking ranges are formally global but not
+            // routed (IANA IPv4 Special-Purpose Address Registry: "Globally
+            // Reachable: False"), as with IPv6. Reporting them as global would be
+            // misleading (docs/FEHLERGEDAECHTNIS.md, No. 34).
             IpAddressScope scope =
                 b[0] == 127 ? IpAddressScope.Loopback :
                 b[0] == 0 && b[1] == 0 && b[2] == 0 && b[3] == 0 ? IpAddressScope.Unspecified :
@@ -65,6 +71,7 @@ namespace MyNetworkMonitor.Core.Network
                 b[0] == 169 && b[1] == 254 ? IpAddressScope.LinkLocal :
                 b[0] >= 224 && b[0] <= 239 ? IpAddressScope.Multicast :
                 IsPrivateV4(b) ? IpAddressScope.UniqueLocal :
+                special is IpAddressSpecial.Documentation or IpAddressSpecial.Benchmarking ? IpAddressScope.Unknown :
                 IpAddressScope.Global;
 
             return new IpAddressInfo
@@ -72,11 +79,23 @@ namespace MyNetworkMonitor.Core.Network
                 Address = address,
                 Family = IpFamily.IPv4,
                 Scope = scope,
+                Special = special,
                 InterfaceIdKind = InterfaceIdKind.NotApplicable,
                 Canonical = address.ToString(),
                 SortKey = BuildV4SortKey(b)
             };
         }
+
+        /// <summary>
+        /// The IPv4 ranges for documentation (RFC 5737: 192.0.2.0/24, 198.51.100.0/24,
+        /// 203.0.113.0/24) and for benchmarking (RFC 2544: 198.18.0.0/15).
+        /// </summary>
+        private static IpAddressSpecial DetectSpecialV4(byte[] b) =>
+            (b[0] == 192 && b[1] == 0 && b[2] == 2) ||
+            (b[0] == 198 && b[1] == 51 && b[2] == 100) ||
+            (b[0] == 203 && b[1] == 0 && b[2] == 113) ? IpAddressSpecial.Documentation :
+            b[0] == 198 && (b[1] == 18 || b[1] == 19) ? IpAddressSpecial.Benchmarking :
+            IpAddressSpecial.None;
 
         /// <summary>RFC 1918 and the carrier-grade NAT range from RFC 6598.</summary>
         private static bool IsPrivateV4(byte[] b) =>

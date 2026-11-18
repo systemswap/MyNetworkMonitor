@@ -74,10 +74,10 @@ namespace MyNetworkMonitor.Core.Network
         /// <summary>64:ff9b::/96 - well-known prefix for NAT64/DNS64.</summary>
         Nat64WellKnown,
 
-        /// <summary>2001:db8::/32 - documentation only, must not occur in real networks.</summary>
+        /// <summary>2001:db8::/32, and for IPv4 192.0.2.0/24, 198.51.100.0/24 and 203.0.113.0/24 - documentation only, must not occur in real networks.</summary>
         Documentation,
 
-        /// <summary>2001:2::/48 - reserved for benchmarking.</summary>
+        /// <summary>2001:2::/48, and for IPv4 198.18.0.0/15 - reserved for benchmarking.</summary>
         Benchmarking,
 
         /// <summary>ff02::1:ffXX:XXXX - reveals the lower 24 bits of an interface identifier.</summary>

@@ -596,3 +596,22 @@ Automatische Tests stehen in `MyNetworkMonitor.Core.Tests` (`docs/PRUEFUNGEN.md`
 - **Im Code:** `MyNetworkMonitor.Core/Support/SupportMethods.cs` (`SplitCsvLine`, `LoadMacVendors`).
 - **Abgesichert durch:** `MacVendorCsvTests` (Hersteller mit Komma, ohne Komma, verdoppeltes Anführungszeichen; mit
   dem alten Stand schlagen zwei der drei Tests fehl).
+
+## Nr. 34 – Adressbewertung: IPv4-Dokumentations- und Benchmark-Bereiche galten als global erreichbar
+
+- **Entdeckt:** 18.11.2026, Version 7.3.0.38 (Bildschirmfotos für die Startseite mit einem erfundenen Netz aus den
+  Dokumentationsbereichen: in den Befunden 90 Warnungen „Open ports on a globally routable address“, im
+  Detailbereich „Global“ an jeder Adresse). **Behoben:** 7.3.0.39.
+- **Was:** 192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24 (RFC 5737) und 198.18.0.0/15 (RFC 2544) zählten als global
+  erreichbar: Filter „globally reachable“, Befund „Open ports on a globally routable address“ und die Angabe am
+  Gerät. Für IPv6 waren die entsprechenden Bereiche (2001:db8::/32, 2001:2::/48) schon richtig ausgenommen.
+- **Warum:** `AnalyzeV4` kannte nur Loopback, Broadcast, Link-local, Multicast und die privaten Bereiche; alles andere
+  galt als global. Die Ausnahme, die `DetectV6Scope` mit Begründung macht, fehlte für IPv4.
+- **Lösung:** `DetectSpecialV4` erkennt die Bereiche (Sonderform `Documentation` bzw. `Benchmarking`), der Bereich wird
+  wie bei IPv6 `Unknown` statt `Global` – nach dem IANA IPv4 Special-Purpose Address Registry („Globally Reachable:
+  False“). Bewusst nur diese Bereiche: weitere reservierte Bereiche (z. B. 240.0.0.0/4) wären eine eigene Entscheidung.
+- **Nicht tun:** eine Regel nur für eine Adressfamilie einbauen, wenn die andere dieselben Fälle hat.
+- **Im Code:** `MyNetworkMonitor.Core/Network/IpAddressAnalyzer.cs` (`AnalyzeV4`, `DetectSpecialV4`),
+  `Network/IpAddressEnums.cs` (Beschreibung der Sonderformen).
+- **Abgesichert durch:** `IpAddressScopeTests` (Dokumentation und Benchmark nicht global, Nachbaradressen weiter global,
+  private Adressen; mit dem alten Stand schlagen die fünf IPv4-Fälle fehl).
