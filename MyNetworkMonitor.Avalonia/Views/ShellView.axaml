@@ -253,7 +253,7 @@
     </Style>
 
     <!--
-        The donate button in PayPal gold (#FFC439), as a glass button: the hard
+        The donate button in gold, as a glass button: the hard
         color step in the middle creates the gloss, with the upper half light and
         the lower half darker and lightening again towards the bottom, like a
         curved surface. Text black, the heart red; both are separate TextBlocks in
@@ -782,9 +782,10 @@
                     Click="bt_Export_Click"/>
             <Button x:Name="bt_Clear" Classes="cmd" Content="Clear" Height="21" FontSize="10"
                     Command="{Binding ClearResultsCommand}"/>
-            <!-- Opens the donation window. -->
+            <!-- Opens the donation page on Ko-fi in the default browser. -->
             <Button x:Name="bt_Donate" Classes="donate" Height="21" FontSize="10"
-                    Padding="10,0" Click="bt_Donate_Click">
+                    Padding="10,0" Click="bt_Donate_Click"
+                    ToolTip.Tip="Support MyNetworkMonitor - opens the donation page in the browser">
               <!--
                   The heart at about three quarters of the button height (21); the
                   label keeps the size of the neighboring buttons. Deliberately

@@ -50,8 +50,3 @@ gewonnen (Bytefolgen eines Protokolls); Programmcode anderer Werkzeuge ist darin
 | Erneuerte Herstellerliste (auf Knopfdruck, wird nicht mitgeliefert) | wird zur Laufzeit aus der Datei `manuf` von Wireshark erzeugt: https://www.wireshark.org/download/automated/data/manuf | Daten aus den Registern der IEEE |
 | Bekannte Ports und Dienstnamen (`MyNetworkMonitor.Core/Support/zzz_DataStructure.cs`) | IANA Service Name and Transport Protocol Port Number Registry, `/etc/services`, eigene Beschreibungen | Registerangaben (Dienstnamen) |
 | Protokollkonstanten, Adressbereiche, OIDs | RFCs und Normen der jeweiligen Protokolle | – |
-
-## Marken
-
-PayPal und das PayPal-Logo (`MyNetworkMonitor.Avalonia/Images/PayPal.png`) sind Marken der PayPal, Inc.;
-das Logo wird nur als Hinweis auf die Spendenmöglichkeit gezeigt.

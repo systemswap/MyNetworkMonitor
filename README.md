@@ -235,7 +235,7 @@ Eigene Lizenz, Quellcode einsehbar („Source Available“, `LICENSE`), kein Ope
 - Das unveränderte Programm darf kostenlos weitergegeben werden; verkaufen und veränderte Fassungen
   veröffentlichen ist nicht erlaubt.
 
-Gefällt Ihnen das Programm, freut sich der Entwickler über eine Spende – der Knopf „Donate“ unten rechts im Programm.
+Gefällt Ihnen das Programm, freut sich der Entwickler über eine Spende – der Knopf „Donate“ unten rechts im Programm öffnet die Spendenseite auf Ko-fi.
 
 Fremde Bestandteile und ihre Lizenzen: `THIRD-PARTY-NOTICES.md`.
 

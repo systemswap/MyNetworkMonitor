@@ -1389,24 +1389,25 @@ public partial class ShellView : Window
         }
     }
 
-    /// <summary>
-    /// The donation window, if open.
-    /// </summary>
-    private PayPalDonationView? _donationWindow;
+    /// <summary>The donation page, opened by the donate button.</summary>
+    public const string DonationAddress = "https://ko-fi.com/systemswap";
 
+    /// <summary>
+    /// Opens the donation page in the default browser. Only on this click;
+    /// nothing is sent beforehand.
+    /// </summary>
     private void bt_Donate_Click(object? sender, RoutedEventArgs e)
     {
-        // An already open window is only brought to the front, not created
-        // twice.
-        if (_donationWindow is not null)
+        try
         {
-            _donationWindow.Activate();
-            return;
+            // Same way as the topology in the browser, including the explicit
+            // xdg-open on Linux.
+            new SystemBrowserWebViewHost().Navigate(DonationAddress);
         }
-
-        _donationWindow = new PayPalDonationView();
-        _donationWindow.Closed += (_, _) => _donationWindow = null;
-        _donationWindow.Show(this);
+        catch (Exception ex)
+        {
+            _shell.StatusText = $"Could not open the donation page: {ex.Message}";
+        }
     }
 
     /// <summary>
